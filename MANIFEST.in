@@ -1,0 +1,2 @@
+recursive-include src/whatrecord/server/static *
+recursive-include src/whatrecord/server/html *

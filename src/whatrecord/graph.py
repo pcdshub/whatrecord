@@ -2,16 +2,16 @@ import collections
 import dataclasses
 import html
 import logging
-from typing import Tuple
+from typing import DefaultDict, Dict, Tuple
 
 import graphviz as gv
 
-# from .db import RecordField, RecordInstance
-from whatrecord.db import RecordField, RecordInstance
+from .db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
 
-link_types = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
+# TODO: refactor this to not be graphviz-dependent; instead return node/link
+# information in terms of dataclasses
 
 
 @dataclasses.dataclass
@@ -23,36 +23,56 @@ class LinkInfo:
     info: str
 
 
-def get_link_information(link_str: str) -> Tuple[str, str]:
-    """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
-    if " " in link_str:
-        # strip off PP/MS/etc (TODO might be useful later)
-        link_str, additional_info = link_str.split(" ", 1)
-    else:
-        additional_info = ""
+def build_database_relations(
+    database: Dict[str, RecordInstance]
+) -> Dict[str, DefaultDict[str, Tuple[RecordField, RecordField, Tuple[str, ...]]]]:
+    """
+    Build a dictionary of PV relationships.
 
-    if link_str.startswith("@"):
-        # TODO asyn/device links
-        raise ValueError("asyn link")
-    if not link_str:
-        raise ValueError("empty link")
+    This should not be called often for large databases, as it makes no attempt
+    to be computationally efficient.  For repeated usage, cache the result
+    of this function and reuse it in future calls to ``graph_links`` and such.
 
-    if link_str.isnumeric():
-        # 0 or 1 usually and not a string
-        raise ValueError("integral link")
+    Parameters
+    ----------
+    database : dict
+        Dictionary of record name to record instance.
 
-    try:
-        float(link_str)
-    except Exception:
-        # Good, we don't want a float
-        ...
-    else:
-        raise ValueError("float link")
+    Returns
+    -------
+    info : dict
+        Such that: ``info[pv1][pv2] = (field1, field2, info)``
+        And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
+    """
+    relations = collections.defaultdict(lambda: collections.defaultdict(list))
+    for rec1 in database.values():
+        for field1, link, info in rec1.get_links():
+            if "." in link:
+                link, field2 = link.split(".")
+            elif field1.name == "FLNK":
+                field2 = "PROC"
+            else:
+                field2 = "VAL"
 
-    return link_str, tuple(additional_info.split(" "))
+            rec2 = database.get(link, None)
+            if rec2 is None:
+                # TODO: switch to debug; this will be expensive later
+                logger.warning("Linked record not in database: %s", link)
+            else:
+                if field2 in rec2.fields:
+                    field2 = rec2.fields[field2]
+                else:
+                    field2 = RecordField(
+                        dtype="unknown", name=field2, value="", context=("unset:0",)
+                    )
+
+                relations[rec1.name][rec2.name].append((field1, field2, info))
+                relations[rec2.name][rec1.name].append((field2, field1, info))
+
+    return dict(relations)
 
 
-def find_record_links(database, starting_records, check_all=True):
+def find_record_links(database, starting_records, check_all=True, relations=None):
     """
     Get all related record links from a set of starting records.
 
@@ -67,6 +87,10 @@ def find_record_links(database, starting_records, check_all=True):
     starting_records : list of str
         Record names
 
+    relations : dict, optional
+        Pre-built PV relationship dictionary.  Generated from database
+        if not provided.
+
     Yields
     -------
     link_info : LinkInfo
@@ -74,50 +98,27 @@ def find_record_links(database, starting_records, check_all=True):
     """
     checked = []
 
-    def get_links(rec):
-        for field in rec.get_fields_of_type(*link_types):
-            try:
-                link, info = get_link_information(field.value)
-            except ValueError:
-                continue
-            yield field, link, info
-
-    relations = collections.defaultdict(lambda: collections.defaultdict(list))
-    for rec1 in database.values():
-        for field1, link, info in get_links(rec1):
-            if "." in link:
-                link, field2 = link.split(".")
-            elif field1.name == "FLNK":
-                field2 = "PROC"
-            else:
-                field2 = "VAL"
-
-            rec2 = database.get(link, None)
-            if rec2 is None:
-                logger.warning("Linked record not in database: %s", link)
-            else:
-                if field2 in rec2.fields:
-                    field2 = rec2.fields[field2]
-                else:
-                    field2 = RecordField(
-                        dtype="unknown", name=field2, value="", context=("unset:0",)
-                    )
-
-                relations[rec1.name][rec2.name].append((field1, field2, info))
-                relations[rec2.name][rec1.name].append((field2, field1, info))
+    if relations is None:
+        relations = build_database_relations(database)
 
     records_to_check = list(starting_records)
 
     while records_to_check:
-        rec1 = database[records_to_check.pop()]
+        rec1 = database.get(records_to_check.pop(), None)
+        if rec1 is None:
+            continue
+
         checked.append(rec1.name)
         logger.debug("--- record %s ---", rec1.name)
 
-        for rec2_name, fields in relations[rec1.name].items():
+        for rec2_name, fields in relations.get(rec1.name, {}).items():
             if rec2_name in checked:
                 continue
 
-            rec2 = database[rec2_name]
+            rec2 = database.get(rec2_name, None)
+            if rec2 is None:
+                continue
+
             for field1, field2, info in fields:
                 if rec2_name not in checked and rec2_name not in records_to_check:
                     records_to_check.append(rec2_name)
@@ -140,11 +141,12 @@ def graph_links(
     graph=None,
     engine="dot",
     header_format='record({rtype}, "{name}")',
-    field_format="{field:>4s}: {value!r}",
+    field_format='{field:>4s}: "{value}"',
     sort_fields=True,
     text_format=None,
     show_empty=False,
     font_name="Courier",
+    relations=None,
 ):
     """
     Create a graphviz digraph of record links.
@@ -172,6 +174,9 @@ def graph_links(
         Show empty fields
     font_name : str, optional
         Font name to use for all nodes and edges
+    relations : dict, optional
+        Pre-built PV relationship dictionary.  Generated from database
+        if not provided.
 
     Returns
     -------
@@ -193,12 +198,13 @@ def graph_links(
     if engine is not None:
         graph.engine = engine
 
+    newline = '<br align="left"/>'
     if text_format is None:
-        text_format = """<b> {header} </b> <br/><br align="left"/>{field_lines}"""
+        text_format = f"""<b>{{header}}</b>{newline}{newline}{{field_lines}}"""
 
     # graph.attr("node", {"shape": "record"})
 
-    for li in find_record_links(database, starting_records):
+    for li in find_record_links(database, starting_records, relations=relations):
         for (rec, attr) in ((li.record1, li.field1), (li.record2, li.field2)):
             if rec.name not in nodes:
                 node_id += 1
@@ -222,16 +228,18 @@ def graph_links(
 
         edge_kw = {}
         if any(item in li.info for item in {"PP", "CPP", "CP"}):
-            edge_kw["style"] = "bold"
+            edge_kw["style"] = ""
+        else:
+            edge_kw["style"] = "dashed"
 
         if any(item in li.info for item in {"MS", "MSS", "MSI"}):
             edge_kw["color"] = "red"
 
         src_id, dest_id = src["id"], dest["id"]
         if (src_id, dest_id) not in existing_edges:
-            edge_kw["label"] = f"{li.field1.name}/{li.field2.name}"
+            edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
             if li.info:
-                edge_kw["label"] += f"\n{' '.join(li.info)}"
+                edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
             edges.append((src_id, dest_id, edge_kw))
             existing_edges.add((src_id, dest_id))
 
@@ -242,21 +250,21 @@ def graph_links(
 
         if field_lines:
             field_lines.append("")
-            field_lines = (html.escape(line, quote=False) for line in field_lines)
-        else:
-            field_lines = []
 
         rec = node["record"]
         header = header_format.format(rtype=rec.record_type, name=rec.name)
         text = text_format.format(
             header=html.escape(header, quote=False),
-            field_lines='<br align="left"/>'.join(field_lines),
+            field_lines=newline.join(
+                html.escape(line, quote=False) for line in field_lines
+            ),
         )
         graph.node(
             node["id"],
             label="< {} >".format(text),
             shape="box3d" if rec.name in starting_records else "rectangle",
             fillcolor="bisque" if rec.name in starting_records else "white",
+            style="filled",
         )
 
     # add all of the edges between graphs

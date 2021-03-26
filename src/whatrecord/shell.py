@@ -1,21 +1,21 @@
-# cython: language_level=3
-import dataclasses
 import functools
 import logging
 import pathlib
-from typing import List, Optional
+import sys
+from typing import Dict, Optional
 
 from . import asyn
 from . import motor as motor_mod
+from .common import (IocshScript, RecordInstance, ShellStateBase,
+                     ShortLinterResults, WhatRecord)
 from .db import DbdFile, load_database_file
 from .format import FormatContext
-from .iocsh import IocshCommand, IOCShellInterpreter, StateBase
+from .iocsh import IocshCommand, IOCShellInterpreter
 
 logger = logging.getLogger(__name__)
-_dict_field = dataclasses.field(default_factory=dict)
 
 
-class ShellState(StateBase):
+class ShellState(ShellStateBase):
     """
     Shell state for IOCShellInterpreter.
 
@@ -79,9 +79,11 @@ class ShellState(StateBase):
 
     def handle_iocshRegisterVariable(self, variable, value, *_):
         self.variables[variable] = value
+        return f"Registered variable: {variable!r}={value!r}"
 
     def handle_epicsEnvSet(self, variable, value, *_):
         self.macro_context.define(**{variable: value})
+        return f"Defined: {variable!r}={value!r}"
 
     def handle_epicsEnvShow(self, *_):
         return {
@@ -90,7 +92,7 @@ class ShellState(StateBase):
         }
 
     def handle_iocshCmd(self, command, *_):
-        return IocshCommand(context=self.get_short_context(), command=command)
+        return IocshCommand(context=self.get_frozen_context(), command=command)
 
     def handle_cd(self, path, *_):
         path = self._fix_path(path)
@@ -111,11 +113,15 @@ class ShellState(StateBase):
             raise RuntimeError("dbd already loaded")
         fn = self._fix_path(dbd)
         self.database_definition = DbdFile(fn)
+        self.loaded_files[fn.resolve()] = dbd
+        return f"Loaded database: {fn}"
 
     def handle_dbLoadRecords(self, fn, macros, *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
+        orig_fn = fn
         fn = self._fix_path(fn)
+        self.loaded_files[fn.resolve()] = orig_fn
 
         bytes_macros = self.macro_context.definitions_to_dict(
             bytes(macros, self.string_encoding)
@@ -139,7 +145,7 @@ class ShellState(StateBase):
                 entry.context = entry.context + ("and",) + rec.context
                 entry.fields.update(rec.fields)
 
-        return linter_results
+        return ShortLinterResults.from_full_results(linter_results)
 
     def handle_dbl(self, rtyp=None, fields=None, *_):
         return []  # list(self.database)
@@ -158,7 +164,7 @@ class ShellState(StateBase):
             return
 
         self.asyn_ports[portName] = asyn.AsynSerialPort(
-            context=self.get_short_context(),
+            context=self.get_frozen_context(),
             name=portName,
             ttyName=ttyName,
             priority=priority,
@@ -180,7 +186,7 @@ class ShellState(StateBase):
             return
 
         self.asyn_ports[portName] = asyn.AsynIPPort(
-            context=self.get_short_context(),
+            context=self.get_frozen_context(),
             name=portName,
             hostInfo=hostInfo,
             priority=priority,
@@ -208,7 +214,7 @@ class ShellState(StateBase):
             return
 
         self.asyn_ports[portName] = asyn.AdsAsynPort(
-            context=self.get_short_context(),
+            context=self.get_frozen_context(),
             name=portName,
             ipaddr=ipaddr,
             amsaddr=amsaddr,
@@ -225,7 +231,7 @@ class ShellState(StateBase):
     def handle_asynSetOption(self, name, addr, key, value, *_):
         port = self.asyn_ports[name]
         opt = asyn.AsynPortOption(
-            context=self.get_short_context(),
+            context=self.get_frozen_context(),
             key=key,
             value=value,
         )
@@ -244,14 +250,14 @@ class ShellState(StateBase):
         *_,
     ):
         self.asyn_ports[port_name] = asyn.AsynMotor(
-            context=self.get_short_context(),
+            context=self.get_frozen_context(),
             name=port_name,
             parent=None,
             metadata=dict(
                 num_axes=num_axes,
                 card_num=card_num,
                 driver_name=driver_name,
-            )
+            ),
         )
 
     def handle_EthercatMCCreateController(
@@ -266,7 +272,7 @@ class ShellState(StateBase):
         # SLAC-specific
         port = self.asyn_ports[asyn_port]
         motor = asyn.AsynMotor(
-            context=self.get_short_context(),
+            context=self.get_frozen_context(),
             name=motor_port,
             # TODO: would like to reference the object, but dataclasses
             # asdict recursion is tripping me up
@@ -275,7 +281,7 @@ class ShellState(StateBase):
                 num_axes=num_axes,
                 move_poll_rate=move_poll_rate,
                 idle_poll_rate=idle_poll_rate,
-            )
+            ),
         )
 
         # Tie it to both the original asyn port (as a motor) and also the
@@ -284,52 +290,108 @@ class ShellState(StateBase):
         self.asyn_ports[motor_port] = motor
 
 
-def whatrec(shell_states: List[ShellState], rec: str, field: Optional[str] = None):
-    fmt = FormatContext()
-    for state in shell_states:
-        inst = state.database.get(rec, None)
-        if inst is not None:
-            print(fmt.render_object(inst, "console"))
+class ScriptContainer:
+    shell: IOCShellInterpreter
+    database: Dict[str, RecordInstance]
+    script_to_state: Dict[pathlib.Path, ShellState]
+    scripts: Dict[pathlib.Path, IocshScript]
+    loaded_files: Dict[str, str]
 
-            asyn_port = state.get_asyn_port_from_record(inst)
-            if asyn_port is not None:
-                print(fmt.render_object(asyn_port, "console"))
+    def __init__(self, shell: IOCShellInterpreter):
+        self.shell = shell
+        self.database = {}
+        self.scripts = {}
+        self.script_to_state = {}
+        self.loaded_files = {}
+
+    def add_script(self, script: IocshScript, shell_state: ShellState):
+        path = script.path
+        self.scripts[path] = script
+        self.script_to_state[path] = shell_state
+        self.database.update(shell_state.database)
+        self.loaded_files.update(shell_state.loaded_files)
+
+    def whatrec(
+        self,
+        rec: str,
+        field: Optional[str] = None,
+        format_option: str = "console",
+        file=sys.stdout,
+    ):
+        fmt = FormatContext()
+        result = []
+        for stcmd, state in self.script_to_state.items():
+            info = whatrec(state, rec, field)
+            if info is not None:
+                info.owner = str(stcmd)
+                inst = info.instance
+                if file is not None:
+                    print(fmt.render_object(inst, format_option), file=file)
+                    for asyn_port in info.asyn_ports:
+                        print(fmt.render_object(asyn_port, format_option), file=file)
+                result.append(info)
+        return result
 
 
-def simple_test(fn):
-    state = ShellState()
-    state.working_directory = pathlib.Path(fn).resolve().parent
-    state.macro_context.define(TOP="../..")
-    state.standin_directories = {
-        "/reg/d/iocCommon/": "/Users/klauer/Repos/iocCommon/",
-        "/reg/g/pcds/epics/ioc/common/ads-ioc/R0.3.1/": "/Users/klauer/Repos/ads-ioc/",
-        "/reg/g/pcds/epics-dev/zlentz/lcls-plc-kfe-motion/": "/Users/klauer/Repos/lcls-plc-kfe-motion/",  # noqa
-    }
+def whatrec(
+    state: ShellState, rec: str, field: Optional[str] = None
+) -> Optional[Dict[str, WhatRecord]]:
+    """Get record information."""
+    inst = state.database.get(rec, None)
+    if inst is None:
+        return
 
-    sh = IOCShellInterpreter(state=state)
+    asyn_ports = []
+    asyn_port = state.get_asyn_port_from_record(inst)
+    if asyn_port is not None:
+        asyn_ports.append(asyn_port)
 
-    with open(fn, "rt") as fp:
-        for info, result in sh.interpret_shell_script(fp):
-            if info["outputs"]:
-                if info["redirects"]:
-                    prefix = "[REDIR]"
-                elif info.get("filename"):
-                    prefix = info["filename"]
-                else:
-                    prefix = "[OUTPUT]"
+        parent_port = getattr(asyn_port, "parent", None)
+        if parent_port is not None:
+            asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
+    return WhatRecord(
+        owner=None,
+        instance=inst,
+        asyn_ports=asyn_ports,
+    )
 
-                # logger.info("%s%s", prefix, "\n".join(info["outputs"]))
-                print(prefix, "\n".join(info["outputs"]))
 
-            if info["error"]:
-                logger.error("[ERROR] %s", info["error"])
-            if result:
-                res_output = repr(result)
-                if len(res_output) > 5000:
-                    res_output = res_output[:5000] + "..."
-                print("->", res_output)
-                # logger.info("->", res_output)
+def load_multiple_startup_scripts(*fns) -> ScriptContainer:
+    sh = IOCShellInterpreter()
+    container = ScriptContainer(sh)
 
-    if sh.state.database:
-        whatrec([sh.state], list(sh.state.database)[0])
-    return sh
+    for fn in sorted(set(fns)):
+        sh.state = ShellState()
+        sh.state.working_directory = pathlib.Path(fn).resolve().parent
+        sh.state.macro_context.define(TOP="../..")
+        sh.state.standin_directories = {
+            "/reg/d/iocCommon/": "/Users/klauer/Repos/iocCommon/",
+            "/reg/g/pcds/epics/ioc/common/ads-ioc/R0.3.1/": "/Users/klauer/Repos/ads-ioc/",  # noqa
+            "/reg/g/pcds/epics-dev/zlentz/lcls-plc-kfe-motion/": "/Users/klauer/Repos/lcls-plc-kfe-motion/",  # noqa
+        }
+        with open(fn, "rt") as fp:
+            print()
+            print(f"Loading {fn}...")
+            startup = tuple(sh.interpret_shell_script(fp))
+            # for result in sh.interpret_shell_script(fp):
+            #     if result.outputs:
+            #         if result.redirects:
+            #             prefix = "[REDIR]"
+            #         else:
+            #             prefix = "[OUTPUT]"
+
+            #         logger.info("%s%s", prefix, "\n".join(result.outputs))
+            #         # print(prefix, "\n".join(result.outputs))
+
+            #     if result.error:
+            #         logger.error("[ERROR] %s", result.error)
+            #     if result:
+            #         res_output = repr(result)
+            #         if len(res_output) > 5000:
+            #             res_output = res_output[:5000] + "..."
+            #         # print("->", res_output)
+            #         # logger.info("->", res_output)
+
+        container.add_script(IocshScript(path=str(fn), lines=startup), sh.state)
+
+    return container

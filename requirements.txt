@@ -2,3 +2,5 @@ epicscorelibs
 epics-pypdb>=0.1.5
 jinja2
 graphviz
+marshmallow
+marshmallow-dataclass

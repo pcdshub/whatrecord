@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 cimport epicscorelibs
 cimport epicscorelibs.Com
 
-from .common import Context, IocshCommand
+from .common import IocshCommand, IocshResult, LoadContext, ShellStateBase
 from .db import DbdFile, RecordField, RecordInstance
 from .macro import MacroContext
 
@@ -22,90 +22,15 @@ def _get_redirect(redirects: dict, idx: int):
     return redirects[idx]
 
 
-class StateBase:
-    shell: "IOCShellInterpreter"
-    prompt: str
-    variables: dict
-    string_encoding: str
-    macro_context: MacroContext
-    standin_directories: dict
-    working_directory: pathlib.Path
-    database_definition: DbdFile
-    database: Dict[str, RecordInstance]
-    load_context: List[Context]
-    asyn_ports: Dict[str, object]
-
-    def __init__(
-        self,
-        shell: Optional["IOCShellInterpreter"] = None,
-        prompt: str = "epics>",
-        string_encoding: str = "latin-1",
-        variables: Optional[dict] = None,
-    ):
-        self.shell = shell
-        self.prompt = prompt
-        self.string_encoding = string_encoding
-        self.variables = dict(variables or {})
-        self.macro_context = MacroContext()
-        self.standin_directories = {}
-        self.working_directory = pathlib.Path.cwd()
-        self.database_definition = None
-        self.database = {}
-        self.asyn_ports = {}
-        self.load_context = []
-
-    def get_asyn_port_from_record(self, inst: RecordInstance):
-        field: RecordField = inst.fields.get("INP", inst.fields.get("OUT", None))
-        if field is None:
-            return
-
-        value = field.value.strip()
-        if value.startswith("@asyn"):
-            try:
-                asyn_args = value.split("@asyn")[1].strip(" ()")
-                asyn_port, *_ = asyn_args.split(",")
-                return self.asyn_ports.get(asyn_port.strip(), None)
-            except Exception:
-                logger.debug("Failed to parse asyn string", exc_info=True)
-
-    def get_short_context(self):
-        if not self.load_context:
-            return None
-        return self.load_context[-1].freeze()
-
-    def handle_command(self, command, *args):
-        command = {
-            "#": "comment",
-        }.get(command, command)
-        handler = getattr(self, f"handle_{command}", None)
-        if handler is not None:
-            return handler(*args)
-        return self.unhandled(command, args)
-        # return f"No handler for handle_{command}"
-
-    def _fix_path(self, filename: str):
-        if os.path.isabs(filename):
-            for from_, to in self.standin_directories.items():
-                if filename.startswith(from_):
-                    _, suffix = filename.split(from_, 1)
-                    return pathlib.Path(to + suffix)
-
-        return self.working_directory / filename
-
-    def unhandled(self, command, args):
-        ...
-        # return f"No handler for handle_{command}"
-
-
 cdef class IOCShellInterpreter:
     NREDIRECTS: int = 5
     ifs: bytes = b" \t(),\r"
 
     cdef public object state
 
-    def __init__(self, state: Optional[StateBase] = None):
+    def __init__(self, state: Optional[ShellStateBase] = None):
         if state is None:
-            state = StateBase()
+            state = ShellStateBase()
 
         self.state = state
         self.state.shell = self
@@ -241,18 +166,24 @@ cdef class IOCShellInterpreter:
             error=error,
         )
 
-    def parse(self, line: str):
-        result = {
-            "outputs": [],
-            "argv": None,
-            "error": None,
-            "redirects": {},
-        }
+    def parse(self, line: str, *, context=None) -> IocshResult:
+        if context is None:
+            context = tuple(ctx.freeze() for ctx in self.state.load_context)
+
+        result = IocshResult(
+            context=context,
+            line=line,
+            outputs=[],
+            argv=None,
+            error=None,
+            redirects={},
+            result=None,
+        )
         # Skip leading whitespace
         line = line.lstrip()
 
         if not line.startswith("#-"):
-            result["outputs"].append(line)
+            result.outputs.append(line)
 
         if line.startswith('#'):
             # Echo non-empty lines read from a script.
@@ -268,23 +199,25 @@ cdef class IOCShellInterpreter:
          # * Comments delineated with '#-' aren't echoed.
         if not self.state.prompt:
             if not line.startswith('#-'):
-                result["outputs"].append(line)
+                result.outputs.append(line)
 
         # * Ignore lines that became a comment or empty after macro expansion
         if not line or line.startswith('#'):
             return result
 
-        result.update(self.split_words(line))
+        split = self.split_words(line)
+        result.argv = split["argv"]
+        result.redirects = split["redirects"]
+        result.error = split["error"]
         return result
 
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
-        info = self.parse(line)
+        shresult = self.parse(line)
         input_redirects = [
-            (fileno, redir) for fileno, redir in info["redirects"].items()
+            (fileno, redir) for fileno, redir in shresult.redirects.items()
             if redir["mode"] == "r"
         ]
-        result = None
-        if info["error"]:
+        if shresult.error:
             ...
 
         elif input_redirects:
@@ -293,44 +226,41 @@ cdef class IOCShellInterpreter:
                 try:
                     filename = self.state._fix_path(redir["name"])
                     with open(filename, "rt") as fp_redir:
-                        for info, result in self.interpret_shell_script(
+                        yield from self.interpret_shell_script(
                             fp_redir, recurse=recurse
-                        ):
-                            info["filename"] = filename
-                            yield info, result
+                        )
                     return
                 except FileNotFoundError:
-                    info["error"] = f"File not found: {filename}"
-        elif info["argv"]:
+                    shresult.error = f"File not found: {filename}"
+        elif shresult.argv:
             try:
-                result = self.state.handle_command(*info["argv"])
+                shresult.result = self.state.handle_command(*shresult.argv)
             except Exception as ex:
                 if raise_on_error:
                     raise
                 ex_details = traceback.format_exc()
-                info["error"] = f"Failed to execute: {ex}:\n{ex_details}"
+                shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
 
-            if isinstance(result, IocshCommand):
-                yield info, result
+            if isinstance(shresult.result, IocshCommand):
+                yield shresult
                 yield from self.interpret_shell_line(
-                    result.command, recurse=recurse
+                    shresult.result.command, recurse=recurse
                 )
                 return
-        yield info, result
+        yield shresult
 
     def interpret_shell_script(self, fp: typing.IO[str], recurse=True,
                                raise_on_error=False):
+        fn = getattr(fp, "name", "unknown")
+        load_ctx = LoadContext(fn, 0)
         try:
-            fn = getattr(fp, "name", "unknown")
-            load_ctx = Context(fn, 0)
             self.state.load_context.append(load_ctx)
             for lineno, line in enumerate(fp.read().splitlines(), 1):
                 load_ctx.line = lineno
-                for info, result in self.interpret_shell_line(
+                yield from self.interpret_shell_line(
                     line,
                     recurse=recurse,
                     raise_on_error=raise_on_error,
-                ):
-                    yield info, result
+                )
         finally:
             self.state.load_context.remove(load_ctx)

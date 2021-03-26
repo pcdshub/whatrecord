@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import pathlib
 
 import epicscorelibs
 import epicscorelibs.path
@@ -17,6 +16,7 @@ ext_options = dict(
     library_dirs=[epicscorelibs.path.lib_path],
     language="c++",
 )
+
 
 # https://cython.readthedocs.io/en/latest/src/userguide/source_files_and_compilation.html#distributing-cython-modules
 def no_cythonize(extensions, **_ignore):
@@ -60,5 +60,7 @@ with open("requirements.txt") as fp:
 setup(
     ext_modules=extensions,
     install_requires=install_requires,
+    include_package_data=True,
+    packages=find_packages(where='src'),
     # extras_require={"dev": dev_requires, "docs": ["sphinx", "sphinx-rtd-theme"]},
 )

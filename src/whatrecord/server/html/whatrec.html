@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatRecord?</title>
+  <script src="https://unpkg.com/vue@3"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/split-grid/dist/split-grid.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+  <link rel="stylesheet" href="/_static/style.css">
+  <!-- prod: <script src="https://cdn.jsdelivr.net/npm/vue@2"></script> -->
+</head>
+<body>
+
+<div id="whatrec" class="top-grid">
+  <div>
+    <input v-model.trim.lazy="pv_glob" placeholder="" /><br/>
+    <input v-model.number.lazy="max_pvs" placeholder="200" type="number" /><br/>
+    <!-- <input type="checkbox" id="add_graph" v-model="add_graph" /> -->
+    <!-- <label for="add_graph">Include graph ( {{ add_graph }} )</label><br/> -->
+    <p>Query: {{ pv_glob }} (max {{ max_pvs }})</p>
+    <button @click="search()">Search</button>
+    <button @click="whatrec()">whatrecord?</button>
+    <br/>
+    <template v-for="pvname in pv_list">
+      <input :id="pvname" :value="pvname" name="pvname" type="checkbox" v-model="selected_pvs" />
+      <label :for="pvname"><span classname="pvname">{{pvname}}</span></label>
+      <br/>
+    </template>
+  </div>
+  <div>
+    <div v-for="match in pv_info">
+      <h3> {{ match.pv_name }} </h3>
+      <recordinfo
+        v-for="info in match.info"
+        v-bind:key="match.pv_name"
+        v-bind:info="info"
+    ></recordinfo>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const WhatRec = {
+  data() {
+    return {
+      pv_glob: '*MMS:*',
+      max_pvs: 100,
+      add_graph: true,
+      pv_list: [],
+      pv_info: {},
+      selected_pvs: [],
+    }
+  },
+  mounted() {
+    Split({})
+  },
+  methods: {
+    whatrec() {
+      axios.get(
+        "/api/pv/" + this.selected_pvs.join("|") + "/info",
+        {})
+        .then(response => {
+          console.log(response.data);
+          this.pv_info = response.data;
+        })
+        .catch(error => {
+          console.log(error)
+        });
+    },
+    search() {
+      axios.get(
+        "/api/pv/" + this.pv_glob + "/matches",
+        {max: this.max_pvs})
+        .then(response => {
+          console.log(response.data);
+          var matching_pvs = response.data["matching_pvs"];
+          this.selected_pvs = this.selected_pvs.filter(
+            function(v) {return matching_pvs.indexOf(v) >= 0; }
+          );
+          if (matching_pvs.length > 0 && this.selected_pvs.length == 0) {
+            this.selected_pvs = [matching_pvs[0]];
+          }
+          this.pv_list = matching_pvs;
+        })
+        .catch(error => {
+          console.log(error)
+        });
+      }
+  }
+}
+const app = Vue.createApp(WhatRec)
+
+app.component('epics-format-record', {
+  props: ["name", "context", "fields", "record_type"],
+  template: `
+  <div class="code">
+  record({{ record_type }}, "{{ name }}") {<br/>
+    <span
+      class="recordfield"
+      v-for="field in fields"
+      v-bind:title="field.dtype + ':' + field.context.join(', ')">
+    &nbsp;field({{ field.name }}, "{{ field.value }}")   #  {{ field.dtype }}<br/>
+    </span>
+  }
+  </div>
+`
+})
+
+
+app.component('dictionary-table', {
+  props: ["cls", "dict", "skip_keys"],
+  template: `
+  <table class="table" v-if="Object.keys(dict).length > 0">
+    <thead v-bind:class="cls">
+      <tr>
+        <th>Item</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="(value, key) in dict" v-bind:key="key + '-' + value">
+        <td v-bind:id="key">{{ key }}</td>
+
+        <td v-if="skip_keys.indexOf(key) >= 0">
+        </td>
+        <td v-else-if="key == 'context'">
+          <script-context-link v-bind:context="value.map(({name, line}) => name + ':' + line)"></script-context-link>
+        </td>
+        <td v-else-if="key == 'metadata'">
+          <dictionary-table
+            :dict="value"
+            :cls="'metadata'"
+            :skip_keys="[]">
+          </dictionary-table>
+        </td>
+        <td v-else>
+          {{ value }}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+`
+})
+
+
+app.component('record-field-table', {
+  props: ["fields"],
+  template: `
+  <table class="table recordtable">
+    <thead class="recordtable">
+      <tr>
+        <th>Field</th>
+        <th>Value</th>
+        <th>Type</th>
+        <th>Context</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="field in fields">
+        <td id="field">{{ field.name }}</td>
+        <td id="value">{{ field.value }}</td>
+        <td id="dtype">{{ field.dtype }}</td>
+        <td id="context">
+          <db-context-link v-bind:context="field.context"></db-context-link>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+`
+})
+
+
+app.component('asyn-port', {
+  props: ["asyn_port"],
+  template: `
+  <h4>Asyn port: {{asyn_port.name}}</h4>
+  <template v-for:="ctx in asyn_port.context">
+    {{ ctx.name }}:{{ ctx.line }}<br/>
+  </template>
+  <dictionary-table
+    v-bind:dict="asyn_port"
+    :cls="'asyn_port'"
+    :skip_keys="['motors']">
+  </dictionary-table>
+  <template v-if="asyn_port.hasOwnProperty('motors')">
+    <template v-for="(motor, motorname) in asyn_port.motors" v-bind:key='motorname'>
+      <h5>Motor port: {{motorname}}</h5>
+      <dictionary-table
+        :dict="motor"
+        :cls="'motor'"
+        :skip_keys="[]">
+      </dictionary-table>
+    </template>
+  </template>
+`
+})
+
+
+app.component('db-context-link', {
+  props: ["context"],
+  template: `
+  <a v-bind:href="'/database?file=' + context[0].split(':')[0] + '#' + context[0].split(':')[1]" target="_blank">
+    <template v-for:="ctx in context">
+      {{ ctx }}<br/>
+    </template>
+  </a>
+`
+})
+
+app.component('script-context-link', {
+  props: ["context"],
+  template: `
+  <a v-bind:href="'/script?script=' + context[0].split(':')[0] + '#' + context[0]" target="_blank">
+    <template v-for:="ctx in context">
+      {{ ctx }}<br/>
+    </template>
+  </a>
+`
+})
+
+app.component('recordinfo', {
+  props: ["info"],
+  template: `
+  <script-context-link v-bind:context="info.instance.context"></script-context-link>
+
+  <epics-format-record
+    :name=info.instance.name
+    :context=info.instance.context
+    :fields=info.instance.fields
+    :record_type=info.instance.record_type
+  ></epics-format-record>
+
+  <a v-bind:href="'/api/pv/' + info.instance.name + '/graph/svg'" target="_blank">
+    <img
+      class="svg-graph"
+      v-bind:src="'/api/pv/' + info.instance.name + '/graph/svg'" />
+  </a>
+
+  <details>
+    <summary>Asyn</summary>
+    <asyn-port
+    v-for:="asyn_port in info.asyn_ports"
+    v-bind:asyn_port="asyn_port"
+    v-bind:key="asyn_port.name"></asyn-port>
+  </details>
+
+  <details>
+  <summary>Field table</summary>
+  <record-field-table
+    v-bind:fields=info.instance.fields
+  ></record-field-table>
+  </details>
+
+  <details>
+  <summary>Raw information</summary>
+  <pre>{{info}}</pre>
+  </details>
+`
+})
+
+app.mount('#whatrec')
+  </script>
+</body>
+</html>
