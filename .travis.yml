@@ -31,5 +31,25 @@ env:
 #    # package
 #    - name: "Python 3.6 - PIP"
 
+language: python
+os: linux
+dist: xenial
+
+stages:
+  - build
+  - test
+  - name: deploy
+    if: (branch = master OR tag IS present) AND type != pull_request
+
 import:
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/standard-python-conda.yml
+  # Build Stage
+  - pcdshub/pcds-ci-helpers:travis/shared_configs/anaconda-build.yml
+  # Tests Stage
+  # - pcdshub/pcds-ci-helpers:travis/shared_configs/python-tester-pip.yml
+  # - pcdshub/pcds-ci-helpers:travis/shared_configs/python-tester-conda.yml
+  - pcdshub/pcds-ci-helpers:travis/shared_configs/python-linter.yml
+  - pcdshub/pcds-ci-helpers:travis/shared_configs/docs-build.yml
+  # Deploy Stage
+  - pcdshub/pcds-ci-helpers:travis/shared_configs/pypi-upload.yml
+  - pcdshub/pcds-ci-helpers:travis/shared_configs/doctr-upload.yml
+  - pcdshub/pcds-ci-helpers:travis/shared_configs/anaconda-upload.yml
