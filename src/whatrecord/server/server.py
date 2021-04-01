@@ -155,6 +155,8 @@ class ServerHandler:
             fn = pathlib.Path(request.query["filename"])
             self.state.container.loaded_files[fn]
         except KeyError as ex:
+            print("query", request.query)
+            print("nope", fn)
             raise web.HTTPBadRequest() from ex
 
         with open(fn, "rt") as fp:

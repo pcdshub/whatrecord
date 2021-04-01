@@ -129,7 +129,7 @@ app.component('dictionary-table', {
         <td v-if="skip_keys.indexOf(key) >= 0">
         </td>
         <td v-else-if="key == 'context'">
-          <script-context-link v-bind:context="value.map(({name, line}) => name + ':' + line)"></script-context-link>
+          <script-context-link v-bind:context="value.map(({name, line}) => name + ':' + line)" v-bind:short=false></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'">
           <dictionary-table
@@ -166,7 +166,7 @@ app.component('record-field-table', {
         <td id="value">{{ field.value }}</td>
         <td id="dtype">{{ field.dtype }}</td>
         <td id="context">
-          <db-context-link v-bind:context="field.context[0]"></db-context-link>
+          <script-context-link v-bind:context="field.context" v-bind:short=true></script-context-link>
         </td>
       </tr>
     </tbody>
@@ -201,7 +201,7 @@ app.component('asyn-port', {
 })
 
 app.component('script-context-link', {
-  props: ["context"],
+  props: ["context", "short"],
   template: `
   <div class="context">
   <template v-for:="ctx in context">
@@ -209,26 +209,25 @@ app.component('script-context-link', {
     <a v-if="ctx.indexOf('.cmd') >= 0"
         v-bind:href="'/script?script=' + ctx.split(':')[0] + '#' + ctx"
         target="_blank">
-      {{ ctx }}<br/>
+      <template v-if="short">
+          {{ ctx.replace(/^.*[\\\/]/, '') }}<br/>
+      </template>
+      <template v-else>
+          {{ ctx }}<br/>
+      </template>
     </a>
     <a v-else
           v-bind:href="'/database?file=' + ctx.split(':')[0] + '#' + ctx.split(':')[1]"
           target="_blank">
-      {{ ctx }}<br/>
+      <template v-if="short">
+          {{ ctx.replace(/^.*[\\\/]/, '') }}<br/>
+      </template>
+      <template v-else>
+          {{ ctx }}<br/>
+      </template>
     </a>
   </template>
   </div>
-`
-})
-
-app.component('db-context-link', {
-  props: ["context"],
-  template: `
-  <a v-bind:href="'/database?file=' + context[0].split(':')[0] + '#' + context[0].split(':')[1]" target="_blank">
-    <template v-for:="ctx in context">
-      {{ ctx }}<br/>
-    </template>
-  </a>
 `
 })
 
@@ -254,7 +253,7 @@ app.component('gateway-matches', {
 app.component('recordinfo', {
   props: ["info", "appliance_viewer_url"],
   template: `
-  <script-context-link v-bind:context="info.instance.context"></script-context-link>
+  <script-context-link v-bind:context="info.instance.context" v-bind:short=false></script-context-link>
   <a v-bind:href="appliance_viewer_url + info.instance.name" target="_blank">
       <div v-if="info.instance.metadata.archived">
           In archiver

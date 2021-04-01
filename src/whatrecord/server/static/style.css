@@ -78,9 +78,20 @@ html, body, .top-grid {
 
 summary {
   display: flex;
+  font-weight: bold;
+  list-style-image: url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/3/right-arrow.svg);
+  border: 1px black solid;
 }
 summary .title {
   flex-grow: 1;
+}
+details {
+  margin: 1rem;
+}
+
+summary::-webkit-details-marker {
+  background: url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/3/right-arrow.svg);
+  color: transparent;
 }
 
 .title, .bsect {
