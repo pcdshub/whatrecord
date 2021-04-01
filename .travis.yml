@@ -8,7 +8,7 @@ env:
     # pages and not only the master branch
     - DOCTR_VERSIONS_MENU="1"
     # Dependency files used to build the documentation (space separated)
-    - DOCS_REQUIREMENTS="dev-requirements.txt requirements.txt"
+    - DOCS_REQUIREMENTS="requirements-dev.txt requirements.txt"
     # Options to be passed to flake8 for package linting. Usually this is just
     # the package name but you can enable other flake8 options via this config
     - PYTHON_LINT_OPTIONS="whatrecord"
