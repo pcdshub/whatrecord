@@ -129,7 +129,7 @@ app.component('dictionary-table', {
         <td v-if="skip_keys.indexOf(key) >= 0">
         </td>
         <td v-else-if="key == 'context'">
-          <script-context-link v-bind:context="value.map(({name, line}) => name + ':' + line)" v-bind:short=false></script-context-link>
+          <script-context-link v-bind:context="value.map(({name, line}) => name + ':' + line)" v-bind:short=true></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'">
           <dictionary-table
@@ -243,10 +243,24 @@ app.component('gateway-context-link', {
 app.component('gateway-matches', {
   props: ["matches"],
   template: `
-  <div v-for:="match in matches" class="gateway">
-    <gateway-context-link v-bind:filename="match.filename" v-bind:lineno="match.lineno"></gateway-context-link>
-    : {{ match.expression }} ({{match.details}})
-  </div>
+  <table class="table" v-if="matches.length > 0">
+    <thead v-bind:class="cls">
+      <tr>
+        <th>File</th>
+        <th>Expression</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="match in matches">
+        <td>
+          <gateway-context-link v-bind:filename="match.filename" v-bind:lineno="match.lineno"></gateway-context-link>
+        </td>
+        <td>{{ match.expression }}</td>
+        <td>{{match.details.join(" ")}}</td>
+      </tr>
+    </tbody>
+  </table>
 `
 })
 
