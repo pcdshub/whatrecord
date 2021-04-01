@@ -13,6 +13,8 @@ ipython:
 	ipython -i -c "import sys, whatrecord.shell; from whatrecord.shell import whatrec; from whatrecord.graph import graph_links; cnt = whatrecord.shell.load_multiple_startup_scripts(*sys.argv[4:])" $(STARTUP_SCRIPTS)
 
 server:
-	ipython -i -c "import sys, whatrecord.server; whatrecord.server.run(sys.argv[4:])" $(STARTUP_SCRIPTS)
+	ipython -i `which whatrec` -- server \
+		--archive-file all_archived_pvs.json \
+		--scripts $(STARTUP_SCRIPTS)
 
 .phony: install ipython server

@@ -15,11 +15,11 @@
 
 <div id="whatrec" class="top-grid">
   <div>
-    <input v-model.trim.lazy="pv_glob" placeholder="" /><br/>
-    <input v-model.number.lazy="max_pvs" placeholder="200" type="number" /><br/>
+    Search: <input v-model.trim.lazy="pv_glob" placeholder="" /><br/>
+    Max: <input v-model.number.lazy="max_pvs" placeholder="200" type="number" /><br/>
     <!-- <input type="checkbox" id="add_graph" v-model="add_graph" /> -->
     <!-- <label for="add_graph">Include graph ( {{ add_graph }} )</label><br/> -->
-    <p>Query: {{ pv_glob }} (max {{ max_pvs }})</p>
+    <!-- <p>Query: {{ pv_glob }} (max {{ max_pvs }})</p> -->
     <button @click="search()">Search</button>
     <button @click="whatrec()">whatrecord?</button>
     <br/>
@@ -225,7 +225,12 @@ app.component('recordinfo', {
   props: ["info"],
   template: `
   <script-context-link v-bind:context="info.instance.context"></script-context-link>
-
+  <div v-if="info.instance.archived">
+      In archiver
+  </div>
+  <div v-else>
+      Not in archiver
+  </div>
   <epics-format-record
     :name=info.instance.name
     :context=info.instance.context

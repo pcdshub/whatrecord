@@ -370,28 +370,27 @@ def load_multiple_startup_scripts(*fns) -> ScriptContainer:
             "/reg/g/pcds/epics-dev/zlentz/lcls-plc-kfe-motion/": "/Users/klauer/Repos/lcls-plc-kfe-motion/",  # noqa
         }
         with open(fn, "rt") as fp:
-            print()
-            print(f"Loading {fn}...")
-            startup = tuple(sh.interpret_shell_script(fp))
-            # for result in sh.interpret_shell_script(fp):
-            #     if result.outputs:
-            #         if result.redirects:
-            #             prefix = "[REDIR]"
-            #         else:
-            #             prefix = "[OUTPUT]"
+            lines = fp.read().splitlines()
 
-            #         logger.info("%s%s", prefix, "\n".join(result.outputs))
-            #         # print(prefix, "\n".join(result.outputs))
-
-            #     if result.error:
-            #         logger.error("[ERROR] %s", result.error)
-            #     if result:
-            #         res_output = repr(result)
-            #         if len(res_output) > 5000:
-            #             res_output = res_output[:5000] + "..."
-            #         # print("->", res_output)
-            #         # logger.info("->", res_output)
-
+        startup = tuple(sh.interpret_shell_script(lines, name=fn))
         container.add_script(IocshScript(path=str(fn), lines=startup), sh.state)
+        # for result in sh.interpret_shell_script(lines, name=fn):
+        #     if result.outputs:
+        #         if result.redirects:
+        #             prefix = "[REDIR]"
+        #         else:
+        #             prefix = "[OUTPUT]"
+
+        #         logger.info("%s%s", prefix, "\n".join(result.outputs))
+        #         # print(prefix, "\n".join(result.outputs))
+
+        #     if result.error:
+        #         logger.error("[ERROR] %s", result.error)
+        #     if result:
+        #         res_output = repr(result)
+        #         if len(res_output) > 5000:
+        #             res_output = res_output[:5000] + "..."
+        #         # print("->", res_output)
+        #         # logger.info("->", res_output)
 
     return container

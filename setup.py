@@ -61,6 +61,12 @@ setup(
     ext_modules=extensions,
     install_requires=install_requires,
     include_package_data=True,
-    packages=find_packages(where='src'),
+    packages=find_packages(where="src"),
     # extras_require={"dev": dev_requires, "docs": ["sphinx", "sphinx-rtd-theme"]},
+    entry_points={
+        "console_scripts": [
+            "whatrec = whatrecord.bin.main:main",
+        ]
+    },
+    python_requires=">=3.6",
 )

@@ -1,3 +1,3 @@
-from .server import new_server, run
+from .server import main, new_server, run
 
-__all__ = ["new_server", "run"]
+__all__ = ["new_server", "run", "main"]

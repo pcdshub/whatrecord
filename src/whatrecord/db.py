@@ -3,7 +3,7 @@ import dataclasses
 import os
 import pathlib
 from dataclasses import field
-from typing import ClassVar, Dict, List, Optional, Union
+from typing import ClassVar, Dict, List, Optional, Tuple, Union
 
 import pyPDB.dbd.yacc as _yacc
 import pyPDB.dbdlint as _dbdlint
@@ -13,6 +13,12 @@ from .common import LinterError, LinterWarning, RecordField, RecordInstance
 from .macro import MacroContext
 
 MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
+
+
+def split_record_and_field(pvname) -> Tuple[str, str]:
+    """Split REC.FLD into REC and FLD."""
+    record, *field = pvname.split(".", 1)
+    return record, field[0] if field else ""
 
 
 def _whole_rec_inst_field(ent, results, info):
