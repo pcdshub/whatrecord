@@ -1,0 +1,2 @@
+whatrecord/_version.py export-subst
+src/whatrecord/_version.py export-subst

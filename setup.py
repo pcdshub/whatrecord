@@ -1,10 +1,32 @@
 #!/usr/bin/env python3
 import os
+import sys
 
 import epicscorelibs
 import epicscorelibs.path
 from Cython.Build import cythonize
 from setuptools import Extension, find_packages, setup
+
+import versioneer
+
+min_version = (3, 6)
+
+if sys.version_info < min_version:
+    error = """
+whatrecord does not support Python {0}.{1}.
+Python {2}.{3} and above is required. Check your Python version like so:
+
+python3 --version
+
+This may be due to an out-of-date pip. Make sure you have pip >= 9.0.1.
+Upgrade pip like so:
+
+pip install --upgrade pip
+""".format(
+        *sys.version_info[:2], *min_version
+    )
+    sys.exit(error)
+
 
 ext_options = dict(
     include_dirs=[
@@ -57,16 +79,34 @@ with open("requirements.txt") as fp:
         line for line in fp.read().splitlines() if line and not line.startswith("#")
     ]
 
+with open("README.rst", encoding="utf-8") as fp:
+    readme = fp.read()
+
+
 setup(
-    ext_modules=extensions,
-    install_requires=install_requires,
-    include_package_data=True,
+    name="whatrecord",
+    cmdclass=versioneer.get_cmdclass(),
+    version=versioneer.get_version(),
     packages=find_packages(where="src"),
-    # extras_require={"dev": dev_requires, "docs": ["sphinx", "sphinx-rtd-theme"]},
+    author="SLAC National Accelerator Laboratory",
+    description="EPICS IOC record search and meta information tool",
+    ext_modules=extensions,
+    include_package_data=True,
+    install_requires=install_requires,
+    license="BSD",
+    long_description=readme,
+    python_requires=">=3.6",
     entry_points={
         "console_scripts": [
             "whatrec = whatrecord.bin.main:main",
         ]
     },
-    python_requires=">=3.6",
+    package_dir={
+        "": "src",
+    },
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+    ],
 )
