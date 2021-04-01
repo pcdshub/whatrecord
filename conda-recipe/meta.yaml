@@ -1,0 +1,38 @@
+{% set data = load_setup_py_data() %}
+
+package:
+    name    : whatrecord
+    version : {{ data.get('version') }}
+
+source:
+    path: ..
+
+build:
+    number: 0
+    noarch: python
+
+requirements:
+    build:
+      - python >=3.6
+      - setuptools
+    run:
+      - python >=3.6
+      - aiohttp
+      - cython
+      - epics-pypdb>=0.1.5
+      - epicscorelibs
+      - graphviz
+      - jinja2
+      - marshmallow
+      - marshmallow-dataclass
+
+test:
+    imports:
+      - whatrecord
+    requires:
+      - pytest
+
+about:
+  home: https://github.com/pcdshub/whatrecord
+  license: SLAC Open License
+  summary: EPICS IOC record search and meta information tool

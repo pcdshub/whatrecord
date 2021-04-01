@@ -1,6 +1,8 @@
-epicscorelibs
+aiohttp
+cython
 epics-pypdb>=0.1.5
-jinja2
+epicscorelibs
 graphviz
+jinja2
 marshmallow
 marshmallow-dataclass
