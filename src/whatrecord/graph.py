@@ -180,7 +180,9 @@ def graph_links(
 
     Returns
     -------
-    graph : graphviz.Graph
+    nodes: dict
+    edges: dict
+    graph : graphviz.Digraph
     """
     node_id = 0
     edges = []
@@ -204,13 +206,19 @@ def graph_links(
 
     # graph.attr("node", {"shape": "record"})
 
+    def new_node(rec, field=""):
+        nonlocal node_id
+        node_id += 1
+        nodes[rec.name] = dict(id=str(node_id), text=[], record=rec)
+        # graph.node(nodes[rec.name], label=field)
+        logger.debug("Created node %s (field: %r)", rec.name, field)
+
+    # TODO: create node and color when not in database?
+
     for li in find_record_links(database, starting_records, relations=relations):
-        for (rec, attr) in ((li.record1, li.field1), (li.record2, li.field2)):
+        for (rec, field) in ((li.record1, li.field1), (li.record2, li.field2)):
             if rec.name not in nodes:
-                node_id += 1
-                nodes[rec.name] = dict(id=str(node_id), text=[], record=rec)
-                # graph.node(nodes[rec.name], label=attr)
-                logger.debug("Created node %s.%s", rec.name, attr)
+                new_node(rec, field)
 
         src, dest = nodes[li.record1.name], nodes[li.record2.name]
 
@@ -243,6 +251,14 @@ def graph_links(
             edges.append((src_id, dest_id, edge_kw))
             existing_edges.add((src_id, dest_id))
 
+    if not nodes:
+        # No relationship found; at least show the records
+        for rec_name in starting_records:
+            try:
+                new_node(database[rec_name])
+            except KeyError:
+                ...
+
     for _, node in sorted(nodes.items()):
         field_lines = node["text"]
         if sort_fields:
@@ -271,4 +287,4 @@ def graph_links(
     for src, dest, options in edges:
         graph.edge(src, dest, **options)
 
-    return graph
+    return nodes, edges, graph

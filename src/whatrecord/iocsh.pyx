@@ -257,7 +257,6 @@ cdef class IOCShellInterpreter:
         try:
             self.state.load_context.append(load_ctx)
             for lineno, line in enumerate(lines, 1):
-                print(lineno, line)
                 load_ctx.line = lineno
                 yield from self.interpret_shell_line(
                     line,

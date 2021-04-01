@@ -31,7 +31,7 @@ html, body, .top-grid {
 }
 
 .svg-graph {
-  width: 70%;
+  max-width: 70%;
 }
 
 .script-line {

@@ -64,13 +64,14 @@ class ServerState:
         pv_names = tuple(pv_names)
         if not pv_names:
             return graphviz.Digraph()
-        return graph.graph_links(
+        _, _, digraph = graph.graph_links(
             database=self.database,
             starting_records=pv_names,
             sort_fields=True,
             font_name="Courier",
             relations=self.pv_relations,
         )
+        return digraph
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, glob_str: str) -> Tuple[str, ...]:
