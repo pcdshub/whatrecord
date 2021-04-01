@@ -1,4 +1,5 @@
 import dataclasses
+import inspect
 import logging
 
 import jinja2
@@ -31,6 +32,12 @@ class FormatContext:
             return fill_char * len(text)
 
         @jinja2.evalcontextfilter
+        def classname(eval_ctx, obj):
+            if inspect.isclass(obj):
+                return obj.__name__
+            return type(obj).__name__
+
+        @jinja2.evalcontextfilter
         def render_object(eval_ctx, obj, option):
             return self.render_object(obj, option)
 
@@ -46,15 +53,16 @@ class FormatContext:
         self._template_dict["template"] = template
         return self.env.get_template("template").render(context)
 
-    def _render_object_fallback(self, obj, option, **context):
+    def _render_object_fallback(self, obj, option, /, **context):
         if dataclasses.is_dataclass(obj):
-            if type(obj) not in self._fallback_formats:
-                fmt = [f"{obj.__class__.__name__}",] + [   # noqa: E231
+            cls = type(obj)
+            if cls not in self._fallback_formats:
+                fmt = ["{{obj|classname}}",] + [   # noqa: E231
                     "%12s: {{%s}}" % (field, field) for field in dataclasses.asdict(obj)
                 ]
-                self._fallback_formats[type(obj)] = "\n".join(fmt)
+                self._fallback_formats[cls] = "\n".join(fmt)
 
-            return self.render_template(self._fallback_formats[type(obj)], **context)
+            return self.render_template(self._fallback_formats[cls], **context)
 
         return str(obj)
 
@@ -62,6 +70,8 @@ class FormatContext:
         if dataclasses.is_dataclass(obj):
             for field in dataclasses.fields(obj):
                 context.setdefault(field.name, getattr(obj, field.name))
+
+        context.setdefault("obj", obj)
 
         try:
             template = obj._jinja_format_[option]

@@ -141,7 +141,7 @@ cdef class MacroContext:
             for macro in self.get_macro_details().values()
         )
 
-    def expand(self, value: str, max_length: int = 1024, encoding: str="utf-8"):
+    def expand_with_length(self, value: str, max_length: int = 1024, encoding: str="utf-8"):
         # 1024 is "MY_BUFFER_SIZE" in epics-base, believe it or not...
         assert max_length > 0
         cdef char* buf = <char *>malloc(max_length)
@@ -155,3 +155,10 @@ cdef class MacroContext:
             return buf.decode(encoding)
         finally:
             free(buf)
+
+    def expand(self, value: str, encoding: str="utf-8"):
+        # 1024 is "MY_BUFFER_SIZE" in epics-base, believe it or not...
+        assert len(value) < 1024, "For large strings, use `expand_with_length`"
+        cdef char buf[1024]
+        macExpandString(self.handle, value.encode(encoding), buf, 1024)
+        return buf.decode(encoding)

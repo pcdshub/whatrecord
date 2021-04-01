@@ -1,14 +1,14 @@
 # cython: language_level=3
 import dataclasses
 from dataclasses import field
-from typing import ClassVar, Dict
+from typing import ClassVar, Dict, Tuple
 
-from .common import Context
+from .common import LoadContext
 
 
 @dataclasses.dataclass
 class AsynPort:
-    context: Context
+    context: Tuple[LoadContext]
     name: str
     options: dict = field(default_factory=dict)
     metadata: dict = field(default_factory=dict)
@@ -16,20 +16,18 @@ class AsynPort:
 
     _jinja_format_: ClassVar[dict] = {
         "console": """\
-AsynPort:
+{{obj|classname}}:
     name: {{name}}
     options: {{options}}
     metadata: {{metadata}}
-Defined:
+    Defined:
 {% for ctx in context %}
-    # {{ctx}}
+        * {{ctx}}
 {% endfor %}
 {% for motor in motors %}
 {% set motor_text = render_object(motor, "console") %}
         {{ motor_text | indent(8)}}
-{% endif %}
 {% endfor %}
-}
 """,
 
     }
@@ -37,7 +35,7 @@ Defined:
 
 @dataclasses.dataclass
 class AsynMotor:
-    context: Context
+    context: LoadContext
     name: str
     metadata: dict = field(default_factory=dict)
     parent: AsynPort = None
@@ -72,27 +70,42 @@ class AdsAsynPort(AsynPort):
     adsTimeoutMS: str = ""
     defaultTimeSource: str = ""
 
+    _jinja_format_: ClassVar[dict] = {
+        "console": AsynPort._jinja_format_["console"] + """
+    ipaddr: {{ipaddr}}
+    amsaddr: {{amsaddr}}
+    amsport: {{amsport}}
+    asynParamTableSize: {{asynParamTableSize}}
+    priority: {{priority}}
+    noAutoConnect: {{noAutoConnect}}
+    defaultSampleTimeMS: {{defaultSampleTimeMS}}
+    maxDelayTimeMS: {{maxDelayTimeMS}}
+    adsTimeoutMS: {{adsTimeoutMS}}
+    defaultTimeSource: {{defaultTimeSource}}
+"""
+    }
+
 
 @dataclasses.dataclass
 class AsynPortMultiDevice:
-    context: Context
+    context: LoadContext
     name: str
     metadata: dict = field(default_factory=dict)
-    motors: dict = field(default_factory=dict)
+    motors: Dict[str, AsynMotor] = field(default_factory=dict)
     devices: Dict[str, 'AsynPortDevice'] = field(default_factory=dict)
 
 
 @dataclasses.dataclass
 class AsynPortDevice:
-    context: Context
+    context: LoadContext
     name: str = ""
-    options: dict = field(default_factory=dict)
-    metadata: dict = field(default_factory=dict)
-    motors: dict = field(default_factory=dict)
+    options: Dict[str, str] = field(default_factory=dict)
+    metadata: Dict[str, str] = field(default_factory=dict)
+    motors: Dict[str, AsynMotor] = field(default_factory=dict)
 
 
 @dataclasses.dataclass
 class AsynPortOption:
-    context: Context
+    context: LoadContext
     key: str
     value: str
