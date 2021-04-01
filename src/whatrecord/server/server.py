@@ -7,15 +7,14 @@ import pathlib
 import re
 import sys
 import tempfile
-from typing import List, Optional, Sequence, Tuple
+from typing import DefaultDict, Dict, List, Optional, Sequence, Set, Tuple
 
 import graphviz
 from aiohttp import web
 
-from .. import graph
-from ..common import WhatRecord
-from ..db import split_record_and_field
-from ..shell import load_multiple_startup_scripts
+from .. import gateway, graph
+from ..common import RecordField, WhatRecord
+from ..shell import ScriptContainer, load_multiple_startup_scripts
 from . import html as html_mod
 from . import static
 
@@ -35,10 +34,23 @@ class TooManyRecordsError(Exception):
 
 
 class ServerState:
+    container: ScriptContainer
+    pv_relations: Dict[
+        str, DefaultDict[str, Tuple[RecordField, RecordField, Tuple[str, ...]]]
+    ]
+    archived_pvs: Set[str]
+    gateway_config: gateway.GatewayConfig
+
     def __init__(self, startup_scripts):
         self.container = load_multiple_startup_scripts(*startup_scripts)
         self.pv_relations = graph.build_database_relations(self.container.database)
         self.archived_pvs = set()
+        self.gateway_config = None
+
+    def load_gateway_config(self, path):
+        self.gateway_config = gateway.GatewayConfig(path)
+        for config in self.gateway_config.filenames:
+            self.container.loaded_files[str(config)] = str(config)
 
     def load_archived_pvs_from_file(self, filename):
         # TODO: could retrieve it at startup/periodically from the appliance
@@ -47,7 +59,8 @@ class ServerState:
 
     def whatrec(self, pvname):
         def annotate(rec: WhatRecord):
-            rec.instance.archived = rec.instance.name in self.archived_pvs
+            rec.instance.metadata["archived"] = rec.instance.name in self.archived_pvs
+            rec.instance.metadata["gateway"] = self.get_gateway_info(rec.instance.name)
             return rec
 
         return list(annotate(rec) for rec in self.container.whatrec(pvname) or [])
@@ -72,6 +85,12 @@ class ServerState:
             relations=self.pv_relations,
         )
         return digraph
+
+    @functools.lru_cache(maxsize=2048)
+    def get_gateway_info(self, pvname: str) -> Optional[gateway.PVListMatches]:
+        if self.gateway_config is None:
+            return None
+        return self.gateway_config.get_matches(pvname)
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, glob_str: str) -> Tuple[str, ...]:
@@ -102,15 +121,11 @@ class ServerHandler:
     @routes.get("/api/pv/{pv_names}/info")
     async def api_pv_get_info(self, request: web.Request):
         pv_names = request.match_info.get("pv_names", "").split("|")
-        info = {
-            pv_name: self.state.whatrec(pv_name) for pv_name in pv_names
-        }
+        info = {pv_name: self.state.whatrec(pv_name) for pv_name in pv_names}
         response = {
             pv_name: {
                 "pv_name": pv_name,
                 "present": pv_name in self.state.database,
-                "archived": split_record_and_field(pv_name)[0]
-                in self.state.archived_pvs,
                 "info": [dataclasses.asdict(obj) for obj in info[pv_name]],
             }
             for pv_name in pv_names
@@ -241,6 +256,7 @@ def main(
     archive_file: Optional[str] = None,
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
+    gateway_config: Optional[str] = None,
 ):
     app = web.Application()
     handler = ServerHandler(scripts)
@@ -251,6 +267,9 @@ def main(
     elif archive_management_url:
         ...
         # handler.set_archiver_url(archive_management_url)
+
+    if gateway_config:
+        handler.state.load_gateway_config(gateway_config)
 
     web.run_app(app)
     return app, handler

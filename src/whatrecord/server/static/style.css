@@ -90,3 +90,7 @@ summary .title {
 details {
   overflow: hidden;
 }
+
+.context {
+  margin-left: 1px;
+}

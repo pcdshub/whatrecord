@@ -36,6 +36,7 @@
         v-for="info in match.info"
         v-bind:key="match.pv_name"
         v-bind:info="info"
+        v-bind:appliance_viewer_url="appliance_viewer_url"
     ></recordinfo>
     </div>
   </div>
@@ -52,6 +53,7 @@ const WhatRec = {
       pv_list: [],
       pv_info: {},
       selected_pvs: [],
+      appliance_viewer_url: 'https://pswww.slac.stanford.edu/archiveviewer/retrieval/ui/viewer/archViewer.html?pv=',
     }
   },
   mounted() {
@@ -164,7 +166,7 @@ app.component('record-field-table', {
         <td id="value">{{ field.value }}</td>
         <td id="dtype">{{ field.dtype }}</td>
         <td id="context">
-          <db-context-link v-bind:context="field.context"></db-context-link>
+          <db-context-link v-bind:context="field.context[0]"></db-context-link>
         </td>
       </tr>
     </tbody>
@@ -198,6 +200,26 @@ app.component('asyn-port', {
 `
 })
 
+app.component('script-context-link', {
+  props: ["context"],
+  template: `
+  <div class="context">
+  <template v-for:="ctx in context">
+    &gt;
+    <a v-if="ctx.indexOf('.cmd') >= 0"
+        v-bind:href="'/script?script=' + ctx.split(':')[0] + '#' + ctx"
+        target="_blank">
+      {{ ctx }}<br/>
+    </a>
+    <a v-else
+          v-bind:href="'/database?file=' + ctx.split(':')[0] + '#' + ctx.split(':')[1]"
+          target="_blank">
+      {{ ctx }}<br/>
+    </a>
+  </template>
+  </div>
+`
+})
 
 app.component('db-context-link', {
   props: ["context"],
@@ -210,27 +232,37 @@ app.component('db-context-link', {
 `
 })
 
-app.component('script-context-link', {
-  props: ["context"],
+app.component('gateway-context-link', {
+  props: ["filename", "lineno"],
   template: `
-  <a v-bind:href="'/script?script=' + context[0].split(':')[0] + '#' + context[0]" target="_blank">
-    <template v-for:="ctx in context">
-      {{ ctx }}<br/>
-    </template>
+  <a v-bind:href="'/database?file=' + filename + '#' + lineno" target="_blank">
+    {{ filename.replace(/^.*[\\\/]/, '') }}:{{ lineno }}
   </a>
 `
 })
 
+app.component('gateway-matches', {
+  props: ["matches"],
+  template: `
+  <div v-for:="match in matches" class="gateway">
+    <gateway-context-link v-bind:filename="match.filename" v-bind:lineno="match.lineno"></gateway-context-link>
+    : {{ match.expression }} ({{match.details}})
+  </div>
+`
+})
+
 app.component('recordinfo', {
-  props: ["info"],
+  props: ["info", "appliance_viewer_url"],
   template: `
   <script-context-link v-bind:context="info.instance.context"></script-context-link>
-  <div v-if="info.instance.archived">
-      In archiver
-  </div>
-  <div v-else>
-      Not in archiver
-  </div>
+  <a v-bind:href="appliance_viewer_url + info.instance.name" target="_blank">
+      <div v-if="info.instance.metadata.archived">
+          In archiver
+      </div>
+      <div v-else>
+          Not in archiver
+      </div>
+  </a>
   <epics-format-record
     :name=info.instance.name
     :context=info.instance.context
@@ -244,15 +276,23 @@ app.component('recordinfo', {
       v-bind:src="'/api/pv/' + info.instance.name + '/graph/svg'" />
   </a>
 
-  <details>
-    <summary>Asyn</summary>
+  <details open=true>
+    <summary>Gateway details</summary>
+    <template v-if="info.instance.metadata.gateway.matches">
+      <gateway-matches v-bind:matches="info.instance.metadata.gateway.matches">
+      </gateway-matches>
+    </template>
+  </details>
+
+  <details open=true>
+    <summary>Asyn details</summary>
     <asyn-port
     v-for:="asyn_port in info.asyn_ports"
     v-bind:asyn_port="asyn_port"
     v-bind:key="asyn_port.name"></asyn-port>
   </details>
 
-  <details>
+  <details open=true>
   <summary>Field table</summary>
   <record-field-table
     v-bind:fields=info.instance.fields

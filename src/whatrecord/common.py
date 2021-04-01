@@ -147,6 +147,7 @@ class RecordInstance:
     record_type: str
     fields: Dict[str, RecordField]
     archived: bool = False
+    metadata: Dict[str, str] = field(default_factory=dict)
 
     _jinja_format_: ClassVar[dict] = {
         "console": """\
