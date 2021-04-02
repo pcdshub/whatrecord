@@ -14,7 +14,7 @@
 
 <div id="whatrec-ioc">
   <div>
-    <h2>{{ script_path }}</h2>
+    <h2>{{ filename }}</h2>
     <pre>
       <script-line v-for="line in lines"
          v-bind:argv="line.argv"
@@ -34,7 +34,7 @@
 const WhatRecIOC = {
   data() {
     return {
-      script_path: "",
+      filename: "",
       lines: [],
     }
   },
@@ -49,8 +49,9 @@ const WhatRecIOC = {
       }
     )
       .then(response => {
-        this.script_path = response.data.script_path;
+        this.filename = response.data.filename;
         this.lines = response.data.lines;
+        document.title = "WhatRec? " + this.filename;
       })
       .catch(error => {
         console.log(error)
@@ -59,7 +60,6 @@ const WhatRecIOC = {
   updated() {
     var hash = window.location.hash.substr(1);
     if (hash != "") {
-      console.log("hash is" + hash);
       var obj = document.getElementById(hash);
       if (obj != null) {
         obj.scrollIntoView();
