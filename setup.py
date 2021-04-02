@@ -85,8 +85,8 @@ with open("README.rst", encoding="utf-8") as fp:
 
 setup(
     name="whatrecord",
-    cmdclass=versioneer.get_cmdclass(),
-    version=versioneer.get_version(),
+    # cmdclass=versioneer.get_cmdclass(),
+    # version=versioneer.get_version(),
     packages=find_packages(where="src"),
     author="SLAC National Accelerator Laboratory",
     description="EPICS IOC record search and meta information tool",
