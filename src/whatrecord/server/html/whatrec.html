@@ -15,19 +15,21 @@
 
 <div id="whatrec" class="top-grid">
   <div>
-    Search: <input v-model.trim.lazy="pv_glob" placeholder="" /><br/>
-    Max: <input v-model.number.lazy="max_pvs" placeholder="200" type="number" /><br/>
-    <!-- <input type="checkbox" id="add_graph" v-model="add_graph" /> -->
-    <!-- <label for="add_graph">Include graph ( {{ add_graph }} )</label><br/> -->
-    <!-- <p>Query: {{ pv_glob }} (max {{ max_pvs }})</p> -->
-    <button @click="search()">Search</button>
-    <button @click="whatrec()">whatrecord?</button>
-    <br/>
-    <template v-for="pvname in pv_list">
-      <input :id="pvname" :value="pvname" name="pvname" type="checkbox" v-model="selected_pvs" />
-      <label :for="pvname"><span classname="pvname">{{pvname}}</span></label>
+    <form @submit.prevent="search">
+      Search: <input v-model.trim.lazy="pv_glob" placeholder="" /><br/>
+      Max: <input v-model.number.lazy="max_pvs" placeholder="200" type="number" /><br/>
+      <!-- <input type="checkbox" id="add_graph" v-model="add_graph" /> -->
+      <!-- <label for="add_graph">Include graph ( {{ add_graph }} )</label><br/> -->
+      <!-- <p>Query: {{ pv_glob }} (max {{ max_pvs }})</p> -->
+      <button @click="search()">Search</button>
+      <button @click="whatrec()">whatrecord?</button>
       <br/>
-    </template>
+      <template v-for="pvname in pv_list">
+        <input :id="pvname" :value="pvname" name="pvname" type="checkbox" v-model="selected_pvs" />
+        <label :for="pvname"><span classname="pvname">{{pvname}}</span></label>
+        <br/>
+      </template>
+    </form>
   </div>
   <div>
     <div v-for="match in pv_info">
@@ -48,7 +50,7 @@ const WhatRec = {
   data() {
     return {
       pv_glob: '*MMS:*',
-      max_pvs: 100,
+      max_pvs: 30,
       add_graph: true,
       pv_list: [],
       pv_info: {},
@@ -73,9 +75,14 @@ const WhatRec = {
         });
     },
     search() {
+      document.title = "WhatRec? " + this.pv_glob;
       axios.get(
         "/api/pv/" + this.pv_glob + "/matches",
-        {max: this.max_pvs})
+        {params:
+          {
+            max: this.max_pvs
+          }
+        })
         .then(response => {
           console.log(response.data);
           var matching_pvs = response.data["matching_pvs"];
@@ -84,6 +91,7 @@ const WhatRec = {
           );
           if (matching_pvs.length > 0 && this.selected_pvs.length == 0) {
             this.selected_pvs = [matching_pvs[0]];
+            this.whatrec();
           }
           this.pv_list = matching_pvs;
         })
@@ -179,9 +187,6 @@ app.component('asyn-port', {
   props: ["asyn_port"],
   template: `
   <h4>Asyn port: {{asyn_port.name}}</h4>
-  <template v-for:="ctx in asyn_port.context">
-    {{ ctx.name }}:{{ ctx.line }}<br/>
-  </template>
   <dictionary-table
     v-bind:dict="asyn_port"
     :cls="'asyn_port'"
@@ -289,31 +294,31 @@ app.component('recordinfo', {
       v-bind:src="'/api/pv/' + info.instance.name + '/graph/svg'" />
   </a>
 
-  <details open=true>
-    <summary>Gateway details</summary>
+  <details open=true class="title">
+    <summary class="title">Gateway details</summary>
     <template v-if="info.instance.metadata.gateway.matches">
       <gateway-matches v-bind:matches="info.instance.metadata.gateway.matches">
       </gateway-matches>
     </template>
   </details>
 
-  <details open=true>
-    <summary>Asyn details</summary>
+  <details open=true class="title">
+    <summary class="title">Asyn details</summary>
     <asyn-port
     v-for:="asyn_port in info.asyn_ports"
     v-bind:asyn_port="asyn_port"
     v-bind:key="asyn_port.name"></asyn-port>
   </details>
 
-  <details open=true>
-  <summary>Field table</summary>
+  <details open=true class="title">
+  <summary class="title">Field table</summary>
   <record-field-table
     v-bind:fields=info.instance.fields
   ></record-field-table>
   </details>
 
-  <details>
-  <summary>Raw information</summary>
+  <details class="title">
+  <summary class="title">Raw information</summary>
   <pre>{{info}}</pre>
   </details>
 `

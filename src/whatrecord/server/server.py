@@ -50,7 +50,7 @@ class ServerState:
     def load_gateway_config(self, path):
         self.gateway_config = gateway.GatewayConfig(path)
         for config in self.gateway_config.filenames:
-            self.container.loaded_files[str(config)] = str(config)
+            self.container.loaded_files[config] = str(config)
 
     def load_archived_pvs_from_file(self, filename):
         # TODO: could retrieve it at startup/periodically from the appliance
@@ -155,8 +155,6 @@ class ServerHandler:
             fn = pathlib.Path(request.query["filename"])
             self.state.container.loaded_files[fn]
         except KeyError as ex:
-            print("query", request.query)
-            print("nope", fn)
             raise web.HTTPBadRequest() from ex
 
         with open(fn, "rt") as fp:

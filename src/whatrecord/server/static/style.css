@@ -26,20 +26,12 @@ html, body, .top-grid {
 
 .top-grid {
   display: grid;
-  grid-template-columns: 2fr 100% 1fr;
+  grid-template-columns: 1fr 60% 1fr;
   grid-template-rows: 1fr;
 }
 
 .svg-graph {
   max-width: 70%;
-}
-
-.script-line {
-  color: black;
-}
-
-.script-error-line {
-  color: red;
 }
 
 .error-block {
@@ -76,30 +68,27 @@ html, body, .top-grid {
   word-wrap: break-word;
 }
 
-summary {
-  display: flex;
+summary.title {
   font-weight: bold;
-  list-style-image: url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/3/right-arrow.svg);
   border: 1px black solid;
 }
-summary .title {
-  flex-grow: 1;
-}
-details {
-  margin: 1rem;
+
+summary.script-line {
 }
 
-summary::-webkit-details-marker {
-  background: url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/3/right-arrow.svg);
-  color: transparent;
+.script-line {
+  color: black;
 }
 
-.title, .bsect {
-   width: calc(100% - 1.04em);
-   float: right;
+.script-error-line {
+  color: red;
 }
-details {
+
+
+details.title {
   overflow: hidden;
+  margin-top: 1em;
+  margin-bottom: 1em;
 }
 
 .context {
