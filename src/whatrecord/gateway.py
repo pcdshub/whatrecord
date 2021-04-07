@@ -341,8 +341,8 @@ class GatewayConfig:
             PVListMatch(
                 filename=str(fn),
                 lineno=expr.lineno,
-                comment=context.line,
-                comment_lineno=context.lineno,
+                comment=context.line if context is not None else "",
+                comment_lineno=context.lineno if context is not None else 0,
                 expression=expr.expr,
                 details=expr.details,
             )

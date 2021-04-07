@@ -1,0 +1,72 @@
+// Lark grammar for dbLoadTemplate
+// Based on epics-base dbtemplate as part of the msi tool (dbLoadTemplate_lex.l)
+
+?start: substitution_file
+
+%import common.WS_INLINE
+%import common.WS
+%ignore WS_INLINE
+%ignore WS
+
+COMMENT     : "#" /[^\n\r]/*
+%ignore COMMENT
+
+NEWLINE     : "\n"
+BACKSLASH   : "\\"
+SINGLEQUOTE : "'"
+DOUBLEQUOTE : "\""
+WHITESPACE  : /[ \t\r\n]/
+ESCAPE      : BACKSLASH /./
+DSTRINGCHAR : /[^"\n\\]/
+SSTRINGCHAR : /[^'\n\\]/
+BAREWORD    : /[a-zA-Z0-9_\-+:.\/\\\[\]<>;]/
+
+PATTERN: "pattern"
+DBFILE : "file"
+GLOBAL : "global"
+
+UNQUOTED_STRING: BAREWORD+
+QUOTED_STRING: DOUBLEQUOTE (DSTRINGCHAR | ESCAPE )* DOUBLEQUOTE
+             | SINGLEQUOTE (SSTRINGCHAR | ESCAPE )* SINGLEQUOTE
+ANY_STRING : QUOTED_STRING | UNQUOTED_STRING
+
+substitution_file: (global_definitions | template_substitutions)+
+
+global_definitions: GLOBAL "{" "}"
+                  | GLOBAL "{" variable_definitions "}"
+
+template_substitutions: DBFILE TEMPLATE_FILENAME "{" substitutions? "}"
+
+TEMPLATE_FILENAME: ANY_STRING
+
+substitutions: pattern_substitutions
+             | variable_substitutions
+
+pattern_substitutions: PATTERN "{" pattern_names? "}" pattern_definition*
+
+pattern_names: _comma_separated{pattern_name}
+
+pattern_name: UNQUOTED_STRING
+
+pattern_definition: global_definitions
+                  | "{" "}"
+                  | "{" pattern_values "}"
+                  | UNQUOTED_STRING "{" pattern_values "}" // deprecated
+
+pattern_values: _comma_separated{pattern_value}
+
+pattern_value: ANY_STRING
+
+variable_substitutions: variable_substitution+
+
+variable_substitution: global_definitions
+                     | "{" "}"
+                     | "{" variable_definitions "}"
+                     | UNQUOTED_STRING "{" variable_definitions "}"  // deprecated
+
+variable_definitions: _comma_separated{variable_definition}
+
+variable_definition: UNQUOTED_STRING "=" UNQUOTED_STRING
+                   | UNQUOTED_STRING "=" QUOTED_STRING
+
+_comma_separated{x}: (x ",")* x ","?
