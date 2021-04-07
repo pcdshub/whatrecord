@@ -14,52 +14,67 @@ BAREWORD    : /[a-zA-Z0-9_\-+:.\[\]<>;]/
 PUNCTUATION : /[:,\[\]{}]/
 NORMALCHAR  : /[^"'\\\0-\x1f]/
 BARECHAR    : /[a-zA-Z0-9_\-+.]/
-ESCAPEDCHAR : (BACKSLASH /[^ux1-9]/ )
+ESCAPEDCHAR : BACKSLASH /[^ux1-9]/
 HEXDIGIT    : /[0-9a-fA-F]/
-LATINCHAR   : (BACKSLASH "x" HEXDIGIT~2)
-UNICODECHAR : (BACKSLASH "u" HEXDIGIT~4)
-JSONDQCHAR  : (NORMALCHAR|SINGLEQUOTE|ESCAPEDCHAR|LATINCHAR|UNICODECHAR)
-JSONDQSTR   : ( DOUBLEQUOTE JSONDQCHAR* DOUBLEQUOTE )
-JSONSQCHAR  : ( NORMALCHAR | DOUBLEQUOTE | ESCAPEDCHAR | LATINCHAR | UNICODECHAR )
-JSONSQSTR   : ( SINGLEQUOTE JSONSQCHAR* SINGLEQUOTE )
-JSONSTR     : ( JSONDQSTR | JSONSQSTR )
+LATINCHAR   : BACKSLASH "x" HEXDIGIT~2
+UNICODECHAR : BACKSLASH "u" HEXDIGIT~4
+JSONDQCHAR  : NORMALCHAR
+            | SINGLEQUOTE
+            | ESCAPEDCHAR
+            | LATINCHAR
+            | UNICODECHAR
 
-SIGN        : /([+-]?)/
-INT         : ( SIGN (/[0-9]|[1-9][0-9]+/))
-FRAC        : ("." /[0-9]+/ )
-EXP         : (/[eE]/ SIGN /[0-9]+/ )
-JSONNUM     : ( INT FRAC? EXP? )
-INTEXP      : ( INT "." EXP?)
-FRACEXP     : ( SIGN FRAC EXP? )
-SPECIALNUM  : ("NaN" | SIGN "Infinity")
+JSONSQCHAR  : NORMALCHAR
+            | DOUBLEQUOTE
+            | ESCAPEDCHAR
+            | LATINCHAR
+            | UNICODECHAR
 
-ZEROX       : ("0x"|"0X")
-HEXINT      : ( SIGN ZEROX HEXDIGIT+ )
-NUMBER      : ( JSONNUM | INTEXP | FRACEXP | SPECIALNUM | HEXINT )
+JSONSTR     : DOUBLEQUOTE JSONDQCHAR* DOUBLEQUOTE
+            | SINGLEQUOTE JSONSQCHAR* SINGLEQUOTE
 
-TOKEN_INCLUDE: "include"
-TOKEN_PATH: "path"
-TOKEN_ADDPATH: "addpath"
-TOKEN_MENU: "menu"
-TOKEN_CHOICE: "choice"
-TOKEN_RECORDTYPE: "recordtype"
-TOKEN_FIELD: "field"
-TOKEN_DEVICE: "device"
-TOKEN_DRIVER: "driver"
-TOKEN_LINK: "link"
-TOKEN_BREAKTABLE: "breaktable"
-TOKEN_RECORD: "record"
-TOKEN_GRECORD: "grecord"
-TOKEN_ALIAS: "alias"
-TOKEN_INFO: "info"
-TOKEN_REGISTRAR: "registrar"
-TOKEN_FUNCTION: "function"
-TOKEN_VARIABLE: "variable"
+SIGN        : /[+-]/
+INT         : SIGN? /[0-9]|[1-9][0-9]+/
+FRAC        : "." /[0-9]+/
+EXP         : "e"i SIGN? /[0-9]+/
+jsonnum     : INT FRAC? EXP?
+intexp      : INT "." EXP?
+fracexp     : SIGN? FRAC EXP?
+specialnum  : "NaN"             -> nan
+            | "+"? "Infinity"   -> pos_infinity
+            | "-" "Infinity"    -> neg_infinity
+
+hexint      : SIGN? ("0x" | "0X") HEXDIGIT+
+
+number      : jsonnum
+            | intexp
+            | fracexp
+            | hexint
+            | specialnum
+
+TOKEN_INCLUDE     : "include"
+TOKEN_PATH        : "path"
+TOKEN_ADDPATH     : "addpath"
+TOKEN_MENU        : "menu"
+TOKEN_CHOICE      : "choice"
+TOKEN_RECORDTYPE  : "recordtype"
+TOKEN_FIELD       : "field"
+TOKEN_DEVICE      : "device"
+TOKEN_DRIVER      : "driver"
+TOKEN_LINK        : "link"
+TOKEN_BREAKTABLE  : "breaktable"
+TOKEN_RECORD      : "record"
+TOKEN_GRECORD     : "grecord"
+TOKEN_ALIAS       : "alias"
+TOKEN_INFO        : "info"
+TOKEN_REGISTRAR   : "registrar"
+TOKEN_FUNCTION    : "function"
+TOKEN_VARIABLE    : "variable"
 
 UNQUOTED_STRING_OR_NUMBER: BAREWORD+
 QUOTED_STRING:  DOUBLEQUOTE (STRINGCHAR | ESCAPE )* DOUBLEQUOTE
-TOKEN_STRING: UNQUOTED_STRING_OR_NUMBER
-            | QUOTED_STRING
+FLEXIBLE_STRING: UNQUOTED_STRING_OR_NUMBER
+               | QUOTED_STRING
 
 
 TOKEN_CDEFS: "%" /.*/
@@ -67,7 +82,6 @@ TOKEN_CDEFS: "%" /.*/
 JSON_NULL: "null"
 JSON_TRUE: "true"
 JSON_FALSE: "false"
-JSON_BARECHAR: BARECHAR+
 
 database: _database_item_list*
 
@@ -90,22 +104,23 @@ database_item: include
              | TOKEN_GRECORD grecord_head record_body
              | alias
 
-include:    TOKEN_INCLUDE TOKEN_STRING
+include:    TOKEN_INCLUDE FLEXIBLE_STRING
 
-path:   TOKEN_PATH TOKEN_STRING
+path:   TOKEN_PATH FLEXIBLE_STRING
 
-addpath:    TOKEN_ADDPATH TOKEN_STRING
+addpath:    TOKEN_ADDPATH FLEXIBLE_STRING
 
-menu_head:  "(" TOKEN_STRING ")"
+menu_head:  "(" FLEXIBLE_STRING ")"
 
 menu_body:  "{" choice_list "}"
 
-choice_list:    choice_list choice | choice
+choice_list: choice_list choice
+           | choice
 
-choice: TOKEN_CHOICE "(" TOKEN_STRING "," TOKEN_STRING ")"
+choice: TOKEN_CHOICE "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
       | include
 
-recordtype_head: "(" TOKEN_STRING ")"
+recordtype_head: "(" FLEXIBLE_STRING ")"
 
 recordtype_body: "{" "}"
                | "{" recordtype_field_list "}"
@@ -117,32 +132,32 @@ recordtype_field: TOKEN_FIELD recordtype_field_head recordtype_field_body
                 | TOKEN_CDEFS
                 | include
 
-recordtype_field_head: "(" TOKEN_STRING "," TOKEN_STRING ")"
+recordtype_field_head: "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
 recordtype_field_body: "{" recordtype_field_item_list "}"
 
 recordtype_field_item_list:  recordtype_field_item_list recordtype_field_item
                           | recordtype_field_item
 
-recordtype_field_item:  TOKEN_STRING "(" TOKEN_STRING ")"
-                     | TOKEN_MENU "(" TOKEN_STRING ")"
+recordtype_field_item:  FLEXIBLE_STRING "(" FLEXIBLE_STRING ")"
+                     | TOKEN_MENU "(" FLEXIBLE_STRING ")"
 
 
-device: TOKEN_DEVICE "(" TOKEN_STRING "," TOKEN_STRING "," TOKEN_STRING "," TOKEN_STRING ")"
+device: TOKEN_DEVICE "(" FLEXIBLE_STRING "," FLEXIBLE_STRING "," FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
 
-driver: TOKEN_DRIVER "(" TOKEN_STRING ")"
+driver: TOKEN_DRIVER "(" FLEXIBLE_STRING ")"
 
-link: TOKEN_LINK "(" TOKEN_STRING "," TOKEN_STRING ")"
+link: TOKEN_LINK "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
-registrar: TOKEN_REGISTRAR "(" TOKEN_STRING ")"
+registrar: TOKEN_REGISTRAR "(" FLEXIBLE_STRING ")"
 
-function: TOKEN_FUNCTION "(" TOKEN_STRING ")"
+function: TOKEN_FUNCTION "(" FLEXIBLE_STRING ")"
 
-variable: TOKEN_VARIABLE "(" TOKEN_STRING ")"
-        | TOKEN_VARIABLE "(" TOKEN_STRING "," TOKEN_STRING ")"
+variable: TOKEN_VARIABLE "(" FLEXIBLE_STRING ")"
+        | TOKEN_VARIABLE "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
-break_head: "(" TOKEN_STRING ")"
+break_head: "(" FLEXIBLE_STRING ")"
 
 break_body : "{" break_list "}"
 
@@ -150,23 +165,22 @@ break_list: break_list "," break_item
           | break_list break_item
           | break_item
 
-break_item: TOKEN_STRING
+break_item: FLEXIBLE_STRING
 
-grecord_head: "(" TOKEN_STRING "," TOKEN_STRING ")"
+grecord_head: "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
-record_head: "(" TOKEN_STRING "," TOKEN_STRING ")"
+record_head: "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
 record_body:  // TODO: null record body is acceptable?
            | "{" "}"
            | "{" record_field* "}"
 
-record_field: TOKEN_FIELD "(" TOKEN_STRING "," json_value ")"
-    | TOKEN_INFO "(" TOKEN_STRING "," json_value ")"
-    | TOKEN_ALIAS "(" TOKEN_STRING ")"
+record_field: TOKEN_FIELD "(" FLEXIBLE_STRING "," json_value ")"
+    | TOKEN_INFO "(" FLEXIBLE_STRING "," json_value ")"
+    | TOKEN_ALIAS "(" FLEXIBLE_STRING ")"
     | include
 
-alias: TOKEN_ALIAS "(" TOKEN_STRING "," TOKEN_STRING ")"
-
+alias: TOKEN_ALIAS "(" FLEXIBLE_STRING "," FLEXIBLE_STRING ")"
 
 // TODO: context-sensitive json-handling not accurate :(
 
@@ -174,19 +188,19 @@ json_initial_comment: COMMENT /.*/
 json_whitespace: WHITESPACE
 
 json_object: "{" "}"
-    | "{" json_members "}"
+           | "{" json_members "}"
 
 json_members: json_pair
-    | json_pair ","
-    | json_pair "," json_members
+            | json_pair ","
+            | json_pair "," json_members
 
 json_pair: JSON_KEY ":" json_value
 
 JSON_KEY: JSONSTR
-        | JSON_BARECHAR
+        | BARECHAR+
 
 JSON_STRING: JSONSTR
-           | JSON_BARECHAR
+           | BARECHAR+
 
 json_array: "[" "]"
           | "[" json_elements "]"
@@ -195,18 +209,16 @@ json_elements: json_value
              | json_value ","
              | json_value "," json_elements
 
-JSON_NUMBER: NUMBER
-
 // TODO: Retain the trailing "," so link parser can distinguish a 1-element
 // const list from a PV name (commas are illegal)
 
 json_value: JSON_NULL
-    | JSON_TRUE
-    | JSON_FALSE
-    | JSON_NUMBER
-    | JSON_STRING
-    | json_array
-    | json_object
+           | JSON_TRUE
+           | JSON_FALSE
+           | JSON_STRING
+           | number
+           | json_array
+           | json_object
 
 %import common.WS_INLINE
 %import common.WS
