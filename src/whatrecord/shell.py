@@ -1,20 +1,43 @@
+import dataclasses
 import functools
 import logging
 import pathlib
 import sys
+import time
 from typing import Dict, Optional
 
 from . import asyn
 from . import motor as motor_mod
+# from . import schema
 from .common import (IocshScript, RecordInstance, ShellStateBase,
                      ShortLinterResults, WhatRecord)
-from .db import DbdFile, load_database_file
+from .db import Database, load_database_file
 from .format import FormatContext
 from .iocsh import IocshCommand, IOCShellInterpreter
 
 logger = logging.getLogger(__name__)
 
 
+def _motor_wrapper(method):
+    """
+    Method decorator for motor-related commands
+
+    Use specific command handler, but also show general parameter information.
+    """
+    _, name = method.__name__.split("handle_")
+
+    @functools.wraps(method)
+    def wrapped(self, *args):
+        specific_info = method(self, *args) or ""
+        generic_info = self._generic_motor_handler(name, *args)
+        if specific_info:
+            return f"{specific_info}\n\n{generic_info}"
+        return generic_info
+
+    return wrapped
+
+
+@dataclasses.dataclass
 class ShellState(ShellStateBase):
     """
     Shell state for IOCShellInterpreter.
@@ -50,7 +73,7 @@ class ShellState(ShellStateBase):
             standin_directories = {"/replace_this/": "/with/this"}
     working_directory: pathlib.Path
         Current working directory.
-    database_definition: DbdFile
+    database_definition: Database
         Loaded database definition (dbd).
     database: Dict[str, RecordInstance]
         The IOC database of records.
@@ -66,16 +89,19 @@ class ShellState(ShellStateBase):
     def _setup_dynamic_handlers(self):
         # Just motors for now
         for name, args in motor_mod.shell_commands.items():
-            method_name = f"handle_{name}"
-            if hasattr(self, method_name):
-                continue
-            method = functools.partial(self._generic_motor_handler, name)
-            setattr(self, method_name, method)
+            if name not in self.handlers:
+                self.handlers[name] = functools.partial(
+                    self._generic_motor_handler, name
+                )
 
     def _generic_motor_handler(self, name, *args):
+        arg_info = []
         for (name, type_), value in zip(motor_mod.shell_commands[name].items(), args):
-            ...
+            type_name = getattr(type_, "__name__", type_)
+            arg_info.append(f"({type_name}) {name} = {value!r}")
+
         # TODO somehow figure out about motor port -> asyn port linking, maybe
+        return "\n".join(arg_info)
 
     def handle_iocshRegisterVariable(self, variable, value, *_):
         self.variables[variable] = value
@@ -112,7 +138,7 @@ class ShellState(ShellStateBase):
         if self.database_definition:
             raise RuntimeError("dbd already loaded")
         fn = self._fix_path(dbd)
-        self.database_definition = DbdFile(fn)
+        self.database_definition = Database.from_file(fn)
         self.loaded_files[fn.resolve()] = dbd
         return f"Loaded database: {fn}"
 
@@ -135,7 +161,7 @@ class ShellState(ShellStateBase):
                 dbd=self.database_definition, db=fn, macro_context=self.macro_context
             )
 
-        context = tuple(repr(ctx) for ctx in self.load_context)
+        context = self.get_frozen_context()
         for name, rec in linter_results.records.items():
             if name not in self.database:
                 self.database[name] = rec
@@ -145,11 +171,15 @@ class ShellState(ShellStateBase):
                 entry.context = entry.context + ("and",) + rec.context
                 entry.fields.update(rec.fields)
 
-        return ShortLinterResults.from_full_results(linter_results)
+        return ShortLinterResults.from_full_results(
+            linter_results,
+            macros=macros
+        )
 
     def handle_dbl(self, rtyp=None, fields=None, *_):
         return []  # list(self.database)
 
+    @_motor_wrapper
     def handle_drvAsynSerialPortConfigure(
         self,
         portName=None,
@@ -172,6 +202,7 @@ class ShellState(ShellStateBase):
             noProcessEos=noProcessEos,
         )
 
+    @_motor_wrapper
     def handle_drvAsynIPPortConfigure(
         self,
         portName=None,
@@ -182,18 +213,17 @@ class ShellState(ShellStateBase):
         *_,
     ):
         # SLAC-specific, but doesn't hurt anyone
-        if not portName:
-            return
+        if portName:
+            self.asyn_ports[portName] = asyn.AsynIPPort(
+                context=self.get_frozen_context(),
+                name=portName,
+                hostInfo=hostInfo,
+                priority=priority,
+                noAutoConnect=noAutoConnect,
+                noProcessEos=noProcessEos,
+            )
 
-        self.asyn_ports[portName] = asyn.AsynIPPort(
-            context=self.get_frozen_context(),
-            name=portName,
-            hostInfo=hostInfo,
-            priority=priority,
-            noAutoConnect=noAutoConnect,
-            noProcessEos=noProcessEos,
-        )
-
+    @_motor_wrapper
     def handle_adsAsynPortDriverConfigure(
         self,
         portName=None,
@@ -210,23 +240,21 @@ class ShellState(ShellStateBase):
         *_,
     ):
         # SLAC-specific, but doesn't hurt anyone
-        if not portName:
-            return
-
-        self.asyn_ports[portName] = asyn.AdsAsynPort(
-            context=self.get_frozen_context(),
-            name=portName,
-            ipaddr=ipaddr,
-            amsaddr=amsaddr,
-            amsport=amsport,
-            asynParamTableSize=asynParamTableSize,
-            priority=priority,
-            noAutoConnect=noAutoConnect,
-            defaultSampleTimeMS=defaultSampleTimeMS,
-            maxDelayTimeMS=maxDelayTimeMS,
-            adsTimeoutMS=adsTimeoutMS,
-            defaultTimeSource=defaultTimeSource,
-        )
+        if portName:
+            self.asyn_ports[portName] = asyn.AdsAsynPort(
+                context=self.get_frozen_context(),
+                name=portName,
+                ipaddr=ipaddr,
+                amsaddr=amsaddr,
+                amsport=amsport,
+                asynParamTableSize=asynParamTableSize,
+                priority=priority,
+                noAutoConnect=noAutoConnect,
+                defaultSampleTimeMS=defaultSampleTimeMS,
+                maxDelayTimeMS=maxDelayTimeMS,
+                adsTimeoutMS=adsTimeoutMS,
+                defaultTimeSource=defaultTimeSource,
+            )
 
     def handle_asynSetOption(self, name, addr, key, value, *_):
         port = self.asyn_ports[name]
@@ -241,6 +269,7 @@ class ShellState(ShellStateBase):
         else:
             port.options[key] = opt
 
+    @_motor_wrapper
     def handle_drvAsynMotorConfigure(
         self,
         port_name: str = "",
@@ -260,6 +289,7 @@ class ShellState(ShellStateBase):
             ),
         )
 
+    @_motor_wrapper
     def handle_EthercatMCCreateController(
         self,
         motor_port: str = "",
@@ -356,11 +386,13 @@ def whatrec(
     )
 
 
-def load_multiple_startup_scripts(*fns) -> ScriptContainer:
+def load_startup_scripts(*fns) -> ScriptContainer:
     sh = IOCShellInterpreter()
     container = ScriptContainer(sh)
 
     for fn in sorted(set(fns)):
+        t0 = time.monotonic()
+        print(f"Loading {fn}...", fn, end="")
         sh.state = ShellState()
         sh.state.working_directory = pathlib.Path(fn).resolve().parent
         sh.state.macro_context.define(TOP="../..")
@@ -374,6 +406,8 @@ def load_multiple_startup_scripts(*fns) -> ScriptContainer:
 
         startup = tuple(sh.interpret_shell_script(lines, name=fn))
         container.add_script(IocshScript(path=str(fn), lines=startup), sh.state)
+        elapsed = time.monotonic() - t0
+        print(f"[{elapsed:.1f} s]")
         # for result in sh.interpret_shell_script(lines, name=fn):
         #     if result.outputs:
         #         if result.redirects:
@@ -392,5 +426,6 @@ def load_multiple_startup_scripts(*fns) -> ScriptContainer:
         #             res_output = res_output[:5000] + "..."
         #         # print("->", res_output)
         #         # logger.info("->", res_output)
+        # print(schema.serialize(sh.state))
 
     return container

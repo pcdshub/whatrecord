@@ -1,11 +1,11 @@
 import collections
-import dataclasses
 import html
 import logging
 from typing import DefaultDict, Dict, Tuple
 
 import graphviz as gv
 
+from .common import dataclass
 from .db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # information in terms of dataclasses
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class LinkInfo:
     record1: RecordInstance
     field1: RecordField

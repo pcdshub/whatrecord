@@ -815,4 +815,24 @@ shell_commands.update({
         amplifier_flags=str,
         axis_config=str,
     ),
+    "EthercatMCCreateController": dict(
+        motor_port=str,
+        asyn_port=str,
+        num_axes=int,
+        move_poll_rate=float,
+        idle_poll_rate=float,
+    ),
+    "adsAsynPortDriverConfigure": dict(
+        portName=str,
+        ipaddr=str,
+        amsaddr=str,
+        amsport=int,
+        asynParamTableSize=int,
+        priority=int,
+        noAutoConnect=int,
+        defaultSampleTimeMS=int,
+        maxDelayTimeMS=int,
+        adsTimeoutMS=int,
+        defaultTimeSource=str,
+    )
 })

@@ -41,6 +41,7 @@ JSONSQCHAR  : NORMALCHAR
 
 JSONSTR     : DOUBLEQUOTE JSONDQCHAR* DOUBLEQUOTE
             | SINGLEQUOTE JSONSQCHAR* SINGLEQUOTE
+            | BARECHAR+
 
 SIGN        : /[+-]/
 INT         : SIGN? /[0-9]|[1-9][0-9]+/
@@ -82,7 +83,7 @@ TOKEN_VARIABLE    : "variable"
 
 UNQUOTED_STRING_OR_NUMBER: BAREWORD+
 QUOTED_STRING:  DOUBLEQUOTE (STRINGCHAR | ESCAPE )* DOUBLEQUOTE
-STRING: UNQUOTED_STRING_OR_NUMBER
+string: UNQUOTED_STRING_OR_NUMBER
       | QUOTED_STRING
 
 
@@ -95,103 +96,68 @@ JSON_FALSE: "false"
 database: dbitem*
 
 dbitem: include
-      | path
-      | addpath
-      | TOKEN_MENU menu_head menu_body                   -> menu
-      | TOKEN_RECORDTYPE recordtype_head recordtype_body -> recordtype
-      | device
-      | driver
-      | link
-      | registrar
-      | function
-      | variable
-      | TOKEN_BREAKTABLE break_head break_body -> breaktable
-      | TOKEN_RECORD record_head record_body   -> record
-      | TOKEN_GRECORD grecord_head record_body -> grecord
-      | standalone_alias
+      | TOKEN_PATH string                                            -> path
+      | TOKEN_ADDPATH string                                         -> addpath
+      | TOKEN_MENU menu_head menu_body                               -> menu
+      | TOKEN_RECORDTYPE recordtype_head recordtype_body             -> recordtype
+      | TOKEN_DEVICE "(" string "," string "," string "," string ")" -> device
+      | TOKEN_DRIVER "(" string ")"                                  -> driver
+      | TOKEN_LINK "(" string "," string ")"                         -> link
+      | TOKEN_REGISTRAR "(" string ")"                               -> registrar
+      | TOKEN_FUNCTION "(" string ")"                                -> function
+      | TOKEN_VARIABLE "(" string ["," string ] ")"                  -> variable
+      | TOKEN_BREAKTABLE break_head break_body                       -> breaktable
+      | (TOKEN_RECORD | TOKEN_GRECORD) record_head record_body       -> record
+      | TOKEN_ALIAS "(" string "," string ")"                        -> standalone_alias
 
-include:    TOKEN_INCLUDE STRING
+include:    TOKEN_INCLUDE string
 
-path:       TOKEN_PATH STRING
+menu_head:  "(" string ")"
 
-addpath:    TOKEN_ADDPATH STRING
+menu_body:  "{" choice* "}"
 
-menu_head:  "(" STRING ")"
-
-menu_body:  "{" choice_list "}"
-
-choice_list: choice_list choice
-           | choice
-
-choice: TOKEN_CHOICE "(" STRING "," STRING ")"
+choice: TOKEN_CHOICE "(" string "," string ")"
       | include
 
-recordtype_head: "(" STRING ")"
+recordtype_head: "(" string ")"
 
 recordtype_body: "{" recordtype_field* "}"
 
 recordtype_field: TOKEN_FIELD recordtype_field_head recordtype_field_body
-                | TOKEN_CDEFS
-                | include
+                | TOKEN_CDEFS -> cdef
+                | include     -> recordtype_field_include
 
-recordtype_field_head: "(" STRING "," STRING ")"
+recordtype_field_head: "(" string "," string ")"
 
 recordtype_field_body: "{" recordtype_field_item* "}"
 
-recordtype_field_item: STRING "(" STRING ")"
-                     | TOKEN_MENU "(" STRING ")"
+recordtype_field_item: string "(" string ")"      -> recordtype_field_item
+                     | TOKEN_MENU "(" string ")"  -> recordtype_field_item_menu
 
-
-device: TOKEN_DEVICE "(" STRING "," STRING "," STRING "," STRING ")"
-
-
-driver: TOKEN_DRIVER "(" STRING ")"
-
-link: TOKEN_LINK "(" STRING "," STRING ")"
-
-registrar: TOKEN_REGISTRAR "(" STRING ")"
-
-function: TOKEN_FUNCTION "(" STRING ")"
-
-variable: TOKEN_VARIABLE "(" STRING ")"
-        | TOKEN_VARIABLE "(" STRING "," STRING ")"
-
-break_head: "(" STRING ")"
+break_head: "(" string ")"
 
 break_body : "{" break_list "}"
 
-break_list: break_list [","] break_item
-          | break_item
+break_list: _optionally_comma_separated{break_item}
 
-break_item: STRING
+break_item: string
 
-grecord_head: "(" STRING "," STRING ")"
+record_head: "(" string "," string ")"
 
-record_head: "(" STRING "," STRING ")"
+record_body: [ "{" record_field* "}" ]
 
-record_body:  // TODO: null record body is acceptable?
-           | "{" "}"
-           | "{" record_field* "}"
-
-record_field: TOKEN_FIELD "(" STRING "," json_value ")" -> field
-            | TOKEN_INFO "(" STRING "," json_value ")"  -> info
-            | TOKEN_ALIAS "(" STRING ")"                -> alias
+record_field: TOKEN_FIELD "(" string "," json_value ")" -> record_field
+            | TOKEN_INFO "(" string "," json_value ")"  -> record_field_info
+            | TOKEN_ALIAS "(" string ")"                -> record_field_alias
             | include
 
-standalone_alias: TOKEN_ALIAS "(" STRING "," STRING ")"
+json_dict: "{" [ _comma_separated{json_key_value} ] "}"
 
-json_dict: "{" "}"
-         | "{" json_members "}"
+json_key_value: json_key ":" json_value
 
-json_members: _comma_separated{json_key_value}
+json_key: JSONSTR
 
-json_key_value: JSON_KEY ":" json_value
-
-JSON_KEY: JSONSTR
-        | BARECHAR+
-
-JSON_STRING: JSONSTR
-           | BARECHAR+
+json_string: JSONSTR
 
 json_array: "[" "]"
           | "[" json_elements "]"
@@ -204,9 +170,10 @@ json_elements: _comma_separated{json_value}
 ?json_value: JSON_NULL
            | JSON_TRUE
            | JSON_FALSE
-           | JSON_STRING
+           | json_string
            | number
            | json_array
            | json_dict
 
 _comma_separated{x}: x ("," x)* ","?
+_optionally_comma_separated{x}: x (","? x)* ","?

@@ -1,12 +1,11 @@
 # cython: language_level=3
-import dataclasses
 from dataclasses import field
 from typing import ClassVar, Dict, Tuple
 
-from .common import LoadContext
+from .common import LoadContext, dataclass
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynPort:
     context: Tuple[LoadContext]
     name: str
@@ -33,7 +32,7 @@ class AsynPort:
     }
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynMotor:
     context: LoadContext
     name: str
@@ -41,7 +40,7 @@ class AsynMotor:
     parent: AsynPort = None
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynIPPort(AsynPort):
     hostInfo: str = ""
     priority: str = ""
@@ -49,7 +48,7 @@ class AsynIPPort(AsynPort):
     noProcessEos: str = ""
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynSerialPort(AsynPort):
     ttyName: str = ""
     priority: str = ""
@@ -57,7 +56,7 @@ class AsynSerialPort(AsynPort):
     noProcessEos: str = ""
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AdsAsynPort(AsynPort):
     ipaddr: str = ""
     amsaddr: str = ""
@@ -86,7 +85,7 @@ class AdsAsynPort(AsynPort):
     }
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynPortMultiDevice:
     context: LoadContext
     name: str
@@ -95,7 +94,7 @@ class AsynPortMultiDevice:
     devices: Dict[str, 'AsynPortDevice'] = field(default_factory=dict)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynPortDevice:
     context: LoadContext
     name: str = ""
@@ -104,7 +103,7 @@ class AsynPortDevice:
     motors: Dict[str, AsynMotor] = field(default_factory=dict)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class AsynPortOption:
     context: LoadContext
     key: str

@@ -11,7 +11,7 @@ cimport epicscorelibs
 cimport epicscorelibs.Com
 
 from .common import IocshCommand, IocshResult, LoadContext, ShellStateBase
-from .db import DbdFile, RecordField, RecordInstance
+# from .db import DbdFile, RecordField, RecordInstance
 from .macro import MacroContext
 
 logger = logging.getLogger(__name__)

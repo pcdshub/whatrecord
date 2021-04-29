@@ -107,7 +107,8 @@ app.component('epics-format-record', {
   props: ["name", "context", "fields", "record_type"],
   template: `
   <div class="code">
-  record({{ record_type }}, "{{ name }}") {<br/>
+    <template v-if="is_grecord">g</template>
+    record({{ record_type }}, "{{ name }}") {<br/>
     <span
       class="recordfield"
       v-for="field in fields"
@@ -137,7 +138,7 @@ app.component('dictionary-table', {
         <td v-if="skip_keys.indexOf(key) >= 0">
         </td>
         <td v-else-if="key == 'context'">
-          <script-context-link v-bind:context="value.map(({name, line}) => name + ':' + line)" v-bind:short=true></script-context-link>
+          <script-context-link v-bind:context=value v-bind:short=true></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'">
           <dictionary-table
@@ -211,24 +212,24 @@ app.component('script-context-link', {
   <div class="context">
   <template v-for:="ctx in context">
     &gt;
-    <a v-if="ctx.indexOf('.cmd') >= 0"
-        v-bind:href="'/script?script=' + ctx.split(':')[0] + '#' + ctx"
+    <a v-if="ctx.name.indexOf('.cmd') >= 0"
+        v-bind:href="'/script?script=' + ctx.name + '#' + ctx.name + ':' + ctx.line"
         target="_blank">
       <template v-if="short">
-          {{ ctx.replace(/^.*[\\\/]/, '') }}<br/>
+          {{ ctx.name.replace(/^.*[\\\/]/, '') }}:{{ ctx.line }}<br/>
       </template>
       <template v-else>
-          {{ ctx }}<br/>
+          {{ ctx.name }}:{{ ctx.line }}<br/>
       </template>
     </a>
     <a v-else
-          v-bind:href="'/database?file=' + ctx.split(':')[0] + '#' + ctx.split(':')[1]"
+          v-bind:href="'/database?file=' + ctx.name + '#' + ctx.line"
           target="_blank">
       <template v-if="short">
-          {{ ctx.replace(/^.*[\\\/]/, '') }}<br/>
+          {{ ctx.name.replace(/^.*[\\\/]/, '') }}:{{ ctx.line }}<br/>
       </template>
       <template v-else>
-          {{ ctx }}<br/>
+          {{ ctx.name }}:{{ ctx.line }}<br/>
       </template>
     </a>
   </template>
