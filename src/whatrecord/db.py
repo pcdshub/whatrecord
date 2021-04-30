@@ -454,8 +454,9 @@ class Database:
             parser="lalr",
             lexer_callbacks={"COMMENT": comments.append},
             transformer=_DatabaseTransformer(filename, dbd=dbd),
-            # Supposedly caches LALR grammar analysis to a local file:
-            cache=True,
+            # Caches LALR grammar analysis to a local file:
+            # TODO: handle cache paths ourselves
+            cache='db.lark.cache',
         )
         if macro_context is not None:
             contents = "\n".join(

@@ -386,7 +386,7 @@ def whatrec(
     )
 
 
-def load_startup_scripts(*fns) -> ScriptContainer:
+def load_startup_scripts(*fns, standin_directories=None) -> ScriptContainer:
     sh = IOCShellInterpreter()
     container = ScriptContainer(sh)
 
@@ -399,11 +399,8 @@ def load_startup_scripts(*fns) -> ScriptContainer:
         sh.state = ShellState()
         sh.state.working_directory = pathlib.Path(fn).resolve().parent
         sh.state.macro_context.define(TOP="../..")
-        sh.state.standin_directories = {
-            # "/reg/d/iocCommon/": "/Users/klauer/Repos/iocCommon/",
-            # "/reg/g/pcds/epics/ioc/common/ads-ioc/R0.3.1/": "/Users/klauer/Repos/ads-ioc/",  # noqa
-            # "/reg/g/pcds/epics-dev/zlentz/lcls-plc-kfe-motion/": "/Users/klauer/Repos/lcls-plc-kfe-motion/",  # noqa
-        }
+        sh.state.standin_directories = standin_directories or {}
+
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
@@ -411,24 +408,5 @@ def load_startup_scripts(*fns) -> ScriptContainer:
         container.add_script(IocshScript(path=str(fn), lines=startup), sh.state)
         elapsed = time.monotonic() - t0
         print(f"[{elapsed:.1f} s]")
-        # for result in sh.interpret_shell_script(lines, name=fn):
-        #     if result.outputs:
-        #         if result.redirects:
-        #             prefix = "[REDIR]"
-        #         else:
-        #             prefix = "[OUTPUT]"
-
-        #         logger.info("%s%s", prefix, "\n".join(result.outputs))
-        #         # print(prefix, "\n".join(result.outputs))
-
-        #     if result.error:
-        #         logger.error("[ERROR] %s", result.error)
-        #     if result:
-        #         res_output = repr(result)
-        #         if len(res_output) > 5000:
-        #             res_output = res_output[:5000] + "..."
-        #         # print("->", res_output)
-        #         # logger.info("->", res_output)
-        # print(schema.serialize(sh.state))
 
     return container

@@ -7,7 +7,8 @@ import pathlib
 import re
 import sys
 import tempfile
-from typing import DefaultDict, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (DefaultDict, Dict, List, Optional, Sequence, Set, Tuple,
+                    Union)
 
 import graphviz
 from aiohttp import web
@@ -41,8 +42,11 @@ class ServerState:
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
 
-    def __init__(self, startup_scripts):
-        self.container = load_startup_scripts(*startup_scripts)
+    def __init__(self, startup_scripts, standin_directories):
+        self.standin_directories = standin_directories
+        self.container = load_startup_scripts(
+            *startup_scripts, standin_directories=standin_directories
+        )
         self.pv_relations = graph.build_database_relations(self.container.database)
         self.archived_pvs = set()
         self.gateway_config = None
@@ -115,8 +119,8 @@ class ServerState:
 class ServerHandler:
     routes = web.RouteTableDef()
 
-    def __init__(self, startup_scripts):
-        self.state = ServerState(startup_scripts)
+    def __init__(self, startup_scripts, standin_directories):
+        self.state = ServerState(startup_scripts, standin_directories)
 
     @routes.get("/api/pv/{pv_names}/info")
     async def api_pv_get_info(self, request: web.Request):
@@ -257,9 +261,16 @@ def main(
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
     gateway_config: Optional[str] = None,
+    port: int = 8899,
+    standin_directory: Optional[Union[List, Dict]] = None,
 ):
     app = web.Application()
-    handler = ServerHandler(scripts)
+
+    standin_directory = standin_directory or {}
+    if not isinstance(standin_directory, dict):
+        standin_directory = dict(path.split("=", 1) for path in standin_directory)
+
+    handler = ServerHandler(scripts, standin_directories=standin_directory)
     add_routes(app, handler)
 
     if archive_file:
@@ -271,7 +282,7 @@ def main(
     if gateway_config:
         handler.state.load_gateway_config(gateway_config)
 
-    web.run_app(app, port=8899)
+    web.run_app(app, port=port)
     return app, handler
 
 

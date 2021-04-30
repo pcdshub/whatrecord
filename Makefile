@@ -3,6 +3,7 @@ all: install server
 IPY_OPTS ?= -i
 GATEWAY_CONFIG ?= /reg/g/pcds/gateway/config/
 STARTUP_SCRIPTS ?= $(shell cat all_stcmds.txt)
+PORT ?= 8899
 
 MACOSX_DEPLOYMENT_TARGET ?= 10.9
 
@@ -22,6 +23,8 @@ server:
 	ipython -i `which whatrec` -- server \
 		--archive-file all_archived_pvs.json \
 		--gateway-config $(GATEWAY_CONFIG) \
-		--scripts $(STARTUP_SCRIPTS)
+		--scripts $(STARTUP_SCRIPTS) \
+		--port $(PORT) \
+		$(SERVER_ARGS)
 
 .phony: install ipython server profile time
