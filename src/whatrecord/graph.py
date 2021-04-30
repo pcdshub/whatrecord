@@ -57,7 +57,9 @@ def build_database_relations(
             rec2 = database.get(link, None)
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
-                logger.warning("Linked record not in database: %s", link)
+                # TODO: check for constant links, ignore card/slot syntax, etc
+                if not link.startswith("#"):
+                    logger.warning("Linked record not in database: %s", link)
             else:
                 if field2 in rec2.fields:
                     field2 = rec2.fields[field2]

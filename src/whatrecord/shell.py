@@ -393,7 +393,7 @@ def load_startup_scripts(*fns) -> ScriptContainer:
     total_files = len(fns)
     for idx, fn in enumerate(sorted(set(fns))):
         t0 = time.monotonic()
-        if idx == 200:
+        if idx == 20:
             break
         print(f"{idx}/{total_files}: Loading {fn}...", end="")
         sh.state = ShellState()
