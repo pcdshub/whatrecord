@@ -19,7 +19,6 @@ requirements:
       - python >=3.6
       - aiohttp
       - cython
-      - epics-pypdb>=0.1.5
       - epicscorelibs
       - graphviz
       - jinja2
