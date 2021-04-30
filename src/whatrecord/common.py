@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def dataclass(cls=None, /, slots=False, **kwargs):
+def dataclass(cls=None, slots=False, **kwargs):
     """
     Dataclass wrapper to set ``__slots__`` adapted from:
         https://github.com/python/cpython/pull/24171
@@ -26,6 +26,7 @@ def dataclass(cls=None, /, slots=False, **kwargs):
 
     No-operation if slots=False.
     """
+    # TODO: positional-only
 
     @functools.wraps(dataclasses.dataclass)
     def wrapper(cls):

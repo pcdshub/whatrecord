@@ -7,8 +7,10 @@ STARTUP_SCRIPTS ?= \
 	/Users/klauer/Repos/lcls-plc-kfe-motion/iocBoot/ioc-kfe-motion/st.cmd \
 	/Users/klauer/Repos/iocs/reg/g/pcds/epics/ioc/las/vitara/R2.12.1/iocBoot/ioc-las-cxi-vitara/st.cmd
 
+MACOSX_DEPLOYMENT_TARGET ?= 10.9
+
 install:
-	pip install  .
+	MACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET) pip install  .
 
 ipython:
 	ipython -i -c "import sys, whatrecord.shell; from whatrecord.shell import whatrec; from whatrecord.graph import graph_links; cnt = whatrecord.shell.load_startup_scripts(*sys.argv[4:])" $(STARTUP_SCRIPTS)
