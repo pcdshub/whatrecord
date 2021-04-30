@@ -407,13 +407,15 @@ def _load_startup_script_json(standin_directories, fn):
 
 def load_startup_scripts(*fns, standin_directories=None, pool=None) -> ScriptContainer:
     container = ScriptContainer()
-    total_files = len(fns)
+    total_files = len(set(fns))
 
     loader = functools.partial(_load_startup_script_json, standin_directories)
     with mp.Pool(processes=4) as pool:
-        for script, sh_state in pool.map(loader, sorted(set(fns))):
+        results = pool.imap(loader, sorted(set(fns)))
+        for idx, (script, sh_state) in enumerate(results, 1):
             script = IocshScript.from_json(script)
             sh_state = ShellState.from_json(sh_state)
+            print(f"{idx}/{total_files}: Loaded {script.path}")
             container.add_script(
                 IocshScript(path=script.path, lines=script.lines),
                 sh_state
