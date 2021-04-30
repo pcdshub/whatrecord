@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 import logging
 import pathlib
@@ -10,7 +9,7 @@ from . import asyn
 from . import motor as motor_mod
 # from . import schema
 from .common import (IocshScript, RecordInstance, ShellStateBase,
-                     ShortLinterResults, WhatRecord)
+                     ShortLinterResults, WhatRecord, dataclass)
 from .db import Database, load_database_file
 from .format import FormatContext
 from .iocsh import IocshCommand, IOCShellInterpreter
@@ -37,7 +36,7 @@ def _motor_wrapper(method):
     return wrapped
 
 
-@dataclasses.dataclass
+@dataclass
 class ShellState(ShellStateBase):
     """
     Shell state for IOCShellInterpreter.
@@ -168,7 +167,7 @@ class ShellState(ShellStateBase):
                 rec.context = context + rec.context
             else:
                 entry = self.database[name]
-                entry.context = entry.context + ("and",) + rec.context
+                entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
 
         return ShortLinterResults.from_full_results(
@@ -405,6 +404,7 @@ def load_startup_scripts(*fns, standin_directories=None) -> ScriptContainer:
             lines = fp.read().splitlines()
 
         startup = tuple(sh.interpret_shell_script(lines, name=fn))
+
         container.add_script(IocshScript(path=str(fn), lines=startup), sh.state)
         elapsed = time.monotonic() - t0
         print(f"[{elapsed:.1f} s]")

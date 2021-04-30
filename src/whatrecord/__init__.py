@@ -18,4 +18,12 @@ from .macro import MacroContext  # isort: skip  # noqa
 from .iocsh import IOCShellInterpreter  # isort: skip  # noqa
 from .db import Database, load_database_file  # isort: skip  # noqa
 
+# TODO: fix forward references, allowing dataclasses-json to do its magic
+from . import common  # isort: skip  # noqa
+common.Database = Database
+common.IOCShellInterpreter = IOCShellInterpreter
+common.MacroContext = MacroContext
+
+del common
+
 __all__ = ["MacroContext", "IOCShellInterpreter", "Database", "load_database_file"]

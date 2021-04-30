@@ -8,6 +8,8 @@ import typing
 from dataclasses import field
 from typing import ClassVar, Dict, List, Tuple
 
+import dataclasses_json
+
 if typing.TYPE_CHECKING:
     from .asyn import AsynPort
     from .db import Database, LinterResults
@@ -16,6 +18,13 @@ if typing.TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# field metadata to use for excluding fields in JSON
+md_excluded = dataclasses_json.config(exclude=dataclasses_json.Exclude.ALWAYS)
+md_pathlib = dataclasses_json.config(
+    encoder=str,
+    decoder=pathlib.Path
+)
 
 
 def dataclass(cls=None, slots=False, **kwargs):
@@ -32,7 +41,7 @@ def dataclass(cls=None, slots=False, **kwargs):
     def wrapper(cls):
         cls = dataclasses.dataclass(cls, **kwargs)
         if not slots:
-            return cls
+            return dataclasses_json.dataclass_json(cls)
 
         # Need to create a new class, since we can't set __slots__
         #  after a class has been created.
@@ -59,7 +68,7 @@ def dataclass(cls=None, slots=False, **kwargs):
         if qualname is not None:
             cls.__qualname__ = qualname
 
-        return cls
+        return dataclasses_json.dataclass_json(cls)
 
     if cls is None:
         return wrapper
@@ -151,7 +160,7 @@ class RecordField:
     dtype: str
     name: str
     value: str
-    context: Tuple[LoadContext]
+    context: Tuple[LoadContext, ...]
 
     _jinja_format_: ClassVar[dict] = {
         "console": """field({{name}}, "{{value}}")""",
@@ -195,7 +204,7 @@ LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
 
 @dataclass(slots=True)
 class RecordInstance:
-    context: Tuple[LoadContext]
+    context: Tuple[LoadContext, ...]
     name: str
     record_type: str
     fields: Dict[str, RecordField]
@@ -249,21 +258,26 @@ class ShellStateBase:
     prompt: str = "epics>"
     variables: dict = field(default_factory=dict)
     string_encoding: str = "latin-1"
-    macro_context: "MacroContext" = None
     standin_directories: Dict[str, str] = field(default_factory=dict)
-    working_directory: pathlib.Path = field(default_factory=lambda: pathlib.Path.cwd())
+    working_directory: pathlib.Path = field(
+        default_factory=lambda: pathlib.Path.cwd(),
+        metadata=md_pathlib,
+    )
     database_definition: "Database" = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[LoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, object] = field(default_factory=dict)
-    shell: "IOCShellInterpreter" = None
-    loaded_files: Dict[str, pathlib.Path] = field(default_factory=dict)
+    loaded_files: Dict[str, pathlib.Path] = field(
+        default_factory=dict,
+        metadata=md_pathlib,
+    )
+    shell: ClassVar["IOCShellInterpreter"] = field(metadata=md_excluded)
+    macro_context: ClassVar["MacroContext"] = field(metadata=md_excluded)
 
     def __post_init__(self):
-        if self.macro_context is None:
-            from .macro import MacroContext
-            self.macro_context = MacroContext()
-
+        from .macro import MacroContext
+        self.macro_context = MacroContext()
+        self.shell = None
         self.handlers = dict(self.find_handlers())
 
     def find_handlers(self):

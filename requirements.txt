@@ -1,8 +1,7 @@
 aiohttp
 cython
+dataclasses-json
 epicscorelibs
 graphviz
 jinja2
 lark
-marshmallow
-marshmallow-dataclass

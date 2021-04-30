@@ -120,7 +120,7 @@ class RecordTypeCdef:
 @dataclass(slots=True)
 class DatabaseMenu:
     name: str
-    choices: List[str]
+    choices: Dict[str, str]
 
 
 @dataclass(slots=True)
