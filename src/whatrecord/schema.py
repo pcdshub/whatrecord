@@ -44,5 +44,12 @@ def serialize(obj):
     if dataclasses.is_dataclass(obj):
         # TODO: I feel I'm using these schemas wrong; nested motors dict
         # AsynMotor does not dump properly
-        return serialize(schemas[type(obj)].dump(obj))
+        cls = type(obj)
+        try:
+            schema = schemas[cls]
+        except KeyError:
+            schema = class_schema(cls)()
+            schemas[cls] = schema
+
+        return serialize(schema.dump(obj))
     return obj

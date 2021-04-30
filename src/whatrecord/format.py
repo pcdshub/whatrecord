@@ -47,13 +47,15 @@ class FormatContext:
             if not key.startswith("_") and key not in {"self"}
         }
 
-    def render_template(self, template: str, /, **context):
+    def render_template(self, template: str, **context):
+        # TODO: positional-only
         for key, value in self.default_render_context.items():
             context.setdefault(key, value)
         self._template_dict["template"] = template
         return self.env.get_template("template").render(context)
 
-    def _render_object_fallback(self, obj, option, /, **context):
+    def _render_object_fallback(self, obj, option, **context):
+        # TODO: positional-only
         if dataclasses.is_dataclass(obj):
             cls = type(obj)
             if cls not in self._fallback_formats:
@@ -66,7 +68,8 @@ class FormatContext:
 
         return str(obj)
 
-    def render_object(self, obj, option, /, **context):
+    def render_object(self, obj, option, **context):
+        # TODO: positional-only
         if dataclasses.is_dataclass(obj):
             for field in dataclasses.fields(obj):
                 context.setdefault(field.name, getattr(obj, field.name))

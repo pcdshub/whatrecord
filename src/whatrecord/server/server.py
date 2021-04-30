@@ -14,7 +14,7 @@ from aiohttp import web
 
 from .. import gateway, graph
 from ..common import RecordField, WhatRecord
-from ..shell import ScriptContainer, load_multiple_startup_scripts
+from ..shell import ScriptContainer, load_startup_scripts
 from . import html as html_mod
 from . import static
 
@@ -42,7 +42,7 @@ class ServerState:
     gateway_config: gateway.GatewayConfig
 
     def __init__(self, startup_scripts):
-        self.container = load_multiple_startup_scripts(*startup_scripts)
+        self.container = load_startup_scripts(*startup_scripts)
         self.pv_relations = graph.build_database_relations(self.container.database)
         self.archived_pvs = set()
         self.gateway_config = None

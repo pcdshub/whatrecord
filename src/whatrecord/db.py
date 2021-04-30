@@ -1,16 +1,14 @@
-import copy
-import dataclasses
 import os
 import pathlib
 from dataclasses import field
-from typing import ClassVar, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-import pyPDB.dbd.yacc as _yacc
-import pyPDB.dbdlint as _dbdlint
-from pyPDB.dbdlint import DBSyntaxError
+import lark
 
-from .common import LinterError, LinterWarning, RecordField, RecordInstance
-from .macro import MacroContext
+from whatrecord.common import (FrozenLoadContext, LinterError, LinterWarning,
+                               LoadContext, RecordField, RecordInstance,
+                               dataclass)
+from whatrecord.macro import MacroContext
 
 MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
 
@@ -21,47 +19,7 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
     return record, field[0] if field else ""
 
 
-def _whole_rec_inst_field(ent, results, info):
-    res = _dbdlint.wholeRecInstField(ent, results, info)
-    recent, field_name = results.stack[-1], ent.args[0]
-    if hasattr(recent, "_fieldinfo"):
-        record_type = recent.args[0]
-        record_name = recent.args[1]
-        ftype = recent._fieldinfo.get(field_name)
-        value = ent.args[1]
-        results._record_field_defined_by_node(
-            node=ent,
-            record_type=record_type,
-            record_name=record_name,
-            field_name=field_name,
-            field_type=ftype,
-            value=value,
-        )
-
-    return res
-
-
-def _whole_rec_inst(ent, results, info):
-    res = _dbdlint.wholeRecInst(ent, results, info)
-    rtype = ent.args[0]
-    name = ent.args[1]
-    appending = rtype == "*"
-    if appending and name in results.recinst:
-        rtype = results.recinst[name]
-
-    results._record_defined_by_node(node=ent, rtype=rtype, name=name)
-    return res
-
-
-# Patch in some of our own hooks to get additional metadata
-dbdtree = copy.deepcopy(_dbdlint.dbdtree)
-dbdtree[_dbdlint.Block]["record"]["tree"][_dbdlint.Block]["field"][
-    "wholefn"
-] = _whole_rec_inst_field  # noqa: E501
-dbdtree[_dbdlint.Block]["record"]["wholefn"] = _whole_rec_inst
-
-
-@dataclasses.dataclass(repr=False)
+@dataclass(repr=False, slots=True)
 class LinterResults:
     """
     Container for dbdlint results, with easier-to-access attributes.
@@ -87,16 +45,14 @@ class LinterResults:
     error: bool = False
     warning: bool = False
 
-    warn_options: List[str] = field(default_factory=list)
-
     # {'ao':{'OUT':'DBF_OUTLINK', ...}, ...}
-    rectypes: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    record_types: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
-    recdsets: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    # recdsets: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     # {'inst:name':'ao', ...}
-    recinst: Dict[str, str] = field(default_factory=dict)
+    records: Dict[str, str] = field(default_factory=dict)
 
     extinst: List[str] = field(default_factory=list)
     errors: List[LinterError] = field(default_factory=list)
@@ -105,44 +61,10 @@ class LinterResults:
     # Records with context and field information:
     records: Dict[str, RecordInstance] = field(default_factory=dict)
 
-    # The following are used internally but should not be serialized
-    node: ClassVar[object]
-    stack: ClassVar[List[object]]
-
-    def __post_init__(self):
-        self.node = None
-        self.stack = []
-
-    @property
-    def _error(self):
-        # dbdlint uses this internally; make it more accessible + serialized
-        return self.error
-
-    @_error.setter
-    def _error(self, error):
-        self.error = error
-
-    @property
-    def _warning(self):
-        # dbdlint uses this internally; make it more accessible + serialized
-        return self.warning
-
-    @_warning.setter
-    def _warning(self, warning):
-        self.warning = warning
-
-    @classmethod
-    def from_args(cls, args):
-        return cls(
-            whole=args.whole,
-            # wlvl=logging.ERROR if args.werror else logging.WARN,
-            warn_options=list(args.warn),
-        )
-
     def __repr__(self):
         return (
             f"<{self.__class__.__name__} "
-            f"records={len(self.recinst)} "
+            f"records={len(self.records)} "
             f"errors={len(self.errors)} "
             f"warnings={len(self.warnings)} "
             f">"
@@ -160,24 +82,6 @@ class LinterResults:
                 line=self.node.lineno,
                 message=msg % args,
             )
-        )
-
-    def _record_field_defined_by_node(
-        self, node, record_type, record_name, field_name, field_type, value
-    ):
-        self.records[record_name].fields[field_name] = RecordField(
-            dtype=field_type,
-            value=value,
-            name=field_name,
-            context=(f"{node.fname}:{node.lineno}",),
-        )
-
-    def _record_defined_by_node(self, node, name, rtype):
-        self.records[name] = RecordInstance(
-            context=(f"{node.fname}:{node.lineno}",),
-            name=name,
-            record_type=rtype,
-            fields={},
         )
 
     def err(self, name, msg, *args):
@@ -200,37 +104,387 @@ class LinterResults:
         return not len(self.errors)
 
 
-class DbdFile:
+@dataclass(slots=True)
+class RecordTypeField:
+    name: str
+    type: str
+    body: List[Tuple[str, str]]
+    context: Tuple[LoadContext]
+
+
+@dataclass(slots=True)
+class RecordTypeCdef:
+    text: str
+
+
+@dataclass(slots=True)
+class DatabaseMenu:
+    name: str
+    choices: List[str]
+
+
+@dataclass(slots=True)
+class DatabaseInclude:
+    path: str
+
+
+@dataclass(slots=True)
+class DatabasePath:
+    path: str
+
+
+@dataclass(slots=True)
+class DatabaseAddPath:
+    path: str
+
+
+@dataclass(slots=True)
+class DatabaseDriver:
+    drvet_name: str
+
+
+@dataclass(slots=True)
+class DatabaseLink:
+    name: str
+    identifier: str
+
+
+@dataclass(slots=True)
+class DatabaseRegistrar:
+    function_name: str
+
+
+@dataclass(slots=True)
+class DatabaseFunction:
+    function_name: str
+
+
+@dataclass(slots=True)
+class DatabaseVariable:
+    name: str
+    data_type: Optional[str]
+
+
+@dataclass(slots=True)
+class DatabaseDevice:
+    record_type: str
+    link_type: str
+    dset_name: str
+    choice_string: str
+
+
+@dataclass(slots=True)
+class DatabaseBreakTable:
+    name: str
+    values: List[Tuple[str, ...]]
+
+
+@dataclass(slots=True)
+class DatabaseRecordAlias:
+    record_name: str
+    alias_name: str
+
+
+@dataclass(slots=True)
+class DatabaseRecordFieldInfo:
+    name: str
+    value: str
+
+
+@dataclass(slots=True)
+class RecordType:
+    name: str
+    cdefs: List[str]
+    fields: Dict[str, RecordTypeField]
+    devices: Dict[str, DatabaseDevice] = field(default_factory=dict)
+    aliases: List[str] = field(default_factory=list)
+    info: Dict[str, str] = field(default_factory=dict)
+    is_grecord: bool = False
+
+
+class UnquotedString(lark.lexer.Token):
     """
-    An expanded EPICS dbd file
-
-    Parameters
-    ----------
-    fn : str or file
-        dbd filename
-
-    Attributes
-    ----------
-    filename : str
-        The dbd filename
-    parsed : list
-        pyPDB parsed dbd nodes
+    An unquoted string token found when loading a database file.
+    May be a linter warning.
     """
+    ...
 
-    def __init__(self, fn):
-        if hasattr(fn, "read"):
-            self.filename = getattr(fn, "name", None)
-            contents = fn.read()
+
+def _separate_by_class(items, mapping):
+    """Separate ``items`` by type into ``mapping`` of collections."""
+    for item in items:
+        container = mapping[type(item)]
+        if isinstance(container, list):
+            container.append(item)
         else:
-            self.filename = str(fn)
-            with open(fn, "rt") as f:
-                contents = f.read()
+            container[item.name] = item
 
-        self.parsed = _yacc.parse(contents)
+
+def _context_from_token(fn: str, token: lark.Token) -> Tuple[FrozenLoadContext]:
+    return (FrozenLoadContext(name=fn, line=token.line), )
+
+
+@lark.visitors.v_args(inline=True)
+class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
+    def __init__(self, fn, dbd=None):
+        self.fn = str(fn)
+        self.dbd = dbd
+        self.record_types = dbd.record_types if dbd is not None else {}
+
+    @lark.visitors.v_args(tree=True)
+    def database(self, body):
+        db = Database()
+        _separate_by_class(
+            body.children,
+            {
+                DatabaseMenu: db.menus,
+                DatabaseInclude: db.includes,
+                DatabasePath: db.paths,
+                DatabaseAddPath: db.addpaths,
+                DatabaseDriver: db.drivers,
+                DatabaseLink: db.links,
+                DatabaseRegistrar: db.registrars,
+                DatabaseFunction: db.functions,
+                DatabaseVariable: db.variables,
+
+                RecordType: db.record_types,
+                DatabaseBreakTable: db.breaktables,
+                RecordInstance: db.records,
+                DatabaseDevice: db.devices,
+            }
+        )
+        return db
+
+    def dbitem(self, *items):
+        return items
+
+    def include(self, path):
+        # raise RuntimeError("Incomplete dbd files are a TODO :(")
+        return DatabaseInclude(path)
+
+    def path(self, path):
+        return DatabasePath(path)
+
+    def addpath(self, path):
+        return DatabaseAddPath(path)
+
+    def menu(self, _, name, choices):
+        return DatabaseMenu(name=name, choices=choices)
+
+    def menu_head(self, name):
+        return name
+
+    def menu_body(self, *choices):
+        return dict(choices)
+
+    def device(self, _, record_type, link_type, dset_name, choice_string):
+        return DatabaseDevice(record_type, link_type, dset_name, choice_string)
+
+    def driver(self, _, drvet_name):
+        return DatabaseDriver(drvet_name)
+
+    def link(self, _, name, identifier):
+        return DatabaseLink(name, identifier)
+
+    def registrar(self, _, name):
+        return DatabaseRegistrar(name)
+
+    def function(self, _, name):
+        return DatabaseFunction(name)
+
+    def variable(self, _, name, value=None):
+        return DatabaseVariable(name, value)
+
+    def breaktable(self, _, name, values):
+        return DatabaseBreakTable(name, values)
+
+    def break_head(self, name):
+        return name
+
+    def break_body(self, items):
+        return items
+
+    def break_list(self, *items):
+        return items
+
+    def break_item(self, value):
+        return value
+
+    def choice(self, _, identifier, string):
+        return (identifier, string)
+
+    def recordtype_field(self, field_tok, head, body):
+        name, type_ = head
+        return RecordTypeField(
+            name=name, type=type_, body=body,
+            context=_context_from_token(self.fn, field_tok)
+        )
+
+    def recordtype_head(self, head):
+        return head
+
+    # @lark.visitors.v_args(tree=True)
+    def recordtype_field_body(self, *items):
+        return items
+
+    def recordtype_field_head(self, name, type_):
+        return (name, type_)
+
+    def recordtype_field_item(self, name, value):
+        return (name, value)
+
+    def alias(self, _, alias_name):
+        return DatabaseRecordAlias(None, alias_name)
+
+    def standalone_alias(self, _, record_name, alias_name):
+        return DatabaseRecordAlias(record_name, alias_name)
+
+    def json_string(self, value):
+        if value and value[0] in "'\"":
+            return value[1:-1]
+        # return UnquotedString('UnquotedString', str(value))
+
+        # This works okay in practice, I just don't like the repr we get.
+        # Not sure if there's a better way to do the same linting functionality
+        # as pypdb without it.
+        return str(value)
+
+    string = json_string
+    json_key = json_string
+
+    recordtype_field_item_menu = recordtype_field_item
+
+    def cdef(self, cdef_text):
+        return RecordTypeCdef(cdef_text)
+
+    def recordtype(self, _, name, body):
+        info = {
+            RecordTypeCdef: [],
+            RecordTypeField: {},
+        }
+        _separate_by_class(body.children, info)
+        record_type = RecordType(
+            name=name, fields=info[RecordTypeField], cdefs=info[RecordTypeCdef]
+        )
+        self.record_types[name] = record_type
+        return record_type
+
+    def record(self, rec_token, head, body):
+        record_type, name = head
+        info = {
+            RecordField: {},
+            DatabaseRecordFieldInfo: {},
+            DatabaseRecordAlias: [],
+        }
+        _separate_by_class(body, info)
+
+        record_type_info = self.record_types.get(record_type, None)
+        if record_type_info is None:
+            # TODO lint error, if dbd loaded
+            ...
+        else:
+            for fld in info[RecordField].values():
+                field_info = record_type_info.fields.get(fld.name, None)
+                if field_info is None:
+                    # TODO lint error, if dbd loaded
+                    ...
+                else:
+                    fld.dtype = field_info.type
+                    fld.context = field_info.context + fld.context
+
+        return RecordInstance(
+            aliases=info[DatabaseRecordAlias],
+            context=_context_from_token(self.fn, rec_token),
+            fields=info[RecordField],
+            is_grecord=(rec_token == "grecord"),
+            metadata=info[DatabaseRecordFieldInfo],
+            name=name,
+            record_type=record_type,
+        )
+
+    def json_dict(self, *members):
+        return dict(members)
+
+    def json_key_value(self, key, value):
+        return (key, value)
+
+    def record_head(self, record_type, name):
+        return (record_type, name)
+
+    def record_field(self, field_token, name, value):
+        return RecordField(
+            dtype=None, name=name, value=value,
+            context=_context_from_token(self.fn, field_token)
+        )
+
+    def record_field_info(self, _, name, value):
+        return DatabaseRecordFieldInfo(name, value)
+
+    def record_field_alias(self, _, name):
+        return DatabaseRecordAlias(None, name)
+
+    def record_body(self, *body_items):
+        return body_items
+
+
+@dataclass(slots=True)
+class Database:
+    # standalone_aliases: Dict[str, str] = field(default_factory=dict)
+    addpaths: List[DatabaseAddPath] = field(default_factory=list)
+    breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
+    comments: List = field(default_factory=list)
+    devices: List[DatabaseDevice] = field(default_factory=list)
+    drivers: List[DatabaseDriver] = field(default_factory=list)
+    functions: List[DatabaseFunction] = field(default_factory=list)
+    includes: List[DatabaseInclude] = field(default_factory=list)
+    links: List[DatabaseLink] = field(default_factory=list)
+    menus: List[DatabaseMenu] = field(default_factory=list)
+    paths: List[DatabasePath] = field(default_factory=list)
+    records: Dict[str, RecordInstance] = field(default_factory=dict)
+    record_types: Dict[str, RecordType] = field(default_factory=dict)
+    registrars: List[DatabaseRegistrar] = field(default_factory=list)
+    variables: List[DatabaseVariable] = field(default_factory=list)
+
+    @classmethod
+    def from_string(cls, contents, dbd=None, filename=None,
+                    macro_context=None):
+        comments = []
+        grammar = lark.Lark.open_from_package(
+            "whatrecord", "db.lark", search_paths=("grammar", ),
+            parser="lalr",
+            lexer_callbacks={"COMMENT": comments.append},
+            transformer=_DatabaseTransformer(filename, dbd=dbd),
+            # Supposedly caches LALR grammar analysis to a local file:
+            cache=True,
+        )
+        if macro_context is not None:
+            contents = "\n".join(
+                macro_context.expand(line) for line in contents.splitlines()
+            )
+            contents = contents.rstrip() + "\n"
+
+        db = grammar.parse(contents)
+        db.comments = comments
+        return db
+
+    @classmethod
+    def from_file_obj(cls, fp, dbd=None, macro_context=None):
+        return cls.from_string(
+            fp.read(),
+            filename=getattr(fp, "name", None),
+            dbd=dbd,
+            macro_context=macro_context,
+        )
+
+    @classmethod
+    def from_file(cls, fn, dbd=None, macro_context=None):
+        with open(fn, "rt") as fp:
+            return cls.from_string(fp.read(), filename=fn, dbd=dbd,
+                                   macro_context=macro_context)
 
 
 def load_database_file(
-    dbd: Union[DbdFile, str, pathlib.Path],
+    dbd: Union[Database, str, pathlib.Path],
     db: Union[str, pathlib.Path],
     macro_context: Optional[MacroContext] = None,
     *,
@@ -248,8 +502,8 @@ def load_database_file(
 
     Parameters
     ----------
-    dbd : DbdFile or str
-        The database definition file; filename or pre-loaded DbdFile
+    dbd : Database or str
+        The database definition file; filename or pre-loaded Database
     db : str
         The database filename.
     full : bool, optional
@@ -280,48 +534,17 @@ def load_database_file(
     -------
     results : LinterResults
     """
-    args = []
-    if warn_ext_links:
-        args.append("-Wext-link")
-    if warn_bad_fields:
-        args.append("-Wbad-field")
-    if warn_rec_append:
-        args.append("-Wrec-append")
+    dbd = dbd if isinstance(dbd, Database) else Database.from_file(dbd)
+    db = Database.from_file(db, dbd=dbd, macro_context=macro_context)
 
-    if not warn_quoted:
-        args.append("-Wno-quoted")
-    if not warn_varint:
-        args.append("-Wno-varint")
-    if not warn_spec_comm:
-        args.append("-Wno-spec-comm")
-
-    if full:
-        args.append("-F")
-    else:
-        args.append("-P")
-
-    dbd_file = dbd if isinstance(dbd, DbdFile) else DbdFile(dbd)
-
-    args = _dbdlint.getargs([str(dbd_file.filename), str(db), *args])
-
-    results = LinterResults.from_args(args)
-
-    with open(db, "r") as f:
-        db_content = f.read()
-
-    if macro_context is not None:
-        db_content = "\n".join(
-            macro_context.expand(line) for line in db_content.splitlines()
-        ) + "\n"
-
-    try:
-        tree = copy.deepcopy(dbdtree)
-        _dbdlint.walk(dbd_file.parsed, tree, results)
-        parsed_db = _yacc.parse(db_content, file=db)
-        _dbdlint.walk(parsed_db, tree, results)
-    except DBSyntaxError as ex:
-        ex.errors = results.errors
-        ex.warnings = results.warnings
-        raise
-
-    return results
+    # all TODO
+    return LinterResults(
+        record_types=dbd.record_types,
+        # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
+        # recdsets=dbd.devices,  # TODO
+        # {'inst:name':'ao', ...}
+        records=db.records,
+        extinst=[],
+        errors=[],
+        warnings=[],
+    )

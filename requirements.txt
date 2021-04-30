@@ -1,6 +1,5 @@
 aiohttp
 cython
-epics-pypdb>=0.1.5
 epicscorelibs
 graphviz
 jinja2

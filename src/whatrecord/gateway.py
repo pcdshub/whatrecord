@@ -1,6 +1,5 @@
 #!/usr/bin/env python3.8
 import argparse
-import dataclasses
 import io
 import pathlib
 import re
@@ -8,11 +7,13 @@ import sys
 import typing
 from typing import Dict, List, Optional, Union
 
+from .common import dataclass
+
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 RE_WHITESPACE = re.compile(r"\s+")
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class Token:
     """Token base class, making up a PVList."""
 
@@ -24,7 +25,7 @@ class Token:
         return cls(line=line, lineno=lineno)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class Setting(Token):
     """A token representing a configuration setting."""
 
@@ -42,12 +43,12 @@ class Setting(Token):
         return cls(line=line, lineno=lineno, setting=setting, values=values)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class Comment(Token):
     """A token representing a comment line."""
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class Expression(Token):
     """A token with a valid regular expression."""
 
@@ -72,7 +73,7 @@ class Expression(Token):
             return self.regex.match(name)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class BadExpression(Token):
     """A token with a bad regular expression."""
 
@@ -81,7 +82,7 @@ class BadExpression(Token):
     exception: Exception
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class PVList:
     """A PVList container."""
 
@@ -305,7 +306,7 @@ def run_match(
             print_match(pvlist, context, expr, show_context=show_context)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class PVListMatch:
     filename: str
     comment_lineno: int
@@ -315,7 +316,7 @@ class PVListMatch:
     details: str
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class PVListMatches:
     name: str
     matches: List[PVListMatch]
