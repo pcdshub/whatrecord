@@ -1,6 +1,7 @@
 import dataclasses
 import functools
 import inspect
+import json
 import logging
 import os
 import pathlib
@@ -99,13 +100,13 @@ class FrozenLoadContext:
 
 @dataclass(slots=True)
 class IocshCommand:
-    context: LoadContext
+    context: Tuple[LoadContext, ...]
     command: str
 
 
 @dataclass(slots=True)
 class IocshResult:
-    context: LoadContext
+    context: Tuple[LoadContext, ...]
     line: str
     outputs: List[str]
     argv: List[str]
@@ -253,6 +254,19 @@ class WhatRecord:
     # - gateway rule matches?
 
 
+def _encode_loaded_files(files: Dict[pathlib.Path, pathlib.Path]) -> str:
+    return json.dumps(
+        [(str(full_fn), str(orig_fn)) for full_fn, orig_fn in files.items()]
+    )
+
+
+def _decode_loaded_files(files: str) -> Dict[pathlib.Path, pathlib.Path]:
+    return {
+        pathlib.Path(full_fn): pathlib.Path(orig_fn)
+        for full_fn, orig_fn in json.loads(files)
+    }
+
+
 @dataclass(slots=False)
 class ShellStateBase:
     prompt: str = "epics>"
@@ -267,9 +281,12 @@ class ShellStateBase:
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[LoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, object] = field(default_factory=dict)
-    loaded_files: Dict[str, pathlib.Path] = field(
+    loaded_files: Dict[pathlib.Path, pathlib.Path] = field(
         default_factory=dict,
-        metadata=md_pathlib,
+        metadata=dataclasses_json.config(
+            encoder=_encode_loaded_files,
+            decoder=_decode_loaded_files,
+        ),
     )
     shell: ClassVar["IOCShellInterpreter"] = field(metadata=md_excluded)
     macro_context: ClassVar["MacroContext"] = field(metadata=md_excluded)

@@ -1,5 +1,6 @@
 import functools
 import logging
+import multiprocessing as mp
 import pathlib
 import sys
 import time
@@ -170,10 +171,7 @@ class ShellState(ShellStateBase):
                 entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
 
-        return ShortLinterResults.from_full_results(
-            linter_results,
-            macros=macros
-        )
+        return ShortLinterResults.from_full_results(linter_results, macros=macros)
 
     def handle_dbl(self, rtyp=None, fields=None, *_):
         return []  # list(self.database)
@@ -324,10 +322,10 @@ class ScriptContainer:
     database: Dict[str, RecordInstance]
     script_to_state: Dict[pathlib.Path, ShellState]
     scripts: Dict[pathlib.Path, IocshScript]
-    loaded_files: Dict[str, str]
+    loaded_files: Dict[pathlib.Path, pathlib.Path]
 
-    def __init__(self, shell: IOCShellInterpreter):
-        self.shell = shell
+    def __init__(self, shell: Optional[IOCShellInterpreter] = None):
+        self.shell = shell or IOCShellInterpreter()
         self.database = {}
         self.scripts = {}
         self.script_to_state = {}
@@ -385,27 +383,53 @@ def whatrec(
     )
 
 
-def load_startup_scripts(*fns, standin_directories=None) -> ScriptContainer:
+def load_startup_script(standin_directories, fn):
     sh = IOCShellInterpreter()
-    container = ScriptContainer(sh)
+    sh.state = ShellState()
+    sh.state.working_directory = pathlib.Path(fn).resolve().parent
+    sh.state.macro_context.define(TOP="../..")
+    sh.state.standin_directories = standin_directories or {}
 
+    with open(fn, "rt") as fp:
+        lines = fp.read().splitlines()
+
+    startup_lines = IocshScript(
+        path=str(fn),
+        lines=tuple(sh.interpret_shell_script(lines, name=fn)),
+    )
+    return startup_lines, sh.state
+
+
+def _load_startup_script_json(standin_directories, fn):
+    startup_lines, sh_state = load_startup_script(standin_directories, fn)
+    return startup_lines.to_json(), sh_state.to_json()
+
+
+def load_startup_scripts(*fns, standin_directories=None, pool=None) -> ScriptContainer:
+    container = ScriptContainer()
     total_files = len(fns)
+
+    loader = functools.partial(_load_startup_script_json, standin_directories)
+    with mp.Pool(processes=4) as pool:
+        for script, sh_state in pool.map(loader, sorted(set(fns))):
+            script = IocshScript.from_json(script)
+            sh_state = ShellState.from_json(sh_state)
+            container.add_script(
+                IocshScript(path=script.path, lines=script.lines),
+                sh_state
+            )
+
+        return container
+
     for idx, fn in enumerate(sorted(set(fns))):
         t0 = time.monotonic()
         if idx == 20:
             break
         print(f"{idx}/{total_files}: Loading {fn}...", end="")
-        sh.state = ShellState()
-        sh.state.working_directory = pathlib.Path(fn).resolve().parent
-        sh.state.macro_context.define(TOP="../..")
-        sh.state.standin_directories = standin_directories or {}
+        startup_lines, sh_state = loader(fn)
+        # sh_state.from_json(sh_state.to_json()).to_json()
 
-        with open(fn, "rt") as fp:
-            lines = fp.read().splitlines()
-
-        startup = tuple(sh.interpret_shell_script(lines, name=fn))
-
-        container.add_script(IocshScript(path=str(fn), lines=startup), sh.state)
+        container.add_script(IocshScript(path=str(fn), lines=startup_lines), sh_state)
         elapsed = time.monotonic() - t0
         print(f"[{elapsed:.1f} s]")
 
