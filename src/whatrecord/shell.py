@@ -390,16 +390,19 @@ def load_startup_scripts(*fns) -> ScriptContainer:
     sh = IOCShellInterpreter()
     container = ScriptContainer(sh)
 
-    for fn in sorted(set(fns)):
+    total_files = len(fns)
+    for idx, fn in enumerate(sorted(set(fns))):
         t0 = time.monotonic()
-        print(f"Loading {fn}...", fn, end="")
+        if idx == 200:
+            break
+        print(f"{idx}/{total_files}: Loading {fn}...", end="")
         sh.state = ShellState()
         sh.state.working_directory = pathlib.Path(fn).resolve().parent
         sh.state.macro_context.define(TOP="../..")
         sh.state.standin_directories = {
-            "/reg/d/iocCommon/": "/Users/klauer/Repos/iocCommon/",
-            "/reg/g/pcds/epics/ioc/common/ads-ioc/R0.3.1/": "/Users/klauer/Repos/ads-ioc/",  # noqa
-            "/reg/g/pcds/epics-dev/zlentz/lcls-plc-kfe-motion/": "/Users/klauer/Repos/lcls-plc-kfe-motion/",  # noqa
+            # "/reg/d/iocCommon/": "/Users/klauer/Repos/iocCommon/",
+            # "/reg/g/pcds/epics/ioc/common/ads-ioc/R0.3.1/": "/Users/klauer/Repos/ads-ioc/",  # noqa
+            # "/reg/g/pcds/epics-dev/zlentz/lcls-plc-kfe-motion/": "/Users/klauer/Repos/lcls-plc-kfe-motion/",  # noqa
         }
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()

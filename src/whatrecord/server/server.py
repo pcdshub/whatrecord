@@ -271,7 +271,7 @@ def main(
     if gateway_config:
         handler.state.load_gateway_config(gateway_config)
 
-    web.run_app(app)
+    web.run_app(app, port=8899)
     return app, handler
 
 

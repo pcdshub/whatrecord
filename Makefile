@@ -1,11 +1,8 @@
 all: install server
 
 IPY_OPTS ?= -i
-GATEWAY_CONFIG ?= /Users/klauer/Repos/gateway-setup/config
-STARTUP_SCRIPTS ?= \
-	/Users/klauer/Repos/iocs/reg/g/pcds/epics/ioc/las/ims/R0.3.1/iocBoot/ioc-las-cxi-phase-ims/st.cmd \
-	/Users/klauer/Repos/lcls-plc-kfe-motion/iocBoot/ioc-kfe-motion/st.cmd \
-	/Users/klauer/Repos/iocs/reg/g/pcds/epics/ioc/las/vitara/R2.12.1/iocBoot/ioc-las-cxi-vitara/st.cmd
+GATEWAY_CONFIG ?= /reg/g/pcds/gateway/config/
+STARTUP_SCRIPTS ?= $(shell cat all_stcmds.txt)
 
 MACOSX_DEPLOYMENT_TARGET ?= 10.9
 

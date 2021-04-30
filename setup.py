@@ -2,10 +2,19 @@
 import os
 import sys
 
-import epicscorelibs
-import epicscorelibs.path
-from Cython.Build import cythonize
-from setuptools import Extension, find_packages, setup
+try:
+    import epicscorelibs
+    import epicscorelibs.path
+    from Cython.Build import cythonize
+    from setuptools import Extension, find_packages, setup
+except ImportError:
+    print("""\
+Sorry, the following are required to build `whatrecord`. Please install these first:
+    epicscorelibs
+    cython
+""")
+    sys.exit(1)
+
 
 import versioneer
 
