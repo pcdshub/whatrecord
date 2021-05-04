@@ -405,32 +405,33 @@ def _load_startup_script_json(standin_directories, fn):
     return startup_lines.to_json(), sh_state.to_json()
 
 
-def load_startup_scripts(*fns, standin_directories=None, pool=None) -> ScriptContainer:
+def load_startup_scripts(
+    *fns, standin_directories=None, processes=1
+) -> ScriptContainer:
     container = ScriptContainer()
     total_files = len(set(fns))
 
-    loader = functools.partial(_load_startup_script_json, standin_directories)
-    with mp.Pool(processes=4) as pool:
-        results = pool.imap(loader, sorted(set(fns)))
-        for idx, (script, sh_state) in enumerate(results, 1):
-            script = IocshScript.from_json(script)
-            sh_state = ShellState.from_json(sh_state)
-            print(f"{idx}/{total_files}: Loaded {script.path}")
-            container.add_script(
-                IocshScript(path=script.path, lines=script.lines),
-                sh_state
-            )
+    if processes > 1:
+        loader = functools.partial(_load_startup_script_json, standin_directories)
+        with mp.Pool(processes=processes) as pool:
+            results = pool.imap(loader, sorted(set(fns)))
+            for idx, (script, sh_state) in enumerate(results, 1):
+                script = IocshScript.from_json(script)
+                sh_state = ShellState.from_json(sh_state)
+                print(f"{idx}/{total_files}: Loaded {script.path}")
+                container.add_script(
+                    IocshScript(path=script.path, lines=script.lines), sh_state
+                )
 
-        return container
+            return container
 
+    loader = functools.partial(load_startup_script, standin_directories)
     for idx, fn in enumerate(sorted(set(fns))):
         t0 = time.monotonic()
         if idx == 20:
             break
         print(f"{idx}/{total_files}: Loading {fn}...", end="")
         startup_lines, sh_state = loader(fn)
-        # sh_state.from_json(sh_state.to_json()).to_json()
-
         container.add_script(IocshScript(path=str(fn), lines=startup_lines), sh_state)
         elapsed = time.monotonic() - t0
         print(f"[{elapsed:.1f} s]")

@@ -235,7 +235,7 @@ cdef class IOCShellInterpreter:
                 except Exception as ex:
                     # TODO: This makes it look like I don't know how exceptions
                     # work, but I assure you something weird happens when
-                    # mixing pypy/cython in this function. 
+                    # mixing pypy/cython in this function.
                     # Despite ``type(ex) is FileNotFoundError``, ``except FileNotFoundError`` doesn't work
                     if type(ex).__name__ != "FileNotFoundError":
                         # shresult.error = f"Failed to load {filename}: ({ex.__class__.__name__}) {ex}"
