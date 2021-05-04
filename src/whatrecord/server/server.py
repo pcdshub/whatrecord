@@ -1,4 +1,3 @@
-import dataclasses
 import fnmatch
 import functools
 import json
@@ -54,7 +53,8 @@ class ServerState:
     def load_gateway_config(self, path):
         self.gateway_config = gateway.GatewayConfig(path)
         for config in self.gateway_config.filenames:
-            self.container.loaded_files[config] = str(config)
+            config = str(config)
+            self.container.loaded_files[config] = config
 
     def load_archived_pvs_from_file(self, filename):
         # TODO: could retrieve it at startup/periodically from the appliance
@@ -130,7 +130,7 @@ class ServerHandler:
             pv_name: {
                 "pv_name": pv_name,
                 "present": pv_name in self.state.database,
-                "info": [dataclasses.asdict(obj) for obj in info[pv_name]],
+                "info": [obj.dict() for obj in info[pv_name]],
             }
             for pv_name in pv_names
         }
@@ -157,7 +157,7 @@ class ServerHandler:
         try:
             # Only allow reading files we've scanned before
             fn = pathlib.Path(request.query["filename"])
-            self.state.container.loaded_files[fn]
+            self.state.container.loaded_files[str(fn)]
         except KeyError as ex:
             raise web.HTTPBadRequest() from ex
 
@@ -176,7 +176,7 @@ class ServerHandler:
         except KeyError as ex:
             raise web.HTTPBadRequest() from ex
 
-        return web.json_response(dataclasses.asdict(script_info))
+        return web.json_response(script_info.dict())
 
     @routes.get("/api/pv/{pv_names}/graph/{format}")
     async def api_pv_get_graph(self, request: web.Request):

@@ -6,8 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import lark
 
 from whatrecord.common import (FrozenLoadContext, LinterError, LinterWarning,
-                               LoadContext, RecordField, RecordInstance,
-                               dataclass)
+                               RecordField, RecordInstance, dataclass)
 from whatrecord.macro import MacroContext
 
 MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
@@ -19,153 +18,68 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
     return record, field[0] if field else ""
 
 
-@dataclass(repr=False, slots=True)
-class LinterResults:
-    """
-    Container for dbdlint results, with easier-to-access attributes.
-
-    Reimplementation of ``pyPDB.dbdlint.Results``.
-
-    Each error or warning has dictionary keys::
-
-        {name, message, file, line, raw_message, format_args}
-
-    Attributes
-    ----------
-    errors : list
-        List of errors found
-    warnings : list
-        List of warnings found
-    """
-
-    # Validate as complete database
-    whole: bool = False
-
-    # Set if some syntax/sematic error is encountered
-    error: bool = False
-    warning: bool = False
-
-    # {'ao':{'OUT':'DBF_OUTLINK', ...}, ...}
-    record_types: Dict[str, Dict[str, str]] = field(default_factory=dict)
-
-    # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
-    # recdsets: Dict[str, Dict[str, str]] = field(default_factory=dict)
-
-    # {'inst:name':'ao', ...}
-    records: Dict[str, str] = field(default_factory=dict)
-
-    extinst: List[str] = field(default_factory=list)
-    errors: List[LinterError] = field(default_factory=list)
-    warnings: List[LinterWarning] = field(default_factory=list)
-
-    # Records with context and field information:
-    records: Dict[str, RecordInstance] = field(default_factory=dict)
-
-    def __repr__(self):
-        return (
-            f"<{self.__class__.__name__} "
-            f"records={len(self.records)} "
-            f"errors={len(self.errors)} "
-            f"warnings={len(self.warnings)} "
-            f">"
-        )
-
-    def _record_warning_or_error(self, category, name, msg, args):
-        target_list, cls = {
-            "warning": (self.warnings, LinterWarning),
-            "error": (self.errors, LinterError),
-        }[category]
-        target_list.append(
-            cls(
-                name=name,
-                file=str(self.node.fname),
-                line=self.node.lineno,
-                message=msg % args,
-            )
-        )
-
-    def err(self, name, msg, *args):
-        self._error = True
-        self._record_warning_or_error("error", name, msg, args)
-
-    def warn(self, name, msg, *args):
-        if name in self.warn_options:
-            self._warning = True
-        self._record_warning_or_error("warning", name, msg, args)
-
-    @property
-    def success(self):
-        """
-        Returns
-        -------
-        success : bool
-            True if the linting process succeeded without errors
-        """
-        return not len(self.errors)
-
-
-@dataclass(slots=True)
+@dataclass
 class RecordTypeField:
     name: str
     type: str
     body: List[Tuple[str, str]]
-    context: Tuple[LoadContext]
+    context: Tuple[FrozenLoadContext, ...]
 
 
-@dataclass(slots=True)
+@dataclass
 class RecordTypeCdef:
     text: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseMenu:
     name: str
     choices: Dict[str, str]
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseInclude:
     path: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabasePath:
     path: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseAddPath:
     path: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseDriver:
     drvet_name: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseLink:
     name: str
     identifier: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseRegistrar:
     function_name: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseFunction:
     function_name: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseVariable:
     name: str
     data_type: Optional[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseDevice:
     record_type: str
     link_type: str
@@ -173,25 +87,25 @@ class DatabaseDevice:
     choice_string: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseBreakTable:
     name: str
     values: List[Tuple[str, ...]]
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseRecordAlias:
-    record_name: str
+    record_name: Optional[str]
     alias_name: str
 
 
-@dataclass(slots=True)
+@dataclass
 class DatabaseRecordFieldInfo:
     name: str
     value: str
 
 
-@dataclass(slots=True)
+@dataclass
 class RecordType:
     name: str
     cdefs: List[str]
@@ -246,6 +160,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 DatabaseRegistrar: db.registrars,
                 DatabaseFunction: db.functions,
                 DatabaseVariable: db.variables,
+                DatabaseRecordAlias: db.standalone_aliases,
 
                 RecordType: db.record_types,
                 DatabaseBreakTable: db.breaktables,
@@ -364,7 +279,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         }
         _separate_by_class(body.children, info)
         record_type = RecordType(
-            name=name, fields=info[RecordTypeField], cdefs=info[RecordTypeCdef]
+            name=name,
+            fields=info[RecordTypeField],
+            cdefs=[cdef.text for cdef in info[RecordTypeCdef]],
         )
         self.record_types[name] = record_type
         return record_type
@@ -393,11 +310,14 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     fld.context = field_info.context + fld.context
 
         return RecordInstance(
-            aliases=info[DatabaseRecordAlias],
+            aliases=[alias.alias_name for alias in info[DatabaseRecordAlias]],
             context=_context_from_token(self.fn, rec_token),
             fields=info[RecordField],
             is_grecord=(rec_token == "grecord"),
-            metadata=info[DatabaseRecordFieldInfo],
+            metadata={
+                item.name: item.value
+                for item in info[DatabaseRecordFieldInfo].values()
+            },
             name=name,
             record_type=record_type,
         )
@@ -413,7 +333,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
     def record_field(self, field_token, name, value):
         return RecordField(
-            dtype=None, name=name, value=value,
+            dtype='', name=name, value=value,
             context=_context_from_token(self.fn, field_token)
         )
 
@@ -427,9 +347,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         return body_items
 
 
-@dataclass(slots=True)
+@dataclass
 class Database:
-    # standalone_aliases: Dict[str, str] = field(default_factory=dict)
+    standalone_aliases: List[DatabaseRecordAlias] = field(default_factory=list)
     addpaths: List[DatabaseAddPath] = field(default_factory=list)
     breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
     comments: List = field(default_factory=list)
@@ -482,6 +402,91 @@ class Database:
         with open(fn, "rt") as fp:
             return cls.from_string(fp.read(), filename=fn, dbd=dbd,
                                    macro_context=macro_context)
+
+
+@dataclass(repr=False)
+class LinterResults:
+    """
+    Container for dbdlint results, with easier-to-access attributes.
+
+    Reimplementation of ``pyPDB.dbdlint.Results``.
+
+    Each error or warning has dictionary keys::
+
+        {name, message, file, line, raw_message, format_args}
+
+    Attributes
+    ----------
+    errors : list
+        List of errors found
+    warnings : list
+        List of warnings found
+    """
+
+    # Validate as complete database
+    whole: bool = False
+
+    # Set if some syntax/sematic error is encountered
+    error: bool = False
+    warning: bool = False
+
+    # {'ao':{'OUT':'DBF_OUTLINK', ...}, ...}
+    record_types: Dict[str, RecordType] = field(default_factory=dict)
+
+    # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
+    # recdsets: Dict[str, Dict[str, str]] = field(default_factory=dict)
+
+    # {'inst:name':'ao', ...}
+    records: Dict[str, str] = field(default_factory=dict)
+
+    extinst: List[str] = field(default_factory=list)
+    errors: List[LinterError] = field(default_factory=list)
+    warnings: List[LinterWarning] = field(default_factory=list)
+
+    # Records with context and field information:
+    records: Dict[str, RecordInstance] = field(default_factory=dict)
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__} "
+            f"records={len(self.records)} "
+            f"errors={len(self.errors)} "
+            f"warnings={len(self.warnings)} "
+            f">"
+        )
+
+    def _record_warning_or_error(self, category, name, msg, args):
+        target_list, cls = {
+            "warning": (self.warnings, LinterWarning),
+            "error": (self.errors, LinterError),
+        }[category]
+        target_list.append(
+            cls(
+                name=name,
+                file=str(self.node.fname),
+                line=self.node.lineno,
+                message=msg % args,
+            )
+        )
+
+    def err(self, name, msg, *args):
+        self._error = True
+        self._record_warning_or_error("error", name, msg, args)
+
+    def warn(self, name, msg, *args):
+        if name in self.warn_options:
+            self._warning = True
+        self._record_warning_or_error("warning", name, msg, args)
+
+    @property
+    def success(self):
+        """
+        Returns
+        -------
+        success : bool
+            True if the linting process succeeded without errors
+        """
+        return not len(self.errors)
 
 
 def load_database_file(

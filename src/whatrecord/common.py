@@ -1,13 +1,10 @@
-import dataclasses
-import functools
-import json
 import logging
 import pathlib
 import typing
 from dataclasses import field
-from typing import ClassVar, Dict, List, Tuple
+from typing import Callable, ClassVar, Dict, List, Optional, Tuple
 
-import dataclasses_json
+import pydantic
 
 if typing.TYPE_CHECKING:
     from .asyn import AsynPort
@@ -18,64 +15,19 @@ if typing.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# field metadata to use for excluding fields in JSON
-md_excluded = dataclasses_json.config(exclude=dataclasses_json.Exclude.ALWAYS)
-md_pathlib = dataclasses_json.config(
-    encoder=str,
-    decoder=pathlib.Path
-)
+
+# pydantic dataclasses for now, until I arbitrarily decide to try something
+# else
+dataclass = pydantic.dataclasses.dataclass
 
 
-def dataclass(cls=None, slots=False, **kwargs):
-    """
-    Dataclass wrapper to set ``__slots__`` adapted from:
-        https://github.com/python/cpython/pull/24171
-    Hopefully, this will be in CPython at some point.
-
-    No-operation if slots=False.
-    """
-    # TODO: positional-only
-
-    @functools.wraps(dataclasses.dataclass)
-    def wrapper(cls):
-        cls = dataclasses.dataclass(cls, **kwargs)
-        if not slots:
-            return dataclasses_json.dataclass_json(cls)
-
-        # Need to create a new class, since we can't set __slots__
-        #  after a class has been created.
-
-        # Make sure __slots__ isn't already set.
-        if '__slots__' in cls.__dict__:
-            raise TypeError(f'{cls.__name__} already specifies __slots__')
-
-        # Create a new dict for our new class.
-        cls_dict = dict(cls.__dict__)
-        field_names = tuple(f.name for f in dataclasses.fields(cls))
-        cls_dict['__slots__'] = field_names
-        for field_name in field_names:
-            # Remove our attributes, if present. They'll still be
-            #  available in _MARKER.
-            cls_dict.pop(field_name, None)
-
-        # Remove __dict__ itself.
-        cls_dict.pop('__dict__', None)
-
-        # And finally create the class.
-        qualname = getattr(cls, '__qualname__', None)
-        cls = type(cls)(cls.__name__, cls.__bases__, cls_dict)
-        if qualname is not None:
-            cls.__qualname__ = qualname
-
-        return dataclasses_json.dataclass_json(cls)
-
-    if cls is None:
-        return wrapper
-
-    return wrapper(cls)
+class BaseModel(pydantic.BaseModel):
+    class Config:
+        # arbitrary_types_allowed = True
+        ...
 
 
-@dataclass(repr=False, slots=True)
+@dataclass(repr=False)
 class LoadContext:
     name: str
     line: int
@@ -83,11 +35,11 @@ class LoadContext:
     def __repr__(self):
         return f"{self.name}:{self.line}"
 
-    def freeze(self):
+    def freeze(self) -> "FrozenLoadContext":
         return FrozenLoadContext(self.name, self.line)
 
 
-@dataclass(repr=False, frozen=True, slots=True)
+@dataclass(repr=False, frozen=True)
 class FrozenLoadContext:
     name: str
     line: int
@@ -96,30 +48,33 @@ class FrozenLoadContext:
         return f"{self.name}:{self.line}"
 
 
-@dataclass(slots=True)
+@dataclass
 class IocshCommand:
-    context: Tuple[LoadContext, ...]
+    context: Tuple[FrozenLoadContext, ...]
     command: str
 
 
-@dataclass(slots=True)
-class IocshResult:
-    context: Tuple[LoadContext, ...]
+class IocshResult(BaseModel):
+    context: Tuple[FrozenLoadContext, ...]
     line: str
     outputs: List[str]
-    argv: List[str]
-    error: str
+    argv: Optional[List[str]]
+    error: Optional[str]
     redirects: Dict[str, Dict[str, str]]
     result: object
 
+    class Config:
+        # For "result", a generic object
+        arbitrary_types_allowed = True
 
-@dataclass(slots=True)
+
+@dataclass
 class IocshScript:
     path: str
     lines: Tuple[IocshResult, ...]
 
 
-@dataclass(slots=True)
+@dataclass
 class LinterMessage:
     name: str
     file: str
@@ -127,17 +82,17 @@ class LinterMessage:
     message: str
 
 
-@dataclass(slots=True)
+@dataclass
 class LinterWarning(LinterMessage):
     ...
 
 
-@dataclass(slots=True)
+@dataclass
 class LinterError(LinterMessage):
     ...
 
 
-@dataclass(slots=True)
+@dataclass
 class ShortLinterResults:
     load_count: int
     errors: List[LinterError]
@@ -154,12 +109,12 @@ class ShortLinterResults:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class RecordField:
     dtype: str
     name: str
     value: str
-    context: Tuple[LoadContext, ...]
+    context: Tuple[FrozenLoadContext, ...]
 
     _jinja_format_: ClassVar[dict] = {
         "console": """field({{name}}, "{{value}}")""",
@@ -201,9 +156,9 @@ def get_link_information(link_str: str) -> Tuple[str, str]:
 LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
 
 
-@dataclass(slots=True)
+@dataclass
 class RecordInstance:
-    context: Tuple[LoadContext, ...]
+    context: Tuple[FrozenLoadContext, ...]
     name: str
     record_type: str
     fields: Dict[str, RecordField]
@@ -242,9 +197,8 @@ record("{{record_type}}", "{{name}}") {
             yield fld, link, info
 
 
-@dataclass(slots=True)
-class WhatRecord:
-    owner: str
+class WhatRecord(BaseModel):
+    owner: Optional[str]
     instance: RecordInstance
     asyn_ports: List["AsynPort"]
     # TODO:
@@ -252,39 +206,56 @@ class WhatRecord:
     # - gateway rule matches?
 
 
-def _encode_loaded_files(files: Dict[pathlib.Path, pathlib.Path]) -> str:
-    return json.dumps(
-        [(str(full_fn), str(orig_fn)) for full_fn, orig_fn in files.items()]
-    )
+def _new_interpreter() -> "IOCShellInterpreter":
+    from .iocsh import IOCShellInterpreter
+    return IOCShellInterpreter()
 
 
-def _decode_loaded_files(files: str) -> Dict[pathlib.Path, pathlib.Path]:
-    return {
-        pathlib.Path(full_fn): pathlib.Path(orig_fn)
-        for full_fn, orig_fn in json.loads(files)
-    }
+def _new_macro_context() -> "MacroContext":
+    from .macro import MacroContext
+    return MacroContext()
 
 
-@dataclass(slots=False)
-class ShellStateBase:
+class ShellStateBase(BaseModel):
     prompt: str = "epics>"
-    variables: dict = field(default_factory=dict)
+    variables: Dict[str, str] = pydantic.Field(default_factory=dict)
     string_encoding: str = "latin-1"
-    standin_directories: Dict[str, str] = field(default_factory=dict)
-    working_directory: pathlib.Path = field(
+    standin_directories: Dict[str, str] = pydantic.Field(default_factory=dict)
+    working_directory: pathlib.Path = pydantic.Field(
         default_factory=lambda: pathlib.Path.cwd(),
-        metadata=md_pathlib,
     )
     database_definition: "Database" = None
-    database: Dict[str, RecordInstance] = field(default_factory=dict)
-    load_context: List[LoadContext] = field(default_factory=list)
-    asyn_ports: Dict[str, object] = field(default_factory=dict)
-    loaded_files: Dict[pathlib.Path, pathlib.Path] = field(
+    database: Dict[str, RecordInstance] = pydantic.Field(default_factory=dict)
+    load_context: List[LoadContext] = pydantic.Field(default_factory=list)
+    asyn_ports: Dict[str, "AsynPort"] = pydantic.Field(default_factory=dict)
+    loaded_files: Dict[str, str] = pydantic.Field(
         default_factory=dict,
-        metadata=dataclasses_json.config(
-            encoder=_encode_loaded_files,
-            decoder=_decode_loaded_files,
-        ),
     )
-    shell: ClassVar["IOCShellInterpreter"] = field(metadata=md_excluded)
-    macro_context: ClassVar["MacroContext"] = field(metadata=md_excluded)
+    # _shell: "IOCShellInterpreter" = pydantic.PrivateAttr(
+    #     default_factory=_new_interpreter
+    # )
+    _macro_context: "MacroContext" = pydantic.PrivateAttr(
+        default_factory=_new_macro_context
+    )
+    _handlers: Dict[str, Callable] = pydantic.PrivateAttr(
+        default_factory=dict
+    )
+
+    @property
+    def macro_context(self) -> "MacroContext":
+        return self._macro_context
+
+
+def _update_forward_refs():
+    # Forward type references make it so that types fail to deserialize
+    from . import Database, IOCShellInterpreter, MacroContext
+    from .asyn import AsynPort
+    ShellStateBase.update_forward_refs(
+        Database=Database,
+        IOCShellInterpreter=IOCShellInterpreter,
+        MacroContext=MacroContext,
+        AsynPort=AsynPort,
+    )
+    WhatRecord.update_forward_refs(
+        AsynPort=AsynPort,
+    )

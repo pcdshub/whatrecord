@@ -5,7 +5,7 @@ from typing import DefaultDict, Dict, Tuple
 
 import graphviz as gv
 
-from .common import dataclass
+from .common import FrozenLoadContext, dataclass
 from .db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # information in terms of dataclasses
 
 
-@dataclass(slots=True)
+@dataclass
 class LinkInfo:
     record1: RecordInstance
     field1: RecordField
@@ -65,7 +65,10 @@ def build_database_relations(
                     field2 = rec2.fields[field2]
                 else:
                     field2 = RecordField(
-                        dtype="unknown", name=field2, value="", context=("unset:0",)
+                        dtype="unknown",
+                        name=field2,
+                        value="",
+                        context=(FrozenLoadContext("unset", 0),),
                     )
 
                 relations[rec1.name][rec2.name].append((field1, field2, info))

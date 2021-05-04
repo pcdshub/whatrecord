@@ -6,13 +6,13 @@ import os
 import pathlib
 import sys
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from . import asyn
 from . import motor as motor_mod
 # from . import schema
 from .common import (IocshScript, RecordInstance, ShellStateBase,
-                     ShortLinterResults, WhatRecord, dataclass)
+                     ShortLinterResults, WhatRecord)
 from .db import Database, load_database_file
 from .format import FormatContext
 from .iocsh import IocshCommand, IOCShellInterpreter
@@ -39,7 +39,6 @@ def _motor_wrapper(method):
     return wrapped
 
 
-@dataclass
 class ShellState(ShellStateBase):
     """
     Shell state for IOCShellInterpreter.
@@ -83,18 +82,20 @@ class ShellState(ShellStateBase):
         Current loading context stack (e.g., ``st.cmd`` then ``common_startup.cmd``)
     """
 
-    def __post_init__(self):
+    def __init__(self, shell=None, macro_context=None, **kwargs):
+        super().__init__(**kwargs)
         from .macro import MacroContext
-        self.macro_context = MacroContext()
-        self.shell = None
-        self.handlers = dict(self.find_handlers())
+
+        # self._shell = shell
+        self._macro_context = macro_context or MacroContext()
+        self._handlers = dict(self.find_handlers())
         self._setup_dynamic_handlers()
 
     def _setup_dynamic_handlers(self):
         # Just motors for now
         for name, args in motor_mod.shell_commands.items():
-            if name not in self.handlers:
-                self.handlers[name] = functools.partial(
+            if name not in self._handlers:
+                self._handlers[name] = functools.partial(
                     self._generic_motor_handler, name
                 )
 
@@ -124,7 +125,7 @@ class ShellState(ShellStateBase):
         return tuple(ctx.freeze() for ctx in self.load_context)
 
     def handle_command(self, command, *args):
-        handler = self.handlers.get(command, None)
+        handler = self._handlers.get(command, None)
         if handler is not None:
             return handler(*args)
         return self.unhandled(command, args)
@@ -157,13 +158,13 @@ class ShellState(ShellStateBase):
         return f"Registered variable: {variable!r}={value!r}"
 
     def handle_epicsEnvSet(self, variable, value, *_):
-        self.macro_context.define(**{variable: value})
+        self._macro_context.define(**{variable: value})
         return f"Defined: {variable!r}={value!r}"
 
     def handle_epicsEnvShow(self, *_):
         return {
             str(name, self.string_encoding): str(value, self.string_encoding)
-            for name, value in self.macro_context.get_macros().items()
+            for name, value in self._macro_context.get_macros().items()
         }
 
     def handle_iocshCmd(self, command, *_):
@@ -188,7 +189,7 @@ class ShellState(ShellStateBase):
             raise RuntimeError("dbd already loaded")
         fn = self._fix_path(dbd)
         self.database_definition = Database.from_file(fn)
-        self.loaded_files[fn.resolve()] = dbd
+        self.loaded_files[str(fn.resolve())] = str(dbd)
         return f"Loaded database: {fn}"
 
     def handle_dbLoadRecords(self, fn, macros, *_):
@@ -196,18 +197,18 @@ class ShellState(ShellStateBase):
             raise RuntimeError("dbd not yet loaded")
         orig_fn = fn
         fn = self._fix_path(fn)
-        self.loaded_files[fn.resolve()] = orig_fn
+        self.loaded_files[str(fn.resolve())] = str(orig_fn)
 
-        bytes_macros = self.macro_context.definitions_to_dict(
+        bytes_macros = self._macro_context.definitions_to_dict(
             bytes(macros, self.string_encoding)
         )
         macros = {
             str(variable, self.string_encoding): str(value, self.string_encoding)
             for variable, value in bytes_macros.items()
         }
-        with self.macro_context.scoped(**macros):
+        with self._macro_context.scoped(**macros):
             linter_results = load_database_file(
-                dbd=self.database_definition, db=fn, macro_context=self.macro_context
+                dbd=self.database_definition, db=fn, macro_context=self._macro_context
             )
 
         context = self.get_frozen_context()
@@ -371,7 +372,7 @@ class ScriptContainer:
     database: Dict[str, RecordInstance]
     script_to_state: Dict[pathlib.Path, ShellState]
     scripts: Dict[pathlib.Path, IocshScript]
-    loaded_files: Dict[pathlib.Path, pathlib.Path]
+    loaded_files: Dict[str, str]
 
     def __init__(self, shell: Optional[IOCShellInterpreter] = None):
         self.shell = shell or IOCShellInterpreter()
@@ -425,14 +426,15 @@ def whatrec(
         parent_port = getattr(asyn_port, "parent", None)
         if parent_port is not None:
             asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
+    print(asyn_ports)
     return WhatRecord(
         owner=None,
         instance=inst,
-        asyn_ports=asyn_ports,
+        asyn_ports=[]  # asyn_ports,
     )
 
 
-def load_startup_script(standin_directories, fn):
+def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellState]:
     sh = IOCShellInterpreter()
     sh.state = ShellState()
     sh.state.working_directory = pathlib.Path(fn).resolve().parent
@@ -442,14 +444,14 @@ def load_startup_script(standin_directories, fn):
     with open(fn, "rt") as fp:
         lines = fp.read().splitlines()
 
-    startup_lines = IocshScript(
+    iocsh_script = IocshScript(
         path=str(fn),
         lines=tuple(sh.interpret_shell_script(lines, name=fn)),
     )
-    return startup_lines, sh.state
+    return iocsh_script, sh.state
 
 
-def _load_startup_script_json(standin_directories, fn):
+def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
     startup_lines, sh_state = load_startup_script(standin_directories, fn)
     return startup_lines.to_json(), sh_state.to_json()
 
@@ -464,13 +466,11 @@ def load_startup_scripts(
         loader = functools.partial(_load_startup_script_json, standin_directories)
         with mp.Pool(processes=processes) as pool:
             results = pool.imap(loader, sorted(set(fns)))
-            for idx, (script, sh_state) in enumerate(results, 1):
-                script = IocshScript.from_json(script)
-                sh_state = ShellState.from_json(sh_state)
-                print(f"{idx}/{total_files}: Loaded {script.path}")
-                container.add_script(
-                    IocshScript(path=script.path, lines=script.lines), sh_state
-                )
+            for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
+                iocsh_script = IocshScript.from_json(iocsh_script_raw)
+                sh_state = ShellState.from_json(sh_state_raw)
+                print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
+                container.add_script(iocsh_script, sh_state)
 
             return container
 
@@ -480,9 +480,19 @@ def load_startup_scripts(
         if idx == 20:
             break
         print(f"{idx}/{total_files}: Loading {fn}...", end="")
-        startup_lines, sh_state = loader(fn)
-        container.add_script(IocshScript(path=str(fn), lines=startup_lines), sh_state)
+        iocsh_script, sh_state = loader(fn)
+        container.add_script(iocsh_script, sh_state)
         elapsed = time.monotonic() - t0
         print(f"[{elapsed:.1f} s]")
+
+        t0 = time.monotonic()
+        as_json = sh_state.json()
+        t1 = time.monotonic()
+        sh_state.parse_raw(as_json)
+        t2 = time.monotonic()
+        print("to json", t1 - t0, "from json", t2 - t1)
+        # print(as_json)
+        print("size", len(as_json) / 1024, "kb")
+        # sh_state.from_json(sh_state.to_json()).to_json()
 
     return container

@@ -5,7 +5,7 @@ import pathlib
 import re
 import sys
 import typing
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from .common import dataclass
 
@@ -13,7 +13,7 @@ MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 RE_WHITESPACE = re.compile(r"\s+")
 
 
-@dataclass(slots=True)
+@dataclass
 class Token:
     """Token base class, making up a PVList."""
 
@@ -25,7 +25,7 @@ class Token:
         return cls(line=line, lineno=lineno)
 
 
-@dataclass(slots=True)
+@dataclass
 class Setting(Token):
     """A token representing a configuration setting."""
 
@@ -43,12 +43,12 @@ class Setting(Token):
         return cls(line=line, lineno=lineno, setting=setting, values=values)
 
 
-@dataclass(slots=True)
+@dataclass
 class Comment(Token):
     """A token representing a comment line."""
 
 
-@dataclass(slots=True)
+@dataclass
 class Expression(Token):
     """A token with a valid regular expression."""
 
@@ -64,7 +64,8 @@ class Expression(Token):
             regex = re.compile(expr)
         except Exception as ex:
             return BadExpression(
-                line=line, lineno=lineno, expr=expr, details=details, exception=ex
+                line=line, lineno=lineno, expr=expr, details=details,
+                exception=(type(ex).__name__, str(ex)),
             )
         return cls(line=line, lineno=lineno, expr=expr, details=details, regex=regex)
 
@@ -73,16 +74,16 @@ class Expression(Token):
             return self.regex.match(name)
 
 
-@dataclass(slots=True)
+@dataclass
 class BadExpression(Token):
     """A token with a bad regular expression."""
 
     expr: str
-    details: str
-    exception: Exception
+    details: List[str]
+    exception: Tuple[str, str]
 
 
-@dataclass(slots=True)
+@dataclass
 class PVList:
     """A PVList container."""
 
@@ -306,17 +307,17 @@ def run_match(
             print_match(pvlist, context, expr, show_context=show_context)
 
 
-@dataclass(slots=True)
+@dataclass
 class PVListMatch:
     filename: str
     comment_lineno: int
     comment: str
     lineno: int
     expression: str
-    details: str
+    details: List[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class PVListMatches:
     name: str
     matches: List[PVListMatch]

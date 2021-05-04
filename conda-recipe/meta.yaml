@@ -19,11 +19,11 @@ requirements:
       - python >=3.6
       - aiohttp
       - cython
-      - dataclasses-json
       - epicscorelibs
       - graphviz
       - jinja2
       - lark
+      - pydantic
 
 test:
     imports:

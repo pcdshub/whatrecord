@@ -33,7 +33,7 @@ cdef class IOCShellInterpreter:
             state = ShellStateBase()
 
         self.state = state
-        self.state.shell = self
+        # self.state._shell = self
 
     @property
     def string_encoding(self):
@@ -249,6 +249,8 @@ cdef class IOCShellInterpreter:
                     raise
                 ex_details = traceback.format_exc()
                 shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
+                print("\n", type(ex), ex)
+                print(ex_details)
 
             if isinstance(shresult.result, IocshCommand):
                 yield shresult
