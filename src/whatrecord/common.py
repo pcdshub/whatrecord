@@ -1,9 +1,7 @@
 import dataclasses
 import functools
-import inspect
 import json
 import logging
-import os
 import pathlib
 import typing
 from dataclasses import field
@@ -290,54 +288,3 @@ class ShellStateBase:
     )
     shell: ClassVar["IOCShellInterpreter"] = field(metadata=md_excluded)
     macro_context: ClassVar["MacroContext"] = field(metadata=md_excluded)
-
-    def __post_init__(self):
-        from .macro import MacroContext
-        self.macro_context = MacroContext()
-        self.shell = None
-        self.handlers = dict(self.find_handlers())
-
-    def find_handlers(self):
-        for attr, obj in inspect.getmembers(self):
-            if attr.startswith("handle_") and callable(obj):
-                name = attr.split("_", 1)[1]
-                yield name, obj
-
-    def get_asyn_port_from_record(self, inst: RecordInstance):
-        rec_field = inst.fields.get("INP", inst.fields.get("OUT", None))
-        if rec_field is None:
-            return
-
-        value = rec_field.value.strip()
-        if value.startswith("@asyn"):
-            try:
-                asyn_args = value.split("@asyn")[1].strip(" ()")
-                asyn_port, *_ = asyn_args.split(",")
-                return self.asyn_ports.get(asyn_port.strip(), None)
-            except Exception:
-                logger.debug("Failed to parse asyn string", exc_info=True)
-
-    def get_frozen_context(self):
-        if not self.load_context:
-            return tuple()
-        return tuple(ctx.freeze() for ctx in self.load_context)
-
-    def handle_command(self, command, *args):
-        handler = self.handlers.get(command, None)
-        if handler is not None:
-            return handler(*args)
-        return self.unhandled(command, args)
-        # return f"No handler for handle_{command}"
-
-    def _fix_path(self, filename: str):
-        if os.path.isabs(filename):
-            for from_, to in self.standin_directories.items():
-                if filename.startswith(from_):
-                    _, suffix = filename.split(from_, 1)
-                    return pathlib.Path(to + suffix)
-
-        return self.working_directory / filename
-
-    def unhandled(self, command, args):
-        ...
-        # return f"No handler for handle_{command}"
