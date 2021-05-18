@@ -14,7 +14,8 @@
 
 <div id="whatrec-ioc">
   <div>
-    <h2>{{ filename }}</h2>
+    <h2>{{ path }}</h2>
+    <br/>
     <pre>
       <script-line v-for="line in lines"
          v-bind:argv="line.argv"
@@ -105,18 +106,25 @@ app.component('linter-results', {
 app.component('script-line', {
   props: ["context", "line", "outputs", "argv", "error", "redirects", "result"],
   template: `
-  <details v-bind:id="context.map(ctx => ctx[0] + ':' + ctx[1]).join(',')">
-    <summary class="script-line">
-      {{ context.map(ctx => ctx[1]).join(':') }}:
-      <span v-if="error != null" class="script-error-line">
-        {{line}}
-      </span>
-      <span v-else-if="result != null && result.hasOwnProperty('load_count') && (result.errors.length > 0 || result.warnings.length > 0)" class="script-error-line">
-        {{line}}
-      </span>
-      <span v-else class="script-line">{{line}}</span>
-    </summary>
-    <template v-if="result != null || error != null">
+  <template v-if="result == null && error == null">
+    <span class="script-line" v-bind:id="context.map(ctx => ctx[0] + ':' + ctx[1]).join(',')">
+      {{ context.map(ctx => ctx[1]).join(':') }}: {{line}}
+    </span>
+    <br/>
+  </template>
+  <template v-else>
+    <details v-bind:id="context.map(ctx => ctx[0] + ':' + ctx[1]).join(',')">
+      <summary class="script-line">
+        {{ context.map(ctx => ctx[1]).join(':') }}:
+        <span v-if="error != null" class="script-error-line">
+          {{line}}
+        </span>
+        <span v-else-if="result != null && result.hasOwnProperty('load_count') && (result.errors.length > 0 || result.warnings.length > 0)" class="script-error-line">
+          {{line}}
+        </span>
+        <span v-else class="script-line">{{line}}</span>
+      </summary>
+
       <template v-if="result != null && result.hasOwnProperty('load_count')">
         <linter-results
           v-bind:load_count="result.load_count"
@@ -133,8 +141,8 @@ app.component('script-line', {
           {{ result }}
         </span>
       </template>
+    </details>
     </template>
-  </details>
 `
 })
 
