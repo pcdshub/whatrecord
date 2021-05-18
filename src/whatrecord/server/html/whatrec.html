@@ -36,9 +36,9 @@
       <h3> {{ match.pv_name }} </h3>
       <recordinfo
         v-for="info in match.info"
-        v-bind:key="match.pv_name"
-        v-bind:info="info"
-        v-bind:appliance_viewer_url="appliance_viewer_url"
+        :key="match.pv_name"
+        :info="info"
+        :appliance_viewer_url="appliance_viewer_url"
     ></recordinfo>
     </div>
   </div>
@@ -112,7 +112,7 @@ app.component('epics-format-record', {
     <span
       class="recordfield"
       v-for="field in fields"
-      v-bind:title="field.dtype + ':' + field.context.join(', ')">
+      :title="field.dtype + ':' + field.context.join(', ')">
     &nbsp;field({{ field.name }}, "{{ field.value }}")   #  {{ field.dtype }}<br/>
     </span>
   }
@@ -125,20 +125,20 @@ app.component('dictionary-table', {
   props: ["cls", "dict", "skip_keys"],
   template: `
   <table class="table" v-if="Object.keys(dict).length > 0">
-    <thead v-bind:class="cls">
+    <thead :class="cls">
       <tr>
         <th>Item</th>
         <th>Value</th>
       </tr>
     </thead>
     <tbody>
-      <tr v-for="(value, key) in dict" v-bind:key="key + '-' + value">
-        <td v-bind:id="key">{{ key }}</td>
+      <tr v-for="(value, key) in dict" :key="key + '-' + value">
+        <td :id="key">{{ key }}</td>
 
         <td v-if="skip_keys.indexOf(key) >= 0">
         </td>
         <td v-else-if="key == 'context'">
-          <script-context-link v-bind:context=value v-bind:short=true></script-context-link>
+          <script-context-link :context=value :short=true></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'">
           <dictionary-table
@@ -175,7 +175,7 @@ app.component('record-field-table', {
         <td id="value">{{ field.value }}</td>
         <td id="dtype">{{ field.dtype }}</td>
         <td id="context">
-          <script-context-link v-bind:context="field.context" v-bind:short=true></script-context-link>
+          <script-context-link :context="field.context" :short=true></script-context-link>
         </td>
       </tr>
     </tbody>
@@ -189,12 +189,12 @@ app.component('asyn-port', {
   template: `
   <h4>Asyn port: {{asyn_port.name}}</h4>
   <dictionary-table
-    v-bind:dict="asyn_port"
+    :dict="asyn_port"
     :cls="'asyn_port'"
     :skip_keys="['motors']">
   </dictionary-table>
   <template v-if="asyn_port.hasOwnProperty('motors')">
-    <template v-for="(motor, motorname) in asyn_port.motors" v-bind:key='motorname'>
+    <template v-for="(motor, motorname) in asyn_port.motors" :key='motorname'>
       <h5>Motor port: {{motorname}}</h5>
       <dictionary-table
         :dict="motor"
@@ -211,7 +211,7 @@ app.component('script-context-one-link', {
   template: `
   &gt;
   <a v-if="name.indexOf('.cmd') >= 0"
-      v-bind:href="'/script?script=' + name + '#' + name + ':' + line"
+      :href="'/script?script=' + name + '#' + name + ':' + line"
       target="_blank">
     <template v-if="short">
         {{ name.replace(/^.*[\\\/]/, '') }}:{{ line }}<br/>
@@ -221,7 +221,7 @@ app.component('script-context-one-link', {
     </template>
   </a>
   <a v-else
-        v-bind:href="'/database?file=' + name + '#' + line"
+        :href="'/database?file=' + name + '#' + line"
         target="_blank">
     <template v-if="short">
         {{ name.replace(/^.*[\\\/]/, '') }}:{{ line }}<br/>
@@ -250,7 +250,7 @@ app.component('script-context-link', {
 app.component('gateway-context-link', {
   props: ["filename", "lineno"],
   template: `
-  <a v-bind:href="'/database?file=' + filename + '#' + lineno" target="_blank">
+  <a :href="'/database?file=' + filename + '#' + lineno" target="_blank">
     {{ filename.replace(/^.*[\\\/]/, '') }}:{{ lineno }}
   </a>
 `
@@ -270,7 +270,7 @@ app.component('gateway-matches', {
     <tbody>
       <tr v-for="match in matches">
         <td>
-          <gateway-context-link v-bind:filename="match.filename" v-bind:lineno="match.lineno"></gateway-context-link>
+          <gateway-context-link :filename="match.filename" :lineno="match.lineno"></gateway-context-link>
         </td>
         <td>{{ match.expression }}</td>
         <td>{{match.details.join(" ")}}</td>
@@ -283,8 +283,8 @@ app.component('gateway-matches', {
 app.component('recordinfo', {
   props: ["info", "appliance_viewer_url"],
   template: `
-  <script-context-link v-bind:context="info.instance.context" v-bind:short=false></script-context-link>
-  <a v-bind:href="appliance_viewer_url + info.instance.name" target="_blank">
+  <script-context-link :context="info.instance.context" :short=false></script-context-link>
+  <a :href="appliance_viewer_url + info.instance.name" target="_blank">
       <div v-if="info.instance.metadata.archived">
           In archiver
       </div>
@@ -300,16 +300,16 @@ app.component('recordinfo', {
     :is_grecord=info.instance.is_grecord
   ></epics-format-record>
 
-  <a v-bind:href="'/api/pv/' + info.instance.name + '/graph/svg'" target="_blank">
+  <a :href="'/api/pv/' + info.instance.name + '/graph/svg'" target="_blank">
     <img
       class="svg-graph"
-      v-bind:src="'/api/pv/' + info.instance.name + '/graph/svg'" />
+      :src="'/api/pv/' + info.instance.name + '/graph/svg'" />
   </a>
 
   <details open=true class="title">
     <summary class="title">Gateway details</summary>
     <template v-if="info.instance.metadata.gateway.matches">
-      <gateway-matches v-bind:matches="info.instance.metadata.gateway.matches">
+      <gateway-matches :matches="info.instance.metadata.gateway.matches">
       </gateway-matches>
     </template>
   </details>
@@ -318,14 +318,14 @@ app.component('recordinfo', {
     <summary class="title">Asyn details</summary>
     <asyn-port
     v-for:="asyn_port in info.asyn_ports"
-    v-bind:asyn_port="asyn_port"
-    v-bind:key="asyn_port.name"></asyn-port>
+    :asyn_port="asyn_port"
+    :key="asyn_port.name"></asyn-port>
   </details>
 
   <details open=true class="title">
   <summary class="title">Field table</summary>
   <record-field-table
-    v-bind:fields=info.instance.fields
+    :fields=info.instance.fields
   ></record-field-table>
   </details>
 
