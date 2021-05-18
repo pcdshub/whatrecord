@@ -117,6 +117,10 @@ class RecordType:
     is_grecord: bool = False
 
 
+class DatabaseLoadFailure(Exception):
+    ...
+
+
 class UnquotedString(lark.lexer.Token):
     """
     An unquoted string token found when loading a database file.

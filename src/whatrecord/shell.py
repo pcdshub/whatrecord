@@ -12,7 +12,7 @@ from . import motor as motor_mod
 # from . import schema
 from .common import (IocshScript, RecordInstance, ShellStateBase,
                      ShortLinterResults, WhatRecord, time_context)
-from .db import Database, load_database_file
+from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
 from .iocsh import IocshCommand, IOCShellInterpreter
 
@@ -205,10 +205,19 @@ class ShellState(ShellStateBase):
             str(variable, self.string_encoding): str(value, self.string_encoding)
             for variable, value in bytes_macros.items()
         }
-        with self._macro_context.scoped(**macros):
-            linter_results = load_database_file(
-                dbd=self.database_definition, db=fn, macro_context=self._macro_context
-            )
+
+        try:
+            with self._macro_context.scoped(**macros):
+                linter_results = load_database_file(
+                    dbd=self.database_definition,
+                    db=fn,
+                    macro_context=self._macro_context,
+                )
+        except Exception as ex:
+            # TODO move this around
+            raise DatabaseLoadFailure(
+                f"Failed to load {fn}: {type(ex).__name__} {ex}"
+            ) from ex
 
         context = self.get_frozen_context()
         for name, rec in linter_results.records.items():
@@ -248,7 +257,7 @@ class ShellState(ShellStateBase):
             noProcessEos=noProcessEos,
         )
 
-    @_motor_wrapper
+    # @_motor_wrapper  # TODO
     def handle_drvAsynIPPortConfigure(
         self,
         portName=None,
