@@ -34,7 +34,7 @@
 const WhatRecIOC = {
   data() {
     return {
-      filename: "",
+      path: "",
       lines: [],
     }
   },
@@ -49,9 +49,9 @@ const WhatRecIOC = {
       }
     )
       .then(response => {
-        this.filename = response.data.filename;
+        this.path = response.data.path;
         this.lines = response.data.lines;
-        document.title = "WhatRec? " + this.filename;
+        document.title = "WhatRec? " + this.path;
       })
       .catch(error => {
         console.log(error)
