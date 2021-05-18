@@ -30,6 +30,9 @@ class BaseModel(pydantic.BaseModel):
         ...
 
 
+FrozenLoadContext = Tuple[Tuple[str, int], ...]
+
+
 @dataclass(repr=False)
 class LoadContext:
     name: str
@@ -38,27 +41,18 @@ class LoadContext:
     def __repr__(self):
         return f"{self.name}:{self.line}"
 
-    def freeze(self) -> "FrozenLoadContext":
-        return FrozenLoadContext(self.name, self.line)
-
-
-@dataclass(repr=False, frozen=True)
-class FrozenLoadContext:
-    name: str
-    line: int
-
-    def __repr__(self):
-        return f"{self.name}:{self.line}"
+    def freeze(self) -> Tuple[str, int]:
+        return (self.name, self.line)
 
 
 @dataclass
 class IocshCommand:
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     command: str
 
 
 class IocshResult(BaseModel):
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     line: str
     outputs: List[str]
     argv: Optional[List[str]]
@@ -113,7 +107,7 @@ class RecordField:
     dtype: str
     name: str
     value: str
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
 
     _jinja_format_: ClassVar[dict] = {
         "console": """field({{name}}, "{{value}}")""",
@@ -157,7 +151,7 @@ LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
 
 @dataclass
 class RecordInstance:
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     name: str
     record_type: str
     fields: Dict[str, RecordField]

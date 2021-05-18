@@ -6,7 +6,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import lark
 
 from whatrecord.common import (FrozenLoadContext, LinterError, LinterWarning,
-                               RecordField, RecordInstance, dataclass)
+                               LoadContext, RecordField, RecordInstance,
+                               dataclass)
 from whatrecord.macro import MacroContext
 
 MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
@@ -23,7 +24,7 @@ class RecordTypeField:
     name: str
     type: str
     body: List[Tuple[str, str]]
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
 
 
 @dataclass
@@ -134,8 +135,8 @@ def _separate_by_class(items, mapping):
             container[item.name] = item
 
 
-def _context_from_token(fn: str, token: lark.Token) -> Tuple[FrozenLoadContext]:
-    return (FrozenLoadContext(name=fn, line=token.line), )
+def _context_from_token(fn: str, token: lark.Token) -> FrozenLoadContext:
+    return (LoadContext(name=fn, line=token.line).freeze(), )
 
 
 @lark.visitors.v_args(inline=True)

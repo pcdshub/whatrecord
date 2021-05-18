@@ -105,9 +105,9 @@ app.component('linter-results', {
 app.component('script-line', {
   props: ["context", "line", "outputs", "argv", "error", "redirects", "result"],
   template: `
-  <details v-bind:id="context.map(({name, line}) => name + ':' + line).join(',')">
+  <details v-bind:id="context.map(ctx => ctx[0] + ':' + ctx[1]).join(',')">
     <summary class="script-line">
-      {{ context.map(({name, line}) => line).join(':') }}:
+      {{ context.map(ctx => ctx[1]).join(':') }}:
       <span v-if="error != null" class="script-error-line">
         {{line}}
       </span>
@@ -156,7 +156,7 @@ app.component('dictionary-table', {
         </td>
         <td v-else-if="key == 'context'">
           <template v-for:="ctx in value">
-            {{ ctx.name }}:{{ ctx.line }}<br/>
+            {{ ctx[0] }}:{{ ctx[1] }}<br/>
           </template>
         </td>
         <td v-else-if="key == 'metadata'">

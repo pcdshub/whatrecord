@@ -1,6 +1,6 @@
 # cython: language_level=3
 from dataclasses import field
-from typing import ClassVar, Dict, Optional, Tuple, Union
+from typing import ClassVar, Dict, Optional, Union
 
 import pydantic
 
@@ -8,7 +8,7 @@ from .common import BaseModel, FrozenLoadContext, dataclass
 
 
 class AsynPort(BaseModel):
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     name: str
     options: dict = pydantic.Field(default_factory=dict)
     metadata: dict = pydantic.Field(default_factory=dict)
@@ -35,7 +35,7 @@ class AsynPort(BaseModel):
 
 @dataclass
 class AsynMotor:
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     name: str
     metadata: Dict[str, Union[str, int, float]] = field(default_factory=dict)
     parent: Optional[str] = None
@@ -85,7 +85,7 @@ class AdsAsynPort(AsynPort):
 
 @dataclass
 class AsynPortMultiDevice:
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     name: str
     metadata: dict = field(default_factory=dict)
     motors: Dict[str, AsynMotor] = field(default_factory=dict)
@@ -94,7 +94,7 @@ class AsynPortMultiDevice:
 
 @dataclass
 class AsynPortDevice:
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     name: str = ""
     options: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, str] = field(default_factory=dict)
@@ -103,6 +103,6 @@ class AsynPortDevice:
 
 @dataclass
 class AsynPortOption:
-    context: Tuple[FrozenLoadContext, ...]
+    context: FrozenLoadContext
     key: str
     value: str

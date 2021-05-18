@@ -104,7 +104,7 @@ const WhatRec = {
 const app = Vue.createApp(WhatRec)
 
 app.component('epics-format-record', {
-  props: ["name", "context", "fields", "record_type"],
+  props: ["name", "context", "fields", "record_type", "is_grecord"],
   template: `
   <div class="code">
     <template v-if="is_grecord">g</template>
@@ -206,33 +206,43 @@ app.component('asyn-port', {
 `
 })
 
+app.component('script-context-one-link', {
+  props: ["short", "name", "line"],
+  template: `
+  &gt;
+  <a v-if="name.indexOf('.cmd') >= 0"
+      v-bind:href="'/script?script=' + name + '#' + name + ':' + line"
+      target="_blank">
+    <template v-if="short">
+        {{ name.replace(/^.*[\\\/]/, '') }}:{{ line }}<br/>
+    </template>
+    <template v-else>
+        {{ name }}:{{ line }}<br/>
+    </template>
+  </a>
+  <a v-else
+        v-bind:href="'/database?file=' + name + '#' + line"
+        target="_blank">
+    <template v-if="short">
+        {{ name.replace(/^.*[\\\/]/, '') }}:{{ line }}<br/>
+    </template>
+    <template v-else>
+        {{ name }}:{{ line }}<br/>
+    </template>
+  </a>
+`
+})
+
 app.component('script-context-link', {
   props: ["context", "short"],
   template: `
   <div class="context">
-  <template v-for:="ctx in context">
-    &gt;
-    <a v-if="ctx.name.indexOf('.cmd') >= 0"
-        v-bind:href="'/script?script=' + ctx.name + '#' + ctx.name + ':' + ctx.line"
-        target="_blank">
-      <template v-if="short">
-          {{ ctx.name.replace(/^.*[\\\/]/, '') }}:{{ ctx.line }}<br/>
-      </template>
-      <template v-else>
-          {{ ctx.name }}:{{ ctx.line }}<br/>
-      </template>
-    </a>
-    <a v-else
-          v-bind:href="'/database?file=' + ctx.name + '#' + ctx.line"
-          target="_blank">
-      <template v-if="short">
-          {{ ctx.name.replace(/^.*[\\\/]/, '') }}:{{ ctx.line }}<br/>
-      </template>
-      <template v-else>
-          {{ ctx.name }}:{{ ctx.line }}<br/>
-      </template>
-    </a>
-  </template>
+  <script-context-one-link
+    v-for:="ctx in context"
+    :name="ctx[0]"
+    :line="ctx[1]"
+    :short=short
+  ></script-context-one-link>
   </div>
 `
 })
@@ -250,7 +260,7 @@ app.component('gateway-matches', {
   props: ["matches"],
   template: `
   <table class="table" v-if="matches.length > 0">
-    <thead v-bind:class="cls">
+    <thead>
       <tr>
         <th>File</th>
         <th>Expression</th>
@@ -287,6 +297,7 @@ app.component('recordinfo', {
     :context=info.instance.context
     :fields=info.instance.fields
     :record_type=info.instance.record_type
+    :is_grecord=info.instance.is_grecord
   ></epics-format-record>
 
   <a v-bind:href="'/api/pv/' + info.instance.name + '/graph/svg'" target="_blank">

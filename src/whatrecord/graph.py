@@ -5,7 +5,7 @@ from typing import DefaultDict, Dict, Tuple
 
 import graphviz as gv
 
-from .common import FrozenLoadContext, dataclass
+from .common import LoadContext, dataclass
 from .db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ def build_database_relations(
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
     warned = set()
+    unset_ctx = (LoadContext("unset", 0).freeze(), )
     relations = collections.defaultdict(lambda: collections.defaultdict(list))
     for rec1 in database.values():
         for field1, link, info in rec1.get_links():
@@ -72,7 +73,7 @@ def build_database_relations(
                         dtype="unknown",
                         name=field2,
                         value="",
-                        context=(FrozenLoadContext("unset", 0),),
+                        context=unset_ctx,
                     )
 
                 relations[rec1.name][rec2.name].append((field1, field2, info))

@@ -107,7 +107,7 @@ app.component('dictionary-table', {
         </td>
         <td v-else-if="key == 'context'">
           <template v-for:="ctx in value">
-            {{ ctx.name }}:{{ ctx.line }}<br/>
+            {{ ctx[0] }}:{{ ctx[1] }}<br/>
           </template>
         </td>
         <td v-else-if="key == 'metadata'">
