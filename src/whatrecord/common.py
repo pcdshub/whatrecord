@@ -1,8 +1,11 @@
 import logging
 import pathlib
 import typing
+from contextlib import contextmanager
 from dataclasses import field
-from typing import Callable, ClassVar, Dict, List, Optional, Tuple
+from time import perf_counter
+from typing import (Callable, ClassVar, Dict, Generator, List, Optional, Tuple,
+                    Union)
 
 import pydantic
 
@@ -61,15 +64,11 @@ class IocshResult(BaseModel):
     argv: Optional[List[str]]
     error: Optional[str]
     redirects: Dict[str, Dict[str, str]]
-    result: object
-
-    class Config:
-        # For "result", a generic object
-        arbitrary_types_allowed = True
+    # TODO: normalize this
+    result: Optional[Union[str, Dict[str, str], IocshCommand, "ShortLinterResults"]]
 
 
-@dataclass
-class IocshScript:
+class IocshScript(BaseModel):
     path: str
     lines: Tuple[IocshResult, ...]
 
@@ -124,7 +123,7 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
     }
 
 
-def get_link_information(link_str: str) -> Tuple[str, str]:
+def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
     if " " in link_str:
         # strip off PP/MS/etc (TODO might be useful later)
@@ -181,13 +180,15 @@ record("{{record_type}}", "{{name}}") {
 """,
     }
 
-    def get_fields_of_type(self, *types):
+    def get_fields_of_type(self, *types) -> Generator[RecordField, None, None]:
         """Get all fields of the matching type(s)."""
         for fld in self.fields.values():
             if fld.dtype in types:
                 yield fld
 
-    def get_links(self):
+    def get_links(
+        self,
+    ) -> Generator[Tuple[RecordField, str, Tuple[str, ...]], None, None]:
         """Get all links."""
         for fld in self.get_fields_of_type(*LINK_TYPES):
             try:
@@ -208,11 +209,13 @@ class WhatRecord(BaseModel):
 
 def _new_interpreter() -> "IOCShellInterpreter":
     from .iocsh import IOCShellInterpreter
+
     return IOCShellInterpreter()
 
 
 def _new_macro_context() -> "MacroContext":
     from .macro import MacroContext
+
     return MacroContext()
 
 
@@ -237,19 +240,29 @@ class ShellStateBase(BaseModel):
     _macro_context: "MacroContext" = pydantic.PrivateAttr(
         default_factory=_new_macro_context
     )
-    _handlers: Dict[str, Callable] = pydantic.PrivateAttr(
-        default_factory=dict
-    )
+    _handlers: Dict[str, Callable] = pydantic.PrivateAttr(default_factory=dict)
 
     @property
     def macro_context(self) -> "MacroContext":
         return self._macro_context
 
 
+@contextmanager
+def time_context():
+    """Return a callable to measure the time since context manager init."""
+    start_count = perf_counter()
+
+    def inner():
+        return perf_counter() - start_count
+
+    yield inner
+
+
 def _update_forward_refs():
     # Forward type references make it so that types fail to deserialize
     from . import Database, IOCShellInterpreter, MacroContext
     from .asyn import AsynPort
+
     ShellStateBase.update_forward_refs(
         Database=Database,
         IOCShellInterpreter=IOCShellInterpreter,
@@ -259,3 +272,4 @@ def _update_forward_refs():
     WhatRecord.update_forward_refs(
         AsynPort=AsynPort,
     )
+    IocshResult.update_forward_refs(ShortLinterResults=ShortLinterResults)

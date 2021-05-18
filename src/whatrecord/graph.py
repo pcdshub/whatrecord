@@ -20,7 +20,7 @@ class LinkInfo:
     field1: RecordField
     record2: RecordInstance
     field2: RecordField
-    info: str
+    info: Tuple[str, ...]
 
 
 def build_database_relations(
@@ -44,6 +44,7 @@ def build_database_relations(
         Such that: ``info[pv1][pv2] = (field1, field2, info)``
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
+    warned = set()
     relations = collections.defaultdict(lambda: collections.defaultdict(list))
     for rec1 in database.values():
         for field1, link, info in rec1.get_links():
@@ -58,8 +59,11 @@ def build_database_relations(
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
                 # TODO: check for constant links, ignore card/slot syntax, etc
-                if not link.startswith("#"):
+                if link.startswith("#") or link in warned:
+                    ...
+                else:
                     logger.warning("Linked record not in database: %s", link)
+                    warned.add(link)
             else:
                 if field2 in rec2.fields:
                     field2 = rec2.fields[field2]

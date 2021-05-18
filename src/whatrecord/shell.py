@@ -5,14 +5,13 @@ import multiprocessing as mp
 import os
 import pathlib
 import sys
-import time
 from typing import Dict, Optional, Tuple
 
 from . import asyn
 from . import motor as motor_mod
 # from . import schema
 from .common import (IocshScript, RecordInstance, ShellStateBase,
-                     ShortLinterResults, WhatRecord)
+                     ShortLinterResults, WhatRecord, time_context)
 from .db import Database, load_database_file
 from .format import FormatContext
 from .iocsh import IocshCommand, IOCShellInterpreter
@@ -427,11 +426,7 @@ def whatrec(
         if parent_port is not None:
             asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
     print(asyn_ports)
-    return WhatRecord(
-        owner=None,
-        instance=inst,
-        asyn_ports=[]  # asyn_ports,
-    )
+    return WhatRecord(owner=None, instance=inst, asyn_ports=[])  # asyn_ports,
 
 
 def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellState]:
@@ -453,46 +448,56 @@ def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellStat
 
 def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
     startup_lines, sh_state = load_startup_script(standin_directories, fn)
-    return startup_lines.to_json(), sh_state.to_json()
+    return startup_lines.json(), sh_state.json()
 
 
 def load_startup_scripts(
     *fns, standin_directories=None, processes=1
 ) -> ScriptContainer:
+    """
+    Load all given startup scripts into a shared ScriptContainer.
+
+    Parameters
+    ----------
+    standin_directories : dict
+        Stand-in/substitute directory mapping.
+    processes : int
+        The number of processes to use when loading.
+
+    Returns
+    -------
+    container : ScriptContainer
+        The resulting container.
+    """
+    """
+    Load all given startup scripts into a shared ScriptContainer.
+    """
     container = ScriptContainer()
     total_files = len(set(fns))
 
-    if processes > 1:
-        loader = functools.partial(_load_startup_script_json, standin_directories)
-        with mp.Pool(processes=processes) as pool:
-            results = pool.imap(loader, sorted(set(fns)))
-            for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
-                iocsh_script = IocshScript.from_json(iocsh_script_raw)
-                sh_state = ShellState.from_json(sh_state_raw)
-                print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
-                container.add_script(iocsh_script, sh_state)
+    with time_context() as total_ctx:
+        if processes > 1:
+            loader = functools.partial(_load_startup_script_json, standin_directories)
+            with mp.Pool(processes=processes) as pool:
+                results = pool.imap(loader, sorted(set(fns)))
+                for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
+                    iocsh_script = IocshScript.parse_raw(iocsh_script_raw)
+                    sh_state = ShellState.parse_raw(sh_state_raw)
+                    print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
+                    container.add_script(iocsh_script, sh_state)
+        else:
+            loader = functools.partial(load_startup_script, standin_directories)
+            for idx, fn in enumerate(sorted(set(fns)), 1):
+                if idx == 20:
+                    break
+                print(f"{idx}/{total_files}: Loading {fn}...", end="")
+                with time_context() as ctx:
+                    iocsh_script, sh_state = loader(fn)
+                    container.add_script(iocsh_script, sh_state)
+                print(f"[{ctx():.1f} s]")
 
-            return container
-
-    loader = functools.partial(load_startup_script, standin_directories)
-    for idx, fn in enumerate(sorted(set(fns)), 1):
-        t0 = time.monotonic()
-        if idx == 20:
-            break
-        print(f"{idx}/{total_files}: Loading {fn}...", end="")
-        iocsh_script, sh_state = loader(fn)
-        container.add_script(iocsh_script, sh_state)
-        elapsed = time.monotonic() - t0
-        print(f"[{elapsed:.1f} s]")
-
-        t0 = time.monotonic()
-        as_json = sh_state.json()
-        t1 = time.monotonic()
-        sh_state.parse_raw(as_json)
-        t2 = time.monotonic()
-        print("to json", t1 - t0, "from json", t2 - t1)
-        # print(as_json)
-        print("size", len(as_json) / 1024, "kb")
-        # sh_state.from_json(sh_state.to_json()).to_json()
-
+        print(
+            f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
+            f"with {processes} process(es)"
+        )
     return container
