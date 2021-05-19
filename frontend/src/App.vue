@@ -1,26 +1,12 @@
 <template>
   <div id="whatrec" class="top-grid">
-    <div>
-      <form @submit.prevent="search">
-        Search: <input v-model.trim.lazy="pv_glob" placeholder="" /><br/>
-        Max: <input v-model.number.lazy="max_pvs" placeholder="200" type="number" /><br/>
-        <!-- <p>Query: {{ pv_glob }} (max {{ max_pvs }})</p> -->
-        <button @click="search()">Search</button>
-        <button @click="whatrec()">whatrecord?</button>
-        <br/>
-        <template v-for="(pvname, idx) in pv_list" :key=idx>
-          <input :id="pvname" :value="pvname" name="pvname" type="checkbox" v-model="selected_pvs" />
-          <label :for="pvname"><span classname="pvname">{{pvname}}</span></label>
-          <br/>
-        </template>
-      </form>
-    </div>
-    <div>
+    <Searchbar />
+    <div align=left>
       <div v-for="match in pv_info" :key=match.pv_name >
         <h3> {{ match.pv_name }} </h3>
         <recordinfo
           v-for="(info, idx) in match.info"
-          :key=idx
+          :key="idx"
           :info="info"
           :appliance_viewer_url="appliance_viewer_url" />
       </div>
@@ -31,28 +17,14 @@
 <script>
 const axios = require('axios').default;
 
-// import AsynPort from './components/asyn-port.vue'
-// import DictionaryTable from './components/dictionary-table.vue'
-// import EpicsFormatRecord from './components/epics-format-record.vue'
-// import GatewayContextLink from './components/gateway-context-link.vue'
-// import GatewayMatches from './components/gateway-matches.vue'
-// import RecordFieldTable from './components/record-field-table.vue'
 import Recordinfo from './components/recordinfo.vue'
-// import ScriptContextLink from './components/script-context-link.vue'
-// import ScriptContextOneLink from './components/script-context-one-link.vue'
+import Searchbar from './components/searchbar.vue'
 
 export default {
   name: 'WhatRec',
   components: {
-    // AsynPort,
-    // DictionaryTable,
-    // EpicsFormatRecord,
-    // GatewayContextLink,
-    // GatewayMatches,
-    // RecordFieldTable,
     Recordinfo,
-    // ScriptContextLink,
-    // ScriptContextOneLink,
+    Searchbar,
   },
   data() {
     return {

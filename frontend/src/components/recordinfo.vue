@@ -53,7 +53,6 @@
 
 <script>
 import AsynPort from './asyn-port.vue'
-// import DictionaryTable from './dictionary-table.vue'
 import EpicsFormatRecord from './epics-format-record.vue'
 import GatewayMatches from './gateway-matches.vue'
 import RecordFieldTable from './record-field-table.vue'
