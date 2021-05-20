@@ -30,10 +30,10 @@ export default {
     return {
       pv_glob: '*MMS:*',
       max_pvs: 30,
+      selected_pvs: [],
       add_graph: true,
       pv_list: [],
       pv_info: {},
-      selected_pvs: [],
       appliance_viewer_url: 'https://pswww.slac.stanford.edu/archiveviewer/retrieval/ui/viewer/archViewer.html?pv=',
     }
   },
@@ -46,6 +46,7 @@ export default {
         "/api/pv/" + this.selected_pvs.join("|") + "/info",
         {})
         .then(response => {
+          console.log("Info for PVs: " + this.selected_pvs);
           console.log(response.data);
           this.pv_info = response.data;
         })
