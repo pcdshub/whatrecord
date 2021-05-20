@@ -1,7 +1,7 @@
 <template>
-  <script-context-link :context="info.instance.context" :short=false></script-context-link>
-  <a :href="appliance_viewer_url + info.instance.name" target="_blank">
-      <div v-if="info.instance.metadata.archived">
+  <script-context-link :context="record_info.instance.context" :short=false></script-context-link>
+  <a :href="appliance_viewer_url + record_info.instance.name" target="_blank">
+      <div v-if="record_info.instance.metadata.archived">
           In archiver
       </div>
       <div v-else>
@@ -9,23 +9,23 @@
       </div>
   </a>
   <epics-format-record
-    :name=info.instance.name
-    :context=info.instance.context
-    :fields=info.instance.fields
-    :record_type=info.instance.record_type
-    :is_grecord=info.instance.is_grecord
+    :name=record_info.instance.name
+    :context=record_info.instance.context
+    :fields=record_info.instance.fields
+    :record_type=record_info.instance.record_type
+    :is_grecord=record_info.instance.is_grecord
   ></epics-format-record>
 
-  <a :href="'/api/pv/' + info.instance.name + '/graph/svg'" target="_blank">
+  <a :href="'/api/pv/' + record_info.instance.name + '/graph/svg'" target="_blank">
     <img
       class="svg-graph"
-      :src="'/api/pv/' + info.instance.name + '/graph/svg'" />
+      :src="'/api/pv/' + record_info.instance.name + '/graph/svg'" />
   </a>
 
   <details open=true class="title">
     <summary class="title">Gateway details</summary>
-    <template v-if="info.instance.metadata.gateway.matches">
-      <gateway-matches :matches="info.instance.metadata.gateway.matches">
+    <template v-if="record_info.instance.metadata.gateway.matches">
+      <gateway-matches :matches="record_info.instance.metadata.gateway.matches">
       </gateway-matches>
     </template>
   </details>
@@ -33,7 +33,7 @@
   <details open=true class="title">
     <summary class="title">Asyn details</summary>
     <asyn-port
-    v-for:="asyn_port in info.asyn_ports"
+    v-for:="asyn_port in record_info.asyn_ports"
     :asyn_port="asyn_port"
     :key="asyn_port.name"></asyn-port>
   </details>
@@ -41,13 +41,13 @@
   <details open=true class="title">
   <summary class="title">Field table</summary>
   <record-field-table
-    :fields=info.instance.fields
+    :fields=record_info.instance.fields
   ></record-field-table>
   </details>
 
   <details class="title">
   <summary class="title">Raw information</summary>
-  <pre>{{info}}</pre>
+  <pre>{{record_info}}</pre>
   </details>
 </template>
 
@@ -61,7 +61,7 @@ import ScriptContextLink from './script-context-link.vue'
 export default {
   name: 'Recordinfo',
   props: {
-    info: Object,
+    record_info: Object,
     appliance_viewer_url: String
   },
   components: {
@@ -75,4 +75,8 @@ export default {
 </script>
 
 <style scoped>
+.svg-graph {
+  max-width: 70%;
+}
+
 </style>
