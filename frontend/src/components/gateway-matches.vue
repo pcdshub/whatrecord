@@ -10,7 +10,7 @@
     <tbody>
       <tr v-for="(match, idx) in matches" :key=idx>
         <td>
-          <gateway-context-link :filename="match.filename" :lineno="match.lineno"></gateway-context-link>
+          <gateway-context-link :filename="match.filename" :lineno="match.lineno" />
         </td>
         <td>{{ match.expression }}</td>
         <td>{{match.details.join(" ")}}</td>
@@ -34,4 +34,11 @@ export default {
 </script>
 
 <style scoped>
+table {
+    width: 100%;
+}
+
+td {
+    font-family: monospace;
+}
 </style>

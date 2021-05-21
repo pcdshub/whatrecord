@@ -37,7 +37,6 @@ export default {
       max_pvs: 30,
       pv_glob: '*',
       pv_list: [],
-      /* selected_records: [], */
       selected_records: [],
       record_info: {},
     }
@@ -60,7 +59,7 @@ export default {
             max: this.max_pvs
           }
         })
-        .then(response => {
+        .then((response) => {
           console.log(response.data);
           var matching_pvs = response.data["matching_pvs"];
           /*
@@ -118,4 +117,8 @@ export default {
 </script>
 
 <style>
+.p-datatable-tbody {
+    font-family: monospace;
+    font-size: 0.9em;
+}
 </style>

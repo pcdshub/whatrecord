@@ -1,28 +1,24 @@
 <template>
-  <table class="table recordtable">
-    <thead class="recordtable">
-      <tr>
-        <th>Field</th>
-        <th>Value</th>
-        <th>Type</th>
-        <th>Context</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="field in fields" :key=field.name>
-        <td id="field">{{ field.name }}</td>
-        <td id="value">{{ field.value }}</td>
-        <td id="dtype">{{ field.dtype }}</td>
-        <td id="context">
-          <script-context-link :context="field.context" :short=true></script-context-link>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <DataTable :value="Object.values(fields)">
+    <Column field="name" header="Field"></Column>
+    <Column field="value" header="Value"></Column>
+    <Column field="dtype" header="Type"></Column>
+    <Column header="Context">
+      <template #body="slotProps">
+        <script-context-link :context="slotProps.data.context" :short="true" />
+      </template>
+    </Column>
+  </DataTable>
+
+   <!--
+   <script-context-link :context="field.context" :short=true></script-context-link>
+   -->
 </template>
 
 <script>
 import ScriptContextLink from './script-context-link.vue'
+import Column from 'primevue/column';
+import DataTable from 'primevue/datatable';
 
 export default {
   name: 'RecordFieldTable',
@@ -30,6 +26,8 @@ export default {
     fields: Object
   },
   components: {
+    Column,
+    DataTable,
     ScriptContextLink,
   },
 }

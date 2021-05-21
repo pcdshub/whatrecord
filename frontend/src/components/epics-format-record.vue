@@ -16,7 +16,7 @@
 
 <script>
 export default {
-  name: 'epics-format-record',
+  name: 'EpicsFormatRecord',
   props: {
     name: String,
     context: Array,

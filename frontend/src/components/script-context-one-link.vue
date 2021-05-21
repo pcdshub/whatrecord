@@ -1,34 +1,35 @@
 <template>
   &gt;
-  <a v-if="name.indexOf('.cmd') >= 0"
-      :href="'/script?script=' + name + '#' + name + ':' + line"
-      target="_blank">
-    <template v-if="short">
-        {{ name.replace(/^.*[\\\/]/, '') }}:{{ line }}<br/>
-    </template>
-    <template v-else>
-        {{ name }}:{{ line }}<br/>
-    </template>
-  </a>
-  <a v-else
-        :href="'/database?file=' + name + '#' + line"
-        target="_blank">
-    <template v-if="short">
-        {{ name.replace(/^.*[\\\/]/, '') }}:{{ line }}<br/>
-    </template>
-    <template v-else>
-        {{ name }}:{{ line }}<br/>
-    </template>
-  </a>
+  <router-link :to="link">
+    {{ display_name }}:{{ line }}<br/>
+  </router-link>
 </template>
 
 <script>
 export default {
   name: 'ScriptContextOneLink',
   props: {
-    short: Boolean,
     name: String,
-    line: Number
+    line: Number,
+    short: Boolean,
+  },
+  computed: {
+    display_name() {
+      return (this.short ? this.short_name : this.name);
+    },
+    short_name() {
+      return this.name.replace(/^.*[\\/]/, '');
+    },
+    link() {
+      return { name: 'script', params: { script: this.name, line: this.line }};
+      /*
+      if (this.name.indexOf('.cmd') >= 0) {
+        return "/script/" + this.name + "#" + this.name + ":" + this.line;
+      } else {
+        return "/database?file=" + this.name + "#" + this.line;
+      }
+      */
+    }
   }
 }
 </script>

@@ -30,12 +30,17 @@
 </template>
 
 <script>
+import ScriptContextLink from './script-context-link.vue';
+
 export default {
   name: 'DictionaryTable',
   props: {
     cls: String,
     dict: Object,
     skip_keys: Array
+  },
+  components: {
+    ScriptContextLink,
   }
 }
 </script>
