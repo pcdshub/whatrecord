@@ -14,11 +14,12 @@ from aiohttp import web
 from .. import gateway, graph
 from ..common import BaseModel, RecordField, WhatRecord
 from ..shell import ScriptContainer, load_startup_scripts
-from . import html as html_mod
-from . import static
 
-STATIC_PATH = pathlib.Path(static.__file__).parent
-HTML_PATH = pathlib.Path(html_mod.__file__).parent
+# from . import html as html_mod
+# from . import static
+
+# STATIC_PATH = pathlib.Path(static.__file__).parent
+# HTML_PATH = pathlib.Path(html_mod.__file__).parent
 TRUE_VALUES = {"1", "true", "True"}
 MAX_RECORDS = int(os.environ.get("WHATRECORD_MAX_RECORDS", 200))
 
@@ -238,20 +239,20 @@ class ServerHandler:
             body=self.state.get_graph_rendered(tuple(pv_names), format=format),
         )
 
-    # TODO: these will go away when not in development mode
-    @routes.get("/index.html")
-    @routes.get("/")
-    async def index_page(self, request: web.Request):
-        return web.FileResponse(HTML_PATH / "index.html")
+    # # TODO: these will go away when not in development mode
+    # @routes.get("/index.html")
+    # @routes.get("/")
+    # async def index_page(self, request: web.Request):
+    #     return web.FileResponse(HTML_PATH / "index.html")
 
-    @routes.get("/script")
-    @routes.get("/whatrec")
-    @routes.get("/database")
-    async def misc_page(self, request: web.Request):
-        fn = request.path.split("/")[-1]
-        return web.FileResponse(HTML_PATH / (fn + ".html"))
+    # @routes.get("/script")
+    # @routes.get("/whatrec")
+    # @routes.get("/database")
+    # async def misc_page(self, request: web.Request):
+    #     fn = request.path.split("/")[-1]
+    #     return web.FileResponse(HTML_PATH / (fn + ".html"))
 
-    routes.static("/_static", STATIC_PATH, show_index=False)
+    # routes.static("/_static", STATIC_PATH, show_index=False)
 
 
 def add_routes(app: web.Application, handler: ServerHandler):
