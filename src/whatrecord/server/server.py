@@ -8,11 +8,12 @@ import sys
 import tempfile
 from typing import DefaultDict, Dict, List, Optional, Set, Tuple, Union
 
+import apischema
 import graphviz
 from aiohttp import web
 
 from .. import gateway, graph
-from ..common import BaseModel, RecordField, WhatRecord
+from ..common import RecordField, WhatRecord, dataclass
 from ..shell import ScriptContainer, load_startup_scripts
 
 # from . import html as html_mod
@@ -113,27 +114,32 @@ class ServerState:
             return fp.read()
 
 
-class PVGetInfo(BaseModel):
+@dataclass
+class PVGetInfo:
     pv_name: str
     present: bool
     info: List[WhatRecord]
 
 
-class PVGetInfoResponse(BaseModel):
+@dataclass
+class PVGetInfoResponse:
     __root__: Dict[str, PVGetInfo]
 
 
-class PVGetMatchesResponse(BaseModel):
+@dataclass
+class PVGetMatchesResponse:
     glob: str
     matching_pvs: List[str]
 
 
-class FileLine(BaseModel):
+@dataclass
+class FileLine:
     lineno: int
     line: str
 
 
-class FileResponse(BaseModel):
+@dataclass
+class FileResponse:
     __root__: List[FileLine]
 
 

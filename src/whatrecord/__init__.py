@@ -18,10 +18,4 @@ from .macro import MacroContext  # isort: skip  # noqa
 from .iocsh import IOCShellInterpreter  # isort: skip  # noqa
 from .db import Database, load_database_file  # isort: skip  # noqa
 
-from . import common  # isort: skip  # noqa
-
-common._update_forward_refs()
-
-del common
-
 __all__ = ["MacroContext", "IOCShellInterpreter", "Database", "load_database_file"]

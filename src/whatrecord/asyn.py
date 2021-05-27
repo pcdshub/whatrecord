@@ -4,10 +4,11 @@ from typing import ClassVar, Dict, Optional, Union
 
 import pydantic
 
-from .common import BaseModel, FrozenLoadContext, dataclass
+from .common import FrozenLoadContext, dataclass
 
 
-class AsynPort(BaseModel):
+@dataclass
+class AsynPort:
     context: FrozenLoadContext
     name: str
     options: dict = pydantic.Field(default_factory=dict)

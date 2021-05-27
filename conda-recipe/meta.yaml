@@ -18,12 +18,12 @@ requirements:
     run:
       - python >=3.6
       - aiohttp
+      - apischema
       - cython
       - epicscorelibs
       - graphviz
       - jinja2
       - lark
-      - pydantic
 
 test:
     imports:

@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 import logging
 import pathlib
 import typing
 from contextlib import contextmanager
-from dataclasses import field
+from dataclasses import dataclass, field
 from time import perf_counter
 from typing import (Callable, ClassVar, Dict, Generator, List, Optional, Tuple,
                     Union)
-
-import pydantic
 
 if typing.TYPE_CHECKING:
     from .asyn import AsynPort
@@ -17,17 +17,6 @@ if typing.TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-# pydantic dataclasses for now, until I arbitrarily decide to try something
-# else
-dataclass = pydantic.dataclasses.dataclass
-
-
-class BaseModel(pydantic.BaseModel):
-    class Config:
-        # arbitrary_types_allowed = True
-        ...
 
 
 FrozenLoadContext = Tuple[Tuple[str, int], ...]
@@ -51,7 +40,8 @@ class IocshCommand:
     command: str
 
 
-class IocshResult(BaseModel):
+@dataclass
+class IocshResult:
     context: FrozenLoadContext
     line: str
     outputs: List[str]
@@ -59,10 +49,11 @@ class IocshResult(BaseModel):
     error: Optional[str]
     redirects: Dict[str, Dict[str, str]]
     # TODO: normalize this
-    result: Optional[Union[str, Dict[str, str], IocshCommand, "ShortLinterResults"]]
+    result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
 
 
-class IocshScript(BaseModel):
+@dataclass
+class IocshScript:
     path: str
     lines: Tuple[IocshResult, ...]
 
@@ -192,10 +183,11 @@ record("{{record_type}}", "{{name}}") {
             yield fld, link, info
 
 
-class WhatRecord(BaseModel):
+@dataclass
+class WhatRecord:
     owner: Optional[str]
     instance: RecordInstance
-    asyn_ports: List["AsynPort"]
+    asyn_ports: List["AnyAsynPort"]
     # TODO:
     # - IOC host info, port?
     # - gateway rule matches?
@@ -213,28 +205,24 @@ def _new_macro_context() -> "MacroContext":
     return MacroContext()
 
 
-class ShellStateBase(BaseModel):
+@dataclass
+class ShellStateBase:
     prompt: str = "epics>"
-    variables: Dict[str, str] = pydantic.Field(default_factory=dict)
+    variables: Dict[str, str] = field(default_factory=dict)
     string_encoding: str = "latin-1"
-    standin_directories: Dict[str, str] = pydantic.Field(default_factory=dict)
-    working_directory: pathlib.Path = pydantic.Field(
+    standin_directories: Dict[str, str] = field(default_factory=dict)
+    working_directory: pathlib.Path = field(
         default_factory=lambda: pathlib.Path.cwd(),
     )
     database_definition: "Database" = None
-    database: Dict[str, RecordInstance] = pydantic.Field(default_factory=dict)
-    load_context: List[LoadContext] = pydantic.Field(default_factory=list)
-    asyn_ports: Dict[str, "AsynPort"] = pydantic.Field(default_factory=dict)
-    loaded_files: Dict[str, str] = pydantic.Field(
+    database: Dict[str, RecordInstance] = field(default_factory=dict)
+    load_context: List[LoadContext] = field(default_factory=list)
+    asyn_ports: Dict[str, "AsynPort"] = field(default_factory=dict)
+    loaded_files: Dict[str, str] = field(
         default_factory=dict,
     )
-    # _shell: "IOCShellInterpreter" = pydantic.PrivateAttr(
-    #     default_factory=_new_interpreter
-    # )
-    _macro_context: "MacroContext" = pydantic.PrivateAttr(
-        default_factory=_new_macro_context
-    )
-    _handlers: Dict[str, Callable] = pydantic.PrivateAttr(default_factory=dict)
+    _macro_context: ClassVar["MacroContext"]
+    _handlers: ClassVar[Dict[str, Callable]]
 
     @property
     def macro_context(self) -> "MacroContext":
@@ -250,20 +238,3 @@ def time_context():
         return perf_counter() - start_count
 
     yield inner
-
-
-def _update_forward_refs():
-    # Forward type references make it so that types fail to deserialize
-    from . import Database, IOCShellInterpreter, MacroContext
-    from .asyn import AsynPort
-
-    ShellStateBase.update_forward_refs(
-        Database=Database,
-        IOCShellInterpreter=IOCShellInterpreter,
-        MacroContext=MacroContext,
-        AsynPort=AsynPort,
-    )
-    WhatRecord.update_forward_refs(
-        AsynPort=AsynPort,
-    )
-    IocshResult.update_forward_refs(ShortLinterResults=ShortLinterResults)
