@@ -17,7 +17,10 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# FrozenLoadContext = List[Tuple[str, int], ...]
+# FrozenLoadContext = Tuple[Tuple[str, int], ...]
+# TODO: the above is correct, but apischema doesn't like it because it tries to
+# turn Tuple[str, int] into List[str, int] for some reason. Needs further
+# investigation
 FrozenLoadContext = List[List[Union[str, int]]]
 
 
