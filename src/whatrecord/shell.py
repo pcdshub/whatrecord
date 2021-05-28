@@ -424,7 +424,7 @@ class ScriptContainer:
         field: Optional[str] = None,
         format_option: str = "console",
         file=sys.stdout,
-    ):
+    ) -> List[WhatRecord]:
         fmt = FormatContext()
         result = []
         for stcmd, state in self.script_to_state.items():

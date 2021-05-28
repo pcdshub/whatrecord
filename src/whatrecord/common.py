@@ -5,10 +5,10 @@ import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
+from typing import (Any, ClassVar, Dict, Generator, List, NamedTuple, Optional,
+                    Tuple, Union)
 
-from apischema import deserializer, serializer
-from apischema.conversions import Conversion, identity
+import apischema
 
 if typing.TYPE_CHECKING:
     from .db import LinterResults
@@ -17,11 +17,12 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# FrozenLoadContext = Tuple[Tuple[str, int], ...]
-# TODO: the above is correct, but apischema doesn't like it because it tries to
-# turn Tuple[str, int] into List[str, int] for some reason. Needs further
-# investigation
-FrozenLoadContext = List[List[Union[str, int]]]
+class FrozenContextSingle(NamedTuple):
+    file: str
+    line: int
+
+
+FrozenLoadContext = Tuple[FrozenContextSingle, ...]
 
 
 @dataclass(repr=False)
@@ -32,8 +33,8 @@ class LoadContext:
     def __repr__(self):
         return f"{self.name}:{self.line}"
 
-    def freeze(self) -> Tuple[str, int]:
-        return (self.name, self.line)
+    def freeze(self) -> FrozenContextSingle:
+        return FrozenContextSingle(self.name, self.line)
 
 
 @dataclass
@@ -198,16 +199,18 @@ class AsynPortBase:
         # Registers new subclasses automatically in the union cls._union.
 
         # Deserializers stack directly as a Union
-        deserializer(Conversion(identity, source=cls, target=AsynPortBase))
+        apischema.deserializer(
+            apischema.Conversion(apischema.identity, source=cls, target=AsynPortBase)
+        )
 
         # Only AsynPortBase serializer must be registered (and updated for each
         # subclass) as a Union, and not be inherited
         AsynPortBase._union = (
             cls if AsynPortBase._union is None else Union[AsynPortBase._union, cls]
         )
-        serializer(
-            Conversion(
-                identity,
+        apischema.serializer(
+            apischema.Conversion(
+                apischema.identity,
                 source=AsynPortBase,
                 target=AsynPortBase._union,
                 inherited=False,
