@@ -18,11 +18,21 @@
 </template>
 
 <script>
+import DictionaryTable from './dictionary-table.vue';
+
 export default {
   name: 'AsynPort',
   props: {
     asyn_port: Object
-  }
+  },
+  components: [
+    DictionaryTable,
+  ],
+  beforeCreate() {
+    // TODO: I don't think this is circular; why am I running into this?
+    // V2 ref: https://vuejs.org/v2/guide/components-edge-cases.html#Circular-References-Between-Components
+    this.$options.components.DictionaryTable = require('./dictionary-table.vue').default;
+  },
 }
 </script>
 
