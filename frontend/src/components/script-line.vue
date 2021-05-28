@@ -32,10 +32,10 @@
           </template>
           <template v-else>
             <span v-if="error != null" class="error-block">
-              {{error}}
+              <pre>{{error}}</pre>
             </span>
             <span v-if="result != null" class="result-block">
-              {{ result }}
+              <pre>{{ result }}</pre>
             </span>
           </template>
         </details>
