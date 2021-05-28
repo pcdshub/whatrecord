@@ -22,6 +22,11 @@ class FrozenContextSingle(NamedTuple):
     line: int
 
 
+# NOTE: (De)serializer methods cannot be used with typing.NamedTuple; in fact,
+# apischema uses __set_name__ magic method but it is not called on NamedTuple
+# subclass fields.
+
+
 FrozenLoadContext = Tuple[FrozenContextSingle, ...]
 
 

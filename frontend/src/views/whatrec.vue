@@ -75,40 +75,6 @@ export default {
   max-width: 70%;
 }
 
-.error-block {
-  background: lightred;
-  border: 1px solid lightgray;
-  border-left: 3px solid lightcoral;
-  color: black;
-  page-break-inside: avoid;
-  font-family: monospace;
-  font-size: 15px;
-  line-height: 1.0;
-  margin-bottom: 1.6em;
-  max-width: 100%;
-  overflow: auto;
-  padding: 15px;
-  display: block;
-  word-wrap: break-word;
-}
-
-.result-block {
-  background: #eeeeee;
-  border: 1px solid lightgray;
-  border-left: 3px solid lightgray;
-  color: black;
-  page-break-inside: avoid;
-  font-family: monospace;
-  font-size: 15px;
-  line-height: 1.0;
-  margin-bottom: 1.6em;
-  max-width: 100%;
-  overflow: auto;
-  padding: 15px;
-  display: block;
-  word-wrap: break-word;
-}
-
 .context {
   margin-left: 1px;
 }

@@ -55,7 +55,7 @@ export default {
   props: ["context", "line", "outputs", "argv", "error", "redirects", "result"],
   computed: {
     line_id() {
-      return this.context.map(ctx => ctx[1]).join(':');
+      return this.context.map(ctx => ctx.line).join(':');
     },
     script_line_class() {
       return (this.line == this.$route.params.line ? ["script-line-selected", "script-line"] : "script-line");
@@ -118,4 +118,39 @@ details.script-line > summary::before {
   color: red;
 }
 
+.error-block {
+  background: lightred;
+  border: 1px solid lightgray;
+  border-left: 3px solid lightcoral;
+  color: black;
+  page-break-inside: avoid;
+  font-family: monospace;
+  font-size: 15px;
+  line-height: 1.0;
+  margin-bottom: 0.5em;
+  max-width: 100%;
+  overflow: auto;
+  padding: 15px;
+  display: block;
+  word-wrap: break-word;
+}
+
+.result-block {
+  border-left: 3px solid lightgray;
+  color: black;
+  page-break-inside: avoid;
+  font-family: monospace;
+  font-size: 15px;
+  line-height: 1.0;
+  margin-bottom: 0.5em;
+  max-width: 100%;
+  overflow: auto;
+  padding: 15px;
+  display: block;
+  word-wrap: break-word;
+}
+
+pre {
+  margin: 0em;
+}
 </style>
