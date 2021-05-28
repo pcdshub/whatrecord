@@ -122,11 +122,6 @@ class PVGetInfo:
 
 
 @dataclass
-class PVGetInfoResponse:
-    __root__: Dict[str, PVGetInfo]
-
-
-@dataclass
 class PVGetMatchesResponse:
     glob: str
     matching_pvs: List[str]
@@ -136,11 +131,6 @@ class PVGetMatchesResponse:
 class FileLine:
     lineno: int
     line: str
-
-
-@dataclass
-class FileResponse:
-    __root__: List[FileLine]
 
 
 class ServerHandler:
@@ -153,17 +143,15 @@ class ServerHandler:
     async def api_pv_get_info(self, request: web.Request):
         pv_names = request.match_info.get("pv_names", "").split("|")
         info = {pv_name: self.state.whatrec(pv_name) for pv_name in pv_names}
-        pv_get_info_response = {
-            pv_name: PVGetInfo(
-                pv_name=pv_name,
-                present=pv_name in self.state.database,
-                info=[obj for obj in info[pv_name]],
-            )
-            for pv_name in pv_names
-        }
-        return web.Response(
-            content_type="application/json",
-            body=PVGetInfoResponse(__root__=pv_get_info_response).json(),
+        return web.json_response(
+            apischema.serialize({
+                pv_name: PVGetInfo(
+                    pv_name=pv_name,
+                    present=pv_name in self.state.database,
+                    info=[obj for obj in info[pv_name]],
+                )
+                for pv_name in pv_names
+            })
         )
 
     @routes.get("/api/pv/{glob_str}/matches")
@@ -174,12 +162,13 @@ class ServerHandler:
         if max_matches > 0:
             matches = matches[:max_matches]
 
-        return web.Response(
-            content_type="application/json",
-            body=PVGetMatchesResponse(
-                glob=glob_str,
-                matching_pvs=matches,
-            ).json(),
+        return web.json_response(
+            apischema.serialize(
+                PVGetMatchesResponse(
+                    glob=glob_str,
+                    matching_pvs=matches,
+                )
+            )
         )
 
     @routes.get("/api/database/get")
@@ -194,11 +183,13 @@ class ServerHandler:
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
-        info = [
-            FileLine(lineno=lineno, line=line) for lineno, line in enumerate(lines, 1)
-        ]
-        return web.Response(
-            content_type="application/json", body=FileResponse(__root__=info).json()
+        return web.json_response(
+            apischema.serialize(
+                [
+                    FileLine(lineno=lineno, line=line)
+                    for lineno, line in enumerate(lines, 1)
+                ]
+            )
         )
 
     @routes.get("/api/script/info")
@@ -208,7 +199,7 @@ class ServerHandler:
         except KeyError as ex:
             raise web.HTTPBadRequest() from ex
 
-        return web.Response(content_type="application/json", body=script_info.json())
+        return web.json_response(apischema.serialize(script_info))
 
     @routes.get("/api/pv/{pv_names}/graph/{format}")
     async def api_pv_get_graph(self, request: web.Request):

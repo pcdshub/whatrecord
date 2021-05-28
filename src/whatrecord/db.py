@@ -357,7 +357,7 @@ class Database:
     standalone_aliases: List[DatabaseRecordAlias] = field(default_factory=list)
     addpaths: List[DatabaseAddPath] = field(default_factory=list)
     breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
-    comments: List = field(default_factory=list)
+    comments: List[str] = field(default_factory=list)
     devices: List[DatabaseDevice] = field(default_factory=list)
     drivers: List[DatabaseDriver] = field(default_factory=list)
     functions: List[DatabaseFunction] = field(default_factory=list)

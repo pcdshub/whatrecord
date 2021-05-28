@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 import logging
-import pathlib
 import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import (Callable, ClassVar, Dict, Generator, List, Optional, Tuple,
-                    Union)
+from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
+
+from apischema import deserializer, serializer
+from apischema.conversions import Conversion, identity
 
 if typing.TYPE_CHECKING:
-    from .asyn import AsynPort
-    from .db import Database, LinterResults
-    from .iocsh import IOCShellInterpreter
-    from .macro import MacroContext
+    from .db import LinterResults
 
 
 logger = logging.getLogger(__name__)
 
 
-FrozenLoadContext = Tuple[Tuple[str, int], ...]
+# FrozenLoadContext = List[Tuple[str, int], ...]
+FrozenLoadContext = List[List[Union[str, int]]]
 
 
 @dataclass(repr=False)
@@ -84,7 +83,7 @@ class ShortLinterResults:
     macros: Dict[str, str]
 
     @classmethod
-    def from_full_results(cls, results: "LinterResults", macros: Dict[str, str]):
+    def from_full_results(cls, results: LinterResults, macros: Dict[str, str]):
         return cls(
             load_count=len(results.records),
             errors=results.errors,
@@ -183,50 +182,44 @@ record("{{record_type}}", "{{name}}") {
             yield fld, link, info
 
 
+class AsynPortBase:
+    """
+    Base class for general asyn ports.
+
+    Used in :mod:`whatrecord.asyn`, but made available here such that apischema
+    can find it more readily.
+    """
+    _union: Any = None
+
+    def __init_subclass__(cls, **kwargs):
+        # Registers new subclasses automatically in the union cls._union.
+
+        # Deserializers stack directly as a Union
+        deserializer(Conversion(identity, source=cls, target=AsynPortBase))
+
+        # Only AsynPortBase serializer must be registered (and updated for each
+        # subclass) as a Union, and not be inherited
+        AsynPortBase._union = (
+            cls if AsynPortBase._union is None else Union[AsynPortBase._union, cls]
+        )
+        serializer(
+            Conversion(
+                identity,
+                source=AsynPortBase,
+                target=AsynPortBase._union,
+                inherited=False,
+            )
+        )
+
+
 @dataclass
 class WhatRecord:
     owner: Optional[str]
     instance: RecordInstance
-    asyn_ports: List["AnyAsynPort"]
+    asyn_ports: List["AsynPortBase"]
     # TODO:
     # - IOC host info, port?
     # - gateway rule matches?
-
-
-def _new_interpreter() -> "IOCShellInterpreter":
-    from .iocsh import IOCShellInterpreter
-
-    return IOCShellInterpreter()
-
-
-def _new_macro_context() -> "MacroContext":
-    from .macro import MacroContext
-
-    return MacroContext()
-
-
-@dataclass
-class ShellStateBase:
-    prompt: str = "epics>"
-    variables: Dict[str, str] = field(default_factory=dict)
-    string_encoding: str = "latin-1"
-    standin_directories: Dict[str, str] = field(default_factory=dict)
-    working_directory: pathlib.Path = field(
-        default_factory=lambda: pathlib.Path.cwd(),
-    )
-    database_definition: "Database" = None
-    database: Dict[str, RecordInstance] = field(default_factory=dict)
-    load_context: List[LoadContext] = field(default_factory=list)
-    asyn_ports: Dict[str, "AsynPort"] = field(default_factory=dict)
-    loaded_files: Dict[str, str] = field(
-        default_factory=dict,
-    )
-    _macro_context: ClassVar["MacroContext"]
-    _handlers: ClassVar[Dict[str, Callable]]
-
-    @property
-    def macro_context(self) -> "MacroContext":
-        return self._macro_context
 
 
 @contextmanager

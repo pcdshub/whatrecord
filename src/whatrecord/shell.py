@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import inspect
 import logging
@@ -5,16 +7,21 @@ import multiprocessing as mp
 import os
 import pathlib
 import sys
-from typing import Dict, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional, Tuple
+
+import apischema
+from apischema.metadata import skip
 
 from . import asyn
 from . import motor as motor_mod
 # from . import schema
-from .common import (IocshScript, RecordInstance, ShellStateBase,
+from .common import (IocshScript, LoadContext, RecordInstance,
                      ShortLinterResults, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
 from .iocsh import IocshCommand, IOCShellInterpreter
+from .macro import MacroContext
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +45,8 @@ def _motor_wrapper(method):
     return wrapped
 
 
-class ShellState(ShellStateBase):
+@dataclass
+class ShellState:
     """
     Shell state for IOCShellInterpreter.
 
@@ -81,13 +89,27 @@ class ShellState(ShellStateBase):
         Current loading context stack (e.g., ``st.cmd`` then ``common_startup.cmd``)
     """
 
-    def __init__(self, shell=None, macro_context=None, **kwargs):
-        super().__init__(**kwargs)
-        from .macro import MacroContext
+    prompt: str = "epics>"
+    variables: Dict[str, str] = field(default_factory=dict)
+    string_encoding: str = "latin-1"
+    standin_directories: Dict[str, str] = field(default_factory=dict)
+    working_directory: pathlib.Path = field(
+        default_factory=lambda: pathlib.Path.cwd(),
+    )
+    database_definition: Optional[Database] = None
+    database: Dict[str, RecordInstance] = field(default_factory=dict)
+    load_context: List[LoadContext] = field(default_factory=list)
+    asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
+    loaded_files: Dict[str, str] = field(
+        default_factory=dict,
+    )
+    macro_context: MacroContext = field(default_factory=MacroContext,
+                                        metadata=skip)
 
-        # self._shell = shell
-        self._macro_context = macro_context or MacroContext()
-        self._handlers = dict(self.find_handlers())
+    _handlers: Dict[str, Callable] = field(default_factory=dict, metadata=skip)
+
+    def __post_init__(self):
+        self._handlers.update(dict(self.find_handlers()))
         self._setup_dynamic_handlers()
 
     def _setup_dynamic_handlers(self):
@@ -157,13 +179,13 @@ class ShellState(ShellStateBase):
         return f"Registered variable: {variable!r}={value!r}"
 
     def handle_epicsEnvSet(self, variable, value, *_):
-        self._macro_context.define(**{variable: value})
+        self.macro_context.define(**{variable: value})
         return f"Defined: {variable!r}={value!r}"
 
     def handle_epicsEnvShow(self, *_):
         return {
             str(name, self.string_encoding): str(value, self.string_encoding)
-            for name, value in self._macro_context.get_macros().items()
+            for name, value in self.macro_context.get_macros().items()
         }
 
     def handle_iocshCmd(self, command, *_):
@@ -198,7 +220,7 @@ class ShellState(ShellStateBase):
         fn = self._fix_path(fn)
         self.loaded_files[str(fn.resolve())] = str(orig_fn)
 
-        bytes_macros = self._macro_context.definitions_to_dict(
+        bytes_macros = self.macro_context.definitions_to_dict(
             bytes(macros, self.string_encoding)
         )
         macros = {
@@ -207,11 +229,11 @@ class ShellState(ShellStateBase):
         }
 
         try:
-            with self._macro_context.scoped(**macros):
+            with self.macro_context.scoped(**macros):
                 linter_results = load_database_file(
                     dbd=self.database_definition,
                     db=fn,
-                    macro_context=self._macro_context,
+                    macro_context=self.macro_context,
                 )
         except Exception as ex:
             # TODO move this around
@@ -420,7 +442,7 @@ class ScriptContainer:
 
 def whatrec(
     state: ShellState, rec: str, field: Optional[str] = None
-) -> Optional[Dict[str, WhatRecord]]:
+) -> Optional[WhatRecord]:
     """Get record information."""
     inst = state.database.get(rec, None)
     if inst is None:
@@ -434,8 +456,8 @@ def whatrec(
         parent_port = getattr(asyn_port, "parent", None)
         if parent_port is not None:
             asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
-    print(asyn_ports)
-    return WhatRecord(owner=None, instance=inst, asyn_ports=[])  # asyn_ports,
+
+    return WhatRecord(owner=None, instance=inst, asyn_ports=asyn_ports)
 
 
 def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellState]:
@@ -457,7 +479,7 @@ def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellStat
 
 def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
     startup_lines, sh_state = load_startup_script(standin_directories, fn)
-    return startup_lines.json(), sh_state.json()
+    return apischema.serialize(startup_lines), apischema.serialize(sh_state)
 
 
 def load_startup_scripts(
@@ -490,8 +512,8 @@ def load_startup_scripts(
             with mp.Pool(processes=processes) as pool:
                 results = pool.imap(loader, sorted(set(fns)))
                 for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
-                    iocsh_script = IocshScript.parse_raw(iocsh_script_raw)
-                    sh_state = ShellState.parse_raw(sh_state_raw)
+                    iocsh_script = apischema.deserialize(IocshScript, iocsh_script_raw)
+                    sh_state = apischema.deserialize(ShellState, sh_state_raw)
                     print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
                     container.add_script(iocsh_script, sh_state)
         else:

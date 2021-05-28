@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 cimport epicscorelibs
 cimport epicscorelibs.Com
 
-from .common import IocshCommand, IocshResult, LoadContext, ShellStateBase
+from .common import IocshCommand, IocshResult, LoadContext
 # from .db import DbdFile, RecordField, RecordInstance
 from .macro import MacroContext
 
@@ -28,9 +28,10 @@ cdef class IOCShellInterpreter:
 
     cdef public object state
 
-    def __init__(self, state: Optional[ShellStateBase] = None):
+    def __init__(self, state: Optional["ShellState"] = None):
         if state is None:
-            state = ShellStateBase()
+            from .shell import ShellState
+            state = ShellState()
 
         self.state = state
         # self.state._shell = self
