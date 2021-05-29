@@ -46,4 +46,25 @@ export default {
 </script>
 
 <style scoped>
+thead tr {
+  color: #000000;
+  text-align: center;
+}
+
+th, td {
+  padding: 12px 15px;
+}
+
+tbody tr {
+  border-bottom: 1px solid #dddddd;
+  background-color: #ffffff;
+}
+
+tbody tr:nth-of-type(even) {
+  background-color: #eeeeee;
+}
+
+tbody tr:last-of-type {
+  border-bottom: 2px solid black;
+}
 </style>
