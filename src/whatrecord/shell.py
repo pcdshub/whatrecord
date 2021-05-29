@@ -127,10 +127,28 @@ class ShellState:
                 name = attr.split("_", 1)[1]
                 yield name, obj
 
+    def _handle_input_redirect(self, fileno, redir, shresult, recurse=True,
+                               raise_on_error=False):
+        filename = self._fix_path(redir["name"])
+        try:
+            fp_redir = open(filename, "rt")
+        except Exception as ex:
+            shresult.error = f"{type(ex).__name__}: {filename}"
+            yield shresult
+            return
+
+        try:
+            yield shresult
+            yield from self.interpret_shell_script(
+                fp_redir, recurse=recurse, name=redir["name"]
+            )
+        finally:
+            fp_redir.close()
+
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
         shresult = self._parser.parse(
-            line, context=tuple(ctx.freeze() for ctx in self.load_context),
+            line, context=self.get_frozen_context(),
             prompt=self.prompt
         )
         input_redirects = [
@@ -140,29 +158,11 @@ class ShellState:
         if shresult.error:
             yield shresult
         elif input_redirects:
-            yield shresult
-            fileno, redir = input_redirects[0]
             if recurse:
-                filename = self._fix_path(redir["name"])
-                try:
-                    with open(filename, "rt") as fp_redir:
-                        yield from self.interpret_shell_script(
-                            fp_redir, recurse=recurse
-                        )
-                    return
-                # except FileNotFoundError:
-                #     shresult.error = f"File not found: {filename}"
-                except Exception as ex:
-                    # TODO: This makes it look like I don't know how exceptions
-                    # work, but I assure you something weird happens when
-                    # mixing pypy/cython in this function.
-                    # Despite ``type(ex) is FileNotFoundError``, ``except
-                    # FileNotFoundError`` doesn't work
-                    if type(ex).__name__ != "FileNotFoundError":
-                        # shresult.error = f"Failed to load {filename}:
-                        # ({ex.__class__.__name__}) {ex}"
-                        raise
-                    shresult.error = f"File not found: {filename}"
+                yield from self._handle_input_redirect(
+                    *input_redirects[0], shresult, recurse=recurse,
+                    raise_on_error=raise_on_error
+                )
         elif shresult.argv:
             try:
                 shresult.result = self.handle_command(*shresult.argv)
@@ -179,6 +179,9 @@ class ShellState:
                 yield from self.interpret_shell_line(
                     shresult.result.command, recurse=recurse
                 )
+        else:
+            # Otherwise, nothing to do
+            yield shresult
 
     def interpret_shell_script(
         self,
