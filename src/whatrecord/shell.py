@@ -7,8 +7,9 @@ import multiprocessing as mp
 import os
 import pathlib
 import sys
+import traceback
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, Generator, Iterable, List, Optional, Tuple
 
 import apischema
 from apischema.metadata import skip
@@ -16,11 +17,12 @@ from apischema.metadata import skip
 from . import asyn
 from . import motor as motor_mod
 # from . import schema
-from .common import (IocshScript, LoadContext, RecordInstance,
-                     ShortLinterResults, WhatRecord, time_context)
+from .common import (IocshCommand, IocshResult, IocshScript, LoadContext,
+                     RecordInstance, ShortLinterResults, WhatRecord,
+                     time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
-from .iocsh import IocshCommand, IOCShellInterpreter
+from .iocsh import IOCShellLineParser
 from .macro import MacroContext
 
 logger = logging.getLogger(__name__)
@@ -48,14 +50,12 @@ def _motor_wrapper(method):
 @dataclass
 class ShellState:
     """
-    Shell state for IOCShellInterpreter.
+    IOC shell state container.
 
     Contains hooks for commands and state information.
 
     Parameters
     ----------
-    shell : IOCShellInterpreter, optional
-        The interpreter instance this belongs to.
     prompt : str, optional
         The prompt - PS1 - as in "epics>".
     string_encoding : str, optional
@@ -65,8 +65,6 @@ class ShellState:
 
     Attributes
     ----------
-    shell: IOCShellInterpreter
-        The interpreter instance this belongs to.
     prompt: str
         The prompt - PS1 - as in "epics>".
     variables: dict
@@ -107,10 +105,13 @@ class ShellState:
                                         metadata=skip)
 
     _handlers: Dict[str, Callable] = field(default_factory=dict, metadata=skip)
+    _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser)
 
     def __post_init__(self):
         self._handlers.update(dict(self.find_handlers()))
         self._setup_dynamic_handlers()
+        self._parser.macro_context = self.macro_context
+        self._parser.string_encoding = self.string_encoding
 
     def _setup_dynamic_handlers(self):
         # Just motors for now
@@ -125,6 +126,80 @@ class ShellState:
             if attr.startswith("handle_") and callable(obj):
                 name = attr.split("_", 1)[1]
                 yield name, obj
+
+    def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
+        """Interpret a single shell script line."""
+        shresult = self._parser.parse(
+            line, context=tuple(ctx.freeze() for ctx in self.load_context),
+            prompt=self.prompt
+        )
+        input_redirects = [
+            (fileno, redir) for fileno, redir in shresult.redirects.items()
+            if redir["mode"] == "r"
+        ]
+        if shresult.error:
+            yield shresult
+        elif input_redirects:
+            yield shresult
+            fileno, redir = input_redirects[0]
+            if recurse:
+                filename = self._fix_path(redir["name"])
+                try:
+                    with open(filename, "rt") as fp_redir:
+                        yield from self.interpret_shell_script(
+                            fp_redir, recurse=recurse
+                        )
+                    return
+                # except FileNotFoundError:
+                #     shresult.error = f"File not found: {filename}"
+                except Exception as ex:
+                    # TODO: This makes it look like I don't know how exceptions
+                    # work, but I assure you something weird happens when
+                    # mixing pypy/cython in this function.
+                    # Despite ``type(ex) is FileNotFoundError``, ``except
+                    # FileNotFoundError`` doesn't work
+                    if type(ex).__name__ != "FileNotFoundError":
+                        # shresult.error = f"Failed to load {filename}:
+                        # ({ex.__class__.__name__}) {ex}"
+                        raise
+                    shresult.error = f"File not found: {filename}"
+        elif shresult.argv:
+            try:
+                shresult.result = self.handle_command(*shresult.argv)
+            except Exception as ex:
+                if raise_on_error:
+                    raise
+                ex_details = traceback.format_exc()
+                shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
+                print("\n", type(ex), ex)
+                print(ex_details)
+
+            yield shresult
+            if isinstance(shresult.result, IocshCommand):
+                yield from self.interpret_shell_line(
+                    shresult.result.command, recurse=recurse
+                )
+
+    def interpret_shell_script(
+        self,
+        lines: Iterable[str],
+        name: str = "unknown",
+        recurse: bool = True,
+        raise_on_error: bool = False
+    ) -> Generator[IocshResult, None, None]:
+        """Interpret a shell script named ``name`` with ``lines`` of text."""
+        load_ctx = LoadContext(name, 0)
+        try:
+            self.load_context.append(load_ctx)
+            for lineno, line in enumerate(lines, 1):
+                load_ctx.line = lineno
+                yield from self.interpret_shell_line(
+                    line,
+                    recurse=recurse,
+                    raise_on_error=raise_on_error,
+                )
+        finally:
+            self.load_context.remove(load_ctx)
 
     def get_asyn_port_from_record(self, inst: RecordInstance):
         rec_field = inst.fields.get("INP", inst.fields.get("OUT", None))
@@ -398,14 +473,12 @@ class ShellState:
 
 
 class ScriptContainer:
-    shell: IOCShellInterpreter
     database: Dict[str, RecordInstance]
     script_to_state: Dict[pathlib.Path, ShellState]
     scripts: Dict[pathlib.Path, IocshScript]
     loaded_files: Dict[str, str]
 
-    def __init__(self, shell: Optional[IOCShellInterpreter] = None):
-        self.shell = shell or IOCShellInterpreter()
+    def __init__(self):
         self.database = {}
         self.scripts = {}
         self.script_to_state = {}
@@ -461,11 +534,10 @@ def whatrec(
 
 
 def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellState]:
-    sh = IOCShellInterpreter()
-    sh.state = ShellState()
-    sh.state.working_directory = pathlib.Path(fn).resolve().parent
-    sh.state.macro_context.define(TOP="../..")
-    sh.state.standin_directories = standin_directories or {}
+    sh = ShellState()
+    sh.working_directory = pathlib.Path(fn).resolve().parent
+    sh.macro_context.define(TOP="../..")
+    sh.standin_directories = standin_directories or {}
 
     with open(fn, "rt") as fp:
         lines = fp.read().splitlines()
@@ -474,7 +546,7 @@ def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellStat
         path=str(fn),
         lines=tuple(sh.interpret_shell_script(lines, name=fn)),
     )
-    return iocsh_script, sh.state
+    return iocsh_script, sh
 
 
 def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:

@@ -7,12 +7,11 @@ import traceback
 import typing
 from typing import Dict, List, Optional
 
-cimport epicscorelibs
-cimport epicscorelibs.Com
+from .common import IocshResult, LoadContext
 
-from .common import IocshCommand, IocshResult, LoadContext
-# from .db import DbdFile, RecordField, RecordInstance
-from .macro import MacroContext
+# cimport epicscorelibs
+# cimport epicscorelibs.Com
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,24 +21,15 @@ def _get_redirect(redirects: dict, idx: int):
     return redirects[idx]
 
 
-cdef class IOCShellInterpreter:
-    NREDIRECTS: int = 5
+cdef class IOCShellLineParser:
+    num_redirects: int = 5
     ifs: bytes = b" \t(),\r"
+    cdef public str string_encoding
+    cdef public object macro_context
 
-    cdef public object state
-
-    def __init__(self, state: Optional["ShellState"] = None):
-        if state is None:
-            from .shell import ShellState
-            state = ShellState()
-
-        self.state = state
-        # self.state._shell = self
-
-    @property
-    def string_encoding(self):
-        """String encoding, for convenience."""
-        return self.state.string_encoding
+    def __init__(self, string_encoding="latin-1", macro_context=None):
+        self.string_encoding = string_encoding
+        self.macro_context = macro_context
 
     cdef _decode_string(self, bytearr: bytearray):
         if 0 in bytearr:
@@ -47,6 +37,15 @@ cdef class IOCShellInterpreter:
         return str(bytearr, self.string_encoding)
 
     cpdef split_words(self, input_line: str):
+        """
+        Split input_line into words, according to how the IOC shell would.
+
+        Note that this is almost a direct conversion of the original C code,
+        making an attempt to avoid introducing inconsistencies between this
+        implementation and the original.
+
+        And (likely because of that?) this isn't very clean...
+        """
         cdef int EOF = -1
         cdef int inword = 0
         cdef int quote = EOF
@@ -94,7 +93,7 @@ cdef class IOCShellInterpreter:
                 if c == b'>':
                     if redirect:
                         break
-                    if redirectFd >= self.NREDIRECTS:
+                    if redirectFd >= self.num_redirects:
                         redirect = _get_redirect(redirects, 1)
                         break
                     redirect = _get_redirect(redirects, redirectFd)
@@ -167,10 +166,8 @@ cdef class IOCShellInterpreter:
             error=error,
         )
 
-    def parse(self, line: str, *, context=None) -> IocshResult:
-        if context is None:
-            context = tuple(ctx.freeze() for ctx in self.state.load_context)
-
+    def parse(self, line: str, *, context: Optional[LoadContext] = None,
+              prompt="epics>") -> IocshResult:
         result = IocshResult(
             context=context,
             line=line,
@@ -191,14 +188,15 @@ cdef class IOCShellInterpreter:
             # Comments delineated with '#-' aren't echoed.
             return result
 
-        line = self.state.macro_context.expand(line)
+        if self.macro_context is not None:
+            line = self.macro_context.expand(line)
 
          # * Skip leading white-space coming from a macro
         line = line.lstrip()
 
          # * Echo non-empty lines read from a script.
          # * Comments delineated with '#-' aren't echoed.
-        if not self.state.prompt:
+        if not prompt:
             if not line.startswith('#-'):
                 result.outputs.append(line)
 
@@ -211,69 +209,3 @@ cdef class IOCShellInterpreter:
         result.redirects = split["redirects"]
         result.error = split["error"]
         return result
-
-    def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
-        shresult = self.parse(line)
-        input_redirects = [
-            (fileno, redir) for fileno, redir in shresult.redirects.items()
-            if redir["mode"] == "r"
-        ]
-        if shresult.error:
-            ...
-
-        elif input_redirects:
-            fileno, redir = input_redirects[0]
-            if recurse:
-                try:
-                    filename = self.state._fix_path(redir["name"])
-                    with open(filename, "rt") as fp_redir:
-                        yield from self.interpret_shell_script(
-                            fp_redir, recurse=recurse
-                        )
-                    return
-                # except FileNotFoundError:
-                #     shresult.error = f"File not found: {filename}"
-                except Exception as ex:
-                    # TODO: This makes it look like I don't know how exceptions
-                    # work, but I assure you something weird happens when
-                    # mixing pypy/cython in this function.
-                    # Despite ``type(ex) is FileNotFoundError``, ``except FileNotFoundError`` doesn't work
-                    if type(ex).__name__ != "FileNotFoundError":
-                        # shresult.error = f"Failed to load {filename}: ({ex.__class__.__name__}) {ex}"
-                        raise
-                    shresult.error = f"File not found: {filename}"
-        elif shresult.argv:
-            try:
-                shresult.result = self.state.handle_command(*shresult.argv)
-            except Exception as ex:
-                if raise_on_error:
-                    raise
-                ex_details = traceback.format_exc()
-                shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
-                print("\n", type(ex), ex)
-                print(ex_details)
-
-            if isinstance(shresult.result, IocshCommand):
-                yield shresult
-                yield from self.interpret_shell_line(
-                    shresult.result.command, recurse=recurse
-                )
-                return
-        yield shresult
-
-    def interpret_shell_script(self, lines,
-                               name="unknown",
-                               recurse=True,
-                               raise_on_error=False):
-        load_ctx = LoadContext(name, 0)
-        try:
-            self.state.load_context.append(load_ctx)
-            for lineno, line in enumerate(lines, 1):
-                load_ctx.line = lineno
-                yield from self.interpret_shell_line(
-                    line,
-                    recurse=recurse,
-                    raise_on_error=raise_on_error,
-                )
-        finally:
-            self.state.load_context.remove(load_ctx)

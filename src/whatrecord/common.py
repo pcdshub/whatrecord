@@ -205,7 +205,9 @@ class AsynPortBase:
 
         # Deserializers stack directly as a Union
         apischema.deserializer(
-            apischema.Conversion(apischema.identity, source=cls, target=AsynPortBase)
+            apischema.conversions.Conversion(
+                apischema.conversions.identity, source=cls, target=AsynPortBase
+            )
         )
 
         # Only AsynPortBase serializer must be registered (and updated for each
@@ -214,8 +216,8 @@ class AsynPortBase:
             cls if AsynPortBase._union is None else Union[AsynPortBase._union, cls]
         )
         apischema.serializer(
-            apischema.Conversion(
-                apischema.identity,
+            apischema.conversions.Conversion(
+                apischema.conversions.identity,
                 source=AsynPortBase,
                 target=AsynPortBase._union,
                 inherited=False,
