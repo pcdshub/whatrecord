@@ -2,7 +2,7 @@
   <button @click="expand_all">Expand all</button>
   <div>
     <div>
-      <h2>{{ $route.params.script }}:{{ $route.params.line }}</h2>
+      <h2>{{ $route.params.file }}:{{ $route.params.line }}</h2>
       <table>
         <tbody>
           <script-line v-for="line in lines"
@@ -39,13 +39,13 @@ export default {
     }
   },
   mounted() {
-    const script_name = this.$route.params.script;
+    const filename = this.$route.params.file;
 
     axios.get(
-      "/api/script/info",
+      "/api/file/info",
       {params:
         {
-          script: script_name,
+          file: filename,
         }
       }
     )

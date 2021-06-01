@@ -21,7 +21,7 @@ export default {
       return this.name.replace(/^.*[\\/]/, '');
     },
     link() {
-      return { name: 'script', params: { script: this.name, line: this.line }};
+      return { name: 'file', params: { file: this.name, line: this.line }};
       /*
       if (this.name.indexOf('.cmd') >= 0) {
         return "/script/" + this.name + "#" + this.name + ":" + this.line;

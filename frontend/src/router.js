@@ -5,7 +5,7 @@ import ScriptView from './views/script-view.vue';
 
 const routes = [
   { name: 'whatrec', path: '/', component: WhatRec },
-  { name: 'script', path: '/script/:script', component: ScriptView },
+  { name: 'file', path: '/file/:file/:line', component: ScriptView },
   // { path: '/users/:username/posts/:postId', component: NotFound },
 ]
 

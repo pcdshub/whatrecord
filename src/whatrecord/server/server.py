@@ -2,7 +2,6 @@ import fnmatch
 import functools
 import json
 import os
-import pathlib
 import re
 import sys
 import tempfile
@@ -12,7 +11,7 @@ import apischema
 import graphviz
 from aiohttp import web
 
-from .. import gateway, graph
+from .. import common, gateway, graph
 from ..common import RecordField, WhatRecord, dataclass
 from ..shell import ScriptContainer, load_startup_scripts
 
@@ -171,33 +170,41 @@ class ServerHandler:
             )
         )
 
-    @routes.get("/api/database/get")
-    async def api_db_get(self, request: web.Request):
-        try:
-            # Only allow reading files we've scanned before
-            fn = pathlib.Path(request.query["filename"])
-            self.state.container.loaded_files[str(fn)]
-        except KeyError as ex:
-            raise web.HTTPBadRequest() from ex
+    @functools.lru_cache(maxsize=2048)
+    def script_info_from_loaded_file(self, fn) -> common.IocshScript:
+        assert fn in self.state.container.loaded_files
 
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
-        return web.json_response(
-            apischema.serialize(
-                [
-                    FileLine(lineno=lineno, line=line)
-                    for lineno, line in enumerate(lines, 1)
-                ]
+        context = common.LoadContext(fn, 0)
+        result = []
+        for lineno, line in enumerate(lines, 1):
+            context.line = lineno
+            result.append(
+                common.IocshResult(
+                    context=(context.freeze(),),
+                    line=line,
+                    outputs=[],
+                    argv=None,
+                    error=None,
+                    redirects={},
+                    result=None,
+                )
             )
-        )
+        return common.IocshScript(path=fn, lines=tuple(result))
 
-    @routes.get("/api/script/info")
+    @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):
-        try:
-            script_info = self.state.container.scripts[request.query["script"]]
-        except KeyError as ex:
-            raise web.HTTPBadRequest() from ex
+        script_name = request.query["file"]
+        script_info = self.state.container.scripts.get(script_name, None)
+        if script_info is None:
+            try:
+                # Making this dual-purpose: script or db info
+                self.state.container.loaded_files[script_name]
+                script_info = self.script_info_from_loaded_file(script_name)
+            except KeyError as ex:
+                raise web.HTTPBadRequest() from ex
 
         return web.json_response(apischema.serialize(script_info))
 
@@ -242,9 +249,8 @@ class ServerHandler:
     # async def index_page(self, request: web.Request):
     #     return web.FileResponse(HTML_PATH / "index.html")
 
-    # @routes.get("/script")
+    # @routes.get("/file")
     # @routes.get("/whatrec")
-    # @routes.get("/database")
     # async def misc_page(self, request: web.Request):
     #     fn = request.path.split("/")[-1]
     #     return web.FileResponse(HTML_PATH / (fn + ".html"))
