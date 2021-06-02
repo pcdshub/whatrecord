@@ -565,6 +565,8 @@ def load_startup_scripts(
 
     Parameters
     ----------
+    *fns :
+        List of filenames to load.
     standin_directories : dict
         Stand-in/substitute directory mapping.
     processes : int
@@ -594,8 +596,6 @@ def load_startup_scripts(
         else:
             loader = functools.partial(load_startup_script, standin_directories)
             for idx, fn in enumerate(sorted(set(fns)), 1):
-                if idx == 20:
-                    break
                 print(f"{idx}/{total_files}: Loading {fn}...", end="")
                 with time_context() as ctx:
                     iocsh_script, sh_state = loader(fn)

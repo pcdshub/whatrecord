@@ -5,22 +5,31 @@
         <th>File</th>
         <th>Expression</th>
         <th>Details</th>
+        <th>Comment</th>
       </tr>
     </thead>
     <tbody>
-      <tr v-for="(match, idx) in matches" :key=idx>
+      <tr v-for="(match, idx) in matches" :key="idx">
         <td>
-          <gateway-context-link :filename="match.filename" :lineno="match.lineno" />
+          <script-context-link :context="match.context" :short="true" />
         </td>
         <td>{{ match.expression }}</td>
-        <td>{{match.details.join(" ")}}</td>
+        <td>{{ match.details.join(" ") }}</td>
+        <td>
+          <!--
+          <template v-if="match.comment_context">
+            <script-context-link :context="match.comment_context" :short="true" />
+          </template>
+          -->
+          {{ match.comment }}
+        </td>
       </tr>
     </tbody>
   </table>
 </template>
 
 <script>
-import GatewayContextLink from './gateway-context-link.vue'
+import ScriptContextLink from './script-context-link.vue'
 
 export default {
   name: 'GatewayMatches',
@@ -28,7 +37,7 @@ export default {
     matches: Object
   },
   components: {
-    GatewayContextLink,
+    ScriptContextLink,
   },
 }
 </script>

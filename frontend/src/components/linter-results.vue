@@ -11,11 +11,11 @@
   </div>
   <div class="error-block">
     <template v-for="(error, idx) in errors" class="error-block" :key="idx">
-      <db-context-link :filename="error.file" :line="error.line"/>
+      <script-context-link :context="{file:error.file, line:error.line}"/>
       '{{error.name}}' error: {{error.message}}<br/>
     </template>
     <template v-for="(warning, idx) in warnings" class="error-block" :key="idx">
-      <db-context-link :filename="warning.file" :line="warning.line"/>
+      <script-context-link :context="{file:warning.file, line:warning.line}"/>
       '{{warning.name}}' warning: {{warning.message}}<br/>
     </template>
   </div>
@@ -23,19 +23,19 @@
 
 <script>
 import DictionaryTable from './dictionary-table.vue';
-import DbContextLink from './db-context-link.vue';
+import ScriptContextLink from './script-context-link.vue';
 
 export default {
   name: 'LinterResults',
   components: [
     DictionaryTable,
-    DbContextLink,
+    ScriptContextLink,
   ],
   props: ["load_count", "errors", "warnings", "macros"],
   beforeCreate() {
     // TODO: I don't think these are circular; why am I running into this?
     this.$options.components.DictionaryTable = require('./dictionary-table.vue').default;
-    this.$options.components.DbContextLink = require('./db-context-link.vue').default;
+    /* this.$options.components.ScriptContextLink = require('./script-context-link.vue').default; */
   },
 }
 </script>

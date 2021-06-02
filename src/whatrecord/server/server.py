@@ -47,6 +47,8 @@ class ServerState:
             *startup_scripts, standin_directories=standin_directories
         )
         self.pv_relations = graph.build_database_relations(self.container.database)
+        self.script_relations = graph.build_script_relations(
+            self.container.database, self.pv_relations)
         self.archived_pvs = set()
         self.gateway_config = None
 
@@ -74,7 +76,28 @@ class ServerState:
         return self.container.database
 
     @functools.lru_cache(maxsize=2048)
-    def get_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
+    def get_graph(self, pv_names: Tuple[str], graph_type: str) -> graphviz.Digraph:
+        if graph_type == "record":
+            return self.get_link_graph(tuple(pv_names))
+        if graph_type == "script":
+            return self.get_script_graph(tuple(pv_names))
+        raise RuntimeError("Invalid graph type")
+
+    def get_script_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
+        if len(pv_names) > MAX_RECORDS:
+            raise TooManyRecordsError()
+
+        if not pv_names:
+            return graphviz.Digraph()
+        _, _, digraph = graph.graph_script_relations(
+            database=self.database,
+            limit_to_records=pv_names,
+            font_name="Courier",
+            script_relations=self.script_relations,
+        )
+        return digraph
+
+    def get_link_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
         if len(pv_names) > MAX_RECORDS:
             raise TooManyRecordsError()
 
@@ -104,8 +127,9 @@ class ServerState:
         return [pv_name for pv_name in sorted(self.database) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_graph_rendered(self, pv_names: Tuple[str], format: str) -> bytes:
-        graph = self.get_graph(pv_names)
+    def get_graph_rendered(self, pv_names: Tuple[str], format: str, graph_type: str) -> bytes:
+        graph = self.get_graph(pv_names, graph_type=graph_type)
+
         with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
             rendered_filename = graph.render(source_file.name, format=format)
 
@@ -208,39 +232,61 @@ class ServerHandler:
 
         return web.json_response(apischema.serialize(script_info))
 
-    @routes.get("/api/pv/{pv_names}/graph/{format}")
-    async def api_pv_get_graph(self, request: web.Request):
-        pv_names = request.match_info["pv_names"]
-        if "*" in pv_names or request.query.get("glob", "false") in TRUE_VALUES:
+    async def get_graph(self, pv_names: List[str], use_glob: bool = False,
+                        graph_type: str = "record",
+                        format: str = "pdf"):
+        if "*" in pv_names or use_glob:
             pv_names = self.state.get_matching_pvs(pv_names)
         else:
             pv_names = pv_names.split("|")
 
-        try:
-            digraph = self.state.get_graph(tuple(pv_names))
-        except TooManyRecordsError as ex:
-            raise web.HTTPBadRequest() from ex
+        if format == "dot":
+            try:
+                digraph = self.state.get_graph(
+                    tuple(pv_names),
+                    graph_type=graph_type
+                )
+            except TooManyRecordsError as ex:
+                raise web.HTTPBadRequest() from ex
 
-        format = request.match_info.get("format", "pdf")
+            return web.Response(
+                content_type="text/vnd.graphviz",
+                body=digraph.source,
+            )
+
+        rendered = self.state.get_graph_rendered(
+            tuple(pv_names), format=format, graph_type=graph_type
+        )
         try:
             content_type = {
                 "pdf": "application/pdf",
                 "png": "image/png",
                 "svg": "image/svg+xml",
-                "dot": "text/vnd.graphviz",
             }[format]
         except KeyError as ex:
             raise web.HTTPBadRequest() from ex
 
-        if format == "dot":
-            return web.Response(
-                content_type=content_type,
-                body=digraph.source,
-            )
-
         return web.Response(
             content_type=content_type,
-            body=self.state.get_graph_rendered(tuple(pv_names), format=format),
+            body=rendered,
+        )
+
+    @routes.get("/api/pv/{pv_names}/graph/{format}")
+    async def api_pv_get_record_graph(self, request: web.Request):
+        return await self.get_graph(
+            pv_names=request.match_info["pv_names"],
+            use_glob=request.query.get("glob", "false") in TRUE_VALUES,
+            format=request.match_info["format"],
+            graph_type="record",
+        )
+
+    @routes.get("/api/pv/{pv_names}/script-graph/{format}")
+    async def api_pv_get_script_graph(self, request: web.Request):
+        return await self.get_graph(
+            pv_names=request.match_info["pv_names"],
+            use_glob=request.query.get("glob", "false") in TRUE_VALUES,
+            format=request.match_info["format"],
+            graph_type="script",
         )
 
     # # TODO: these will go away when not in development mode

@@ -21,6 +21,9 @@ class FrozenContextSingle(NamedTuple):
     file: str
     line: int
 
+    def __repr__(self):
+        return f"{self.file}:{self.line}"
+
 
 # NOTE: (De)serializer methods cannot be used with typing.NamedTuple; in fact,
 # apischema uses __set_name__ magic method but it is not called on NamedTuple
