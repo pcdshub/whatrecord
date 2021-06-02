@@ -41,7 +41,7 @@ class ServerState:
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
 
-    def __init__(self, startup_scripts, standin_directories):
+    def __init__(self, startup_scripts: List[str], standin_directories: Dict[str, str]):
         self.standin_directories = standin_directories
         self.container = load_startup_scripts(
             *startup_scripts, standin_directories=standin_directories
@@ -159,8 +159,14 @@ class FileLine:
 class ServerHandler:
     routes = web.RouteTableDef()
 
-    def __init__(self, startup_scripts, standin_directories):
+    def __init__(
+        self,
+        startup_scripts: List[str],
+        standin_directories: Dict[str, str],
+        archive_viewer_url: Optional[str] = None
+    ):
         self.state = ServerState(startup_scripts, standin_directories)
+        self.archive_viewer_url = None
 
     @routes.get("/api/pv/{pv_names}/info")
     async def api_pv_get_info(self, request: web.Request):
@@ -332,6 +338,7 @@ def run(*args, **kwargs):
 def main(
     scripts: List[str],
     archive_file: Optional[str] = None,
+    archive_viewer_url: Optional[str] = None,
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
     gateway_config: Optional[str] = None,
@@ -344,7 +351,11 @@ def main(
     if not isinstance(standin_directory, dict):
         standin_directory = dict(path.split("=", 1) for path in standin_directory)
 
-    handler = ServerHandler(scripts, standin_directories=standin_directory)
+    handler = ServerHandler(
+        scripts,
+        standin_directories=standin_directory,
+        archive_viewer_url=archive_viewer_url
+    )
     add_routes(app, handler)
 
     if archive_file:
