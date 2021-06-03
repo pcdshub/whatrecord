@@ -437,11 +437,7 @@ def graph_script_relations(
                 ...
 
     for name, node in sorted(nodes.items()):
-        # text = newline.join(
-        #    html.escape(line, quote=False) for line in node["text"]
-        # )
         text = newline.join(node["text"])
-        print("***", name, node)
         graph.node(
             node["id"],
             label="< {} >".format(text),
@@ -452,7 +448,6 @@ def graph_script_relations(
 
     # add all of the edges between graphs
     for src, dest, options in edges:
-        print("-->", src, dest, options)
         graph.edge(nodes[src]["id"], nodes[dest]["id"], **options)
 
     return nodes, edges, graph
