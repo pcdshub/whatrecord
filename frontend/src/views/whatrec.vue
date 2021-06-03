@@ -36,9 +36,13 @@ export default {
       pv_list: [],
       record_info: {},
       appliance_viewer_url: 'https://pswww.slac.stanford.edu/archiveviewer/retrieval/ui/viewer/archViewer.html?pv=',
+      pv_from_link: null,
     }
   },
   mounted() {
+    if (this.pv_from_link) {
+      console.log(this.pv_from_link);
+    }
   },
   methods: {
     got_record_info: function (info) {

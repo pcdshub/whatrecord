@@ -35,7 +35,7 @@ export default {
   beforeCreate() {
     // TODO: I don't think these are circular; why am I running into this?
     this.$options.components.DictionaryTable = require('./dictionary-table.vue').default;
-    /* this.$options.components.ScriptContextLink = require('./script-context-link.vue').default; */
+    this.$options.components.ScriptContextLink = require('./script-context-link.vue').default;
   },
 }
 </script>

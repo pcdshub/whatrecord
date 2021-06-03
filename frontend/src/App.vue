@@ -1,7 +1,7 @@
 <template>
   <ul>
     <li>
-      <router-link to="/">WhatRec?</router-link>
+      <router-link to="/whatrec">WhatRec?</router-link>
     </li>
   </ul>
   <br/>

@@ -4,9 +4,23 @@ import WhatRec from './views/whatrec.vue';
 import ScriptView from './views/script-view.vue';
 
 const routes = [
-  { name: 'whatrec', path: '/', component: WhatRec },
-  { name: 'file', path: '/file/:file/:line', component: ScriptView },
-  // { path: '/users/:username/posts/:postId', component: NotFound },
+  {
+      name: 'whatrec-index',
+      path: '/',
+      component: WhatRec
+  },
+  {
+      name: 'whatrec',
+      path: '/whatrec/:pv_from_link?',
+      component: WhatRec,
+      props: true
+  },
+  {
+      name: 'file',
+      path: '/file/:filename/:line',
+      component: ScriptView,
+      props: true
+  },
 ]
 
 export const router = VueRouter.createRouter({

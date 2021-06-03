@@ -21,14 +21,7 @@ export default {
       return this.name.replace(/^.*[\\/]/, '');
     },
     link() {
-      return { name: 'file', params: { file: this.name, line: this.line }};
-      /*
-      if (this.name.indexOf('.cmd') >= 0) {
-        return "/script/" + this.name + "#" + this.name + ":" + this.line;
-      } else {
-        return "/database?file=" + this.name + "#" + this.line;
-      }
-      */
+      return { name: 'file', params: { filename: this.name, line: this.line }};
     }
   }
 }
