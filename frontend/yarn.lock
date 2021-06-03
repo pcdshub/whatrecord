@@ -1453,6 +1453,11 @@
   resolved "https://registry.yarnpkg.com/@vue/devtools-api/-/devtools-api-6.0.0-beta.11.tgz#4fb4161ee41ba75f3f5198d4bfd80e4ffb7f2462"
   integrity sha512-vpw61AkW9U8c2upjJCljHq9eh1KkD4FJ7DYbRzIETpj9WAw2VESudJZosAk4M+7npBo1Zu1jNQY03HUMVO/czQ==
 
+"@vue/devtools-api@^6.0.0-beta.11":
+  version "6.0.0-beta.12"
+  resolved "https://registry.yarnpkg.com/@vue/devtools-api/-/devtools-api-6.0.0-beta.12.tgz#693ffc77bfb66b080e5c9576abb5786c85470a32"
+  integrity sha512-PtHmAxFmCyCElV7uTWMrXj+fefwn4lCfTtPo9fPw0SK8/7e3UaFl8IL7lnugJmNFfeKQyuTkSoGvTq1uDaRF6Q==
+
 "@vue/preload-webpack-plugin@^1.1.0":
   version "1.1.2"
   resolved "https://registry.npmjs.org/@vue/preload-webpack-plugin/-/preload-webpack-plugin-1.1.2.tgz"
@@ -3464,6 +3469,11 @@ es-to-primitive@^1.2.1:
     is-callable "^1.1.4"
     is-date-object "^1.0.1"
     is-symbol "^1.0.2"
+
+es6-promise@^4.2.8:
+  version "4.2.8"
+  resolved "https://registry.yarnpkg.com/es6-promise/-/es6-promise-4.2.8.tgz#4eb21594c972bc40553d276e510539143db53e0a"
+  integrity sha512-HJDGx5daxeIvxdBxvG2cb9g4tEvwIk3i8+nhX0yGrYmZUzbkdg8QbDevheDB8gd0//uPj4c1EQua8Q+MViT0/w==
 
 escalade@^3.1.1:
   version "3.1.1"
@@ -8343,6 +8353,13 @@ vue@^3.0.0:
     "@vue/compiler-dom" "3.0.11"
     "@vue/runtime-dom" "3.0.11"
     "@vue/shared" "3.0.11"
+
+vuex@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/vuex/-/vuex-4.0.1.tgz#e83c541d6f31173969efabb2c5d1c465b682887e"
+  integrity sha512-MddakQTAnImDkK1YhEESowKSU5KcjqHH3L1ScPx1lj6NzDDX0FuRBZqJoME5O7/nvj9puudDf6xnWU2w/cqI7g==
+  dependencies:
+    "@vue/devtools-api" "^6.0.0-beta.11"
 
 watchpack-chokidar2@^2.0.1:
   version "2.0.1"

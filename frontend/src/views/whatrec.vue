@@ -1,7 +1,7 @@
 <template>
   <div class="p-grid">
     <div class="p-col-3">
-      <Searchbar @gotRecordInfo="got_record_info($event)" />
+      <Searchbar :pv_glob_default="pv_glob" />
     </div>
     <div class="p-col-7" id="record_info">
       <div v-for="match in record_info" :key="match.pv_name">
@@ -18,6 +18,8 @@
 </template>
 
 <script>
+import { mapState } from 'vuex'
+
 import Recordinfo from '../components/recordinfo.vue'
 import Searchbar from '../components/searchbar.vue'
 
@@ -27,29 +29,29 @@ export default {
     Recordinfo,
     Searchbar,
   },
+  props: ["pv_glob", "selected_records"],
+  computed: mapState({
+    selected_records: state => state.selected_records,
+    record_info: (state) => {
+      let record_info = {};
+      for (const rec of state.selected_records) {
+        if (rec in state.record_info) {
+          record_info[rec] = state.record_info[rec];
+        }
+      }
+      return record_info;
+    },
+  }),
   data() {
     return {
-      pv_glob: '*MMS:*',
-      max_pvs: 30,
-      selected_pvs: [],
       add_graph: true,
-      pv_list: [],
-      record_info: {},
       appliance_viewer_url: 'https://pswww.slac.stanford.edu/archiveviewer/retrieval/ui/viewer/archViewer.html?pv=',
-      pv_from_link: null,
     }
   },
   mounted() {
-    if (this.pv_from_link) {
-      console.log(this.pv_from_link);
-    }
+    console.log(`Mounted: glob=${this.pv_glob} PVs=${this.pv_from_link}`);
+
   },
-  methods: {
-    got_record_info: function (info) {
-      console.log("Got record info");
-      this.record_info = info;
-    },
-  }
 }
 </script>
 

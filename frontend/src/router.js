@@ -5,13 +5,12 @@ import ScriptView from './views/script-view.vue';
 
 const routes = [
   {
-      name: 'whatrec-index',
       path: '/',
-      component: WhatRec
+      redirect: '/whatrec/*/'
   },
   {
       name: 'whatrec',
-      path: '/whatrec/:pv_from_link?',
+      path: '/whatrec/:pv_glob?/:selected_records?',
       component: WhatRec,
       props: true
   },
