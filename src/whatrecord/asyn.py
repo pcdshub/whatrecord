@@ -1,17 +1,18 @@
-# cython: language_level=3
+from __future__ import annotations
+
 from dataclasses import field
-from typing import ClassVar, Dict, Tuple
+from typing import ClassVar, Dict, Optional, Union
 
-from .common import LoadContext, dataclass
+from .common import AsynPortBase, FrozenLoadContext, dataclass
 
 
-@dataclass(slots=True)
-class AsynPort:
-    context: Tuple[LoadContext]
+@dataclass
+class AsynPort(AsynPortBase):
+    context: FrozenLoadContext
     name: str
-    options: dict = field(default_factory=dict)
-    metadata: dict = field(default_factory=dict)
-    motors: dict = field(default_factory=dict)
+    options: Dict[str, AsynPortOption] = field(default_factory=dict)
+    metadata: Dict[str, str] = field(default_factory=dict)
+    motors: Dict[str, AsynMotor] = field(default_factory=dict)
 
     _jinja_format_: ClassVar[dict] = {
         "console": """\
@@ -32,15 +33,15 @@ class AsynPort:
     }
 
 
-@dataclass(slots=True)
-class AsynMotor:
-    context: LoadContext
+@dataclass
+class AsynMotor(AsynPortBase):
+    context: FrozenLoadContext
     name: str
-    metadata: dict = field(default_factory=dict)
-    parent: AsynPort = None
+    metadata: Dict[str, Union[str, int, float]] = field(default_factory=dict)
+    parent: Optional[str] = None
 
 
-@dataclass(slots=True)
+@dataclass
 class AsynIPPort(AsynPort):
     hostInfo: str = ""
     priority: str = ""
@@ -48,7 +49,7 @@ class AsynIPPort(AsynPort):
     noProcessEos: str = ""
 
 
-@dataclass(slots=True)
+@dataclass
 class AsynSerialPort(AsynPort):
     ttyName: str = ""
     priority: str = ""
@@ -56,7 +57,7 @@ class AsynSerialPort(AsynPort):
     noProcessEos: str = ""
 
 
-@dataclass(slots=True)
+@dataclass
 class AdsAsynPort(AsynPort):
     ipaddr: str = ""
     amsaddr: str = ""
@@ -85,26 +86,26 @@ class AdsAsynPort(AsynPort):
     }
 
 
-@dataclass(slots=True)
-class AsynPortMultiDevice:
-    context: LoadContext
+@dataclass
+class AsynPortMultiDevice(AsynPortBase):
+    context: FrozenLoadContext
     name: str
     metadata: dict = field(default_factory=dict)
     motors: Dict[str, AsynMotor] = field(default_factory=dict)
-    devices: Dict[str, 'AsynPortDevice'] = field(default_factory=dict)
+    devices: Dict[str, AsynPortDevice] = field(default_factory=dict)
 
 
-@dataclass(slots=True)
-class AsynPortDevice:
-    context: LoadContext
+@dataclass
+class AsynPortDevice(AsynPortBase):
+    context: FrozenLoadContext
     name: str = ""
-    options: Dict[str, str] = field(default_factory=dict)
+    options: Dict[str, AsynPortOption] = field(default_factory=dict)
     metadata: Dict[str, str] = field(default_factory=dict)
     motors: Dict[str, AsynMotor] = field(default_factory=dict)
 
 
-@dataclass(slots=True)
+@dataclass
 class AsynPortOption:
-    context: LoadContext
+    context: FrozenLoadContext
     key: str
     value: str

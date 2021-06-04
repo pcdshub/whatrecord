@@ -54,6 +54,20 @@ def build_arg_parser(parser=None):
         help='Gateway configuration file or directory'
     )
 
+    parser.add_argument(
+        '--standin-directory',
+        type=str,
+        nargs='*',
+        help='Map a "stand-in" directory to another on disk'
+    )
+
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8899,
+        help='Web server TCP port'
+    )
+
     return parser
 
 

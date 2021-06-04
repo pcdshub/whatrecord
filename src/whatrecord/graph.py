@@ -5,8 +5,8 @@ from typing import DefaultDict, Dict, Tuple
 
 import graphviz as gv
 
-from .common import dataclass
-from .db import RecordField, RecordInstance
+from whatrecord.common import LoadContext, dataclass
+from whatrecord.db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 # information in terms of dataclasses
 
 
-@dataclass(slots=True)
+@dataclass
 class LinkInfo:
     record1: RecordInstance
     field1: RecordField
     record2: RecordInstance
     field2: RecordField
-    info: str
+    info: Tuple[str, ...]
 
 
 def build_database_relations(
@@ -44,7 +44,10 @@ def build_database_relations(
         Such that: ``info[pv1][pv2] = (field1, field2, info)``
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
-    relations = collections.defaultdict(lambda: collections.defaultdict(list))
+    warned = set()
+    unset_ctx = (LoadContext("unset", 0).freeze(), )
+    by_record = collections.defaultdict(lambda: collections.defaultdict(list))
+
     for rec1 in database.values():
         for field1, link, info in rec1.get_links():
             if "." in link:
@@ -57,19 +60,27 @@ def build_database_relations(
             rec2 = database.get(link, None)
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
-                logger.warning("Linked record not in database: %s", link)
+                # TODO: check for constant links, ignore card/slot syntax, etc
+                if link.startswith("#") or link in warned:
+                    ...
+                else:
+                    logger.warning("Linked record not in database: %s", link)
+                    warned.add(link)
             else:
                 if field2 in rec2.fields:
                     field2 = rec2.fields[field2]
                 else:
                     field2 = RecordField(
-                        dtype="unknown", name=field2, value="", context=("unset:0",)
+                        dtype="unknown",
+                        name=field2,
+                        value="",
+                        context=unset_ctx,
                     )
 
-                relations[rec1.name][rec2.name].append((field1, field2, info))
-                relations[rec2.name][rec1.name].append((field2, field1, info))
+                by_record[rec1.name][rec2.name].append((field1, field2, info))
+                by_record[rec2.name][rec1.name].append((field2, field1, info))
 
-    return dict(relations)
+    return dict(by_record)
 
 
 def find_record_links(database, starting_records, check_all=True, relations=None):
@@ -286,5 +297,157 @@ def graph_links(
     # add all of the edges between graphs
     for src, dest, options in edges:
         graph.edge(src, dest, **options)
+
+    return nodes, edges, graph
+
+
+def build_script_relations(database, by_record, limit_to_records=None):
+    if limit_to_records is None:
+        record_items = by_record.items()
+    else:
+        record_items = [
+            (name, database[name]) for name in limit_to_records
+            if name in database
+        ]
+
+    by_script = collections.defaultdict(lambda: collections.defaultdict(set))
+    for rec1_name, list_of_rec2s in record_items:
+        rec1 = database[rec1_name]
+        for rec2_name in list_of_rec2s:
+            rec2 = database[rec2_name]
+
+            rec1_file = rec1.context[0].file
+            rec2_file = rec2.context[0].file
+
+            if rec1_file != rec2_file:
+                by_script[rec2_file][rec1_file].add(rec2_name)
+                by_script[rec1_file][rec2_file].add(rec1_name)
+
+    return by_script
+
+
+def graph_script_relations(
+    database,
+    limit_to_records=None,
+    graph=None,
+    engine="dot",
+    header_format='record({rtype}, "{name}")',
+    field_format='{field:>4s}: "{value}"',
+    text_format=None,
+    font_name="Courier",
+    relations=None,
+    script_relations=None,
+):
+    """
+    Create a graphviz digraph of script links (i.e., inter-IOC record links).
+
+    Parameters
+    ----------
+    database : dict
+        Dictionary of record name to record instance.
+    starting_records : list of str
+        Record names
+    graph : graphviz.Graph, optional
+        Graph instance to use. New one created if not specified.
+    engine : str, optional
+        Graphviz engine (dot, fdp, etc)
+    sort_fields : bool, optional
+        Sort list of fields
+    show_empty : bool, optional
+        Show empty fields
+    font_name : str, optional
+        Font name to use for all nodes and edges
+    relations : dict, optional
+        Pre-built PV relationship dictionary.  Generated from database
+        if not provided.
+    script_relations : dict, optional
+        Pre-built script relationship dictionary.  Generated from database if
+        not provided.
+
+    Returns
+    -------
+    nodes: dict
+    edges: dict
+    graph : graphviz.Digraph
+    """
+    node_id = 0
+    edges = []
+    nodes = {}
+
+    if script_relations is None:
+        if relations is None:
+            relations = build_database_relations(database)
+
+        script_relations = build_script_relations(
+            database, relations,
+            limit_to_records=limit_to_records,
+        )
+
+    limit_to_records = limit_to_records or []
+    if graph is None:
+        graph = gv.Digraph(format="pdf")
+
+    if font_name is not None:
+        graph.attr("graph", dict(fontname=font_name))
+        graph.attr("node", dict(fontname=font_name))
+        graph.attr("edge", dict(fontname=font_name))
+
+    if engine is not None:
+        graph.engine = engine
+
+    newline = '<br align="center"/>'
+
+    def new_node(label, text=None):
+        nonlocal node_id
+        if label in nodes:
+            return nodes[label]
+        node_id += 1
+        nodes[label] = dict(id=str(node_id), text=text or [], label=label)
+        logger.debug("Created node %s", label)
+        return node_id
+
+    for script_a, script_a_relations in script_relations.items():
+        new_node(script_a, text=[script_a])
+        for script_b, _ in script_a_relations.items():
+            if script_b in nodes:
+                continue
+            new_node(script_b, text=[script_b])
+
+            inter_node = f"{script_a}<->{script_b}"
+            new_node(
+                inter_node,
+                text=(
+                    [f"<b>{script_a}</b>", ""]
+                    + list(sorted(script_relations[script_a][script_b]))
+                    + [""]
+                    + [f"<b>{script_b}</b>", ""]
+                    + list(sorted(script_relations[script_b][script_a]))
+                ),
+            )
+
+            edges.append((script_a, inter_node, {}))
+            edges.append((inter_node, script_b, {}))
+
+    if not nodes:
+        # No relationship found; at least show the records
+        for rec_name in limit_to_records or []:
+            try:
+                new_node(rec_name)
+            except KeyError:
+                ...
+
+    for name, node in sorted(nodes.items()):
+        text = newline.join(node["text"])
+        graph.node(
+            node["id"],
+            label="< {} >".format(text),
+            shape="box3d" if name in limit_to_records else "rectangle",
+            fillcolor="bisque" if name in limit_to_records else "white",
+            style="filled",
+        )
+
+    # add all of the edges between graphs
+    for src, dest, options in edges:
+        graph.edge(nodes[src]["id"], nodes[dest]["id"], **options)
 
     return nodes, edges, graph

@@ -1,0 +1,3 @@
+record(ai, "$(P):One") {
+    field(INP, "IOC:KFE:A:One CPP MS")
+}

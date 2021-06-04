@@ -47,15 +47,19 @@ class FormatContext:
             if not key.startswith("_") and key not in {"self"}
         }
 
-    def render_template(self, template: str, **context):
-        # TODO: positional-only
+    def render_template(self, _template: str, **context):
+        # TODO: want this to be positional-only; fallback here for pypi
+        template = _template
+
         for key, value in self.default_render_context.items():
             context.setdefault(key, value)
         self._template_dict["template"] = template
         return self.env.get_template("template").render(context)
 
-    def _render_object_fallback(self, obj, option, **context):
-        # TODO: positional-only
+    def _render_object_fallback(self, _obj, _option, **context):
+        # TODO: want this to be positional-only; fallback here for pypi
+        obj, _ = _obj, _option
+
         if dataclasses.is_dataclass(obj):
             cls = type(obj)
             if cls not in self._fallback_formats:
@@ -68,8 +72,10 @@ class FormatContext:
 
         return str(obj)
 
-    def render_object(self, obj, option, **context):
-        # TODO: positional-only
+    def render_object(self, _obj, _option, **context):
+        # TODO: want this to be positional-only; fallback here for pypi
+        obj, option = _obj, _option
+
         if dataclasses.is_dataclass(obj):
             for field in dataclasses.fields(obj):
                 context.setdefault(field.name, getattr(obj, field.name))

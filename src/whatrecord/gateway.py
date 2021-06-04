@@ -5,15 +5,15 @@ import pathlib
 import re
 import sys
 import typing
-from typing import Dict, List, Optional, Union
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
-from .common import dataclass
+from .common import FrozenLoadContext, LoadContext, dataclass
 
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 RE_WHITESPACE = re.compile(r"\s+")
 
 
-@dataclass(slots=True)
+@dataclass
 class Token:
     """Token base class, making up a PVList."""
 
@@ -25,7 +25,7 @@ class Token:
         return cls(line=line, lineno=lineno)
 
 
-@dataclass(slots=True)
+@dataclass
 class Setting(Token):
     """A token representing a configuration setting."""
 
@@ -43,12 +43,12 @@ class Setting(Token):
         return cls(line=line, lineno=lineno, setting=setting, values=values)
 
 
-@dataclass(slots=True)
+@dataclass
 class Comment(Token):
     """A token representing a comment line."""
 
 
-@dataclass(slots=True)
+@dataclass
 class Expression(Token):
     """A token with a valid regular expression."""
 
@@ -64,7 +64,11 @@ class Expression(Token):
             regex = re.compile(expr)
         except Exception as ex:
             return BadExpression(
-                line=line, lineno=lineno, expr=expr, details=details, exception=ex
+                line=line,
+                lineno=lineno,
+                expr=expr,
+                details=details,
+                exception=(type(ex).__name__, str(ex)),
             )
         return cls(line=line, lineno=lineno, expr=expr, details=details, regex=regex)
 
@@ -73,23 +77,25 @@ class Expression(Token):
             return self.regex.match(name)
 
 
-@dataclass(slots=True)
+@dataclass
 class BadExpression(Token):
     """A token with a bad regular expression."""
 
     expr: str
-    details: str
-    exception: Exception
+    details: List[str]
+    exception: Tuple[str, str]
 
 
-@dataclass(slots=True)
+@dataclass
 class PVList:
     """A PVList container."""
 
     identifier: Optional[str] = None
     tokenized_lines: Optional[List[Token]] = None
 
-    def find(self, cls: typing.Type):
+    def find(
+        self, cls: typing.Type
+    ) -> Generator[Tuple[Optional[Comment], Expression], None, None]:
         context = None
         for line in self.tokenized_lines:
             if isinstance(line, Comment):
@@ -97,7 +103,9 @@ class PVList:
             elif isinstance(line, cls):
                 yield context, line
 
-    def match(self, name):
+    def match(
+        self, name: str
+    ) -> Generator[Tuple[Optional[Comment], Expression], None, None]:
         context = None
         for context, expr in self.find(Expression):
             m = expr.match(name)
@@ -105,7 +113,7 @@ class PVList:
                 yield context, expr
 
     @staticmethod
-    def tokenize(line, lineno=0):
+    def tokenize(line, lineno=0) -> Optional[Token]:
         line = line.strip()
         if not line:
             return
@@ -306,17 +314,16 @@ def run_match(
             print_match(pvlist, context, expr, show_context=show_context)
 
 
-@dataclass(slots=True)
+@dataclass
 class PVListMatch:
-    filename: str
-    comment_lineno: int
-    comment: str
-    lineno: int
+    context: FrozenLoadContext
+    comment_context: Optional[FrozenLoadContext]
+    comment: Optional[str]
     expression: str
-    details: str
+    details: List[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class PVListMatches:
     name: str
     matches: List[PVListMatch]
@@ -338,12 +345,15 @@ class GatewayConfig:
         }
 
     def get_matches(self, name: str, remove_any: bool = True):
+        def get_comment_context(fn, context) -> Optional[FrozenLoadContext]:
+            if context is not None:
+                return (LoadContext(str(fn), context.lineno).freeze(),)
+
         matches = [
             PVListMatch(
-                filename=str(fn),
-                lineno=expr.lineno,
-                comment=context.line if context is not None else "",
-                comment_lineno=context.lineno if context is not None else 0,
+                context=(LoadContext(str(fn), expr.lineno).freeze(),),
+                comment_context=get_comment_context(fn, context),
+                comment=context.line if context is not None else None,
                 expression=expr.expr,
                 details=expr.details,
             )
