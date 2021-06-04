@@ -14,7 +14,7 @@ import whatrecord  # noqa
 DESCRIPTION = __doc__
 
 
-MODULES = ("server", )  # , "api", "pv")
+MODULES = ("server", "iocmanager_loader")  # , "api", "pv")
 
 
 def _try_import(module):
@@ -77,7 +77,7 @@ def main():
 
     subparsers = top_parser.add_subparsers(help="Possible subcommands")
     for command_name, (build_func, main) in COMMANDS.items():
-        sub = subparsers.add_parser(command_name)
+        sub = subparsers.add_parser(command_name.replace("_", "-"))
         build_func(sub)
         sub.set_defaults(func=main)
 
