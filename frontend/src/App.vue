@@ -1,7 +1,9 @@
 <template>
   <ul>
     <li>
-      <router-link to="/whatrec">WhatRec?</router-link>
+      <router-link to="/">Records</router-link>
+      &nbsp;
+      <router-link to="/iocs/*/">IOCs</router-link>
     </li>
   </ul>
   <br/>
