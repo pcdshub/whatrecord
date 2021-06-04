@@ -26,7 +26,12 @@ def build_arg_parser(parser=None):
         help="Startup script filename(s)"
     )
 
-    # TODO: auto-glob of directories
+    parser.add_argument(
+        '--script-config',
+        type=str,
+        nargs='+',
+        help="IOC configuration filename(s)",
+    )
 
     archive_group = parser.add_mutually_exclusive_group()
     archive_group.add_argument(
