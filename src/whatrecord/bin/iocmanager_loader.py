@@ -8,13 +8,17 @@ import ast
 import json
 import logging
 import os
+import pathlib
 import re
-from typing import Dict, List
+from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 DESCRIPTION = __doc__
 
-KEY_RE = re.compile(r'([a-z_]+)\s*:', re.IGNORECASE)
+KEY_RE = re.compile(r"([a-z_]+)\s*:", re.IGNORECASE)
+EPICS_SITE_TOP = os.environ.get("EPICS_SITE_TOP", "/reg/g/pcds/epics")
+REQUIRED_KEYS = {"id", "host", "port", "dir"}
+IOCInfo = Dict[str, Union[str, Dict[str, str], List[str]]]
 
 
 def build_arg_parser(parser=None):
@@ -25,47 +29,66 @@ def build_arg_parser(parser=None):
     parser.formatter_class = argparse.RawTextHelpFormatter
 
     parser.add_argument(
-        '--configs',
-        type=str,
-        nargs='+',
-        help="Configuration file location(s)"
+        "configs", type=str, nargs="+", help="Configuration file location(s)"
     )
 
     return parser
 
 
-def parse_config(lines) -> List[Dict[str, str]]:
-    """Parse an IOC manager config to get its IOCs."""
+def validate_config_keys(cfg: IOCInfo) -> bool:
+    """Validate that a configuration has all required keys."""
+    return all(key in cfg and cfg[key] for key in REQUIRED_KEYS)
+
+
+def parse_config(lines: List[str]) -> List[IOCInfo]:
+    """
+    Parse an IOC manager config to get its IOCs.
+
+    Parameters
+    ----------
+    lines : list of str
+        List of raw configuration file lines.
+
+    Returns
+    -------
+    ioc_info : list of IOC info dictionaries
+        List of IOC info
+    """
     entries = []
     loading = False
     entry = None
 
     for line in lines:
-        if 'procmgr_config' in line:
+        if "procmgr_config" in line:
             loading = True
             continue
         if not loading:
             continue
-        if 'id:' in line:
-            if '}' in line:
+        if "id:" in line:
+            if "}" in line:
                 entries.append(line)
             else:
                 entry = line
         elif entry is not None:
             entry += line
-            if '}' in entry:
+            if "}" in entry:
                 entries.append(entry)
                 entry = None
 
+    def fix_entry(entry):
+        return ast.literal_eval(KEY_RE.sub(r'"\1":', entry.strip(", \t")))
+
     result = []
     for entry in entries:
-        result.append(
-            ast.literal_eval(KEY_RE.sub(r'"\1":', entry.strip(', \t')))
-        )
+        try:
+            result.append(fix_entry(entry))
+        except Exception:
+            logger.exception("Failed to fix up IOC manager entry: %s", entry)
+
     return result
 
 
-def load_config_file(fn) -> List[Dict[str, str]]:
+def load_config_file(fn: Union[str, pathlib.Path]) -> List[IOCInfo]:
     """
     Load a configuration file and return the IOCs it contains.
 
@@ -73,17 +96,33 @@ def load_config_file(fn) -> List[Dict[str, str]]:
     ----------
     fn : str or pathlib.Path
         The configuration filename
+
+    Returns
+    -------
+    ioc_info : list of IOC info dictionaries
+        List of IOC info
     """
-    with open(fn, 'rt') as f:
+    with open(fn, "rt") as f:
         lines = f.read().splitlines()
 
-    return parse_config(lines)
+    iocs = parse_config(lines)
+
+    for ioc in list(iocs):
+        if not validate_config_keys(ioc):
+            iocs.remove(ioc)
+        else:
+            # Add "config_file" and rename some keys:
+            ioc["config_file"] = str(fn)
+            ioc["name"] = ioc.pop("id")
+            ioc["script"] = find_stcmd(ioc["dir"], ioc["name"])
+
+    return iocs
 
 
 def find_stcmd(directory: str, ioc_id: str) -> str:
     """Find the startup script st.cmd for a given IOC."""
     if directory.startswith("ioc"):
-        directory = os.path.join("/reg/g/pcds/epics", directory)
+        directory = os.path.join(EPICS_SITE_TOP, directory)
 
     # Templated IOCs are... different:
     build_path = os.path.join(directory, "build", "iocBoot", ioc_id)
@@ -94,27 +133,43 @@ def find_stcmd(directory: str, ioc_id: str) -> str:
     return os.path.join(directory, "iocBoot", ioc_id, "st.cmd")
 
 
-def main(configs):
-    iocs = [
-        ioc
-        for fn in (configs or [])
-        for ioc in load_config_file(fn)
+def get_iocs_from_configs(
+    configs: List[Union[str, pathlib.Path]],
+    sorter: Optional[Callable[[IOCInfo], Any]] = None
+) -> List[IOCInfo]:
+    """
+    Get IOC information in a list of dictionaries.
+
+    Parameters
+    ----------
+    configs : list[str or pathlib.Path]
+        Configuration filenames to load.
+    sorter : callable, optional
+        Sort IOCs with this, defaults to sorting by host name and then IOC name.
+
+    Returns
+    -------
+    ioc_info : list of IOC info dictionaries
+        List of IOC info
+    """
+    configs = [
+        pathlib.Path(config).resolve()
+        for config in configs or []
     ]
 
-    iocs.sort(key=lambda ioc: ioc.get("host", '?'))
+    def default_sorter(ioc):
+        return (ioc["host"], ioc["name"])
 
-    for ioc_info in iocs:
-        directory = ioc_info.get("dir", None)
-        # disable = ioc_info.get("disable", False)
-        if not directory:
-            continue
-        ioc_id = ioc_info.get("id", None)
-        stcmd = find_stcmd(directory, ioc_id)
-        ioc_info["startup_script"] = stcmd
-        # if os.path.exists(stcmd):
-        #     ioc_info["startup_script"] = stcmd
-        # elif not disable:
-        #     # print("missing stcmd", stcmd, ioc_info)
-        #     ...
+    iocs = (
+        ioc
+        for fn in set(configs)
+        for ioc in load_config_file(fn)
+    )
 
+    return list(sorted(iocs, key=sorter or default_sorter))
+
+
+def main(configs) -> List[IOCInfo]:
+    iocs = get_iocs_from_configs(configs)
     print(json.dumps(iocs, indent=4))
+    return iocs
