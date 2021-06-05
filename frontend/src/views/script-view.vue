@@ -3,6 +3,16 @@
   <div>
     <div>
       <h2>{{ filename }}:{{ line }}</h2>
+      <template v-if="metadata">
+        <details>
+          <summary>{{ metadata.name }}</summary>
+          <dictionary-table
+            :dict="metadata"
+            cls="metadata"
+            :skip_keys="[]">
+          </dictionary-table>
+        </details>
+      </template>
       <table>
         <tbody>
           <script-line v-for="line in lines"
@@ -24,11 +34,13 @@
 <script>
 const axios = require('axios').default;
 
+import DictionaryTable from '../components/dictionary-table.vue';
 import ScriptLine from '../components/script-line.vue';
 
 export default {
   name: 'ScriptView',
   components: {
+    DictionaryTable,
     ScriptLine,
   },
   props: {
@@ -38,6 +50,7 @@ export default {
   data() {
     return {
       lines: [],
+      metadata: null,
     }
   },
   mounted() {
@@ -50,7 +63,8 @@ export default {
       }
     )
       .then(response => {
-        this.lines = response.data.lines;
+        this.metadata = response.data.ioc;
+        this.lines = response.data.script.lines;
         document.title = "WhatRec? " + this.filename;
       })
       .catch(error => {

@@ -240,16 +240,23 @@ class ServerHandler:
         filename = request.query["file"]
         loaded_ioc = self.state.container.scripts.get(filename, None)
         if loaded_ioc:
-            return web.json_response(apischema.serialize(loaded_ioc.script))
+            script_info = loaded_ioc.script
+            ioc_md = loaded_ioc.metadata
+        else:
+            # Making this dual-purpose: script, db, or any loaded file
+            ioc_md = None
+            try:
+                self.state.container.loaded_files[filename]
+                script_info = self.script_info_from_loaded_file(filename)
+            except KeyError as ex:
+                raise web.HTTPBadRequest() from ex
 
-        # Making this dual-purpose: script, db, or any loaded file
-        try:
-            self.state.container.loaded_files[filename]
-            script_info = self.script_info_from_loaded_file(filename)
-        except KeyError as ex:
-            raise web.HTTPBadRequest() from ex
-
-        return web.json_response(apischema.serialize(script_info))
+        return web.json_response(
+            apischema.serialize({
+                "script": script_info,
+                "ioc": ioc_md,
+            })
+        )
 
     async def get_graph(self, pv_names: List[str], use_glob: bool = False,
                         graph_type: str = "record",
