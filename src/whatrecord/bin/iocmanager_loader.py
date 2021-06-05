@@ -8,7 +8,8 @@ import json
 import logging
 from typing import List
 
-from ..iocmanager import IOCInfo, get_iocs_from_configs
+from ..common import IocMetadata
+from ..iocmanager import get_iocs_from_configs
 
 logger = logging.getLogger(__name__)
 DESCRIPTION = __doc__
@@ -28,7 +29,7 @@ def build_arg_parser(parser=None):
     return parser
 
 
-def main(configs) -> List[IOCInfo]:
+def main(configs) -> List[IocMetadata]:
     iocs = get_iocs_from_configs(configs)
     print(json.dumps(iocs, indent=4))
     return iocs

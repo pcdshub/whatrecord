@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -28,9 +29,8 @@ class FrozenContextSingle(NamedTuple):
 # NOTE: (De)serializer methods cannot be used with typing.NamedTuple; in fact,
 # apischema uses __set_name__ magic method but it is not called on NamedTuple
 # subclass fields.
-
-
 FrozenLoadContext = Tuple[FrozenContextSingle, ...]
+IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
 
 
 @dataclass(repr=False)
@@ -67,6 +67,79 @@ class IocshResult:
 class IocshScript:
     path: str
     lines: Tuple[IocshResult, ...]
+
+
+@dataclass
+class IocMetadata:
+    name: str = "unset"
+    script: pathlib.Path = field(default_factory=pathlib.Path)
+    startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
+    host: Optional[str] = None
+    port: Optional[int] = None
+    metadata: Dict[str, Union[str, List[str], Dict[str, str]]] = field(
+        default_factory=dict
+    )
+    macros: Dict[str, str] = field(default_factory=dict)
+    standin_directories: Dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def empty(cls):
+        return cls(name="unset", script=pathlib.Path(),
+                   startup_directory=pathlib.Path())
+
+    @classmethod
+    def from_filename(
+        cls,
+        filename: Union[pathlib.Path, str],
+        *,
+        name: Optional[str] = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        startup_directory: Optional[pathlib.Path] = None,
+        macros: Optional[Dict[str, str]] = None,
+        standin_directories: Optional[Dict[str, str]] = None,
+        **metadata
+    ):
+        """Given at minimum a filename, guess the rest."""
+        filename = pathlib.Path(filename).expanduser().resolve()
+        name = name or filename.parts[-2]  # iocBoot/((ioc-something))/st.cmd
+        return cls(
+            name=name,
+            host=host,
+            port=port,
+            script=filename,
+            startup_directory=startup_directory or filename.parent,
+            metadata=metadata,
+            macros=macros or {},
+            standin_directories=standin_directories or {},
+        )
+
+    @classmethod
+    def from_dict(cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None):
+        """
+        Pick apart a given dictionary, relegating extra info to ``.metadata``.
+
+        Parameters
+        ----------
+        iocdict : dict
+            IOC information dictionary.
+        """
+        ioc = dict(iocdict)
+        name = ioc.pop("name")
+        host = ioc.pop("host", None)
+        port = ioc.pop("port", None)
+
+        script = ioc.pop("script")
+        script = pathlib.Path(str(script)).expanduser().resolve()
+        return cls(
+            name=name,
+            script=script,
+            startup_directory=script.parent,
+            host=host,
+            port=port,
+            metadata=ioc,
+            macros=macros or {},
+        )
 
 
 @dataclass

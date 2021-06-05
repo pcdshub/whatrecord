@@ -7,22 +7,23 @@ import logging
 import os
 import pathlib
 import re
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
+
+from .common import IocInfoDict
 
 logger = logging.getLogger(__name__)
 
 KEY_RE = re.compile(r"([a-z_]+)\s*:", re.IGNORECASE)
 EPICS_SITE_TOP = os.environ.get("EPICS_SITE_TOP", "/reg/g/pcds/epics")
 REQUIRED_KEYS = {"id", "host", "port", "dir"}
-IOCInfo = Dict[str, Union[str, Dict[str, str], List[str]]]
 
 
-def validate_config_keys(cfg: IOCInfo) -> bool:
+def validate_config_keys(cfg: IocInfoDict) -> bool:
     """Validate that a configuration has all required keys."""
     return all(key in cfg and cfg[key] for key in REQUIRED_KEYS)
 
 
-def parse_config(lines: List[str]) -> List[IOCInfo]:
+def parse_config(lines: List[str]) -> List[IocInfoDict]:
     """
     Parse an IOC manager config to get its IOCs.
 
@@ -70,7 +71,7 @@ def parse_config(lines: List[str]) -> List[IOCInfo]:
     return result
 
 
-def load_config_file(fn: Union[str, pathlib.Path]) -> List[IOCInfo]:
+def load_config_file(fn: Union[str, pathlib.Path]) -> List[IocInfoDict]:
     """
     Load a configuration file and return the IOCs it contains.
 
@@ -117,8 +118,8 @@ def find_stcmd(directory: str, ioc_id: str) -> str:
 
 def get_iocs_from_configs(
     configs: List[Union[str, pathlib.Path]],
-    sorter: Optional[Callable[[IOCInfo], Any]] = None
-) -> List[IOCInfo]:
+    sorter: Optional[Callable[[IocInfoDict], Any]] = None
+) -> List[IocInfoDict]:
     """
     Get IOC information in a list of dictionaries.
 

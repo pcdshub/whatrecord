@@ -41,7 +41,12 @@ class ServerState:
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
 
-    def __init__(self, startup_scripts: List[str], standin_directories: Dict[str, str]):
+    def __init__(
+        self,
+        startup_scripts: List[str],
+        script_loaders: List[str],
+        standin_directories: Dict[str, str]
+    ):
         self.standin_directories = standin_directories
         self.container = load_startup_scripts(
             *startup_scripts, standin_directories=standin_directories
@@ -127,7 +132,9 @@ class ServerState:
         return [pv_name for pv_name in sorted(self.database) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_graph_rendered(self, pv_names: Tuple[str], format: str, graph_type: str) -> bytes:
+    def get_graph_rendered(
+        self, pv_names: Tuple[str], format: str, graph_type: str
+    ) -> bytes:
         graph = self.get_graph(pv_names, graph_type=graph_type)
 
         with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
@@ -162,10 +169,13 @@ class ServerHandler:
     def __init__(
         self,
         startup_scripts: List[str],
+        script_loader: List[str],
         standin_directories: Dict[str, str],
         archive_viewer_url: Optional[str] = None
     ):
-        self.state = ServerState(startup_scripts, standin_directories)
+        self.state = ServerState(
+            startup_scripts, script_loader, standin_directories
+        )
         self.archive_viewer_url = None
 
     @routes.get("/api/pv/{pv_names}/info")
@@ -226,15 +236,18 @@ class ServerHandler:
 
     @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):
-        script_name = request.query["file"]
-        script_info = self.state.container.scripts.get(script_name, None)
-        if script_info is None:
-            try:
-                # Making this dual-purpose: script or db info
-                self.state.container.loaded_files[script_name]
-                script_info = self.script_info_from_loaded_file(script_name)
-            except KeyError as ex:
-                raise web.HTTPBadRequest() from ex
+        # script_name = pathlib.Path(request.query["file"])
+        filename = request.query["file"]
+        loaded_ioc = self.state.container.scripts.get(filename, None)
+        if loaded_ioc:
+            return web.json_response(apischema.serialize(loaded_ioc.script))
+
+        # Making this dual-purpose: script, db, or any loaded file
+        try:
+            self.state.container.loaded_files[filename]
+            script_info = self.script_info_from_loaded_file(filename)
+        except KeyError as ex:
+            raise web.HTTPBadRequest() from ex
 
         return web.json_response(apischema.serialize(script_info))
 
@@ -336,7 +349,8 @@ def run(*args, **kwargs):
 
 
 def main(
-    scripts: List[str],
+    scripts: Optional[List[str]] = None,
+    script_loader: Optional[List[str]] = None,
     archive_file: Optional[str] = None,
     archive_viewer_url: Optional[str] = None,
     archive_management_url: Optional[str] = None,
@@ -345,6 +359,9 @@ def main(
     port: int = 8899,
     standin_directory: Optional[Union[List, Dict]] = None,
 ):
+    scripts = scripts or []
+    script_loader = script_loader or []
+
     app = web.Application()
 
     standin_directory = standin_directory or {}
@@ -353,6 +370,7 @@ def main(
 
     handler = ServerHandler(
         scripts,
+        script_loader,
         standin_directories=standin_directory,
         archive_viewer_url=archive_viewer_url
     )

@@ -3,23 +3,21 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
-import multiprocessing as mp
+# import multiprocessing as mp
 import os
 import pathlib
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Generator, Iterable, List, Optional
 
 import apischema
-from apischema.metadata import skip
 
-from . import asyn
+from . import asyn, common
 from . import motor as motor_mod
-# from . import schema
-from .common import (IocshCommand, IocshResult, IocshScript, LoadContext,
-                     RecordInstance, ShortLinterResults, WhatRecord,
-                     time_context)
+from .common import (IocMetadata, IocshCommand, IocshResult, IocshScript,
+                     LoadContext, RecordInstance, ShortLinterResults,
+                     WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
 from .iocsh import IOCShellLineParser
@@ -102,9 +100,11 @@ class ShellState:
         default_factory=dict,
     )
     macro_context: MacroContext = field(default_factory=MacroContext,
-                                        metadata=skip)
+                                        metadata=apischema.metadata.skip)
+    ioc_info: IocMetadata = field(default_factory=IocMetadata)
 
-    _handlers: Dict[str, Callable] = field(default_factory=dict, metadata=skip)
+    _handlers: Dict[str, Callable] = field(default_factory=dict,
+                                           metadata=apischema.metadata.skip)
     _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser)
 
     def __post_init__(self):
@@ -475,24 +475,18 @@ class ShellState:
         self.asyn_ports[motor_port] = motor
 
 
+@dataclass
 class ScriptContainer:
-    database: Dict[str, RecordInstance]
-    script_to_state: Dict[pathlib.Path, ShellState]
-    scripts: Dict[pathlib.Path, IocshScript]
-    loaded_files: Dict[str, str]
+    database: Dict[str, RecordInstance] = field(default_factory=dict)
+    scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
 
-    def __init__(self):
-        self.database = {}
-        self.scripts = {}
-        self.script_to_state = {}
-        self.loaded_files = {}
+    # TODO: add mtime information for update checking
+    loaded_files: Dict[str, str] = field(default_factory=dict)
 
-    def add_script(self, script: IocshScript, shell_state: ShellState):
-        path = script.path
-        self.scripts[path] = script
-        self.script_to_state[path] = shell_state
-        self.database.update(shell_state.database)
-        self.loaded_files.update(shell_state.loaded_files)
+    def add_script(self, loaded: LoadedIoc):
+        self.scripts[str(loaded.metadata.script)] = loaded
+        self.database.update(loaded.shell_state.database)
+        self.loaded_files.update(loaded.shell_state.loaded_files)
 
     def whatrec(
         self,
@@ -503,8 +497,8 @@ class ScriptContainer:
     ) -> List[WhatRecord]:
         fmt = FormatContext()
         result = []
-        for stcmd, state in self.script_to_state.items():
-            info = whatrec(state, rec, field)
+        for stcmd, loaded in self.scripts.items():
+            info = whatrec(loaded.shell_state, rec, field)
             if info is not None:
                 info.owner = str(stcmd)
                 inst = info.instance
@@ -536,25 +530,40 @@ def whatrec(
     return WhatRecord(owner=None, instance=inst, asyn_ports=asyn_ports)
 
 
-def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellState]:
-    sh = ShellState()
-    sh.working_directory = pathlib.Path(fn).resolve().parent
-    sh.macro_context.define(TOP="../..")
-    sh.standin_directories = standin_directories or {}
-
-    with open(fn, "rt") as fp:
-        lines = fp.read().splitlines()
-
-    iocsh_script = IocshScript(
-        path=str(fn),
-        lines=tuple(sh.interpret_shell_script(lines, name=fn)),
-    )
-    return iocsh_script, sh
+# def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
+#     LoadedIoc.from_metadata()
+#     return apischema.serialize(startup_lines), apischema.serialize(sh_state)
 
 
-def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
-    startup_lines, sh_state = load_startup_script(standin_directories, fn)
-    return apischema.serialize(startup_lines), apischema.serialize(sh_state)
+@dataclass
+class LoadedIoc:
+    name: str
+    path: pathlib.Path
+    metadata: IocMetadata
+    shell_state: ShellState
+    script: IocshScript
+
+    @classmethod
+    def from_metadata(cls, md: IocMetadata):
+        sh = ShellState(ioc_info=md)
+        sh.working_directory = md.startup_directory
+        # sh.macro_context.define(TOP="../..")
+        sh.standin_directories = md.standin_directories or {}
+
+        with open(md.script, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        script = IocshScript(
+            path=str(md.script),
+            lines=tuple(sh.interpret_shell_script(lines, name=str(md.script))),
+        )
+        return cls(
+            name=md.name,
+            path=md.script,
+            metadata=md,
+            shell_state=sh,
+            script=script
+        )
 
 
 def load_startup_scripts(
@@ -577,29 +586,32 @@ def load_startup_scripts(
     container : ScriptContainer
         The resulting container.
     """
-    """
-    Load all given startup scripts into a shared ScriptContainer.
-    """
     container = ScriptContainer()
     total_files = len(set(fns))
 
     with time_context() as total_ctx:
         if processes > 1:
-            loader = functools.partial(_load_startup_script_json, standin_directories)
-            with mp.Pool(processes=processes) as pool:
-                results = pool.imap(loader, sorted(set(fns)))
-                for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
-                    iocsh_script = apischema.deserialize(IocshScript, iocsh_script_raw)
-                    sh_state = apischema.deserialize(ShellState, sh_state_raw)
-                    print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
-                    container.add_script(iocsh_script, sh_state)
+            ...
+            # loader = functools.partial(_load_startup_script_json, standin_directories)
+            # with mp.Pool(processes=processes) as pool:
+            #     results = pool.imap(loader, sorted(set(fns)))
+            #     for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
+            #         iocsh_script = apischema.deserialize(
+            #             IocshScript, iocsh_script_raw)
+            #         sh_state = apischema.deserialize(ShellState, sh_state_raw)
+            #         print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
+            #         container.add_script(iocsh_script, sh_state)
         else:
-            loader = functools.partial(load_startup_script, standin_directories)
             for idx, fn in enumerate(sorted(set(fns)), 1):
                 print(f"{idx}/{total_files}: Loading {fn}...", end="")
                 with time_context() as ctx:
-                    iocsh_script, sh_state = loader(fn)
-                    container.add_script(iocsh_script, sh_state)
+                    loaded = LoadedIoc.from_metadata(
+                        common.IocMetadata.from_filename(
+                            fn,
+                            standin_directories=standin_directories
+                        )
+                    )
+                    container.add_script(loaded)
                 print(f"[{ctx():.1f} s]")
 
         print(
