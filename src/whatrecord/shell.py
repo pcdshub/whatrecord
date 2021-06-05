@@ -501,6 +501,7 @@ class ScriptContainer:
             info = whatrec(loaded.shell_state, rec, field)
             if info is not None:
                 info.owner = str(stcmd)
+                info.ioc = loaded.metadata
                 inst = info.instance
                 if file is not None:
                     print(fmt.render_object(inst, format_option), file=file)
@@ -527,7 +528,8 @@ def whatrec(
         if parent_port is not None:
             asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
 
-    return WhatRecord(owner=None, instance=inst, asyn_ports=asyn_ports)
+    return WhatRecord(owner=None, instance=inst, asyn_ports=asyn_ports,
+                      ioc=None)
 
 
 # def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:

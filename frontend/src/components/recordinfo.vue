@@ -9,7 +9,15 @@
     :is_grecord=record_info.instance.is_grecord
   />
 
-  <Accordion :multiple="true" :activeIndex="[0, 1, 2, 3]">
+
+  <Accordion :multiple="true" :activeIndex="[1, 2, 3, 4]">
+    <AccordionTab :header="`Part of ${record_info.ioc.name}`">
+      <dictionary-table
+        :dict="record_info.ioc"
+        :cls="'metadata'"
+        :skip_keys="[]">
+      </dictionary-table>
+    </AccordionTab>
     <AccordionTab header="Record links">
       <a :href="graph_link" target="_blank">
         <img class="svg-graph" :src="graph_link" />
@@ -59,6 +67,7 @@
 
 <script>
 import AsynPort from './asyn-port.vue'
+import DictionaryTable from './dictionary-table.vue'
 import EpicsFormatRecord from './epics-format-record.vue'
 import GatewayMatches from './gateway-matches.vue'
 import RecordFieldTable from './record-field-table.vue'
@@ -75,6 +84,7 @@ export default {
   },
   components: {
     AsynPort,
+    DictionaryTable,
     EpicsFormatRecord,
     GatewayMatches,
     RecordFieldTable,

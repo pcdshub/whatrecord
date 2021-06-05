@@ -306,8 +306,8 @@ class WhatRecord:
     owner: Optional[str]
     instance: RecordInstance
     asyn_ports: List["AsynPortBase"]
+    ioc: Optional[IocMetadata]
     # TODO:
-    # - IOC host info, port?
     # - gateway rule matches?
 
 
