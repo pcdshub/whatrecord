@@ -2,6 +2,7 @@ import * as VueRouter from 'vue-router';
 
 import WhatRec from './views/whatrec.vue';
 import ScriptView from './views/script-view.vue';
+import IocView from './views/iocs.vue';
 
 const routes = [
   {
@@ -18,6 +19,12 @@ const routes = [
       name: 'file',
       path: '/file/:filename/:line',
       component: ScriptView,
+      props: true
+  },
+  {
+      name: 'iocs',
+      path: '/iocs/:glob',
+      component: IocView,
       props: true
   },
 ]

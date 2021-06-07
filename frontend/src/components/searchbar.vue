@@ -84,7 +84,7 @@ export default {
         })
         .then((response) => {
           console.log(response.data);
-          let matching_pvs = response.data["matching_pvs"];
+          const matching_pvs = response.data["matches"];
           // this.pv_list = matching_pvs;
           this.displayed_results = {
             pv_glob: search.pv_glob,

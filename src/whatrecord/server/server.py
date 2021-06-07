@@ -13,7 +13,7 @@ from aiohttp import web
 
 from .. import common, gateway, graph
 from ..common import RecordField, WhatRecord, dataclass
-from ..shell import ScriptContainer, load_startup_scripts
+from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts
 
 # from . import html as html_mod
 # from . import static
@@ -31,6 +31,13 @@ MAX_RECORDS = int(os.environ.get("WHATRECORD_MAX_RECORDS", 200))
 
 class TooManyRecordsError(Exception):
     ...
+
+
+def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
+    return re.compile(
+        "|".join(fnmatch.translate(glob_str) for part in glob_str.split(separator)),
+        flags=flags,
+    )
 
 
 class ServerState:
@@ -125,11 +132,17 @@ class ServerState:
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, glob_str: str) -> List[str]:
-        regex = re.compile(
-            "|".join(fnmatch.translate(glob_str) for part in glob_str.split("|")),
-            flags=re.IGNORECASE,
-        )
+        regex = _compile_glob(glob_str)
         return [pv_name for pv_name in sorted(self.database) if regex.match(pv_name)]
+
+    @functools.lru_cache(maxsize=2048)
+    def get_matching_iocs(self, glob_str: str) -> List[str]:
+        regex = _compile_glob(glob_str)
+        return [
+            loaded_ioc.metadata
+            for name, loaded_ioc in sorted(self.container.scripts.items())
+            if regex.match(name)
+        ]
 
     @functools.lru_cache(maxsize=2048)
     def get_graph_rendered(
@@ -154,7 +167,13 @@ class PVGetInfo:
 @dataclass
 class PVGetMatchesResponse:
     glob: str
-    matching_pvs: List[str]
+    matches: List[str]
+
+
+@dataclass
+class IocGetMatchesResponse:
+    glob: str
+    matches: List[LoadedIoc]
 
 
 @dataclass
@@ -205,10 +224,29 @@ class ServerHandler:
             apischema.serialize(
                 PVGetMatchesResponse(
                     glob=glob_str,
-                    matching_pvs=matches,
+                    matches=matches,
                 )
             )
         )
+
+    @routes.get("/api/iocs/{glob_str}/matches")
+    async def api_ioc_get_matches(self, request: web.Request):
+        # Ignore max for now. This is not much in the way of information.
+        # max_matches = int(request.query.get("max", "1000"))
+        glob_str = request.match_info.get("glob_str", "*")
+        matches = self.state.get_matching_iocs(glob_str)
+        return web.json_response(
+            apischema.serialize(
+                IocGetMatchesResponse(
+                    glob=glob_str,
+                    matches=matches,
+                )
+            )
+        )
+
+    # @routes.get("/api/graphql/query")
+    # async def api_graphql_query(self, request: web.Request):
+    # TODO: ...
 
     @functools.lru_cache(maxsize=2048)
     def script_info_from_loaded_file(self, fn) -> common.IocshScript:
