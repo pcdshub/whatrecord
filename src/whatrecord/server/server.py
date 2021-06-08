@@ -136,12 +136,12 @@ class ServerState:
         return [pv_name for pv_name in sorted(self.database) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_iocs(self, glob_str: str) -> List[str]:
+    def get_matching_iocs(self, glob_str: str) -> List[LoadedIoc]:
         regex = _compile_glob(glob_str)
         return [
-            loaded_ioc.metadata
-            for name, loaded_ioc in sorted(self.container.scripts.items())
-            if regex.match(name)
+            loaded_ioc
+            for script_path, loaded_ioc in sorted(self.container.scripts.items())
+            if regex.match(script_path) or regex.match(loaded_ioc.metadata.name)
         ]
 
     @functools.lru_cache(maxsize=2048)
@@ -173,7 +173,18 @@ class PVGetMatchesResponse:
 @dataclass
 class IocGetMatchesResponse:
     glob: str
-    matches: List[LoadedIoc]
+    matches: List[common.IocMetadata]
+
+
+AnyRecordInstance = Union[common.RecordInstanceSummary, common.RecordInstance]
+
+
+@dataclass
+class IocGetMatchingRecordsResponse:
+    ioc_glob: str
+    pv_glob: str
+    # TODO: ew, redo this
+    matches: List[Tuple[common.IocMetadata, List[AnyRecordInstance]]]
 
 
 @dataclass
@@ -239,9 +250,31 @@ class ServerHandler:
             apischema.serialize(
                 IocGetMatchesResponse(
                     glob=glob_str,
-                    matches=matches,
+                    matches=[match.metadata for match in matches],
                 )
             )
+        )
+
+    @routes.get("/api/iocs/{ioc_glob}/pvs/{pv_glob}")
+    async def api_ioc_get_pvs(self, request: web.Request):
+        response = IocGetMatchingRecordsResponse(
+            ioc_glob=request.match_info.get("ioc_glob", "*"),
+            pv_glob=request.match_info.get("pv_glob", "*"),
+            matches=[],
+        )
+
+        pv_glob_re = _compile_glob(response.pv_glob)
+        for loaded_ioc in self.state.get_matching_iocs(response.ioc_glob):
+            record_matches = [
+                rec_info.to_summary()
+                for rec, rec_info in sorted(loaded_ioc.shell_state.database.items())
+                if pv_glob_re.match(rec)
+            ]
+            if record_matches:
+                response.matches.append((loaded_ioc.metadata, record_matches))
+
+        return web.json_response(
+            apischema.serialize(response)
         )
 
     # @routes.get("/api/graphql/query")

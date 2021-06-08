@@ -84,22 +84,21 @@ export default {
         })
         .then((response) => {
           console.log(response.data);
-          const matching_pvs = response.data["matches"];
-          // this.pv_list = matching_pvs;
+          const matches = response.data["matches"];
+          // this.pv_list = matches;
           this.displayed_results = {
             pv_glob: search.pv_glob,
-            pv_list: matching_pvs,
+            pv_list: matches,
           }
-          this.$emit("found-pvs", matching_pvs);
+          this.$emit("found-pvs", matches);
           this.$store.commit(
             "add_search_results",
             {
               pv_glob: search.pv_glob,
               max_pvs: search.max_pvs,
-              pv_list: matching_pvs,
+              pv_list: matches,
             },
           );
-
         })
         .catch(error => {
           console.log(error)

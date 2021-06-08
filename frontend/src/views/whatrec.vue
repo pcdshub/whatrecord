@@ -29,7 +29,7 @@ export default {
     Recordinfo,
     Searchbar,
   },
-  props: ["pv_glob", "selected_records"],
+  props: ["pv_glob"],
   computed: mapState({
     selected_records: state => state.selected_records,
     record_info: (state) => {
@@ -50,7 +50,6 @@ export default {
   },
   mounted() {
     console.log(`Mounted: glob=${this.pv_glob} PVs=${this.pv_from_link}`);
-
   },
 }
 </script>

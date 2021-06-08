@@ -225,6 +225,31 @@ LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
 
 
 @dataclass
+class RecordInstanceSummary:
+    """An abbreviated form of :class:`RecordInstance`."""
+
+    context: FrozenLoadContext
+    name: str
+    record_type: str
+    # fields: Dict[str, RecordField]
+    archived: bool = False
+    metadata: Dict[str, str] = field(default_factory=dict)
+    aliases: List[str] = field(default_factory=list)
+    # is_grecord: bool = False
+
+    @classmethod
+    def from_record_instance(self, instance: RecordInstance) -> RecordInstanceSummary:
+        return RecordInstanceSummary(
+            context=instance.context,
+            name=instance.name,
+            record_type=instance.record_type,
+            archived=instance.archived,
+            metadata=instance.metadata,
+            aliases=instance.aliases,
+        )
+
+
+@dataclass
 class RecordInstance:
     context: FrozenLoadContext
     name: str
@@ -265,6 +290,10 @@ record("{{record_type}}", "{{name}}") {
             except ValueError:
                 continue
             yield fld, link, info
+
+    def to_summary(self) -> RecordInstanceSummary:
+        """Return a summarized version of the record instance."""
+        return RecordInstanceSummary.from_record_instance(self)
 
 
 class AsynPortBase:
