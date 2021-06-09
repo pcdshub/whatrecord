@@ -6,6 +6,7 @@ const axios = require('axios').default;
 export const store = createStore({
   state: () => (
     {
+      record_glob: "*",
       glob_to_pvs: {},
       record_info: {},
       ioc_info: [],
@@ -35,8 +36,11 @@ export const store = createStore({
       state.ioc_info = ioc_info;
     },
     add_record_info (state, { record, info}) {
-      console.log("Adding record info", record, info);
+      console.debug("Adding record info", record, info);
       state.record_info[record] = info;
+    },
+    set_record_glob (state, record_glob) {
+      state.record_glob = record_glob;
     },
     set_selected_records (state, records) {
       state.selected_records = records;
@@ -58,21 +62,21 @@ export const store = createStore({
         }
       ).catch(
         error => {
-          console.log(error);
+          console.error(error);
           commit("end_query");
         }
       )
     },
 
-    get_record_info ({ commit }, { record_name }) {
+    get_record_info ({ commit, dispatch }, { record_name }) {
       commit("start_query");
-      console.log("Getting info for record:", record_name);
+      console.debug("Getting info for record:", record_name);
       axios.get(
         `/api/pv/${record_name}/info`,
         {})
         .then(response => {
           for (const rec in response.data) {
-            commit(
+            dispatch(
               "add_record_info",
               {
                 record: rec,
@@ -83,36 +87,36 @@ export const store = createStore({
           commit("end_query");
         })
         .catch(error => {
-          console.log(error)
+          console.error(error)
           commit("end_query");
         });
     },
 
     get_ioc_records ({commit}, { ioc_name }) {
       commit("start_query");
-      console.log("Search for IOC records:", ioc_name);
+      console.debug("Search for IOC records:", ioc_name);
       axios.get(
         `/api/iocs/${ioc_name}/pvs/*`,
         {}
       ).then(
         response => {
           const records = (response.data.matches.length > 0) ? response.data.matches[0][1] : [];
-          console.log("Got record listing for", ioc_name);
+          console.debug("Got record listing for", ioc_name);
           commit("set_ioc_records", {ioc_name: ioc_name, records: records});
           commit("end_query");
         }
       ).catch(
         error => {
-          console.log(error);
+          console.error(error);
           commit("end_query");
         }
       )
     },
 
-    find_pv_matches ({ commit }, { pv_glob, max_pvs }) {
+    find_record_matches ({ commit }, { record_glob, max_pvs }) {
       commit("start_query");
-      const query_glob = pv_glob == "" ? "*" : pv_glob;
-      console.log("Search for PV matches:", query_glob);
+      const query_glob = record_glob == "" ? "*" : record_glob;
+      console.debug("Search for PV matches:", query_glob);
 
       axios.get(
         `/api/pv/${query_glob}/matches`,
@@ -123,7 +127,7 @@ export const store = createStore({
           commit(
             "add_record_search_results",
             {
-              pv_glob: pv_glob,
+              pv_glob: query_glob,
               max_pvs: max_pvs,
               pv_list: matches,
             },
@@ -132,10 +136,39 @@ export const store = createStore({
         }
       ).catch(
         error => {
-          console.log("Failed to get PV list from glob", error);
+          console.error("Failed to get PV list from glob", error);
           commit("end_query");
         }
       )
+    },
+
+    set_record_glob ({commit, state, dispatch}, {record_glob, max_pvs}) {
+      if (record_glob == null) {
+        return;
+      }
+      if (state.record_glob === record_glob) {
+        return;
+      }
+      console.debug("Record glob=", record_glob);
+      commit("set_record_glob", record_glob);
+      if (record_glob in state.glob_to_pvs === false) {
+        console.debug("Finding records...", record_glob);
+        dispatch("find_record_matches", {"record_glob": record_glob, "max_pvs": max_pvs});
+      }
+    },
+
+    set_selected_records ({commit, state, dispatch}, { records }) {
+      console.debug("Set selected records", records);
+      commit("set_selected_records", records);
+      for (const rec of records) {
+        if (rec in state.record_info === false) {
+          dispatch("get_record_info", {"record_name": rec});
+        }
+      }
+    },
+
+    add_record_info ({commit}, { record, info}) {
+      commit("add_record_info", {record: record, info: info});
     },
   },
   getters: {

@@ -1,7 +1,7 @@
 <template>
   <div class="p-grid">
     <div class="p-col-3">
-      <Searchbar :pv_glob_default="pv_glob" />
+      <Searchbar :route_record_glob="record_glob" :route_selected_records="selected_records" />
     </div>
     <div class="p-col-7" id="record_info">
       <div v-for="match in record_info" :key="match.pv_name">
@@ -18,8 +18,6 @@
 </template>
 
 <script>
-import { mapState } from 'vuex'
-
 import Recordinfo from '../components/recordinfo.vue'
 import Searchbar from '../components/searchbar.vue'
 
@@ -29,15 +27,11 @@ export default {
     Recordinfo,
     Searchbar,
   },
-  props: ["pv_glob"],
+  props: ["record_glob", "selected_records"],
   computed: {
     record_info() {
       return this.$store.getters.selected_record_info;
-    },
-
-    ...mapState({
-      selected_records: state => state.selected_records,
-    })
+    }
   },
   data() {
     return {
@@ -46,7 +40,7 @@ export default {
     }
   },
   mounted() {
-    console.log(`Mounted: glob=${this.pv_glob} PVs=${this.pv_from_link}`);
+    console.debug(`Whatrec Mounted: glob=${this.record_glob} PVs=${this.selected_records}`);
   },
 }
 </script>

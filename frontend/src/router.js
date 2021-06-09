@@ -11,7 +11,7 @@ const routes = [
   },
   {
       name: 'whatrec',
-      path: '/whatrec/:pv_glob?/:selected_records?',
+      path: '/whatrec/:record_glob?/:selected_records?',
       component: WhatRec,
       props: true
   },

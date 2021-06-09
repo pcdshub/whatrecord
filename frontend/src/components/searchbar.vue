@@ -1,6 +1,6 @@
 <template>
   <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
-    <InputText type="text" v-model.trim.lazy="pv_glob" placeholder="*PV Glob*" />
+    <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
     &nbsp;
     <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
   </form>
@@ -27,13 +27,12 @@ export default {
     DataTable,
     InputText,
   },
-  props: ["pv_glob_default"],
+  props: ["route_record_glob", "route_selected_records"],
   data() {
     return {
       max_pvs: 100,
-      selected_records: [],
       table_selection: [],
-      pv_glob: this.pv_glob_default,
+      input_record_glob: "*",
       last_displayed: {
         glob: "",
         list: [],
@@ -52,13 +51,13 @@ export default {
     ...mapState({
       searching: state => state.query_in_progress,
       glob_to_pvs: state => state.glob_to_pvs,
-      selected_record_list: state => state.getters.selected_record_list,
+      record_glob: state => state.record_glob,
 
       displayed_info(state) {
-        if (this.pv_glob in state.glob_to_pvs) {
+        if (this.input_record_glob in state.glob_to_pvs) {
           this.last_displayed = {
-            glob: this.pv_glob,
-            list: state.glob_to_pvs[this.pv_glob],
+            glob: this.input_record_glob,
+            list: state.glob_to_pvs[this.input_record_glob],
           }
         }
         return this.last_displayed;
@@ -70,20 +69,25 @@ export default {
   },
 
   emits: [],
+  mounted() {
+    this.input_record_glob = this.route_record_glob ? this.route_record_glob : "*";
+    const selected_records = this.route_selected_records.split("|");
+    console.debug(`Searchbar mounted: glob=${this.route_record_glob} PVs=${this.route_selected_records}`);
+    this.$store.dispatch("set_record_glob", {"record_glob": this.route_record_glob, max_pvs: 200});
+    this.$store.dispatch("set_selected_records", {"records": selected_records});
+
+    for (const rec of selected_records) {
+      this.table_selection.push({"pv": rec});
+    }
+  },
   methods: {
     do_search() {
-      document.title = "WhatRec? " + this.pv_glob;
-      this.$store.dispatch("find_pv_matches", {"pv_glob": this.pv_glob, "max_pvs": this.max_pvs});
+      document.title = "WhatRec? " + this.input_record_glob;
+      this.$store.dispatch("set_record_glob", {"record_glob": this.input_record_glob, "max_pvs": this.max_pvs});
     },
 
     on_table_selection() {
-      const table_selection_list = this.table_selection_list;
-      this.$store.commit("set_selected_records", table_selection_list);
-      for (const rec of table_selection_list) {
-        if (rec in this.$store.state.record_info === false) {
-          this.$store.dispatch("get_record_info", {"record_name": rec});
-        }
-      }
+      this.$store.dispatch("set_selected_records", {records: this.table_selection_list});
     },
 
   },
