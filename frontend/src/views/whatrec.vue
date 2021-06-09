@@ -30,18 +30,15 @@ export default {
     Searchbar,
   },
   props: ["pv_glob"],
-  computed: mapState({
-    selected_records: state => state.selected_records,
-    record_info: (state) => {
-      let record_info = {};
-      for (const rec of state.selected_records) {
-        if (rec in state.record_info) {
-          record_info[rec] = state.record_info[rec];
-        }
-      }
-      return record_info;
+  computed: {
+    record_info() {
+      return this.$store.getters.selected_record_info;
     },
-  }),
+
+    ...mapState({
+      selected_records: state => state.selected_records,
+    })
+  },
   data() {
     return {
       add_graph: true,
