@@ -23,7 +23,7 @@ const routes = [
   },
   {
       name: 'iocs',
-      path: '/iocs/:glob',
+      path: '/iocs/:ioc_filter?/:selected_iocs_in?/:record_filter?',
       component: IocView,
       props: true
   },

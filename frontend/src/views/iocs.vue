@@ -80,7 +80,7 @@ export default {
     Dropdown,
     InputText,
   },
-  props: ["glob"],
+  props: ["ioc_filter", "record_filter", "selected_iocs_in"],
   data() {
     return {
       selected_iocs: [],
@@ -89,18 +89,26 @@ export default {
     }
   },
   computed: {
+    selected_ioc_list () {
+      let iocs = [];
+      for (const ioc_info of this.selected_iocs) {
+        iocs.push(ioc_info.name);
+      }
+      return iocs;
+    },
+
     ...mapState({
       ioc_info: state => state.ioc_info,
       ioc_records: state => state.ioc_to_records,
       record_list (state) {
         let records = [];
-        for (const ioc_info of this.selected_iocs) {
-          const ioc_name = ioc_info.name;
+        console.log(this.selected_ioc_list);
+        for (const ioc_name of this.selected_ioc_list) {
           if (ioc_name in state.ioc_to_records) {
             for (const record of state.ioc_to_records[ioc_name]) {
               records.push({
                 ioc_name: ioc_name,
-                ioc: this.ioc_info[ioc_name],
+                ioc: ioc_name,
                 record: record,
               });
             }
@@ -110,8 +118,7 @@ export default {
       },
       record_types (state) {
         let record_types = new Set();
-        for (const ioc_info of this.selected_iocs) {
-          const ioc_name = ioc_info.name;
+        for (const ioc_name of this.selected_ioc_list) {
           if (ioc_name in state.ioc_to_records) {
             for (const record of state.ioc_to_records[ioc_name]) {
               record_types.add(record.record_type);
@@ -128,16 +135,35 @@ export default {
   },
   mounted() {
     this.$store.dispatch("update_ioc_info");
+    console.debug(
+      "IOC filter", this.ioc_filter,
+      "selected IOCs", this.selected_iocs_in,
+      "Record filter", this.record_filter
+    );
+
+    const selected_iocs_in = this.selected_iocs_in ? this.selected_iocs_in.split("|") : [];
+    for (const ioc_name of selected_iocs_in) {
+      this.selected_iocs.push({"name": ioc_name});
+    }
+    if (this.selected_iocs.length > 0) {
+      this.new_ioc_selection();
+    }
   },
 
   methods: {
     new_ioc_selection() {
-      for (const ioc_info of this.selected_iocs) {
-        const ioc_name = ioc_info.name;
+      for (const ioc_name of this.selected_ioc_list) {
         if (ioc_name in this.$store.state.ioc_to_records === false) {
-            this.$store.dispatch("get_ioc_records", {ioc_name: ioc_name});
+          this.$store.dispatch("get_ioc_records", {ioc_name: ioc_name});
         }
       }
+      this.$router.push({
+        params: {
+          "ioc_filter": this.ioc_filters["global"].value,
+          "selected_iocs_in": this.selected_ioc_list.join("|"),
+          "record_filter": this.record_filters["global"].value,
+        }
+      });
     },
 
     clear_ioc_filters() {
@@ -150,7 +176,7 @@ export default {
 
     init_ioc_filters() {
       this.ioc_filters = {
-        'global': {value: null, matchMode: FilterMatchMode.CONTAINS},
+        'global': {value: this.ioc_filter, matchMode: FilterMatchMode.CONTAINS},
         'name': {value: null, matchMode: FilterMatchMode.CONTAINS},
         'host': {value: null, matchMode: FilterMatchMode.CONTAINS},
         'port': {value: null, matchMode: FilterMatchMode.CONTAINS},
@@ -160,7 +186,7 @@ export default {
 
     init_record_filters() {
       this.record_filters = {
-        'global': {value: null, matchMode: FilterMatchMode.CONTAINS},
+        'global': {value: this.record_filter, matchMode: FilterMatchMode.CONTAINS},
         'record.name': {value: null, matchMode: FilterMatchMode.CONTAINS},
         'record.record_type': {value: null, matchMode: FilterMatchMode.EQUALS},
       };
