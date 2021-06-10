@@ -50,96 +50,78 @@ export const store = createStore({
     },
   },
   actions: {
-    update_ioc_info ({commit}) {
-      commit("start_query");
-      axios.get(
-        `/api/iocs/*/matches`,
-        {}
-      ).then(
-        response => {
-          commit("set_ioc_info", {ioc_info: response.data.matches});
-          commit("end_query");
-        }
-      ).catch(
-        error => {
-          console.error(error);
-          commit("end_query");
-        }
-      )
+    async update_ioc_info ({commit}) {
+      try {
+        await commit("start_query");
+        const response = await axios.get(`/api/iocs/*/matches`, {})
+        await commit("set_ioc_info", {ioc_info: response.data.matches});
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
     },
 
-    get_record_info ({ commit, dispatch }, { record_name }) {
-      commit("start_query");
-      console.debug("Getting info for record:", record_name);
-      axios.get(
-        `/api/pv/${record_name}/info`,
-        {})
-        .then(response => {
-          for (const rec in response.data) {
-            dispatch(
-              "add_record_info",
-              {
-                record: rec,
-                info: response.data[rec],
-              },
-            );
-          }
-          commit("end_query");
-        })
-        .catch(error => {
-          console.error(error)
-          commit("end_query");
-        });
+    async get_record_info ({ commit, dispatch }, { record_name }) {
+      try {
+        await commit("start_query");
+        console.debug("Getting info for record:", record_name);
+        const response = await axios.get(`/api/pv/${record_name}/info`, {})
+        for (const rec in response.data) {
+          await dispatch(
+            "add_record_info",
+            {
+              record: rec,
+              info: response.data[rec],
+            },
+          );
+        }
+      } catch (error) {
+        console.error(error)
+      } finally {
+        await commit("end_query");
+      }
     },
 
-    get_ioc_records ({commit}, { ioc_name }) {
-      commit("start_query");
-      console.debug("Search for IOC records:", ioc_name);
-      axios.get(
-        `/api/iocs/${ioc_name}/pvs/*`,
-        {}
-      ).then(
-        response => {
-          const records = (response.data.matches.length > 0) ? response.data.matches[0][1] : [];
-          console.debug("Got record listing for", ioc_name);
-          commit("set_ioc_records", {ioc_name: ioc_name, records: records});
-          commit("end_query");
-        }
-      ).catch(
-        error => {
-          console.error(error);
-          commit("end_query");
-        }
-      )
+    async get_ioc_records ({commit}, { ioc_name }) {
+      try {
+        await commit("start_query");
+        console.debug("Search for IOC records:", ioc_name);
+        const response = await axios.get(`/api/iocs/${ioc_name}/pvs/*`, {})
+        const records = (response.data.matches.length > 0) ? response.data.matches[0][1] : [];
+        console.debug("Got record listing for", ioc_name);
+        await commit("set_ioc_records", {ioc_name: ioc_name, records: records});
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
     },
 
-    find_record_matches ({ commit }, { record_glob, max_pvs }) {
-      commit("start_query");
+    async find_record_matches ({ commit }, { record_glob, max_pvs }) {
+      await commit("start_query");
       const query_glob = record_glob == "" ? "*" : record_glob;
       console.debug("Search for PV matches:", query_glob);
 
-      axios.get(
-        `/api/pv/${query_glob}/matches`,
-        {params: {max: max_pvs}}
-      ).then(
-        response => {
-          const matches = response.data["matches"];
-          commit(
-            "add_record_search_results",
-            {
-              pv_glob: query_glob,
-              max_pvs: max_pvs,
-              pv_list: matches,
-            },
-          );
-          commit("end_query");
-        }
-      ).catch(
-        error => {
+      try {
+        const response = await axios.get(
+          `/api/pv/${query_glob}/matches`,
+          {params: {max: max_pvs}}
+        )
+        const matches = response.data["matches"];
+        await commit(
+          "add_record_search_results",
+          {
+            pv_glob: query_glob,
+            max_pvs: max_pvs,
+            pv_list: matches,
+          },
+        );
+      } catch (error) {
           console.error("Failed to get PV list from glob", error);
-          commit("end_query");
-        }
-      )
+      } finally {
+          await commit("end_query");
+      }
     },
 
     set_record_glob ({commit, state, dispatch}, {record_glob, max_pvs}) {

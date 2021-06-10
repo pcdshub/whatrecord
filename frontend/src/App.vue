@@ -3,7 +3,7 @@
     <li>
       <router-link to="/">Records</router-link>
       &nbsp;
-      <router-link to="/iocs/*/">IOCs</router-link>
+      <router-link to="/iocs/">IOCs</router-link>
     </li>
   </ul>
   <br/>
