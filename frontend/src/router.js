@@ -13,7 +13,12 @@ const routes = [
       name: 'whatrec',
       path: '/whatrec/:record_glob?/:selected_records?',
       component: WhatRec,
-      props: true
+      props: route => (
+          {
+              record_glob: route.params.record_glob || "*",
+              selected_records: route.params.selected_records || "",
+          }
+      )
   },
   {
       name: 'file',
@@ -23,9 +28,15 @@ const routes = [
   },
   {
       name: 'iocs',
-      path: '/iocs/:ioc_filter?/:selected_iocs_in?/:record_filter?',
+      path: '/iocs/:selected_iocs_in?',
       component: IocView,
-      props: true
+      props: route => (
+          {
+              selected_iocs_in: route.params.selected_iocs_in || "",
+              ioc_filter: route.query.ioc_filter || "",
+              record_filter: route.query.record_filter || "",
+          }
+      )
   },
 ]
 

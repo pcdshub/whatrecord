@@ -7,7 +7,7 @@
   <br/>
   <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
       @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
-    <Column field="pv" :header="`PV (${this.displayed_info.glob})`"></Column>
+    <Column field="pv" :header="`Results (${this.displayed_info.glob})`"></Column>
   </DataTable>
 </template>
 
@@ -69,25 +69,34 @@ export default {
   },
 
   emits: [],
-  mounted() {
-    this.input_record_glob = this.route_record_glob ? this.route_record_glob : "*";
-    const selected_records = this.route_selected_records.split("|");
-    console.debug(`Searchbar mounted: glob=${this.route_record_glob} PVs=${this.route_selected_records}`);
-    this.$store.dispatch("set_record_glob", {"record_glob": this.route_record_glob, max_pvs: 200});
-    this.$store.dispatch("set_selected_records", {"records": selected_records});
 
-    for (const rec of selected_records) {
-      this.table_selection.push({"pv": rec});
-    }
+  created() {
+    this.$watch(
+      () => this.$route.params, (to_params, previous_params) => {
+        console.debug("To", to_params, "From", previous_params);
+        this.input_record_glob = to_params.record_glob || "*";
+      }
+    )
   },
+
   methods: {
     do_search() {
       document.title = "WhatRec? " + this.input_record_glob;
       this.$store.dispatch("set_record_glob", {"record_glob": this.input_record_glob, "max_pvs": this.max_pvs});
+      this.$router.push({
+        params: {
+          "record_glob": this.input_record_glob,
+        }
+      });
     },
 
     on_table_selection() {
       this.$store.dispatch("set_selected_records", {records: this.table_selection_list});
+      this.$router.push({
+        params: {
+          "selected_records": this.table_selection_list.join("|"),
+        }
+      });
     },
 
   },

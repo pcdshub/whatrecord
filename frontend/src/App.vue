@@ -1,45 +1,30 @@
 <template>
-  <ul>
-    <li>
-      <router-link to="/">Records</router-link>
-      &nbsp;
-      <router-link to="/iocs/">IOCs</router-link>
-    </li>
-  </ul>
-  <br/>
+  <TabMenu :model="tab_menu_items" />
   <router-view />
 </template>
 
 <script>
+import TabMenu from 'primevue/tabmenu';
+
 export default {
   name: "App",
+  components: {
+    TabMenu,
+  },
+  data() {
+    return {
+      tab_menu_items: [
+        {label: 'Records', icon: 'pi pi-fw pi-tags', to: '/'},
+        {label: 'IOCs', icon: 'pi pi-fw pi-sitemap', to: '/iocs'},
+      ]
+    }
+  }
+
 };
 </script>
 
-<style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
-}
-
-ul {
-  display: flex;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-li:not(:last-of-type) {
-  margin-right: 1rem;
-}
-
-.router-link-active {
-  color: orange;
-}
-
-.router-link-exact-active {
-  color: crimson;
+<style scoped>
+.p-tabmenu	{
+  margin-bottom: 5px;
 }
 </style>

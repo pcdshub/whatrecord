@@ -1,7 +1,7 @@
 <template>
   <div class="p-grid">
     <div class="p-col-3">
-      <Searchbar :route_record_glob="record_glob" :route_selected_records="selected_records" />
+      <Searchbar :route_record_glob="search_record_glob" :route_selected_records="search_selected_records" />
     </div>
     <div class="p-col-7" id="record_info">
       <div v-for="match in record_info" :key="match.pv_name">
@@ -35,13 +35,32 @@ export default {
   },
   data() {
     return {
-      add_graph: true,
       appliance_viewer_url: 'https://pswww.slac.stanford.edu/archiveviewer/retrieval/ui/viewer/archViewer.html?pv=',
+      search_record_glob: "",
+      search_selected_records: [],
     }
   },
   mounted() {
     console.debug(`Whatrec Mounted: glob=${this.record_glob} PVs=${this.selected_records}`);
+    this.search_selected_records = (this.selected_records || "").split("|");
+    this.search_record_glob = this.record_glob || "*";
   },
+  async beforeRouteUpdate(to, from) {
+    // TODO: linter unused vars?
+    console.debug("Route from", from, "to", to);
+
+    const selected_records = (to.params.selected_records || "").split("|");
+    this.$store.dispatch("set_record_glob", {"record_glob": to.params.record_glob, max_pvs: 200});
+    this.$store.dispatch("set_selected_records", {"records": selected_records});
+
+    this.table_selection = [];
+    for (const rec of selected_records) {
+      this.table_selection.push({"pv": rec});
+    }
+    this.search_record_glob = to.record_glob || "*";
+    this.search_selected_records = selected_records;
+  },
+
 }
 </script>
 

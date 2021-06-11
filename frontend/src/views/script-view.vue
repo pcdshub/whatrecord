@@ -53,23 +53,15 @@ export default {
       metadata: null,
     }
   },
-  mounted() {
-    axios.get(
-      "/api/file/info",
-      {params:
-        {
-          file: this.filename,
-        }
-      }
-    )
-      .then(response => {
-        this.metadata = response.data.ioc;
-        this.lines = response.data.script.lines;
-        document.title = "WhatRec? " + this.filename;
-      })
-      .catch(error => {
-        console.log(error)
-      });
+  async mounted() {
+    try {
+      const response = await axios.get("/api/file/info", {params: { file: this.filename } })
+      this.metadata = response.data.ioc;
+      this.lines = response.data.script.lines;
+      document.title = "WhatRec? " + this.filename;
+    } catch (error) {
+      console.error(error)
+    }
   },
   updated() {
     const lineno = this.line;
