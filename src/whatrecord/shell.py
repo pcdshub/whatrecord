@@ -345,6 +345,7 @@ class ShellState:
         return []  # list(self.database)
 
     def handle_NDPvaConfigure(
+        self,
         portName=None,
         queueSize=None,
         blockingCallbacks=None,
@@ -358,7 +359,32 @@ class ShellState:
         *_,
     ):
         """Implicitly creates a PVA group named ``pvName``."""
-        # TODO: qsrv pva state
+        if pvName is None:
+            return
+
+        metadata = {
+            "portName": portName or "",
+            "queueSize": queueSize or "",
+            "blockingCallbacks": blockingCallbacks or "",
+            "NDArrayPort": NDArrayPort or "",
+            "NDArrayAddr": NDArrayAddr or "",
+            "pvName": pvName or "",
+            "maxBuffers": maxBuffers or "",
+            "maxMemory": maxMemory or "",
+            "priority": priority or "",
+            "stackSize": stackSize or "",
+        }
+        self.pva_database[pvName] = RecordInstance(
+            context=self.get_frozen_context(),
+            name=pvName,
+            record_type="PVA",
+            fields={},
+            is_pva=True,
+            metadata={
+                "areaDetector": metadata
+            }
+        )
+        return metadata
 
     @_motor_wrapper
     def handle_drvAsynSerialPortConfigure(
