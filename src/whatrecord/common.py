@@ -177,11 +177,14 @@ class ShortLinterResults:
         )
 
 
+PVAJsonField = Dict[str, str]
+
+
 @dataclass
 class RecordField:
     dtype: str
     name: str
-    value: str
+    value: Union[str, PVAJsonField]
     context: FrozenLoadContext
 
     _jinja_format_: ClassVar[dict] = {

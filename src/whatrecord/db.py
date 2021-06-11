@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pathlib
 from dataclasses import field
@@ -9,6 +11,9 @@ from whatrecord.common import (FrozenLoadContext, LinterError, LinterWarning,
                                LoadContext, RecordField, RecordInstance,
                                dataclass)
 from whatrecord.macro import MacroContext
+
+# TODO: change back to relative imports
+
 
 MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
 
@@ -143,6 +148,65 @@ def _context_from_token(fn: str, token: lark.Token) -> FrozenLoadContext:
     return (LoadContext(name=fn, line=token.line).freeze(), )
 
 
+def _pva_q_group_handler(rec, group, md):
+    """Handler for Q:group."""
+
+    # record(...) {
+    #     info(Q:group, {      # <--- this thing
+    #         "<group_name>":{
+    #             +id:"some/NT:1.0",
+    #             +meta:"FLD",
+    #             +atomic:true,
+    #             "<field.name>":{
+    #                 +type:"scalar",
+    #                 +channel:"VAL",
+    #                 +id:"some/NT:1.0",
+    #                 +trigger:"*",
+    #                 +putorder:0,
+    #             }
+    #         }
+    #     })
+    # }
+    for field_name, field_info in md.items():
+        try:
+            fieldref = group.fields[field_name]
+        except KeyError:
+            fieldref = group.fields[field_name] = PVAFieldReference()
+
+        channel = field_info.pop("+channel", None)
+        if channel is not None:
+            fieldref.record_name = rec.name
+            fieldref.field_name = channel
+            # Linter TODO: checks that this field exists and
+            # whatnot
+
+        fieldref.metadata.update(field_info)
+
+
+def _record_instances_to_pva_groups(
+    records: List[RecordInstance]
+) -> Dict[str, PVAGroupInstance]:
+    """
+    Take a list of ``RecordInstance``, aggregate qsrv "Q:" info nodes, and
+    assemble ``PVAGroupInstance`` out of them.
+    """
+    pva_groups = {}
+    for rec in records:
+        group_md = rec.metadata.pop("Q:group", None)
+        if group_md is not None:
+            for group_name, group_info_to_add in group_md.items():
+                try:
+                    group = pva_groups[group_name]
+                except KeyError:
+                    pva_groups[group_name] = group = PVAGroupInstance(
+                        name=group_name,
+                    )
+
+                _pva_q_group_handler(rec, group, group_info_to_add)
+
+    return pva_groups
+
+
 @lark.visitors.v_args(inline=True)
 class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def __init__(self, fn, dbd=None):
@@ -170,9 +234,12 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 RecordType: db.record_types,
                 DatabaseBreakTable: db.breaktables,
                 RecordInstance: db.records,
+                PVAGroupInstance: db.pva_groups,
                 DatabaseDevice: db.devices,
             }
         )
+
+        db.pva_groups = _record_instances_to_pva_groups(db.records.values())
         return db
 
     def dbitem(self, *items):
@@ -353,6 +420,20 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
 
 @dataclass
+class PVAFieldReference:
+    record_name: str = ""
+    field_name: str = ""
+    metadata: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class PVAGroupInstance:
+    name: str
+    # TODO: Fields can be dotted references, so it seems, to indicate nesting
+    fields: Dict[str, PVAFieldReference] = field(default_factory=dict)
+
+
+@dataclass
 class Database:
     standalone_aliases: List[DatabaseRecordAlias] = field(default_factory=list)
     addpaths: List[DatabaseAddPath] = field(default_factory=list)
@@ -366,6 +447,7 @@ class Database:
     menus: List[DatabaseMenu] = field(default_factory=list)
     paths: List[DatabasePath] = field(default_factory=list)
     records: Dict[str, RecordInstance] = field(default_factory=dict)
+    pva_groups: Dict[str, PVAGroupInstance] = field(default_factory=dict)
     record_types: Dict[str, RecordType] = field(default_factory=dict)
     registrars: List[DatabaseRegistrar] = field(default_factory=list)
     variables: List[DatabaseVariable] = field(default_factory=list)
