@@ -78,7 +78,9 @@ export default {
       }
     )
   },
-
+  mounted() {
+    this.input_record_glob = this.$store.state.record_glob || "*";
+  },
   methods: {
     do_search() {
       document.title = "WhatRec? " + this.input_record_glob;

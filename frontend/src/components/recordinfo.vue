@@ -1,19 +1,25 @@
 <template>
-  <script-context-link :context="record_info.instance.context" :short=false></script-context-link>
-  <br/>
-  <epics-format-record
-    :name=record_info.instance.name
-    :context=record_info.instance.context
-    :fields=record_info.instance.fields
-    :record_type=record_info.instance.record_type
-    :is_grecord=record_info.instance.is_grecord
-  />
+  <h3> {{ whatrec.name }} </h3>
+  <!-- Available in {{ available_protocols }} -->
+  <template v-for="(instance, idx) in [instance_v3, instance_pva]" :key="idx">
+    <template v-if="instance != null">
+      <script-context-link :context="instance.context" :short=false></script-context-link>
+      <br/>
+      <epics-format-record
+        :name=instance.name
+        :context=instance.context
+        :fields=instance.fields
+        :record_type=instance.record_type
+        :is_grecord=instance.is_grecord
+        :is_pva=instance.is_pva
+      />
+    </template>
+  </template>
 
-
-  <Accordion :multiple="true" :activeIndex="[1, 2, 3, 4]">
-    <AccordionTab :header="`Part of ${record_info.ioc.name}`">
+  <Accordion :multiple="true">
+    <AccordionTab :header="`Part of ${whatrec.ioc.name}`">
       <dictionary-table
-        :dict="record_info.ioc"
+        :dict="whatrec.ioc"
         :cls="'metadata'"
         :skip_keys="[]">
       </dictionary-table>
@@ -23,44 +29,51 @@
         <img class="svg-graph" :src="graph_link" />
       </a>
     </AccordionTab>
-    <AccordionTab header="Archiver">
-      <a :href="appliance_viewer_url + record_info.instance.name" target="_blank">
-          <div v-if="record_info.instance.metadata.archived">
-              In archiver
-          </div>
-          <div v-else>
-              Not in archiver
-          </div>
-      </a>
-      <iframe
-        :src="appliance_viewer_url + record_info.instance.name"
-        title="Archive viewer"
-        v-if="record_info.instance.metadata.archived"
-        />
+    <AccordionTab header="Archiver" :disabled="instance_v3 == null">
+      <template v-if="instance_v3 != null">
+        <a :href="appliance_viewer_url + instance_v3.name" target="_blank">
+            <div v-if="instance_v3.metadata.archived">
+                In archiver
+            </div>
+            <div v-else>
+                Not in archiver
+            </div>
+        </a>
+        <iframe
+          :src="appliance_viewer_url + instance_v3.name"
+          title="Archive viewer"
+          v-if="instance_v3.metadata.archived"
+          />
+        </template>
     </AccordionTab>
     <AccordionTab header="Inter-IOC Links">
       <a :href="script_graph_link" target="_blank">
         <img class="svg-graph" :src="script_graph_link" />
       </a>
     </AccordionTab>
-    <AccordionTab header="Gateway">
-      <template v-if="record_info.instance.metadata.gateway.matches">
-        <gateway-matches :matches="record_info.instance.metadata.gateway.matches"/>
+    <AccordionTab header="Gateway" :disabled="instance_v3 == null">
+      <template v-if="instance_v3 != null && instance_v3.metadata.gateway.matches">
+        <gateway-matches :matches="instance_v3.metadata.gateway.matches"/>
       </template>
     </AccordionTab>
-    <AccordionTab header="Asyn" :disabled="record_info.asyn_ports.length == 0">
+    <AccordionTab header="Asyn" :disabled="whatrec.asyn_ports.length == 0">
       <asyn-port
-        v-for:="(asyn_port, idx) in record_info.asyn_ports"
+        v-for:="(asyn_port, idx) in whatrec.asyn_ports"
         :asyn_port="asyn_port"
         :key="asyn_port.name"/>
     </AccordionTab>
     <AccordionTab header="Field table">
-      <record-field-table
-        :fields=record_info.instance.fields
-      />
+      <template v-if="instance_v3 != null">
+        <b v-if="instance_pva != null">Channel Access (V3)</b>
+        <record-field-table :fields="instance_v3.fields" :pva="false" />
+      </template>
+      <template v-if="instance_pva != null">
+        <b v-if="instance_v3 != null">PVAccess</b>
+        <record-field-table :fields="instance_pva.fields" :pva="true" />
+      </template>
     </AccordionTab>
     <AccordionTab header="Raw information">
-      <pre>{{record_info}}</pre>
+      <pre>{{whatrec}}</pre>
     </AccordionTab>
   </Accordion>
 </template>
@@ -79,7 +92,7 @@ import AccordionTab from 'primevue/accordiontab';
 export default {
   name: 'Recordinfo',
   props: {
-    record_info: Object,
+    whatrec: Object,
     appliance_viewer_url: String
   },
   components: {
@@ -94,11 +107,37 @@ export default {
   },
   computed: {
     graph_link() {
-      return "/api/pv/" + this.record_info.instance.name + "/graph/svg";
+      return "/api/pv/" + this.whatrec.name + "/graph/svg";
     },
     script_graph_link() {
-      return "/api/pv/" + this.record_info.instance.name + "/script-graph/svg";
-    }
+      return "/api/pv/" + this.whatrec.name + "/script-graph/svg";
+    },
+    available_protocols() {
+      let protocols = [];
+      if (this.instance_v3 != null) {
+        protocols.push("Channel Access (CA)");
+      }
+      if (this.instance_pva != null) {
+        protocols.push("PVAccess");
+      }
+      return protocols.join(", ");
+    },
+    instance_pva() {
+      for (const instance of this.whatrec.instances) {
+        if (instance.is_pva === true) {
+          return instance;
+        }
+      }
+      return null;
+    },
+    instance_v3() {
+      for (const instance of this.whatrec.instances) {
+        if (instance.is_pva === false) {
+          return instance;
+        }
+      }
+      return null;
+    },
   }
 }
 </script>

@@ -94,6 +94,7 @@ class ShellState:
     )
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
+    pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[LoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(
@@ -329,6 +330,15 @@ class ShellState:
                 entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
 
+        for name, rec in linter_results.pva_groups.items():
+            if name not in self.pva_database:
+                self.pva_database[name] = rec
+                rec.context = context + rec.context
+            else:
+                entry = self.database[name]
+                entry.context = entry.context + rec.context
+                entry.fields.update(rec.fields)
+
         return ShortLinterResults.from_full_results(linter_results, macros=macros)
 
     def handle_dbl(self, rtyp=None, fields=None, *_):
@@ -494,6 +504,7 @@ class ShellState:
 @dataclass
 class ScriptContainer:
     database: Dict[str, RecordInstance] = field(default_factory=dict)
+    pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
 
     # TODO: add mtime information for update checking
@@ -502,50 +513,68 @@ class ScriptContainer:
     def add_script(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
         self.database.update(loaded.shell_state.database)
+        self.pva_database.update(loaded.shell_state.pva_database)
         self.loaded_files.update(loaded.shell_state.loaded_files)
 
     def whatrec(
         self,
         rec: str,
         field: Optional[str] = None,
+        include_pva: bool = True,
         format_option: str = "console",
         file=sys.stdout,
     ) -> List[WhatRecord]:
         fmt = FormatContext()
         result = []
         for stcmd, loaded in self.scripts.items():
-            info = whatrec(loaded.shell_state, rec, field)
+            info = whatrec(
+                loaded.shell_state, rec, field, include_pva=include_pva
+            )
             if info is not None:
                 info.owner = str(stcmd)
                 info.ioc = loaded.metadata
-                inst = info.instance
-                if file is not None:
-                    print(fmt.render_object(inst, format_option), file=file)
-                    for asyn_port in info.asyn_ports:
-                        print(fmt.render_object(asyn_port, format_option), file=file)
+                for inst in info.instances:
+                    if file is not None:
+                        print(fmt.render_object(inst, format_option), file=file)
+                        for asyn_port in info.asyn_ports:
+                            print(fmt.render_object(asyn_port, format_option),
+                                  file=file)
                 result.append(info)
         return result
 
 
 def whatrec(
-    state: ShellState, rec: str, field: Optional[str] = None
+    state: ShellState, rec: str, field: Optional[str] = None,
+    include_pva: bool = True
 ) -> Optional[WhatRecord]:
     """Get record information."""
-    inst = state.database.get(rec, None)
-    if inst is None:
+    v3_inst = state.database.get(rec, None)
+    pva_inst = state.pva_database.get(rec, None) if include_pva else None
+    if not v3_inst and not pva_inst:
         return
 
     asyn_ports = []
-    asyn_port = state.get_asyn_port_from_record(inst)
-    if asyn_port is not None:
-        asyn_ports.append(asyn_port)
+    instances = []
+    if v3_inst is not None:
+        instances.append(v3_inst)
+        asyn_port = state.get_asyn_port_from_record(v3_inst)
+        if asyn_port is not None:
+            asyn_ports.append(asyn_port)
 
-        parent_port = getattr(asyn_port, "parent", None)
-        if parent_port is not None:
-            asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
+            parent_port = getattr(asyn_port, "parent", None)
+            if parent_port is not None:
+                asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
 
-    return WhatRecord(owner=None, instance=inst, asyn_ports=asyn_ports,
-                      ioc=None)
+    if pva_inst is not None:
+        instances.append(pva_inst)
+
+    return WhatRecord(
+        name=rec,
+        owner=None,
+        instances=instances,
+        asyn_ports=asyn_ports,
+        ioc=None
+    )
 
 
 # def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:

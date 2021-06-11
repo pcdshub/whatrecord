@@ -12,7 +12,7 @@ import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph
-from ..common import RecordField, WhatRecord, dataclass
+from ..common import RecordField, RecordInstance, WhatRecord, dataclass
 from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts
 
 # from . import html as html_mod
@@ -75,17 +75,33 @@ class ServerState:
         with open(filename, "rt") as fp:
             self.archived_pvs = set(json.load(fp))
 
-    def whatrec(self, pvname):
-        def annotate(rec: WhatRecord):
-            rec.instance.metadata["archived"] = rec.instance.name in self.archived_pvs
-            rec.instance.metadata["gateway"] = self.get_gateway_info(rec.instance.name)
-            return rec
+    def annotate_whatrec(self, whatrec: WhatRecord) -> WhatRecord:
+        """
+        Annotate WhatRecord instances with things ServerState knows about.
+        """
+        for instance in whatrec.instances:
+            if not instance.is_pva:
+                # For now, V3 only
+                instance.metadata["archived"] = instance.name in self.archived_pvs
+                instance.metadata["gateway"] = self.get_gateway_info(instance.name)
+        return whatrec
 
-        return list(annotate(rec) for rec in self.container.whatrec(pvname) or [])
+    def whatrec(self, pvname) -> List[WhatRecord]:
+        """Find WhatRecord matches."""
+        return list(
+            self.annotate_whatrec(rec)
+            for rec in self.container.whatrec(pvname) or []
+        )
 
     @property
-    def database(self):
+    def database(self) -> Dict[str, RecordInstance]:
+        """The CA/V3 Database of records."""
         return self.container.database
+
+    @property
+    def pva_database(self) -> Dict[str, RecordInstance]:
+        """The pvAccess Database of groups/records."""
+        return self.container.pva_database
 
     @functools.lru_cache(maxsize=2048)
     def get_graph(self, pv_names: Tuple[str], graph_type: str) -> graphviz.Digraph:
@@ -133,7 +149,8 @@ class ServerState:
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, glob_str: str) -> List[str]:
         regex = _compile_glob(glob_str)
-        return [pv_name for pv_name in sorted(self.database) if regex.match(pv_name)]
+        pv_names = set(self.database) | set(self.pva_database)
+        return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_iocs(self, glob_str: str) -> List[LoadedIoc]:
@@ -216,7 +233,8 @@ class ServerHandler:
             apischema.serialize({
                 pv_name: PVGetInfo(
                     pv_name=pv_name,
-                    present=pv_name in self.state.database,
+                    present=(pv_name in self.state.database or
+                             pv_name in self.state.pva_database),
                     info=[obj for obj in info[pv_name]],
                 )
                 for pv_name in pv_names
@@ -263,11 +281,15 @@ class ServerHandler:
             matches=[],
         )
 
+        def get_all_records(shell_state):
+            yield from shell_state.database.items()
+            yield from shell_state.pva_database.items()
+
         pv_glob_re = _compile_glob(response.pv_glob)
         for loaded_ioc in self.state.get_matching_iocs(response.ioc_glob):
             record_matches = [
                 rec_info.to_summary()
-                for rec, rec_info in sorted(loaded_ioc.shell_state.database.items())
+                for rec, rec_info in sorted(get_all_records(loaded_ioc.shell_state))
                 if pv_glob_re.match(rec)
             ]
             if record_matches:

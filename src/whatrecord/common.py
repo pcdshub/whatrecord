@@ -31,6 +31,7 @@ class FrozenContextSingle(NamedTuple):
 # subclass fields.
 FrozenLoadContext = Tuple[FrozenContextSingle, ...]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
+AnyField = Union["RecordField", "PVAFieldReference"]
 
 
 @dataclass(repr=False)
@@ -76,9 +77,7 @@ class IocMetadata:
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
     host: Optional[str] = None
     port: Optional[int] = None
-    metadata: Dict[str, Union[str, List[str], Dict[str, str]]] = field(
-        default_factory=dict
-    )
+    metadata: Dict[str, Any] = field(default_factory=dict)
     macros: Dict[str, str] = field(default_factory=dict)
     standin_directories: Dict[str, str] = field(default_factory=dict)
 
@@ -239,6 +238,7 @@ class RecordInstanceSummary:
     metadata: Dict[str, str] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     # is_grecord: bool = False
+    is_pva: bool = False
 
     @classmethod
     def from_record_instance(self, instance: RecordInstance) -> RecordInstanceSummary:
@@ -249,7 +249,28 @@ class RecordInstanceSummary:
             archived=instance.archived,
             metadata=instance.metadata,
             aliases=instance.aliases,
+            is_pva=instance.is_pva,
         )
+
+
+class StringWithContext(str):
+    """A string with LoadContext."""
+    __slots__ = ("context", )
+    context: FrozenLoadContext
+
+    def __new__(cls, value, context: FrozenLoadContext):
+        self = super().__new__(cls, value)
+        self.context = context
+        return self
+
+
+@dataclass
+class PVAFieldReference:
+    context: FrozenLoadContext
+    name: str = ""
+    record_name: str = ""
+    field_name: str = ""
+    metadata: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -257,11 +278,12 @@ class RecordInstance:
     context: FrozenLoadContext
     name: str
     record_type: str
-    fields: Dict[str, RecordField]
+    fields: Dict[str, AnyField] = field(default_factory=dict)
     archived: bool = False
-    metadata: Dict[str, str] = field(default_factory=dict)
+    metadata: Dict[StringWithContext, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     is_grecord: bool = False
+    is_pva: bool = False
 
     _jinja_format_: ClassVar[dict] = {
         "console": """\
@@ -335,8 +357,9 @@ class AsynPortBase:
 
 @dataclass
 class WhatRecord:
+    name: str
     owner: Optional[str]
-    instance: RecordInstance
+    instances: List[RecordInstance]
     asyn_ports: List["AsynPortBase"]
     ioc: Optional[IocMetadata]
     # TODO:

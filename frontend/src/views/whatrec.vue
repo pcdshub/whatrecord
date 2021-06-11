@@ -5,11 +5,10 @@
     </div>
     <div class="p-col-7" id="record_info">
       <div v-for="match in record_info" :key="match.pv_name">
-        <h3> {{ match.pv_name }} </h3>
         <Recordinfo
-          v-for="(info, idx) in match.info"
+          v-for="(whatrec, idx) in match.info"
           :key="idx"
-          :record_info="info"
+          :whatrec="whatrec"
           :appliance_viewer_url="appliance_viewer_url"
         />
       </div>
@@ -40,10 +39,13 @@ export default {
       search_selected_records: [],
     }
   },
-  mounted() {
+  created() {
     console.debug(`Whatrec Mounted: glob=${this.record_glob} PVs=${this.selected_records}`);
     this.search_selected_records = (this.selected_records || "").split("|");
     this.search_record_glob = this.record_glob || "*";
+
+    this.$store.dispatch("set_record_glob", {"record_glob": this.search_record_glob, max_pvs: 200});
+    this.$store.dispatch("set_selected_records", {"records": this.search_selected_records});
   },
   async beforeRouteUpdate(to, from) {
     // TODO: linter unused vars?

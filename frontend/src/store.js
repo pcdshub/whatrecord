@@ -131,7 +131,6 @@ export const store = createStore({
       if (state.record_glob === record_glob && record_glob in state.glob_to_pvs) {
         return;
       }
-      console.debug("Record glob=", record_glob);
       commit("set_record_glob", record_glob);
       if (record_glob in state.glob_to_pvs === false) {
         console.debug("Finding records...", record_glob);
