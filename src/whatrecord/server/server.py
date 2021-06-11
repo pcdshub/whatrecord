@@ -12,7 +12,8 @@ import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph
-from ..common import RecordField, RecordInstance, WhatRecord, dataclass
+from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
+                      dataclass)
 from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts
 
 # from . import html as html_mod
@@ -310,13 +311,11 @@ class ServerHandler:
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
-        context = common.LoadContext(fn, 0)
         result = []
         for lineno, line in enumerate(lines, 1):
-            context.line = lineno
             result.append(
                 common.IocshResult(
-                    context=(context.freeze(),),
+                    context=(LoadContext(fn, lineno),),
                     line=line,
                     outputs=[],
                     argv=None,

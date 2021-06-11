@@ -15,9 +15,9 @@ import apischema
 
 from . import asyn, common
 from . import motor as motor_mod
-from .common import (IocMetadata, IocshCommand, IocshResult, IocshScript,
-                     LoadContext, RecordInstance, ShortLinterResults,
-                     WhatRecord, time_context)
+from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshResult,
+                     IocshScript, MutableLoadContext, RecordInstance,
+                     ShortLinterResults, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
 from .iocsh import IOCShellLineParser
@@ -81,8 +81,9 @@ class ShellState:
         Loaded database definition (dbd).
     database: Dict[str, RecordInstance]
         The IOC database of records.
-    load_context: List[LoadContext]
-        Current loading context stack (e.g., ``st.cmd`` then ``common_startup.cmd``)
+    load_context: List[MutableLoadContext]
+        Current loading context stack (e.g., ``st.cmd`` then
+        ``common_startup.cmd``).  Modified in place as scripts are evaluated.
     """
 
     prompt: str = "epics>"
@@ -95,7 +96,7 @@ class ShellState:
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
-    load_context: List[LoadContext] = field(default_factory=list)
+    load_context: List[MutableLoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(
         default_factory=dict,
@@ -149,7 +150,7 @@ class ShellState:
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
         shresult = self._parser.parse(
-            line, context=self.get_frozen_context(),
+            line, context=self.get_load_context(),
             prompt=self.prompt
         )
         input_redirects = [
@@ -192,7 +193,7 @@ class ShellState:
         raise_on_error: bool = False
     ) -> Generator[IocshResult, None, None]:
         """Interpret a shell script named ``name`` with ``lines`` of text."""
-        load_ctx = LoadContext(name, 0)
+        load_ctx = MutableLoadContext(name, 0)
         try:
             self.load_context.append(load_ctx)
             for lineno, line in enumerate(lines, 1):
@@ -219,10 +220,11 @@ class ShellState:
             except Exception:
                 logger.debug("Failed to parse asyn string", exc_info=True)
 
-    def get_frozen_context(self):
+    def get_load_context(self) -> FullLoadContext:
+        """Get a FullLoadContext tuple representing where we are now."""
         if not self.load_context:
             return tuple()
-        return tuple(ctx.freeze() for ctx in self.load_context)
+        return tuple(ctx.to_load_context() for ctx in self.load_context)
 
     def handle_command(self, command, *args):
         handler = self._handlers.get(command, None)
@@ -268,7 +270,7 @@ class ShellState:
         }
 
     def handle_iocshCmd(self, command, *_):
-        return IocshCommand(context=self.get_frozen_context(), command=command)
+        return IocshCommand(context=self.get_load_context(), command=command)
 
     def handle_cd(self, path, *_):
         path = self._fix_path(path)
@@ -320,7 +322,7 @@ class ShellState:
                 f"Failed to load {fn}: {type(ex).__name__} {ex}"
             ) from ex
 
-        context = self.get_frozen_context()
+        context = self.get_load_context()
         for name, rec in linter_results.records.items():
             if name not in self.database:
                 self.database[name] = rec
@@ -375,7 +377,7 @@ class ShellState:
             "stackSize": stackSize or "",
         }
         self.pva_database[pvName] = RecordInstance(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=pvName,
             record_type="PVA",
             fields={},
@@ -401,7 +403,7 @@ class ShellState:
             return
 
         self.asyn_ports[portName] = asyn.AsynSerialPort(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=portName,
             ttyName=ttyName,
             priority=priority,
@@ -422,7 +424,7 @@ class ShellState:
         # SLAC-specific, but doesn't hurt anyone
         if portName:
             self.asyn_ports[portName] = asyn.AsynIPPort(
-                context=self.get_frozen_context(),
+                context=self.get_load_context(),
                 name=portName,
                 hostInfo=hostInfo,
                 priority=priority,
@@ -449,7 +451,7 @@ class ShellState:
         # SLAC-specific, but doesn't hurt anyone
         if portName:
             self.asyn_ports[portName] = asyn.AdsAsynPort(
-                context=self.get_frozen_context(),
+                context=self.get_load_context(),
                 name=portName,
                 ipaddr=ipaddr,
                 amsaddr=amsaddr,
@@ -466,7 +468,7 @@ class ShellState:
     def handle_asynSetOption(self, name, addr, key, value, *_):
         port = self.asyn_ports[name]
         opt = asyn.AsynPortOption(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             key=key,
             value=value,
         )
@@ -486,7 +488,7 @@ class ShellState:
         *_,
     ):
         self.asyn_ports[port_name] = asyn.AsynMotor(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=port_name,
             parent=None,
             metadata=dict(
@@ -509,7 +511,7 @@ class ShellState:
         # SLAC-specific
         port = self.asyn_ports[asyn_port]
         motor = asyn.AsynMotor(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=motor_port,
             # TODO: would like to reference the object, but dataclasses
             # asdict recursion is tripping me up

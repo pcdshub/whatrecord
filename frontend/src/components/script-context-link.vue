@@ -2,7 +2,7 @@
   <div class="context">
     <script-context-one-link
       v-for:="ctx in context"
-      :name="ctx.file"
+      :name="ctx.name"
       :line="ctx.line"
       :short="short"
     />

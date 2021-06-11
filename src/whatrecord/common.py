@@ -18,43 +18,43 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class FrozenContextSingle(NamedTuple):
-    file: str
-    line: int
-
-    def __repr__(self):
-        return f"{self.file}:{self.line}"
-
-
-# NOTE: (De)serializer methods cannot be used with typing.NamedTuple; in fact,
-# apischema uses __set_name__ magic method but it is not called on NamedTuple
-# subclass fields.
-FrozenLoadContext = Tuple[FrozenContextSingle, ...]
-IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
-AnyField = Union["RecordField", "PVAFieldReference"]
-
-
-@dataclass(repr=False)
-class LoadContext:
+class LoadContext(NamedTuple):
     name: str
     line: int
 
     def __repr__(self):
         return f"{self.name}:{self.line}"
 
-    def freeze(self) -> FrozenContextSingle:
-        return FrozenContextSingle(self.name, self.line)
+
+# NOTE: (De)serializer methods cannot be used with typing.NamedTuple; in fact,
+# apischema uses __set_name__ magic method but it is not called on NamedTuple
+# subclass fields.
+FullLoadContext = Tuple[LoadContext, ...]
+IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
+AnyField = Union["RecordField", "PVAFieldReference"]
+
+
+@dataclass(repr=False)
+class MutableLoadContext:
+    name: str
+    line: int
+
+    def __repr__(self):
+        return f"{self.name}:{self.line}"
+
+    def to_load_context(self) -> LoadContext:
+        return LoadContext(self.name, self.line)
 
 
 @dataclass
 class IocshCommand:
-    context: FrozenLoadContext
+    context: FullLoadContext
     command: str
 
 
 @dataclass
 class IocshResult:
-    context: FrozenLoadContext
+    context: FullLoadContext
     line: str
     outputs: List[str]
     argv: Optional[List[str]]
@@ -184,7 +184,7 @@ class RecordField:
     dtype: str
     name: str
     value: Union[str, PVAJsonField]
-    context: FrozenLoadContext
+    context: FullLoadContext
 
     _jinja_format_: ClassVar[dict] = {
         "console": """field({{name}}, "{{value}}")""",
@@ -230,7 +230,7 @@ LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
 class RecordInstanceSummary:
     """An abbreviated form of :class:`RecordInstance`."""
 
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str
     record_type: str
     # fields: Dict[str, RecordField]
@@ -256,9 +256,9 @@ class RecordInstanceSummary:
 class StringWithContext(str):
     """A string with LoadContext."""
     __slots__ = ("context", )
-    context: FrozenLoadContext
+    context: FullLoadContext
 
-    def __new__(cls, value, context: FrozenLoadContext):
+    def __new__(cls, value, context: FullLoadContext):
         self = super().__new__(cls, value)
         self.context = context
         return self
@@ -266,7 +266,7 @@ class StringWithContext(str):
 
 @dataclass
 class PVAFieldReference:
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str = ""
     record_name: str = ""
     field_name: str = ""
@@ -275,7 +275,7 @@ class PVAFieldReference:
 
 @dataclass
 class RecordInstance:
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str
     record_type: str
     fields: Dict[str, AnyField] = field(default_factory=dict)

@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import lark
 
-from whatrecord.common import (FrozenLoadContext, LinterError, LinterWarning,
+from whatrecord.common import (FullLoadContext, LinterError, LinterWarning,
                                LoadContext, PVAFieldReference, RecordField,
                                RecordInstance, StringWithContext, dataclass)
 from whatrecord.macro import MacroContext
@@ -29,7 +29,7 @@ class RecordTypeField:
     name: str
     type: str
     body: List[Tuple[str, str]]
-    context: FrozenLoadContext
+    context: FullLoadContext
 
 
 @dataclass
@@ -107,7 +107,7 @@ class DatabaseRecordAlias:
 
 @dataclass
 class DatabaseRecordFieldInfo:
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str
     value: str
 
@@ -145,8 +145,8 @@ def _separate_by_class(items, mapping):
             container[item.name] = item
 
 
-def _context_from_token(fn: str, token: lark.Token) -> FrozenLoadContext:
-    return (LoadContext(name=fn, line=token.line).freeze(), )
+def _context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
+    return (LoadContext(name=fn, line=token.line), )
 
 
 def _pva_q_group_handler(rec, group, md):
