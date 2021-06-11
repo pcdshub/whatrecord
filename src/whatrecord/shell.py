@@ -334,6 +334,22 @@ class ShellState:
     def handle_dbl(self, rtyp=None, fields=None, *_):
         return []  # list(self.database)
 
+    def handle_NDPvaConfigure(
+        portName=None,
+        queueSize=None,
+        blockingCallbacks=None,
+        NDArrayPort=None,
+        NDArrayAddr=None,
+        pvName=None,
+        maxBuffers=None,
+        maxMemory=None,
+        priority=None,
+        stackSize=None,
+        *_,
+    ):
+        """Implicitly creates a PVA group named ``pvName``."""
+        # TODO: qsrv pva state
+
     @_motor_wrapper
     def handle_drvAsynSerialPortConfigure(
         self,
