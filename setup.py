@@ -70,7 +70,7 @@ extensions = [
     Extension("whatrecord.iocsh", ["src/whatrecord/iocsh.pyx"], **ext_options),
     Extension(
         "whatrecord.macro",
-        ["src/whatrecord/macro.pyx", "src/whatrecord/msi.cpp"],
+        ["src/whatrecord/macro.pyx"],
         **ext_options,
     ),
 ]
