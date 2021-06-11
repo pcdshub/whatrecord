@@ -605,11 +605,6 @@ def whatrec(
     )
 
 
-# def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
-#     LoadedIoc.from_metadata()
-#     return apischema.serialize(startup_lines), apischema.serialize(sh_state)
-
-
 @dataclass
 class LoadedIoc:
     name: str

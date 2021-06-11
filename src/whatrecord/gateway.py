@@ -368,6 +368,7 @@ class GatewayConfig:
         )
 
     def get_linter_results(self):
+        # TODO: unused
         return [
             PVListMatch(context=context, expression=expr.expr, details=expr.details)
             for _, pvlist in self.pvlists.items()

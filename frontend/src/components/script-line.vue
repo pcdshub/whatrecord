@@ -55,7 +55,7 @@ export default {
   props: ["context", "line", "outputs", "argv", "error", "redirects", "result"],
   computed: {
     line_id() {
-      return this.context.map(ctx => ctx.line).join(':');
+      return this.context.map(ctx => ctx[1]).join(':');
     },
     script_line_class() {
       return (this.line == this.$route.params.line ? ["script-line-selected", "script-line"] : "script-line");

@@ -2,8 +2,8 @@
   <div class="context">
     <script-context-one-link
       v-for:="ctx in context"
-      :name="ctx.name"
-      :line="ctx.line"
+      :name="ctx[0]"
+      :line="ctx[1]"
       :short="short"
     />
   </div>

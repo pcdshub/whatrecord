@@ -6,8 +6,7 @@ import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import (Any, ClassVar, Dict, Generator, List, NamedTuple, Optional,
-                    Tuple, Union)
+from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import apischema
 
@@ -18,17 +17,25 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class LoadContext(NamedTuple):
+@dataclass(frozen=True)
+class LoadContext:
     name: str
     line: int
 
     def __repr__(self):
         return f"{self.name}:{self.line}"
 
+    @apischema.serializer
+    @property
+    def as_tuple(self) -> Tuple[str, int]:
+        return (self.name, self.line)
 
-# NOTE: (De)serializer methods cannot be used with typing.NamedTuple; in fact,
-# apischema uses __set_name__ magic method but it is not called on NamedTuple
-# subclass fields.
+
+@apischema.deserializer
+def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
+    return LoadContext(*items)
+
+
 FullLoadContext = Tuple[LoadContext, ...]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
 AnyField = Union["RecordField", "PVAFieldReference"]
