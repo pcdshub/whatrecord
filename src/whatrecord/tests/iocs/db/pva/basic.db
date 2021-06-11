@@ -1,0 +1,13 @@
+#!Start comment
+record(aao, "$(N)A") {
+    field(FTVL, "DOUBLE")
+    field(NELM, "10")  # Inline comment
+    field(FOB, 0.0)
+    info(Q:group, {
+        # Comment
+        "$(N)Tbl":{
+            "value.A":{+type:"plain", +channel:"VAL", +putorder:1}
+        }
+    })
+}
+# End comment
