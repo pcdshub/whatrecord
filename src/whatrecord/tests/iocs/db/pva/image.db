@@ -1,37 +1,37 @@
-record(longout, "$(N):ArraySize0_RBV") {
+record(longout, "${PREFIX}ArraySize0_RBV") {
     info(Q:group, {
-        "$(N):Array":{
+        "${PREFIX}Array":{
             "dimension[0].size":{+channel:"VAL", +type:"plain"}
         }
     })
-    field(FLNK, "$(N):ArraySize1_RBV")
+    field(FLNK, "${PREFIX}ArraySize1_RBV")
 }
 
-record(longout, "$(N):ArraySize1_RBV") {
+record(longout, "${PREFIX}ArraySize1_RBV") {
     info(Q:group, {
-        "$(N):Array":{
+        "${PREFIX}Array":{
             "dimension[1].size":{+channel:"VAL", +type:"plain"}
         }
     })
-    field(FLNK, "$(N):ArrayData_")
+    field(FLNK, "${PREFIX}ArrayData_")
 }
 
-record(aSub, "$(N):ArrayData_") {
+record(aSub, "${PREFIX}ArrayData_") {
     field(SNAM, "QSRV_image_demo")
     field(FTA, "ULONG")
     field(FTB, "ULONG")
     field(FTVA, "USHORT")
     field(NOVA, "262144") # eg. 512x512
-    field(INPA, "$(N):ArraySize0_RBV NPP MSI")
-    field(INPB, "$(N):ArraySize1_RBV NPP MSI")
-    field(OUTA, "$(N):ArrayData PP MSI")
+    field(INPA, "${PREFIX}ArraySize0_RBV NPP MSI")
+    field(INPB, "${PREFIX}ArraySize1_RBV NPP MSI")
+    field(OUTA, "${PREFIX}ArrayData PP MSI")
 }
 
-record(waveform, "$(N):ArrayData") {
+record(waveform, "${PREFIX}ArrayData") {
     field(FTVL, "USHORT")
     field(NELM, "262144")
     info(Q:group, {
-        "$(N):Array":{
+        "${PREFIX}Array":{
             +id:"epics:nt/NTNDArray:1.0",
             "value":{+type:"any", +channel:"VAL", +trigger:"*"},
             "":{+type:"meta", +channel:"SEVR"}
@@ -40,17 +40,17 @@ record(waveform, "$(N):ArrayData") {
 }
 
 
-record(stringin, "$(N):ColorMode_") {
+record(stringin, "${PREFIX}ColorMode_") {
     field(VAL, "ColorMode")
     field(PINI, "YES")
     info(Q:group, {
-        "$(N):Array":{
+        "${PREFIX}Array":{
             "attribute[0].name":{+type:"plain", +channel:"VAL"}
         }
     })
 }
 
-record(mbbi, "$(N):ColorMode") {
+record(mbbi, "${PREFIX}ColorMode") {
     field(ZRST, "Mono")
     field(ONST, "Bayer")
     field(TWST, "RGB1")
@@ -62,7 +62,7 @@ record(mbbi, "$(N):ColorMode") {
     field(VAL, "0") # Gray
     field(PINI, "YES")
     info(Q:group, {
-        "$(N):Array":{
+        "${PREFIX}Array":{
             "attribute[0].value":{+type:"any", +channel:"VAL"}
         }
     })

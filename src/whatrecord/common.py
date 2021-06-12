@@ -203,6 +203,10 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
 
 def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
+    if isinstance(link_str, dict):
+        # Oh, PVA...
+        raise ValueError("PVA links are TODO, sorry")
+
     if " " in link_str:
         # strip off PP/MS/etc (TODO might be useful later)
         link_str, additional_info = link_str.split(" ", 1)
@@ -278,6 +282,13 @@ class PVAFieldReference:
     record_name: str = ""
     field_name: str = ""
     metadata: Dict[str, str] = field(default_factory=dict)
+
+    _jinja_format_: ClassVar[dict] = {
+        "console": """\
+PVAFieldReference: {{ record_name }}.{{ field_name }}
+                 - {{ metadata }}
+""",
+    }
 
 
 @dataclass

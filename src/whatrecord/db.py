@@ -177,14 +177,18 @@ def _pva_q_group_handler(rec, group, md):
                 context=tuple(field_name.context),
             )
 
-        channel = field_info.pop("+channel", None)
-        if channel is not None:
-            fieldref.record_name = rec.name
-            fieldref.field_name = channel
-            # Linter TODO: checks that this field exists and
-            # whatnot
+        if isinstance(field_info, dict):
+            # There, uh, is still some work left to do here.
+            channel = field_info.pop("+channel", None)
+            if channel is not None:
+                fieldref.record_name = rec.name
+                fieldref.field_name = channel
+                # Linter TODO: checks that this field exists and
+                # whatnot
 
-        fieldref.metadata.update(field_info)
+            fieldref.metadata.update(field_info)
+        else:
+            fieldref.metadata[field_name] = field_info
 
 
 def _extract_pva_groups(

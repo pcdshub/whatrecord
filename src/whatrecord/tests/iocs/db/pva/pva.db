@@ -1,40 +1,40 @@
-record(ai, "rec:X") {
+record(ai, "${PREFIX}X") {
   info(Q:group, {
-    "grp:name": {
+    "${PREFIX}:GROUPXY": {
         "X": {+channel:"VAL"}
     }
   })
 }
-record(ai, "rec:Y") {
+record(ai, "${PREFIX}Y") {
   info(Q:group, {
-    "grp:name": {
+    "${PREFIX}:GROUPXY": {
         "Y": {+channel:"VAL"}
     }
   })
 }
 
-record(ai, "time_tag") {
+record(ai, "${PREFIX}time_tag") {
   info(Q:time:tag, "nsec:lsb:20")
 }
 
-record(ai, "display_form_hint") {
+record(ai, "${PREFIX}display_form_hint") {
   info(Q:form, "Default") # implied default
 }
 
-record(longin, "tgt1") {}
-record(longin, "src1") {
-    field(INP, {pva:"tgt1"})
+record(longin, "${PREFIX}tgt1") {}
+record(longin, "${PREFIX}src1") {
+    field(INP, {pva:"${PREFIX}tgt1"})
 }
 
-record(longin, "tgt2") {}
-record(longin, "src2") {
-    field(INP, {pva:{pv:"tgt2"}})
+record(longin, "${PREFIX}tgt2") {}
+record(longin, "${PREFIX}src2") {
+    field(INP, {pva:{pv:"${PREFIX}tgt2"}})
 }
 
-record(longin, "tgt3") {}
-record(longin, "src3") {
+record(longin, "${PREFIX}tgt3") {}
+record(longin, "${PREFIX}src3") {
     field(INP, {pva:{
-        pv:"tgt3",
+        pv:"${PREFIX}tgt3",
         field:"",   # may be a sub-field
         local:false,# Require local PV
         Q:4,        # monitor queue depth

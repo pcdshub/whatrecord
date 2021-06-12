@@ -1,20 +1,20 @@
-record(ao, "circle:step") {
+record(ao, "${PREFIX}step") {
   field(VAL , "1.0")
   field(DRVL, "0.0")
   field(DRVH, "359")
   field(PINI, "YES")
 }
 
-record(ao, "circle:period") {
+record(ao, "${PREFIX}period") {
   field(VAL , "1.0")
   field(PINI, "YES")
-  field(OUT , "circle:tick.ODLY NPP")
+  field(OUT , "${PREFIX}tick.ODLY NPP")
 }
 
-record(calc, "circle:angle") {
+record(calc, "${PREFIX}angle") {
   field(PINI, "RUNNING") # bootstrap
-  field(INPA, "circle:angle NPP")
-  field(INPB, "circle:step NPP")
+  field(INPA, "${PREFIX}angle NPP")
+  field(INPB, "${PREFIX}step NPP")
   field(INPD, "360")
   field(DESC, "Angle")
   field(EGU , "deg")
@@ -27,26 +27,26 @@ record(calc, "circle:angle") {
   field(HSV , "MINOR")
   field(HHSV, "MAJOR")
   field(CALC, "C:=A+B;(C>=D)?C-D:C")
-  field(FLNK, "circle:x")
+  field(FLNK, "${PREFIX}x")
   field(PREC, "3")
   info(pdbGroup0, "circle|angle=VAL")
   info(pdbGroup1, "line|a=VAL")
   alias("line:a")
 }
 
-record(calc, "circle:x") {
-  field(INPA, "circle:angle NPP")
+record(calc, "${PREFIX}x") {
+  field(INPA, "${PREFIX}angle NPP")
   field(CALC, "cos(A*PI/180)")
-  field(TSEL, "circle:angle.TIME")
-  field(FLNK, "circle:y")
+  field(TSEL, "${PREFIX}angle.TIME")
+  field(FLNK, "${PREFIX}y")
   field(PREC, "3")
   info(pdbGroup, "circle|x=VAL")
 }
 
-record(calc, "circle:y") {
-  field(INPA, "circle:angle NPP")
+record(calc, "${PREFIX}y") {
+  field(INPA, "${PREFIX}angle NPP")
   field(CALC, "sin(A*PI/180)")
-  field(TSEL, "circle:angle.TIME")
+  field(TSEL, "${PREFIX}angle.TIME")
   field(PREC, "3")
   field(FLNK, "line:b")
   info(pdbGroup, "circle|y=VAL")
@@ -55,12 +55,12 @@ record(calc, "circle:y") {
 
 record(ai, "line:b") {
   field(INP, "line:a NPP")
-  field(FLNK, "circle:tick")
+  field(FLNK, "${PREFIX}tick")
   info(pdbGroup, "line|b=VAL")
   info(pdbTrigger,"line|b>*")
 }
 
-record(calcout, "circle:tick") {
+record(calcout, "${PREFIX}tick") {
   field(ODLY, "1.0")
-  field(OUT , "circle:angle.PROC CA") # loop
+  field(OUT , "${PREFIX}angle.PROC CA") # loop
 }
