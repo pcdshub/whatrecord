@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import field
 from typing import ClassVar, Dict, Optional, Union
 
-from .common import AsynPortBase, FrozenLoadContext, dataclass
+from .common import AsynPortBase, FullLoadContext, dataclass
 
 
 @dataclass
 class AsynPort(AsynPortBase):
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str
     options: Dict[str, AsynPortOption] = field(default_factory=dict)
     metadata: Dict[str, str] = field(default_factory=dict)
@@ -35,7 +35,7 @@ class AsynPort(AsynPortBase):
 
 @dataclass
 class AsynMotor(AsynPortBase):
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str
     metadata: Dict[str, Union[str, int, float]] = field(default_factory=dict)
     parent: Optional[str] = None
@@ -88,7 +88,7 @@ class AdsAsynPort(AsynPort):
 
 @dataclass
 class AsynPortMultiDevice(AsynPortBase):
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str
     metadata: dict = field(default_factory=dict)
     motors: Dict[str, AsynMotor] = field(default_factory=dict)
@@ -97,7 +97,7 @@ class AsynPortMultiDevice(AsynPortBase):
 
 @dataclass
 class AsynPortDevice(AsynPortBase):
-    context: FrozenLoadContext
+    context: FullLoadContext
     name: str = ""
     options: Dict[str, AsynPortOption] = field(default_factory=dict)
     metadata: Dict[str, str] = field(default_factory=dict)
@@ -106,6 +106,6 @@ class AsynPortDevice(AsynPortBase):
 
 @dataclass
 class AsynPortOption:
-    context: FrozenLoadContext
+    context: FullLoadContext
     key: str
     value: str

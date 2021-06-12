@@ -1,0 +1,17 @@
+record(ai, "$(PREFIX)X") {
+  field(VAL, "1.234")
+  info(Q:group, {
+    "PVACCESS:SIMPLE:01": {
+        "X": {+channel:"VAL"}
+    }
+  })
+}
+
+record(ai, "$(PREFIX)Y") {
+  field(VAL, "3.456")
+  info(Q:group, {
+    "PVACCESS:SIMPLE:01": {
+        "Y": {+channel:"VAL"}
+    }
+  })
+}

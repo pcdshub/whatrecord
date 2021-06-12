@@ -1,0 +1,65 @@
+record(ao, "${PREFIX}Rate") {
+    field(VAL, "1.0")
+    field(PINI, "YES")
+    field(PREC, "3")
+    field(DRVH, "2.0")
+    field(DRVL, "0.000000000001")
+    field( OUT, "${PREFIX}dly_.ODLY NPP")
+}
+
+record(ao, "${PREFIX}Delta") {
+    field(VAL, "0.0")
+    field(PINI, "YES")
+}
+
+record(calc, "${PREFIX}Phase:I") {
+    field(PINI, "RUNNING")
+    field(INPA, "${PREFIX}Phase:I")
+    field(CALC, "A+1")
+    field( EGU, "rad")
+    field(PREC, "3")
+    field(FLNK, "${PREFIX}Phase:Q")
+    info(Q:group, {
+        "${PREFIX}iq":{"phas.i": {+type:"plain", +channel:"VAL"}}
+    })
+    #field(TPRO, "1")
+}
+
+record(calc, "${PREFIX}Phase:Q") {
+    field(INPA, "${PREFIX}Phase:I")
+    field(INPB, "${PREFIX}Delta NPP")
+    field(CALC, "A+B")
+    field( EGU, "rad")
+    field(PREC, "3")
+    field(FLNK, "${PREFIX}I")
+    info(Q:group, {
+        "${PREFIX}iq":{"phas.q": {+type:"plain", +channel:"VAL"}}
+    })
+}
+
+record(waveform, "${PREFIX}I") {
+    field(DTYP, "QSRV Demo")
+    field( INP, "${PREFIX}Phase:I")
+    field(FTVL, "DOUBLE")
+    field(NELM, "500")
+    field(FLNK, "${PREFIX}Q")
+    info(Q:group, {
+        "${PREFIX}iq":{"I": {+channel:"VAL"}}
+    })
+}
+
+record(waveform, "${PREFIX}Q") {
+    field(DTYP, "QSRV Demo")
+    field( INP, "${PREFIX}Phase:Q")
+    field(FTVL, "DOUBLE")
+    field(NELM, "500")
+    field(FLNK, "${PREFIX}dly_")
+    info(Q:group, {
+        "${PREFIX}iq":{"Q": {+channel:"VAL", +trigger:"*"}}
+    })
+}
+
+record(calcout, "${PREFIX}dly_") {
+    field(ODLY, "1.0")
+    field(OUT , "${PREFIX}Phase:I.PROC CA")
+}

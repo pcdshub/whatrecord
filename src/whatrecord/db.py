@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pathlib
 from dataclasses import field
@@ -5,10 +7,13 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import lark
 
-from whatrecord.common import (FrozenLoadContext, LinterError, LinterWarning,
-                               LoadContext, RecordField, RecordInstance,
-                               dataclass)
+from whatrecord.common import (FullLoadContext, LinterError, LinterWarning,
+                               LoadContext, PVAFieldReference, RecordField,
+                               RecordInstance, StringWithContext, dataclass)
 from whatrecord.macro import MacroContext
+
+# TODO: change back to relative imports
+
 
 MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
 
@@ -24,7 +29,7 @@ class RecordTypeField:
     name: str
     type: str
     body: List[Tuple[str, str]]
-    context: FrozenLoadContext
+    context: FullLoadContext
 
 
 @dataclass
@@ -102,6 +107,7 @@ class DatabaseRecordAlias:
 
 @dataclass
 class DatabaseRecordFieldInfo:
+    context: FullLoadContext
     name: str
     value: str
 
@@ -139,8 +145,77 @@ def _separate_by_class(items, mapping):
             container[item.name] = item
 
 
-def _context_from_token(fn: str, token: lark.Token) -> FrozenLoadContext:
-    return (LoadContext(name=fn, line=token.line).freeze(), )
+def _context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
+    return (LoadContext(name=fn, line=token.line), )
+
+
+def _pva_q_group_handler(rec, group, md):
+    """Handler for Q:group."""
+
+    # record(...) {
+    #     info(Q:group, {      # <--- this thing
+    #         "<group_name>":{
+    #             +id:"some/NT:1.0",
+    #             +meta:"FLD",
+    #             +atomic:true,
+    #             "<field.name>":{
+    #                 +type:"scalar",
+    #                 +channel:"VAL",
+    #                 +id:"some/NT:1.0",
+    #                 +trigger:"*",
+    #                 +putorder:0,
+    #             }
+    #         }
+    #     })
+    # }
+    for field_name, field_info in md.items():
+        try:
+            fieldref = group.fields[field_name]
+        except KeyError:
+            fieldref = group.fields[field_name] = PVAFieldReference(
+                name=str(field_name),
+                context=tuple(field_name.context),
+            )
+
+        if isinstance(field_info, dict):
+            # There, uh, is still some work left to do here.
+            channel = field_info.pop("+channel", None)
+            if channel is not None:
+                fieldref.record_name = rec.name
+                fieldref.field_name = channel
+                # Linter TODO: checks that this field exists and
+                # whatnot
+
+            fieldref.metadata.update(field_info)
+        else:
+            fieldref.metadata[field_name] = field_info
+
+
+def _extract_pva_groups(
+    records: List[RecordInstance]
+) -> Dict[str, RecordInstance]:
+    """
+    Take a list of ``RecordInstance``, aggregate qsrv "Q:" info nodes, and
+    assemble new pseudo-``RecordInstance`` "PVA" out of them.
+    """
+    pva_groups = {}
+    for rec in records:
+        group_md = rec.metadata.pop("Q:group", None)
+        if group_md is not None:
+            for group_name, group_info_to_add in group_md.items():
+                try:
+                    group = pva_groups[group_name]
+                except KeyError:
+                    pva_groups[group_name] = group = RecordInstance(
+                        context=group_name.context,
+                        name=str(group_name),
+                        record_type="PVA",
+                        is_pva=True,
+                    )
+
+                _pva_q_group_handler(rec, group, group_info_to_add)
+
+    return pva_groups
 
 
 @lark.visitors.v_args(inline=True)
@@ -173,6 +248,8 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 DatabaseDevice: db.devices,
             }
         )
+
+        db.pva_groups = _extract_pva_groups(db.records.values())
         return db
 
     def dbitem(self, *items):
@@ -270,7 +347,13 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         return str(value)
 
     string = json_string
-    json_key = json_string
+
+    def json_key(self, value) -> StringWithContext:
+        # Add context information for keys, especially for Q:group info nodes
+        return StringWithContext(
+            self.json_string(value),
+            context=_context_from_token(self.fn, value),
+        )
 
     recordtype_field_item_menu = recordtype_field_item
 
@@ -319,8 +402,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             context=_context_from_token(self.fn, rec_token),
             fields=info[RecordField],
             is_grecord=(rec_token == "grecord"),
+            is_pva=False,
             metadata={
-                item.name: item.value
+                StringWithContext(item.name, item.context): item.value
                 for item in info[DatabaseRecordFieldInfo].values()
             },
             name=name,
@@ -342,8 +426,11 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             context=_context_from_token(self.fn, field_token)
         )
 
-    def record_field_info(self, _, name, value):
-        return DatabaseRecordFieldInfo(name, value)
+    def record_field_info(self, info_token, name, value):
+        return DatabaseRecordFieldInfo(
+            context=_context_from_token(self.fn, info_token),
+            name=name, value=value,
+        )
 
     def record_field_alias(self, _, name):
         return DatabaseRecordAlias(None, name)
@@ -366,13 +453,14 @@ class Database:
     menus: List[DatabaseMenu] = field(default_factory=list)
     paths: List[DatabasePath] = field(default_factory=list)
     records: Dict[str, RecordInstance] = field(default_factory=dict)
+    pva_groups: Dict[str, RecordInstance] = field(default_factory=dict)
     record_types: Dict[str, RecordType] = field(default_factory=dict)
     registrars: List[DatabaseRegistrar] = field(default_factory=list)
     variables: List[DatabaseVariable] = field(default_factory=list)
 
     @classmethod
     def from_string(cls, contents, dbd=None, filename=None,
-                    macro_context=None):
+                    macro_context=None) -> Database:
         comments = []
         grammar = lark.Lark.open_from_package(
             "whatrecord", "db.lark", search_paths=("grammar", ),
@@ -394,7 +482,7 @@ class Database:
         return db
 
     @classmethod
-    def from_file_obj(cls, fp, dbd=None, macro_context=None):
+    def from_file_obj(cls, fp, dbd=None, macro_context=None) -> Database:
         return cls.from_string(
             fp.read(),
             filename=getattr(fp, "name", None),
@@ -403,7 +491,7 @@ class Database:
         )
 
     @classmethod
-    def from_file(cls, fn, dbd=None, macro_context=None):
+    def from_file(cls, fn, dbd=None, macro_context=None) -> Database:
         with open(fn, "rt") as fp:
             return cls.from_string(fp.read(), filename=fn, dbd=dbd,
                                    macro_context=macro_context)
@@ -442,7 +530,8 @@ class LinterResults:
     # recdsets: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     # {'inst:name':'ao', ...}
-    records: Dict[str, str] = field(default_factory=dict)
+    records: Dict[str, RecordInstance] = field(default_factory=dict)
+    pva_groups: Dict[str, RecordInstance] = field(default_factory=dict)
 
     extinst: List[str] = field(default_factory=list)
     errors: List[LinterError] = field(default_factory=list)
@@ -555,6 +644,7 @@ def load_database_file(
         # recdsets=dbd.devices,  # TODO
         # {'inst:name':'ao', ...}
         records=db.records,
+        pva_groups=db.pva_groups,
         extinst=[],
         errors=[],
         warnings=[],

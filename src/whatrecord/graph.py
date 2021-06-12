@@ -45,7 +45,7 @@ def build_database_relations(
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
     warned = set()
-    unset_ctx = (LoadContext("unset", 0).freeze(), )
+    unset_ctx = (LoadContext("unset", 0), )
     by_record = collections.defaultdict(lambda: collections.defaultdict(list))
 
     for rec1 in database.values():
@@ -316,8 +316,8 @@ def build_script_relations(database, by_record, limit_to_records=None):
         for rec2_name in list_of_rec2s:
             rec2 = database[rec2_name]
 
-            rec1_file = rec1.context[0].file
-            rec2_file = rec2.context[0].file
+            rec1_file = rec1.context[0].name
+            rec2_file = rec2.context[0].name
 
             if rec1_file != rec2_file:
                 by_script[rec2_file][rec1_file].add(rec2_name)

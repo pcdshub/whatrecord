@@ -6,11 +6,6 @@ cimport epicscorelibs.Com
 from libc.stdlib cimport free, malloc
 
 
-cdef extern from "<msi.h>" nogil:
-    # Placeholder
-    void usageExit(const int status);
-
-
 cdef extern from "<ellLib.h>" nogil:
     cdef struct ELLNODE:
         ELLNODE *next

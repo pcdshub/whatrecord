@@ -12,8 +12,9 @@ import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph
-from ..common import RecordField, WhatRecord, dataclass
-from ..shell import ScriptContainer, load_startup_scripts
+from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
+                      dataclass)
+from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts
 
 # from . import html as html_mod
 # from . import static
@@ -33,6 +34,13 @@ class TooManyRecordsError(Exception):
     ...
 
 
+def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
+    return re.compile(
+        "|".join(fnmatch.translate(glob_str) for part in glob_str.split(separator)),
+        flags=flags,
+    )
+
+
 class ServerState:
     container: ScriptContainer
     pv_relations: Dict[
@@ -41,7 +49,12 @@ class ServerState:
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
 
-    def __init__(self, startup_scripts: List[str], standin_directories: Dict[str, str]):
+    def __init__(
+        self,
+        startup_scripts: List[str],
+        script_loaders: List[str],
+        standin_directories: Dict[str, str]
+    ):
         self.standin_directories = standin_directories
         self.container = load_startup_scripts(
             *startup_scripts, standin_directories=standin_directories
@@ -63,17 +76,33 @@ class ServerState:
         with open(filename, "rt") as fp:
             self.archived_pvs = set(json.load(fp))
 
-    def whatrec(self, pvname):
-        def annotate(rec: WhatRecord):
-            rec.instance.metadata["archived"] = rec.instance.name in self.archived_pvs
-            rec.instance.metadata["gateway"] = self.get_gateway_info(rec.instance.name)
-            return rec
+    def annotate_whatrec(self, whatrec: WhatRecord) -> WhatRecord:
+        """
+        Annotate WhatRecord instances with things ServerState knows about.
+        """
+        for instance in whatrec.instances:
+            if not instance.is_pva:
+                # For now, V3 only
+                instance.metadata["archived"] = instance.name in self.archived_pvs
+                instance.metadata["gateway"] = self.get_gateway_info(instance.name)
+        return whatrec
 
-        return list(annotate(rec) for rec in self.container.whatrec(pvname) or [])
+    def whatrec(self, pvname) -> List[WhatRecord]:
+        """Find WhatRecord matches."""
+        return list(
+            self.annotate_whatrec(rec)
+            for rec in self.container.whatrec(pvname) or []
+        )
 
     @property
-    def database(self):
+    def database(self) -> Dict[str, RecordInstance]:
+        """The CA/V3 Database of records."""
         return self.container.database
+
+    @property
+    def pva_database(self) -> Dict[str, RecordInstance]:
+        """The pvAccess Database of groups/records."""
+        return self.container.pva_database
 
     @functools.lru_cache(maxsize=2048)
     def get_graph(self, pv_names: Tuple[str], graph_type: str) -> graphviz.Digraph:
@@ -120,14 +149,23 @@ class ServerState:
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, glob_str: str) -> List[str]:
-        regex = re.compile(
-            "|".join(fnmatch.translate(glob_str) for part in glob_str.split("|")),
-            flags=re.IGNORECASE,
-        )
-        return [pv_name for pv_name in sorted(self.database) if regex.match(pv_name)]
+        regex = _compile_glob(glob_str)
+        pv_names = set(self.database) | set(self.pva_database)
+        return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_graph_rendered(self, pv_names: Tuple[str], format: str, graph_type: str) -> bytes:
+    def get_matching_iocs(self, glob_str: str) -> List[LoadedIoc]:
+        regex = _compile_glob(glob_str)
+        return [
+            loaded_ioc
+            for script_path, loaded_ioc in sorted(self.container.scripts.items())
+            if regex.match(script_path) or regex.match(loaded_ioc.metadata.name)
+        ]
+
+    @functools.lru_cache(maxsize=2048)
+    def get_graph_rendered(
+        self, pv_names: Tuple[str], format: str, graph_type: str
+    ) -> bytes:
         graph = self.get_graph(pv_names, graph_type=graph_type)
 
         with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
@@ -147,7 +185,24 @@ class PVGetInfo:
 @dataclass
 class PVGetMatchesResponse:
     glob: str
-    matching_pvs: List[str]
+    matches: List[str]
+
+
+@dataclass
+class IocGetMatchesResponse:
+    glob: str
+    matches: List[common.IocMetadata]
+
+
+AnyRecordInstance = Union[common.RecordInstanceSummary, common.RecordInstance]
+
+
+@dataclass
+class IocGetMatchingRecordsResponse:
+    ioc_glob: str
+    pv_glob: str
+    # TODO: ew, redo this
+    matches: List[Tuple[common.IocMetadata, List[AnyRecordInstance]]]
 
 
 @dataclass
@@ -162,10 +217,13 @@ class ServerHandler:
     def __init__(
         self,
         startup_scripts: List[str],
+        script_loader: List[str],
         standin_directories: Dict[str, str],
         archive_viewer_url: Optional[str] = None
     ):
-        self.state = ServerState(startup_scripts, standin_directories)
+        self.state = ServerState(
+            startup_scripts, script_loader, standin_directories
+        )
         self.archive_viewer_url = None
 
     @routes.get("/api/pv/{pv_names}/info")
@@ -176,7 +234,8 @@ class ServerHandler:
             apischema.serialize({
                 pv_name: PVGetInfo(
                     pv_name=pv_name,
-                    present=pv_name in self.state.database,
+                    present=(pv_name in self.state.database or
+                             pv_name in self.state.pva_database),
                     info=[obj for obj in info[pv_name]],
                 )
                 for pv_name in pv_names
@@ -195,10 +254,55 @@ class ServerHandler:
             apischema.serialize(
                 PVGetMatchesResponse(
                     glob=glob_str,
-                    matching_pvs=matches,
+                    matches=matches,
                 )
             )
         )
+
+    @routes.get("/api/iocs/{glob_str}/matches")
+    async def api_ioc_get_matches(self, request: web.Request):
+        # Ignore max for now. This is not much in the way of information.
+        # max_matches = int(request.query.get("max", "1000"))
+        glob_str = request.match_info.get("glob_str", "*")
+        matches = self.state.get_matching_iocs(glob_str)
+        return web.json_response(
+            apischema.serialize(
+                IocGetMatchesResponse(
+                    glob=glob_str,
+                    matches=[match.metadata for match in matches],
+                )
+            )
+        )
+
+    @routes.get("/api/iocs/{ioc_glob}/pvs/{pv_glob}")
+    async def api_ioc_get_pvs(self, request: web.Request):
+        response = IocGetMatchingRecordsResponse(
+            ioc_glob=request.match_info.get("ioc_glob", "*"),
+            pv_glob=request.match_info.get("pv_glob", "*"),
+            matches=[],
+        )
+
+        def get_all_records(shell_state):
+            yield from shell_state.database.items()
+            yield from shell_state.pva_database.items()
+
+        pv_glob_re = _compile_glob(response.pv_glob)
+        for loaded_ioc in self.state.get_matching_iocs(response.ioc_glob):
+            record_matches = [
+                rec_info.to_summary()
+                for rec, rec_info in sorted(get_all_records(loaded_ioc.shell_state))
+                if pv_glob_re.match(rec)
+            ]
+            if record_matches:
+                response.matches.append((loaded_ioc.metadata, record_matches))
+
+        return web.json_response(
+            apischema.serialize(response)
+        )
+
+    # @routes.get("/api/graphql/query")
+    # async def api_graphql_query(self, request: web.Request):
+    # TODO: ...
 
     @functools.lru_cache(maxsize=2048)
     def script_info_from_loaded_file(self, fn) -> common.IocshScript:
@@ -207,13 +311,11 @@ class ServerHandler:
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
-        context = common.LoadContext(fn, 0)
         result = []
         for lineno, line in enumerate(lines, 1):
-            context.line = lineno
             result.append(
                 common.IocshResult(
-                    context=(context.freeze(),),
+                    context=(LoadContext(fn, lineno),),
                     line=line,
                     outputs=[],
                     argv=None,
@@ -226,17 +328,27 @@ class ServerHandler:
 
     @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):
-        script_name = request.query["file"]
-        script_info = self.state.container.scripts.get(script_name, None)
-        if script_info is None:
+        # script_name = pathlib.Path(request.query["file"])
+        filename = request.query["file"]
+        loaded_ioc = self.state.container.scripts.get(filename, None)
+        if loaded_ioc:
+            script_info = loaded_ioc.script
+            ioc_md = loaded_ioc.metadata
+        else:
+            # Making this dual-purpose: script, db, or any loaded file
+            ioc_md = None
             try:
-                # Making this dual-purpose: script or db info
-                self.state.container.loaded_files[script_name]
-                script_info = self.script_info_from_loaded_file(script_name)
+                self.state.container.loaded_files[filename]
+                script_info = self.script_info_from_loaded_file(filename)
             except KeyError as ex:
                 raise web.HTTPBadRequest() from ex
 
-        return web.json_response(apischema.serialize(script_info))
+        return web.json_response(
+            apischema.serialize({
+                "script": script_info,
+                "ioc": ioc_md,
+            })
+        )
 
     async def get_graph(self, pv_names: List[str], use_glob: bool = False,
                         graph_type: str = "record",
@@ -336,7 +448,8 @@ def run(*args, **kwargs):
 
 
 def main(
-    scripts: List[str],
+    scripts: Optional[List[str]] = None,
+    script_loader: Optional[List[str]] = None,
     archive_file: Optional[str] = None,
     archive_viewer_url: Optional[str] = None,
     archive_management_url: Optional[str] = None,
@@ -345,6 +458,9 @@ def main(
     port: int = 8899,
     standin_directory: Optional[Union[List, Dict]] = None,
 ):
+    scripts = scripts or []
+    script_loader = script_loader or []
+
     app = web.Application()
 
     standin_directory = standin_directory or {}
@@ -353,6 +469,7 @@ def main(
 
     handler = ServerHandler(
         scripts,
+        script_loader,
         standin_directories=standin_directory,
         archive_viewer_url=archive_viewer_url
     )

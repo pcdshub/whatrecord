@@ -1,0 +1,50 @@
+record(ai, "${PREFIX}X") {
+  info(Q:group, {
+    "${PREFIX}:GROUPXY": {
+        "X": {+channel:"VAL"}
+    }
+  })
+}
+record(ai, "${PREFIX}Y") {
+  info(Q:group, {
+    "${PREFIX}:GROUPXY": {
+        "Y": {+channel:"VAL"}
+    }
+  })
+}
+
+record(ai, "${PREFIX}time_tag") {
+  info(Q:time:tag, "nsec:lsb:20")
+}
+
+record(ai, "${PREFIX}display_form_hint") {
+  info(Q:form, "Default") # implied default
+}
+
+record(longin, "${PREFIX}tgt1") {}
+record(longin, "${PREFIX}src1") {
+    field(INP, {pva:"${PREFIX}tgt1"})
+}
+
+record(longin, "${PREFIX}tgt2") {}
+record(longin, "${PREFIX}src2") {
+    field(INP, {pva:{pv:"${PREFIX}tgt2"}})
+}
+
+record(longin, "${PREFIX}tgt3") {}
+record(longin, "${PREFIX}src3") {
+    field(INP, {pva:{
+        pv:"${PREFIX}tgt3",
+        field:"",   # may be a sub-field
+        local:false,# Require local PV
+        Q:4,        # monitor queue depth
+        pipeline:false, # require that server uses monitor flow control protocol
+        proc:none,  # Request record processing (side-effects).
+        sevr:false, # Maximize severity.
+        time:false, # set record time during getValue
+        monorder:0, # Order of record processing as a result of CP and CPP
+        retry:false,# allow Put while disconnected.
+        always:false,# CP/CPP input link process even when .value field hasn't changed
+        defer:false # Defer put
+    }})
+}

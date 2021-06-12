@@ -1,0 +1,27 @@
+record(calc, "circle2:x") {
+  field(INPA, {pva:"circle.x CP MSI"})
+  field(CALC, "2*A")
+  field(FLNK, "circle2:y")
+  info(pdbGroup, "circle2|x=VAL")
+#  field(TPRO, "1")
+}
+
+record(calc, "circle2:y") {
+  field(INPA, {pva:"circle.y MSI"})
+  field(CALC, "2*A")
+  field(TSEL, "circle2:x.TIME")
+  field(FLNK, "circle2:mag")
+  info(pdbGroup, "circle2|y=VAL")
+#  field(TPRO, "1")
+}
+
+record(calc, "circle2:mag") {
+  field(INPA, "circle2:x NPP MSI")
+  field(INPB, "circle2:y NPP MSI")
+  field(CALC, "SQRT(A*A+B*B)")
+  field(MDEL, "-1")
+  field(TSEL, "circle2:x.TIME")
+  info(pdbGroup, "circle2|mag=VAL")
+  info(pdbTrigger,"circle2|mag>*")
+#  field(TPRO, "1")
+}

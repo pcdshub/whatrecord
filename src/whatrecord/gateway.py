@@ -7,7 +7,7 @@ import sys
 import typing
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
-from .common import FrozenLoadContext, LoadContext, dataclass
+from .common import FullLoadContext, LoadContext, dataclass
 
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 RE_WHITESPACE = re.compile(r"\s+")
@@ -316,8 +316,8 @@ def run_match(
 
 @dataclass
 class PVListMatch:
-    context: FrozenLoadContext
-    comment_context: Optional[FrozenLoadContext]
+    context: FullLoadContext
+    comment_context: Optional[FullLoadContext]
     comment: Optional[str]
     expression: str
     details: List[str]
@@ -345,13 +345,13 @@ class GatewayConfig:
         }
 
     def get_matches(self, name: str, remove_any: bool = True):
-        def get_comment_context(fn, context) -> Optional[FrozenLoadContext]:
+        def get_comment_context(fn, context) -> Optional[FullLoadContext]:
             if context is not None:
-                return (LoadContext(str(fn), context.lineno).freeze(),)
+                return (LoadContext(str(fn), context.lineno),)
 
         matches = [
             PVListMatch(
-                context=(LoadContext(str(fn), expr.lineno).freeze(),),
+                context=(LoadContext(str(fn), expr.lineno),),
                 comment_context=get_comment_context(fn, context),
                 comment=context.line if context is not None else None,
                 expression=expr.expr,
@@ -368,6 +368,7 @@ class GatewayConfig:
         )
 
     def get_linter_results(self):
+        # TODO: unused
         return [
             PVListMatch(context=context, expression=expr.expr, details=expr.details)
             for _, pvlist in self.pvlists.items()

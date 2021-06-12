@@ -3,23 +3,21 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
-import multiprocessing as mp
+# import multiprocessing as mp
 import os
 import pathlib
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Generator, Iterable, List, Optional
 
 import apischema
-from apischema.metadata import skip
 
-from . import asyn
+from . import asyn, common
 from . import motor as motor_mod
-# from . import schema
-from .common import (IocshCommand, IocshResult, IocshScript, LoadContext,
-                     RecordInstance, ShortLinterResults, WhatRecord,
-                     time_context)
+from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshResult,
+                     IocshScript, MutableLoadContext, RecordInstance,
+                     ShortLinterResults, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
 from .iocsh import IOCShellLineParser
@@ -83,8 +81,9 @@ class ShellState:
         Loaded database definition (dbd).
     database: Dict[str, RecordInstance]
         The IOC database of records.
-    load_context: List[LoadContext]
-        Current loading context stack (e.g., ``st.cmd`` then ``common_startup.cmd``)
+    load_context: List[MutableLoadContext]
+        Current loading context stack (e.g., ``st.cmd`` then
+        ``common_startup.cmd``).  Modified in place as scripts are evaluated.
     """
 
     prompt: str = "epics>"
@@ -96,15 +95,18 @@ class ShellState:
     )
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
-    load_context: List[LoadContext] = field(default_factory=list)
+    pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
+    load_context: List[MutableLoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(
         default_factory=dict,
     )
     macro_context: MacroContext = field(default_factory=MacroContext,
-                                        metadata=skip)
+                                        metadata=apischema.metadata.skip)
+    ioc_info: IocMetadata = field(default_factory=IocMetadata)
 
-    _handlers: Dict[str, Callable] = field(default_factory=dict, metadata=skip)
+    _handlers: Dict[str, Callable] = field(default_factory=dict,
+                                           metadata=apischema.metadata.skip)
     _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser)
 
     def __post_init__(self):
@@ -148,7 +150,7 @@ class ShellState:
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
         shresult = self._parser.parse(
-            line, context=self.get_frozen_context(),
+            line, context=self.get_load_context(),
             prompt=self.prompt
         )
         input_redirects = [
@@ -191,7 +193,7 @@ class ShellState:
         raise_on_error: bool = False
     ) -> Generator[IocshResult, None, None]:
         """Interpret a shell script named ``name`` with ``lines`` of text."""
-        load_ctx = LoadContext(name, 0)
+        load_ctx = MutableLoadContext(name, 0)
         try:
             self.load_context.append(load_ctx)
             for lineno, line in enumerate(lines, 1):
@@ -218,10 +220,11 @@ class ShellState:
             except Exception:
                 logger.debug("Failed to parse asyn string", exc_info=True)
 
-    def get_frozen_context(self):
+    def get_load_context(self) -> FullLoadContext:
+        """Get a FullLoadContext tuple representing where we are now."""
         if not self.load_context:
             return tuple()
-        return tuple(ctx.freeze() for ctx in self.load_context)
+        return tuple(ctx.to_load_context() for ctx in self.load_context)
 
     def handle_command(self, command, *args):
         handler = self._handlers.get(command, None)
@@ -267,7 +270,7 @@ class ShellState:
         }
 
     def handle_iocshCmd(self, command, *_):
-        return IocshCommand(context=self.get_frozen_context(), command=command)
+        return IocshCommand(context=self.get_load_context(), command=command)
 
     def handle_cd(self, path, *_):
         path = self._fix_path(path)
@@ -319,10 +322,19 @@ class ShellState:
                 f"Failed to load {fn}: {type(ex).__name__} {ex}"
             ) from ex
 
-        context = self.get_frozen_context()
+        context = self.get_load_context()
         for name, rec in linter_results.records.items():
             if name not in self.database:
                 self.database[name] = rec
+                rec.context = context + rec.context
+            else:
+                entry = self.database[name]
+                entry.context = entry.context + rec.context
+                entry.fields.update(rec.fields)
+
+        for name, rec in linter_results.pva_groups.items():
+            if name not in self.pva_database:
+                self.pva_database[name] = rec
                 rec.context = context + rec.context
             else:
                 entry = self.database[name]
@@ -333,6 +345,48 @@ class ShellState:
 
     def handle_dbl(self, rtyp=None, fields=None, *_):
         return []  # list(self.database)
+
+    def handle_NDPvaConfigure(
+        self,
+        portName=None,
+        queueSize=None,
+        blockingCallbacks=None,
+        NDArrayPort=None,
+        NDArrayAddr=None,
+        pvName=None,
+        maxBuffers=None,
+        maxMemory=None,
+        priority=None,
+        stackSize=None,
+        *_,
+    ):
+        """Implicitly creates a PVA group named ``pvName``."""
+        if pvName is None:
+            return
+
+        metadata = {
+            "portName": portName or "",
+            "queueSize": queueSize or "",
+            "blockingCallbacks": blockingCallbacks or "",
+            "NDArrayPort": NDArrayPort or "",
+            "NDArrayAddr": NDArrayAddr or "",
+            "pvName": pvName or "",
+            "maxBuffers": maxBuffers or "",
+            "maxMemory": maxMemory or "",
+            "priority": priority or "",
+            "stackSize": stackSize or "",
+        }
+        self.pva_database[pvName] = RecordInstance(
+            context=self.get_load_context(),
+            name=pvName,
+            record_type="PVA",
+            fields={},
+            is_pva=True,
+            metadata={
+                "areaDetector": metadata
+            }
+        )
+        return metadata
 
     @_motor_wrapper
     def handle_drvAsynSerialPortConfigure(
@@ -349,7 +403,7 @@ class ShellState:
             return
 
         self.asyn_ports[portName] = asyn.AsynSerialPort(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=portName,
             ttyName=ttyName,
             priority=priority,
@@ -370,7 +424,7 @@ class ShellState:
         # SLAC-specific, but doesn't hurt anyone
         if portName:
             self.asyn_ports[portName] = asyn.AsynIPPort(
-                context=self.get_frozen_context(),
+                context=self.get_load_context(),
                 name=portName,
                 hostInfo=hostInfo,
                 priority=priority,
@@ -397,7 +451,7 @@ class ShellState:
         # SLAC-specific, but doesn't hurt anyone
         if portName:
             self.asyn_ports[portName] = asyn.AdsAsynPort(
-                context=self.get_frozen_context(),
+                context=self.get_load_context(),
                 name=portName,
                 ipaddr=ipaddr,
                 amsaddr=amsaddr,
@@ -414,7 +468,7 @@ class ShellState:
     def handle_asynSetOption(self, name, addr, key, value, *_):
         port = self.asyn_ports[name]
         opt = asyn.AsynPortOption(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             key=key,
             value=value,
         )
@@ -434,7 +488,7 @@ class ShellState:
         *_,
     ):
         self.asyn_ports[port_name] = asyn.AsynMotor(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=port_name,
             parent=None,
             metadata=dict(
@@ -457,7 +511,7 @@ class ShellState:
         # SLAC-specific
         port = self.asyn_ports[asyn_port]
         motor = asyn.AsynMotor(
-            context=self.get_frozen_context(),
+            context=self.get_load_context(),
             name=motor_port,
             # TODO: would like to reference the object, but dataclasses
             # asdict recursion is tripping me up
@@ -475,86 +529,111 @@ class ShellState:
         self.asyn_ports[motor_port] = motor
 
 
+@dataclass
 class ScriptContainer:
-    database: Dict[str, RecordInstance]
-    script_to_state: Dict[pathlib.Path, ShellState]
-    scripts: Dict[pathlib.Path, IocshScript]
-    loaded_files: Dict[str, str]
+    database: Dict[str, RecordInstance] = field(default_factory=dict)
+    pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
+    scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
 
-    def __init__(self):
-        self.database = {}
-        self.scripts = {}
-        self.script_to_state = {}
-        self.loaded_files = {}
+    # TODO: add mtime information for update checking
+    loaded_files: Dict[str, str] = field(default_factory=dict)
 
-    def add_script(self, script: IocshScript, shell_state: ShellState):
-        path = script.path
-        self.scripts[path] = script
-        self.script_to_state[path] = shell_state
-        self.database.update(shell_state.database)
-        self.loaded_files.update(shell_state.loaded_files)
+    def add_script(self, loaded: LoadedIoc):
+        self.scripts[str(loaded.metadata.script)] = loaded
+        self.database.update(loaded.shell_state.database)
+        self.pva_database.update(loaded.shell_state.pva_database)
+        self.loaded_files.update(loaded.shell_state.loaded_files)
 
     def whatrec(
         self,
         rec: str,
         field: Optional[str] = None,
+        include_pva: bool = True,
         format_option: str = "console",
         file=sys.stdout,
     ) -> List[WhatRecord]:
         fmt = FormatContext()
         result = []
-        for stcmd, state in self.script_to_state.items():
-            info = whatrec(state, rec, field)
+        for stcmd, loaded in self.scripts.items():
+            info = whatrec(
+                loaded.shell_state, rec, field, include_pva=include_pva
+            )
             if info is not None:
                 info.owner = str(stcmd)
-                inst = info.instance
-                if file is not None:
-                    print(fmt.render_object(inst, format_option), file=file)
-                    for asyn_port in info.asyn_ports:
-                        print(fmt.render_object(asyn_port, format_option), file=file)
+                info.ioc = loaded.metadata
+                for inst in info.instances:
+                    if file is not None:
+                        print(fmt.render_object(inst, format_option), file=file)
+                        for asyn_port in info.asyn_ports:
+                            print(fmt.render_object(asyn_port, format_option),
+                                  file=file)
                 result.append(info)
         return result
 
 
 def whatrec(
-    state: ShellState, rec: str, field: Optional[str] = None
+    state: ShellState, rec: str, field: Optional[str] = None,
+    include_pva: bool = True
 ) -> Optional[WhatRecord]:
     """Get record information."""
-    inst = state.database.get(rec, None)
-    if inst is None:
+    v3_inst = state.database.get(rec, None)
+    pva_inst = state.pva_database.get(rec, None) if include_pva else None
+    if not v3_inst and not pva_inst:
         return
 
     asyn_ports = []
-    asyn_port = state.get_asyn_port_from_record(inst)
-    if asyn_port is not None:
-        asyn_ports.append(asyn_port)
+    instances = []
+    if v3_inst is not None:
+        instances.append(v3_inst)
+        asyn_port = state.get_asyn_port_from_record(v3_inst)
+        if asyn_port is not None:
+            asyn_ports.append(asyn_port)
 
-        parent_port = getattr(asyn_port, "parent", None)
-        if parent_port is not None:
-            asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
+            parent_port = getattr(asyn_port, "parent", None)
+            if parent_port is not None:
+                asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
 
-    return WhatRecord(owner=None, instance=inst, asyn_ports=asyn_ports)
+    if pva_inst is not None:
+        instances.append(pva_inst)
 
-
-def load_startup_script(standin_directories, fn) -> Tuple[IocshScript, ShellState]:
-    sh = ShellState()
-    sh.working_directory = pathlib.Path(fn).resolve().parent
-    sh.macro_context.define(TOP="../..")
-    sh.standin_directories = standin_directories or {}
-
-    with open(fn, "rt") as fp:
-        lines = fp.read().splitlines()
-
-    iocsh_script = IocshScript(
-        path=str(fn),
-        lines=tuple(sh.interpret_shell_script(lines, name=fn)),
+    return WhatRecord(
+        name=rec,
+        owner=None,
+        instances=instances,
+        asyn_ports=asyn_ports,
+        ioc=None
     )
-    return iocsh_script, sh
 
 
-def _load_startup_script_json(standin_directories, fn) -> Tuple[str, str]:
-    startup_lines, sh_state = load_startup_script(standin_directories, fn)
-    return apischema.serialize(startup_lines), apischema.serialize(sh_state)
+@dataclass
+class LoadedIoc:
+    name: str
+    path: pathlib.Path
+    metadata: IocMetadata
+    shell_state: ShellState
+    script: IocshScript
+
+    @classmethod
+    def from_metadata(cls, md: IocMetadata):
+        sh = ShellState(ioc_info=md)
+        sh.working_directory = md.startup_directory
+        # sh.macro_context.define(TOP="../..")
+        sh.standin_directories = md.standin_directories or {}
+
+        with open(md.script, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        script = IocshScript(
+            path=str(md.script),
+            lines=tuple(sh.interpret_shell_script(lines, name=str(md.script))),
+        )
+        return cls(
+            name=md.name,
+            path=md.script,
+            metadata=md,
+            shell_state=sh,
+            script=script
+        )
 
 
 def load_startup_scripts(
@@ -577,29 +656,32 @@ def load_startup_scripts(
     container : ScriptContainer
         The resulting container.
     """
-    """
-    Load all given startup scripts into a shared ScriptContainer.
-    """
     container = ScriptContainer()
     total_files = len(set(fns))
 
     with time_context() as total_ctx:
         if processes > 1:
-            loader = functools.partial(_load_startup_script_json, standin_directories)
-            with mp.Pool(processes=processes) as pool:
-                results = pool.imap(loader, sorted(set(fns)))
-                for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
-                    iocsh_script = apischema.deserialize(IocshScript, iocsh_script_raw)
-                    sh_state = apischema.deserialize(ShellState, sh_state_raw)
-                    print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
-                    container.add_script(iocsh_script, sh_state)
+            ...
+            # loader = functools.partial(_load_startup_script_json, standin_directories)
+            # with mp.Pool(processes=processes) as pool:
+            #     results = pool.imap(loader, sorted(set(fns)))
+            #     for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
+            #         iocsh_script = apischema.deserialize(
+            #             IocshScript, iocsh_script_raw)
+            #         sh_state = apischema.deserialize(ShellState, sh_state_raw)
+            #         print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
+            #         container.add_script(iocsh_script, sh_state)
         else:
-            loader = functools.partial(load_startup_script, standin_directories)
             for idx, fn in enumerate(sorted(set(fns)), 1):
                 print(f"{idx}/{total_files}: Loading {fn}...", end="")
                 with time_context() as ctx:
-                    iocsh_script, sh_state = loader(fn)
-                    container.add_script(iocsh_script, sh_state)
+                    loaded = LoadedIoc.from_metadata(
+                        common.IocMetadata.from_filename(
+                            fn,
+                            standin_directories=standin_directories
+                        )
+                    )
+                    container.add_script(loaded)
                 print(f"[{ctx():.1f} s]")
 
         print(

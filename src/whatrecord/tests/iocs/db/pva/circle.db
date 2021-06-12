@@ -1,0 +1,66 @@
+record(ao, "${PREFIX}step") {
+  field(VAL , "1.0")
+  field(DRVL, "0.0")
+  field(DRVH, "359")
+  field(PINI, "YES")
+}
+
+record(ao, "${PREFIX}period") {
+  field(VAL , "1.0")
+  field(PINI, "YES")
+  field(OUT , "${PREFIX}tick.ODLY NPP")
+}
+
+record(calc, "${PREFIX}angle") {
+  field(PINI, "RUNNING") # bootstrap
+  field(INPA, "${PREFIX}angle NPP")
+  field(INPB, "${PREFIX}step NPP")
+  field(INPD, "360")
+  field(DESC, "Angle")
+  field(EGU , "deg")
+  field(LOLO, "45")
+  field(LOW , "135")
+  field(HIGH, "225")
+  field(HIHI, "315")
+  field(LLSV, "MAJOR")
+  field(LSV , "MINOR")
+  field(HSV , "MINOR")
+  field(HHSV, "MAJOR")
+  field(CALC, "C:=A+B;(C>=D)?C-D:C")
+  field(FLNK, "${PREFIX}x")
+  field(PREC, "3")
+  info(pdbGroup0, "circle|angle=VAL")
+  info(pdbGroup1, "line|a=VAL")
+  alias("line:a")
+}
+
+record(calc, "${PREFIX}x") {
+  field(INPA, "${PREFIX}angle NPP")
+  field(CALC, "cos(A*PI/180)")
+  field(TSEL, "${PREFIX}angle.TIME")
+  field(FLNK, "${PREFIX}y")
+  field(PREC, "3")
+  info(pdbGroup, "circle|x=VAL")
+}
+
+record(calc, "${PREFIX}y") {
+  field(INPA, "${PREFIX}angle NPP")
+  field(CALC, "sin(A*PI/180)")
+  field(TSEL, "${PREFIX}angle.TIME")
+  field(PREC, "3")
+  field(FLNK, "line:b")
+  info(pdbGroup, "circle|y=VAL")
+  info(pdbTrigger,"circle|y>*")
+}
+
+record(ai, "line:b") {
+  field(INP, "line:a NPP")
+  field(FLNK, "${PREFIX}tick")
+  info(pdbGroup, "line|b=VAL")
+  info(pdbTrigger,"line|b>*")
+}
+
+record(calcout, "${PREFIX}tick") {
+  field(ODLY, "1.0")
+  field(OUT , "${PREFIX}angle.PROC CA") # loop
+}
