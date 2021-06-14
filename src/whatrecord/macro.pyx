@@ -103,7 +103,7 @@ cdef class MacroContext:
         for idx in range(count):
             variable = pairs[2 * idx]
             value = pairs[2 * idx + 1]
-            result[variable or ''] = value or ''
+            result[variable or b''] = value or b''
 
         free(pairs)
         return result
