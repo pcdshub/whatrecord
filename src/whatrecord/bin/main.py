@@ -6,7 +6,9 @@ Try::
 """
 
 import argparse
+import asyncio
 import importlib
+import inspect
 import logging
 
 import whatrecord  # noqa
@@ -14,7 +16,7 @@ import whatrecord  # noqa
 DESCRIPTION = __doc__
 
 
-MODULES = ("server", "iocmanager_loader")  # , "api", "pv")
+MODULES = ("server", "iocmanager_loader", "info")
 
 
 def _try_import(module):
@@ -92,10 +94,14 @@ def main():
     if hasattr(args, "func"):
         func = kwargs.pop("func")
         logger.debug("%s(**%r)", func.__name__, kwargs)
-        func(**kwargs)
+        if inspect.iscoroutinefunction(func):
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(func(**kwargs))
+        else:
+            func(**kwargs)
     else:
         top_parser.print_help()
 
 
 if __name__ == "__main__":
-    main()
+    result = main()

@@ -5,7 +5,8 @@ import os
 import re
 import sys
 import tempfile
-from typing import DefaultDict, Dict, List, Optional, Set, Tuple, Union
+from typing import (ClassVar, DefaultDict, Dict, List, Optional, Set, Tuple,
+                    Union)
 
 import apischema
 import graphviz
@@ -180,6 +181,18 @@ class PVGetInfo:
     pv_name: str
     present: bool
     info: List[WhatRecord]
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """\
+{{ pv_name }}:
+    In database: {{ present }}
+{% for _info in info %}
+{% set item_info = render_object(_info, "console") %}
+    {{ item_info | indent(4)}}
+{% endfor %}
+}
+""",
+    }
 
 
 @dataclass

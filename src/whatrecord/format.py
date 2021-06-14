@@ -57,7 +57,7 @@ class FormatContext:
         return self.env.get_template("template").render(context)
 
     def _render_object_fallback(self, _obj, _option, **context):
-        # TODO: want this to be positional-only; fallback here for pypi
+        # TODO: want this to be positional-only; fallback here for pypy
         obj, _ = _obj, _option
 
         if dataclasses.is_dataclass(obj):

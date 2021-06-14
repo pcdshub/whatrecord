@@ -193,7 +193,7 @@ class RecordField:
     value: Union[str, PVAJsonField]
     context: FullLoadContext
 
-    _jinja_format_: ClassVar[dict] = {
+    _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """field({{name}}, "{{value}}")""",
         "console-verbose": """\
 field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% endif %}\
@@ -283,7 +283,7 @@ class PVAFieldReference:
     field_name: str = ""
     metadata: Dict[str, str] = field(default_factory=dict)
 
-    _jinja_format_: ClassVar[dict] = {
+    _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """\
 PVAFieldReference: {{ record_name }}.{{ field_name }}
                  - {{ metadata }}
@@ -303,7 +303,7 @@ class RecordInstance:
     is_grecord: bool = False
     is_pva: bool = False
 
-    _jinja_format_: ClassVar[dict] = {
+    _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """\
 record("{{record_type}}", "{{name}}") {
 {% for ctx in context %}
@@ -382,6 +382,24 @@ class WhatRecord:
     ioc: Optional[IocMetadata]
     # TODO:
     # - gateway rule matches?
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """\
+{{ name }}:
+    Owner: {{ present }}
+{% set ioc_info = render_object(ioc, "console") %}
+    IOC: {{ ioc_info }}
+{% for instance in instances %}
+{% set instance_info = render_object(instance, "console") %}
+    {{ instance_info | indent(4)}}
+{% endfor %}
+{% for asyn_port in asyn_ports %}
+{% set asyn_info = render_object(asyn_port, "console") %}
+    {{ asyn_info | indent(4)}}
+{% endfor %}
+}
+""",
+    }
 
 
 @contextmanager
