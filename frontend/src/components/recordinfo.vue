@@ -52,7 +52,7 @@
       </a>
     </AccordionTab>
     <AccordionTab header="Gateway" :disabled="instance_v3 == null">
-      <template v-if="instance_v3 != null && instance_v3.metadata.gateway.matches">
+      <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches">
         <gateway-matches :matches="instance_v3.metadata.gateway.matches"/>
       </template>
     </AccordionTab>
