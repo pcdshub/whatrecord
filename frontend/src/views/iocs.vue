@@ -1,6 +1,6 @@
 <template>
   <div class="p-grid">
-    <div class="p-col-4">
+    <div class="p-col-5">
       <DataTable id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
           selectionMode="multiple" @rowSelect="new_ioc_selection"
           :paginator="true" :rows="300" v-model:filters="ioc_filters"
@@ -17,12 +17,12 @@
         </template>
         <Column field="name" header="IOC Name"/>
         <Column field="host" header="Host"/>
-        <Column field="port" header="Port"/>
+        <!-- <Column field="port" header="Port"/> -->
         <Column field="description" header="Description"/>
         <!-- <Column field="script" header="Script"/> -->
       </DataTable>
     </div>
-    <div class="p-col-6">
+    <div class="p-col-7">
       <DataTable :value="record_list" dataKey="record.name"
           :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
           :globalFilterFields="['record.name', 'record.record_type']">
