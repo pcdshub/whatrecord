@@ -716,11 +716,11 @@ def load_startup_scripts_with_metadata(
         The resulting container.
     """
     container = ScriptContainer()
-    total_files = len(set(fns))
+    total_files = len(set(md_items))
 
     with time_context() as total_ctx:
         try:
-            for idx, md in enumerate(sorted(set(fns)), 1):
+            for idx, md in enumerate(sorted(set(md_items)), 1):
                 print(f"{idx}/{total_files}: Loading {md['startup_script']}...", end="")
                 with time_context() as ctx:
                     loaded = LoadedIoc.from_metadata(md)
