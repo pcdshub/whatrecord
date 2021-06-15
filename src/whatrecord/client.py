@@ -8,7 +8,7 @@ from .server.server import PVGetInfo
 
 WHATREC_SERVER = os.environ.get(
     "WHATREC_SERVER",
-    "http://localhost:8899/"
+    "http://localhost:8898/"
 )
 
 

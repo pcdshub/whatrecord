@@ -69,7 +69,7 @@ def build_arg_parser(parser=None):
     parser.add_argument(
         '--port',
         type=int,
-        default=8899,
+        default=8898,
         help='Web server TCP port'
     )
 

@@ -3,7 +3,7 @@ all: install server
 IPY_OPTS ?= -i
 GATEWAY_CONFIG ?= /reg/g/pcds/gateway/config/
 STARTUP_SCRIPTS ?= $(shell cat all_stcmds.txt)
-PORT ?= 8899
+PORT ?= 8898
 
 MACOSX_DEPLOYMENT_TARGET ?= 10.9
 

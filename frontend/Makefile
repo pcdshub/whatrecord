@@ -1,4 +1,4 @@
-VUE_PORT=8081
+VUE_PORT=8899
 
 dev:
 	@echo "* Starting up the dev server on port ${VUE_PORT} with yarn..."

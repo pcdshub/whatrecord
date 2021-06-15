@@ -468,7 +468,7 @@ def main(
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
     gateway_config: Optional[str] = None,
-    port: int = 8899,
+    port: int = 8898,
     standin_directory: Optional[Union[List, Dict]] = None,
 ):
     scripts = scripts or []
