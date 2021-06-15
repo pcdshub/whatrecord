@@ -15,7 +15,7 @@ from aiohttp import web
 from .. import common, gateway, graph, ioc_finder
 from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
-from ..shell import (LoadedIoc, ScriptContainer, load_startup_scripts,
+from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 
 # from . import html as html_mod
@@ -50,6 +50,7 @@ class ServerState:
     ]
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
+    script_loaders: List[ioc_finder._IocInfoFinder]
 
     def __init__(
         self,
@@ -58,16 +59,15 @@ class ServerState:
         standin_directories: Dict[str, str]
     ):
         self.standin_directories = standin_directories
-        self.container = load_startup_scripts(
-            *startup_scripts, standin_directories=standin_directories
-        )
-        self.pv_relations = graph.build_database_relations(self.container.database)
-        self.script_relations = graph.build_script_relations(
-            self.container.database, self.pv_relations)
-        self.script_loaders = list(
+        self.container = ScriptContainer()
+        self.pv_relations = {}
+        self.script_relations = {}
+        self.script_loaders = [
+            ioc_finder.IocScriptStaticList(startup_scripts)
+        ] + [
             ioc_finder.IocScriptExternalLoader(loader)
             for loader in script_loaders
-        )
+        ]
         self.archived_pvs = set()
         self.gateway_config = None
 
