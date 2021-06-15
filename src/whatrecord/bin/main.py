@@ -14,7 +14,7 @@ import logging
 import whatrecord  # noqa
 
 DESCRIPTION = __doc__
-
+RETURN_VALUE = None
 
 MODULES = ("server", "iocmanager_loader", "info")
 
@@ -94,11 +94,17 @@ def main():
     if hasattr(args, "func"):
         func = kwargs.pop("func")
         logger.debug("%s(**%r)", func.__name__, kwargs)
+
+        global RETURN_VALUE
         if inspect.iscoroutinefunction(func):
             loop = asyncio.get_event_loop()
-            loop.run_until_complete(func(**kwargs))
+            RETURN_VALUE = loop.run_until_complete(func(**kwargs))
         else:
-            func(**kwargs)
+            RETURN_VALUE = func(**kwargs)
+            logger.debug(
+                "%s Return value available as RETURN_VALUE: %s",
+                func.__name__, RETURN_VALUE
+            )
     else:
         top_parser.print_help()
 
