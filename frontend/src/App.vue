@@ -27,4 +27,7 @@ export default {
 .p-tabmenu	{
   margin-bottom: 5px;
 }
+.p-grid	{
+  margin: 5px;
+}
 </style>

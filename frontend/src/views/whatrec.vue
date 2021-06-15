@@ -3,7 +3,7 @@
     <div class="p-col-3">
       <Searchbar :route_record_glob="search_record_glob" :route_selected_records="search_selected_records" />
     </div>
-    <div class="p-col-7" id="record_info">
+    <div class="p-col-9" id="record_info">
       <div v-for="match in record_info" :key="match.pv_name">
         <Recordinfo
           v-for="(whatrec, idx) in match.info"
