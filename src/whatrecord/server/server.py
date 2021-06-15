@@ -12,10 +12,10 @@ import apischema
 import graphviz
 from aiohttp import web
 
-from .. import common, gateway, graph
+from .. import common, gateway, graph, ioc_finder
 from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
-from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts
+from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts_with_metadata
 
 # from . import html as html_mod
 # from . import static
@@ -63,9 +63,31 @@ class ServerState:
         self.pv_relations = graph.build_database_relations(self.container.database)
         self.script_relations = graph.build_script_relations(
             self.container.database, self.pv_relations)
+        self.script_loaders = list(
+            ioc_finder.IocScriptExternalLoader(loader)
+            for loader in script_loaders
+        )
         self.archived_pvs = set()
         self.gateway_config = None
 
+    async def async_init(self, app):
+        await self.update_from_script_loaders()
+
+    async def update_from_script_loaders(self):
+        startup_md = []
+        for loader in self.script_loaders:
+            info = await loader.update()
+            for _, md in loader.scripts.items():
+                startup_md.append(md)
+
+        # TODO this should be an _update_, but uh... clear cache for now?
+        self.container = load_startup_scripts_with_metadata(
+            *startup_md, standin_directories=standin_directories
+        )
+        self.pv_relations = graph.build_database_relations(self.container.database)
+        self.script_relations = graph.build_script_relations(
+            self.container.database, self.pv_relations)
+        
     def load_gateway_config(self, path):
         self.gateway_config = gateway.GatewayConfig(path)
         for config in self.gateway_config.filenames:
@@ -237,7 +259,9 @@ class ServerHandler:
         self.state = ServerState(
             startup_scripts, script_loader, standin_directories
         )
-        self.archive_viewer_url = None
+
+    async def async_init(self, app):
+        await self.state.async_init(app)
 
     @routes.get("/api/pv/{pv_names}/info")
     async def api_pv_get_info(self, request: web.Request):
@@ -497,6 +521,7 @@ def main(
     if gateway_config:
         handler.state.load_gateway_config(gateway_config)
 
+    app.on_startup.append(handler.async_init)
     web.run_app(app, port=port)
     return app, handler
 

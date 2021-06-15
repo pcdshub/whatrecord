@@ -693,3 +693,46 @@ def load_startup_scripts(
             f"with {processes} process(es)"
         )
     return container
+
+
+def load_startup_scripts_with_metadata(
+    *md_items, standin_directories=None, processes=1
+) -> ScriptContainer:
+    """
+    Load all given startup scripts into a shared ScriptContainer.
+
+    Parameters
+    ----------
+    *md_items : list of IocMetadata
+        List of IOC metadata.
+    standin_directories : dict
+        Stand-in/substitute directory mapping.
+    processes : int
+        The number of processes to use when loading.
+
+    Returns
+    -------
+    container : ScriptContainer
+        The resulting container.
+    """
+    container = ScriptContainer()
+    total_files = len(set(fns))
+
+    with time_context() as total_ctx:
+        try:
+            for idx, md in enumerate(sorted(set(fns)), 1):
+                print(f"{idx}/{total_files}: Loading {md['startup_script']}...", end="")
+                with time_context() as ctx:
+                    loaded = LoadedIoc.from_metadata(md)
+                    loaded.standin_directories.update(standin_directories)
+                    container.add_script(loaded)
+                print(f"[{ctx():.1f} s]")
+        except KeyboardInterrupt:
+            print("Ctrl-C: Cancelling loading remaining scripts.")
+            total_files = idx
+
+    print(
+        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
+        f"with {processes} process(es)"
+    )
+    return container
