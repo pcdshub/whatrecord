@@ -614,7 +614,7 @@ class LoadedIoc:
     script: IocshScript
 
     @classmethod
-    def from_metadata(cls, md: IocMetadata):
+    def from_metadata(cls, md: IocMetadata) -> LoadedIoc:
         sh = ShellState(ioc_info=md)
         sh.working_directory = md.startup_directory
         # sh.macro_context.define(TOP="../..")
@@ -716,12 +716,12 @@ def load_startup_scripts_with_metadata(
         The resulting container.
     """
     container = ScriptContainer()
-    total_files = len(set(md_items))
+    total_files = len(md_items)
 
     with time_context() as total_ctx:
         try:
-            for idx, md in enumerate(sorted(set(md_items)), 1):
-                print(f"{idx}/{total_files}: Loading {md['startup_script']}...", end="")
+            for idx, md in enumerate(sorted(md_items, key=lambda md: md.name), 1):
+                print(f"{idx}/{total_files}: Loading {md.script}...", end="")
                 with time_context() as ctx:
                     loaded = LoadedIoc.from_metadata(md)
                     loaded.standin_directories.update(standin_directories)

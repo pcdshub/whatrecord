@@ -15,7 +15,8 @@ from aiohttp import web
 from .. import common, gateway, graph, ioc_finder
 from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
-from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts_with_metadata
+from ..shell import (LoadedIoc, ScriptContainer, load_startup_scripts,
+                     load_startup_scripts_with_metadata)
 
 # from . import html as html_mod
 # from . import static
@@ -76,18 +77,18 @@ class ServerState:
     async def update_from_script_loaders(self):
         startup_md = []
         for loader in self.script_loaders:
-            info = await loader.update()
+            await loader.update()
             for _, md in loader.scripts.items():
                 startup_md.append(md)
 
         # TODO this should be an _update_, but uh... clear cache for now?
         self.container = load_startup_scripts_with_metadata(
-            *startup_md, standin_directories=standin_directories
+            *startup_md, standin_directories=self.standin_directories
         )
         self.pv_relations = graph.build_database_relations(self.container.database)
         self.script_relations = graph.build_script_relations(
             self.container.database, self.pv_relations)
-        
+
     def load_gateway_config(self, path):
         self.gateway_config = gateway.GatewayConfig(path)
         for config in self.gateway_config.filenames:
