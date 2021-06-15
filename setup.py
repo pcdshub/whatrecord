@@ -18,7 +18,7 @@ Sorry, the following are required to build `whatrecord`. Please install these fi
 
 import versioneer
 
-min_version = (3, 6)
+min_version = (3, 7)
 
 if sys.version_info < min_version:
     error = """
@@ -67,10 +67,14 @@ def no_cythonize(extensions, **_ignore):
 
 
 extensions = [
-    Extension("whatrecord.iocsh", ["src/whatrecord/iocsh.pyx"], **ext_options),
     Extension(
-        "whatrecord.macro",
-        ["src/whatrecord/macro.pyx"],
+        "_whatrecord.iocsh",
+        ["whatrecord/_whatrecord/iocsh.pyx"],
+        **ext_options
+    ),
+    Extension(
+        "_whatrecord.macro",
+        ["whatrecord/_whatrecord/macro.pyx"],
         **ext_options,
     ),
 ]
@@ -94,9 +98,9 @@ with open("README.rst", encoding="utf-8") as fp:
 
 setup(
     name="whatrecord",
-    # cmdclass=versioneer.get_cmdclass(),
-    # version=versioneer.get_version(),
-    packages=find_packages(where="src"),
+    cmdclass=versioneer.get_cmdclass(),
+    version=versioneer.get_version(),
+    packages=find_packages(),
     author="SLAC National Accelerator Laboratory",
     description="EPICS IOC record search and meta information tool",
     ext_modules=extensions,
@@ -104,14 +108,15 @@ setup(
     install_requires=install_requires,
     license="BSD",
     long_description=readme,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     entry_points={
         "console_scripts": [
             "whatrec = whatrecord.bin.main:main",
         ]
     },
     package_dir={
-        "": "src",
+        "_whatrecord": "whatrecord/_whatrecord",
+        "whatrecord": "whatrecord",
     },
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

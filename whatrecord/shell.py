@@ -113,6 +113,7 @@ class ShellState:
         self._handlers.update(dict(self.find_handlers()))
         self._setup_dynamic_handlers()
         self._parser.macro_context = self.macro_context
+        self._parser.macro_context.string_encoding = self.string_encoding
         self._parser.string_encoding = self.string_encoding
 
     def _setup_dynamic_handlers(self):
@@ -264,10 +265,7 @@ class ShellState:
         return f"Defined: {variable!r}={value!r}"
 
     def handle_epicsEnvShow(self, *_):
-        return {
-            str(name, self.string_encoding): str(value, self.string_encoding)
-            for name, value in self.macro_context.get_macros().items()
-        }
+        return self.macro_context.get_macros()
 
     def handle_iocshCmd(self, command, *_):
         return IocshCommand(context=self.get_load_context(), command=command)
@@ -301,13 +299,7 @@ class ShellState:
         fn = self._fix_path(fn)
         self.loaded_files[str(fn.resolve())] = str(orig_fn)
 
-        bytes_macros = self.macro_context.definitions_to_dict(
-            bytes(macros, self.string_encoding)
-        )
-        macros = {
-            str(variable, self.string_encoding): str(value, self.string_encoding)
-            for variable, value in bytes_macros.items()
-        }
+        macros = self.macro_context.definitions_to_dict(macros)
 
         try:
             with self.macro_context.scoped(**macros):
