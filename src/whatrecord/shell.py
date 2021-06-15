@@ -723,8 +723,12 @@ def load_startup_scripts_with_metadata(
             for idx, md in enumerate(sorted(md_items, key=lambda md: md.name), 1):
                 print(f"{idx}/{total_files}: Loading {md.script}...", end="")
                 with time_context() as ctx:
-                    loaded = LoadedIoc.from_metadata(md)
-                    loaded.standin_directories.update(standin_directories)
+                    md.standin_directories.update(standin_directories)
+                    try:
+                        loaded = LoadedIoc.from_metadata(md)
+                    except FileNotFoundError as ex:
+                        print(f"Failed to load: {ex}")
+                        continue
                     container.add_script(loaded)
                 print(f"[{ctx():.1f} s]")
         except KeyboardInterrupt:
