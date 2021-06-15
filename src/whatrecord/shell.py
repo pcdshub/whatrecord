@@ -672,17 +672,21 @@ def load_startup_scripts(
             #         print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
             #         container.add_script(iocsh_script, sh_state)
         else:
-            for idx, fn in enumerate(sorted(set(fns)), 1):
-                print(f"{idx}/{total_files}: Loading {fn}...", end="")
-                with time_context() as ctx:
-                    loaded = LoadedIoc.from_metadata(
-                        common.IocMetadata.from_filename(
-                            fn,
-                            standin_directories=standin_directories
+            try:
+                for idx, fn in enumerate(sorted(set(fns)), 1):
+                    print(f"{idx}/{total_files}: Loading {fn}...", end="")
+                    with time_context() as ctx:
+                        loaded = LoadedIoc.from_metadata(
+                            common.IocMetadata.from_filename(
+                                fn,
+                                standin_directories=standin_directories
+                            )
                         )
-                    )
-                    container.add_script(loaded)
-                print(f"[{ctx():.1f} s]")
+                        container.add_script(loaded)
+                    print(f"[{ctx():.1f} s]")
+            except KeyboardInterrupt:
+                print("Ctrl-C: Cancelling loading remaining scripts.")
+                total_files = idx
 
         print(
             f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
