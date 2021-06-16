@@ -46,7 +46,7 @@ server:
 	@echo " - Startup scripts: ${STARTUP_SCRIPTS}"
 	@echo " - API Port: ${API_PORT}"
 	@echo " - Extra arguments: ${SERVER_ARGS}"
-	ipython -i `which whatrec` -- server \
+	ipython -i -m whatrecord.bin.main -- server \
 		--archive-file all_archived_pvs.json \
 		--gateway-config $(GATEWAY_CONFIG) \
 		--scripts $(STARTUP_SCRIPTS) \
