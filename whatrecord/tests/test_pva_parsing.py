@@ -1,7 +1,7 @@
 """Placeholder for PVA parsing tests, for the most part..."""
 
 from whatrecord import Database
-from whatrecord.db import PVAFieldReference, PVAGroupInstance
+from whatrecord.db import LoadContext, PVAFieldReference, RecordInstance
 
 
 def test_simple():
@@ -22,15 +22,22 @@ record(ai, "rec:Y") {
   })
 }
 """)
-    assert db.pva_groups["grp:name"] == PVAGroupInstance(
+    assert db.pva_groups["grp:name"] == RecordInstance(
+        context=(LoadContext("None", 4), ),
+        record_type="PVA",
         name="grp:name",
+        is_pva=True,
         fields={
             "X": PVAFieldReference(
+                context=(LoadContext("None", 5), ),
+                name="X",
                 record_name="rec:X",
                 field_name="VAL",
                 metadata={},
             ),
             "Y": PVAFieldReference(
+                context=(LoadContext("None", 12), ),
+                name="Y",
                 record_name="rec:Y",
                 field_name="VAL",
                 metadata={},
