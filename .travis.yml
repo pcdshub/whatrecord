@@ -35,37 +35,11 @@ jobs:
       name: "Python 3.9 - PIP"
       python: 3.9
       install:
-        - pip install --upgrade pip
-        - echo "Req File':' ${REQUIREMENTS:=requirements.txt}"
-        - echo "Dev Req File':' ${DEV_REQUIREMENTS:=dev-requirements.txt}"
-        - |
-          # Install requirements
-          if [[ ! -f "${REQUIREMENTS}" ]]; then
-              echo "File not found: ${REQUIREMENTS}" 1>&2
-              travis_terminate 1
-          else
-              pip install --requirement "${REQUIREMENTS}"
-          fi
-        - |
-          # Install development requirements
-          if [[ ! -f "${DEV_REQUIREMENTS}" ]]; then
-              echo "File not found: ${DEV_REQUIREMENTS}" 1>&2
-              travis_terminate 1
-          else
-              pip install --requirement "${DEV_REQUIREMENTS}"
-          fi
-        - |
-          # Install Extras such as PyQt5
-          if [[ ! -z "${PIP_EXTRAS}" ]]; then
-              echo "Installing extra pip dependencies."
-              pip install ${PIP_EXTRAS}
-          fi
+        - python -m pip install --upgrade pip
+        - python -m pip install --requirement requirements.txt
+        - python -m pip install --requirement dev-requirements.txt
       script:
         - |
           set -e
-          if command -v coverage; then
-              coverage run --concurrency=thread --parallel-mode -m pytest -vv
-              (coverage combine && coverage report | grep -v -e ' 0%') || true
-          else
-              python -m pytest -vv
-          fi
+          coverage run --concurrency=thread --parallel-mode -m pytest -vv
+          (coverage combine && coverage report | grep -v -e ' 0%') || true
