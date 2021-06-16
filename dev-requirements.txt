@@ -5,10 +5,5 @@ coverage
 flake8
 pytest
 
-# sphinx-related dependencies:
-sphinx
-numpydoc
-sphinx-copybutton
-sphinx_rtd_theme
+# docs-related dependencies:
 doctr
-recommonmark
