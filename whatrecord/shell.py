@@ -107,7 +107,9 @@ class ShellState:
 
     _handlers: Dict[str, Callable] = field(default_factory=dict,
                                            metadata=apischema.metadata.skip)
-    _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser)
+    _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser,
+                                        metadata=apischema.metadata.skip,
+                                        )
 
     def __post_init__(self):
         self._handlers.update(dict(self.find_handlers()))
@@ -609,7 +611,7 @@ class LoadedIoc:
     def from_metadata(cls, md: IocMetadata) -> LoadedIoc:
         sh = ShellState(ioc_info=md)
         sh.working_directory = md.startup_directory
-        # sh.macro_context.define(TOP="../..")
+        sh.macro_context.define(**md.macros)
         sh.standin_directories = md.standin_directories or {}
 
         with open(md.script, "rt") as fp:

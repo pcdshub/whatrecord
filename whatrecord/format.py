@@ -2,6 +2,7 @@ import dataclasses
 import inspect
 import logging
 
+import apischema
 import jinja2
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,8 @@ class FormatContext:
             cls = type(obj)
             if cls not in self._fallback_formats:
                 fmt = ["{{obj|classname}}",] + [   # noqa: E231
-                    "%12s: {{%s}}" % (field, field) for field in dataclasses.asdict(obj)
+                    "%12s: {{%s}}" % (field, field)
+                    for field in apischema.serialize(obj)
                 ]
                 self._fallback_formats[cls] = "\n".join(fmt)
 
