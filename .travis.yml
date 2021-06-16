@@ -67,24 +67,23 @@ jobs:
         - conda config --set channel_priority strict
         - conda config --add channels conda-forge
         - conda config --remove channels defaults
-        - conda config --add channels "file://`pwd`/bld-dir"
         - conda info -a
         - conda config --show
 
         - conda install conda-build anaconda-client
         - conda update -q conda conda-build
-        # Useful for debugging
-        - conda info -a
-        - conda config --show
+
       before_script:
         - export PATH="$HOME/miniconda/bin:$PATH"
         - cat ${CONDA_RECIPE_FOLDER}/meta.yaml
         - conda build -q ${CONDA_RECIPE_FOLDER} --output-folder bld-dir --no-anaconda-upload
 
-        # Manage conda environment
+        - conda config --add channels "file://`pwd`/bld-dir"
+        - conda info -a
+        - conda config --show
+
         - conda create -n ${CONDA_ENV_NAME} python=$PYTHON_VERSION ${CONDA_PACKAGE} ${CONDA_EXTRAS} --file ${CONDA_REQUIREMENTS}
         - source activate ${CONDA_ENV_NAME}
-        # Useful for debugging
         - conda list
       script:
         - |
