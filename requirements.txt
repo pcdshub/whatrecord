@@ -4,4 +4,4 @@ cython
 epicscorelibs
 graphviz
 jinja2
-lark
+lark-parser

@@ -23,10 +23,8 @@ requirements:
       - epicscorelibs
       - graphviz
       - jinja2
-
-      # Not yet on conda-forge :(
-      # - apischema
-      # - lark
+      - lark-parser
+      - apischema
 
 test:
     imports:
