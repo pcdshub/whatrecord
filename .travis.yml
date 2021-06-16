@@ -3,7 +3,7 @@ version: ~> 1.0
 env:
   global:
     # doctr generated secure variable for documentation upload
-    - secure: "<your secure here>"
+    - secure: "ZLIQssd23KwlQKy1IDkLgeFj+cfwx7cxYPAIZTCtfgYqJfaXdukasrezZCL8CQMxOixe17q5aompiTkg+gxJT5FL1jGcRLPXcqDPO/5RVArJpD7O518jjvO88ekKHxXqKxi1YQP9A3WB16gsA1uWxqrVa+7ie8eDj/gRHLZGbKAV+h7++pTR+sgaqIjdIeSEaKMVX+0mp3qvMmwYSLGe9jddSpqSf7F7poZYpY87trG5ouxkevJanZgpbXI2Nm0rnwE1U8nZlPAzmnj9Ytd9/Tu2cbaRKrNbOkVyqBxZIteJSeipVIzXR4PZ3WbZSJP+M5iGVm+EA6ji1VgIpjhPbJE/BGNXZGu2DsApCa785LtophM/aeNSDXCVZGHU+DsN07yoBg09yJUAisMOT+ipF8Sw0rBkuhm5WxLeJfQ7cGZ5qX/K7mLUueG5cBUXk4FMmyeCXcgSF7bbGbrKWsgbO9vb5yjaUsq/4P8oRzfhe1iAcIg0u2+DkihVsKPenPPQf/lxzYyozUEfF/x13VuvFW82s6TrOk7BCD2VMCz6M20EIGCt1+9gOhm1I8OxJiL/NKcTnG5L91tN+mHUu0B+aJrhoQVT7YLFNTO89NaAokVbxrLvWKz03ALCJZpzpW2rlrD3pqOjnBSHfYdFpTSqSXVBHtGD6GpSLfY85Yz9brc="
     # enable the usage of versions menu which allow versioning of the docs
     # pages and not only the master branch
     - DOCTR_VERSIONS_MENU="1"
