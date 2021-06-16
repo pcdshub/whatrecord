@@ -9,21 +9,24 @@ source:
 
 build:
     number: 0
-    noarch: python
 
 requirements:
     build:
-      - python >=3.6
+      - python >=3.9
       - setuptools
+      - epicscorelibs
+      - cython
     run:
-      - python >=3.6
+      - python >=3.9
       - aiohttp
-      - apischema
       - cython
       - epicscorelibs
       - graphviz
       - jinja2
-      - lark
+
+      # Not yet on conda-forge :(
+      # - apischema
+      # - lark
 
 test:
     imports:

@@ -1,9 +1,16 @@
 version: ~> 1.0
 
+language: python
+os: linux
+dist: xenial
+
+stages:
+  - build
+
 env:
   global:
     # doctr generated secure variable for documentation upload
-    - secure: "<your secure here>"
+    - secure: "ZLIQssd23KwlQKy1IDkLgeFj+cfwx7cxYPAIZTCtfgYqJfaXdukasrezZCL8CQMxOixe17q5aompiTkg+gxJT5FL1jGcRLPXcqDPO/5RVArJpD7O518jjvO88ekKHxXqKxi1YQP9A3WB16gsA1uWxqrVa+7ie8eDj/gRHLZGbKAV+h7++pTR+sgaqIjdIeSEaKMVX+0mp3qvMmwYSLGe9jddSpqSf7F7poZYpY87trG5ouxkevJanZgpbXI2Nm0rnwE1U8nZlPAzmnj9Ytd9/Tu2cbaRKrNbOkVyqBxZIteJSeipVIzXR4PZ3WbZSJP+M5iGVm+EA6ji1VgIpjhPbJE/BGNXZGu2DsApCa785LtophM/aeNSDXCVZGHU+DsN07yoBg09yJUAisMOT+ipF8Sw0rBkuhm5WxLeJfQ7cGZ5qX/K7mLUueG5cBUXk4FMmyeCXcgSF7bbGbrKWsgbO9vb5yjaUsq/4P8oRzfhe1iAcIg0u2+DkihVsKPenPPQf/lxzYyozUEfF/x13VuvFW82s6TrOk7BCD2VMCz6M20EIGCt1+9gOhm1I8OxJiL/NKcTnG5L91tN+mHUu0B+aJrhoQVT7YLFNTO89NaAokVbxrLvWKz03ALCJZpzpW2rlrD3pqOjnBSHfYdFpTSqSXVBHtGD6GpSLfY85Yz9brc="
     # enable the usage of versions menu which allow versioning of the docs
     # pages and not only the master branch
     - DOCTR_VERSIONS_MENU="1"
@@ -22,34 +29,19 @@ env:
     - CONDA_REQUIREMENTS="dev-requirements.txt"
 
 
-
-# Uncomment this block if you would like to make PIP test an allowed failure
-#jobs:
-#  allow_failures:
-#    # This makes the PIP based Python 3.6 optional for passing.
-#    # Remove this block if passing tests with PIP is mandatory for your
-#    # package
-#    - name: "Python 3.6 - PIP"
-
-language: python
-os: linux
-dist: xenial
-
-stages:
-  - build
-  - test
-  - name: deploy
-    if: (branch = master OR tag IS present) AND type != pull_request
-
-import:
-  # Build Stage
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/anaconda-build.yml
-  # Tests Stage
-  # - pcdshub/pcds-ci-helpers:travis/shared_configs/python-tester-pip.yml
-  # - pcdshub/pcds-ci-helpers:travis/shared_configs/python-tester-conda.yml
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/python-linter.yml
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/docs-build.yml
-  # Deploy Stage
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/pypi-upload.yml
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/doctr-upload.yml
-  - pcdshub/pcds-ci-helpers:travis/shared_configs/anaconda-upload.yml
+jobs:
+  include:
+    - stage: build
+      name: "Python 3.9 - PIP"
+      python: 3.9
+      install:
+        - python -m pip install --upgrade pip
+        # Build requirements, for now:
+        - python -m pip install epicscorelibs cython
+        - python -m pip install .
+        - python -m pip install --requirement dev-requirements.txt
+      script:
+        - |
+          set -e
+          coverage run --concurrency=thread --parallel-mode -m pytest -vv
+          (coverage combine && coverage report | grep -v -e ' 0%') || true

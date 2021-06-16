@@ -1,4 +1,5 @@
-recursive-include src/whatrecord/grammar *.lark
-recursive-include src/whatrecord/tests *.db *.cmd *.dbd
+recursive-include whatrecord/_whatrecord *.pyx
+recursive-include whatrecord/grammar *.lark
+recursive-include whatrecord/tests *.db *.cmd *.dbd
 include versioneer.py
-include src/whatrecord/_version.py
+include whatrecord/_version.py

@@ -5,16 +5,18 @@ import os
 import re
 import sys
 import tempfile
-from typing import DefaultDict, Dict, List, Optional, Set, Tuple, Union
+from typing import (ClassVar, DefaultDict, Dict, List, Optional, Set, Tuple,
+                    Union)
 
 import apischema
 import graphviz
 from aiohttp import web
 
-from .. import common, gateway, graph
+from .. import common, gateway, graph, ioc_finder
 from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
-from ..shell import LoadedIoc, ScriptContainer, load_startup_scripts
+from ..shell import (LoadedIoc, ScriptContainer,
+                     load_startup_scripts_with_metadata)
 
 # from . import html as html_mod
 # from . import static
@@ -48,6 +50,7 @@ class ServerState:
     ]
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
+    script_loaders: List[ioc_finder._IocInfoFinder]
 
     def __init__(
         self,
@@ -56,14 +59,35 @@ class ServerState:
         standin_directories: Dict[str, str]
     ):
         self.standin_directories = standin_directories
-        self.container = load_startup_scripts(
-            *startup_scripts, standin_directories=standin_directories
+        self.container = ScriptContainer()
+        self.pv_relations = {}
+        self.script_relations = {}
+        self.script_loaders = [
+            ioc_finder.IocScriptStaticList(startup_scripts)
+        ] + [
+            ioc_finder.IocScriptExternalLoader(loader)
+            for loader in script_loaders
+        ]
+        self.archived_pvs = set()
+        self.gateway_config = None
+
+    async def async_init(self, app):
+        await self.update_from_script_loaders()
+
+    async def update_from_script_loaders(self):
+        startup_md = []
+        for loader in self.script_loaders:
+            await loader.update()
+            for _, md in loader.scripts.items():
+                startup_md.append(md)
+
+        # TODO this should be an _update_, but uh... clear cache for now?
+        self.container = load_startup_scripts_with_metadata(
+            *startup_md, standin_directories=self.standin_directories
         )
         self.pv_relations = graph.build_database_relations(self.container.database)
         self.script_relations = graph.build_script_relations(
             self.container.database, self.pv_relations)
-        self.archived_pvs = set()
-        self.gateway_config = None
 
     def load_gateway_config(self, path):
         self.gateway_config = gateway.GatewayConfig(path)
@@ -181,6 +205,18 @@ class PVGetInfo:
     present: bool
     info: List[WhatRecord]
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """\
+{{ pv_name }}:
+    In database: {{ present }}
+{% for _info in info %}
+{% set item_info = render_object(_info, "console") %}
+    {{ item_info | indent(4)}}
+{% endfor %}
+}
+""",
+    }
+
 
 @dataclass
 class PVGetMatchesResponse:
@@ -224,7 +260,9 @@ class ServerHandler:
         self.state = ServerState(
             startup_scripts, script_loader, standin_directories
         )
-        self.archive_viewer_url = None
+
+    async def async_init(self, app):
+        await self.state.async_init(app)
 
     @routes.get("/api/pv/{pv_names}/info")
     async def api_pv_get_info(self, request: web.Request):
@@ -455,7 +493,7 @@ def main(
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
     gateway_config: Optional[str] = None,
-    port: int = 8899,
+    port: int = 8898,
     standin_directory: Optional[Union[List, Dict]] = None,
 ):
     scripts = scripts or []
@@ -484,6 +522,7 @@ def main(
     if gateway_config:
         handler.state.load_gateway_config(gateway_config)
 
+    app.on_startup.append(handler.async_init)
     web.run_app(app, port=port)
     return app, handler
 

@@ -7,7 +7,7 @@ import traceback
 import typing
 from typing import Dict, List, Optional
 
-from .common import IocshResult, LoadContext
+from whatrecord.common import IocshResult, LoadContext
 
 # cimport epicscorelibs
 # cimport epicscorelibs.Com
@@ -22,12 +22,20 @@ def _get_redirect(redirects: dict, idx: int):
 
 
 cdef class IOCShellLineParser:
+    """
+    Parsing helper for IOC shell lines.
+
+    Note that this is almost a direct conversion of the original C code, making
+    an attempt to avoid introducing inconsistencies between this implementation
+    and the original.
+    """
+    # And (likely because of that?) this isn't very clean...
     num_redirects: int = 5
     ifs: bytes = b" \t(),\r"
     cdef public str string_encoding
     cdef public object macro_context
 
-    def __init__(self, string_encoding="latin-1", macro_context=None):
+    def __init__(self, string_encoding: str = "latin-1", macro_context=None):
         self.string_encoding = string_encoding
         self.macro_context = macro_context
 
@@ -37,15 +45,7 @@ cdef class IOCShellLineParser:
         return str(bytearr, self.string_encoding)
 
     cpdef split_words(self, input_line: str):
-        """
-        Split input_line into words, according to how the IOC shell would.
-
-        Note that this is almost a direct conversion of the original C code,
-        making an attempt to avoid introducing inconsistencies between this
-        implementation and the original.
-
-        And (likely because of that?) this isn't very clean...
-        """
+        """Split input_line into words, according to how the IOC shell would."""
         cdef int EOF = -1
         cdef int inword = 0
         cdef int quote = EOF
@@ -168,6 +168,28 @@ cdef class IOCShellLineParser:
 
     def parse(self, line: str, *, context: Optional[LoadContext] = None,
               prompt="epics>") -> IocshResult:
+        """
+        Parse an IOC shell line into an IocshResult.
+
+        Parameters
+        ----------
+        line : str
+            The line to parse.
+
+        context : LoadContext, optional
+            The load context to populate the result with.
+
+        prompt : str, optional
+            Replicating the EPICS source code, specify the state of the prompt
+            here.  Defaults to "epics>".  If unset as in prior to IOC init,
+            lines that do not start with "#-" will be eched.
+
+        Returns
+        -------
+        IocshResult
+            A partially filled IocshResult, ready for interpreting by a
+            higher-level function.
+        """
         result = IocshResult(
             context=context,
             line=line,

@@ -2,23 +2,26 @@
 import os
 import sys
 
-try:
-    import epicscorelibs
-    import epicscorelibs.path
-    from Cython.Build import cythonize
-    from setuptools import Extension, find_packages, setup
-except ImportError:
-    print("""\
+if os.environ.get("CONDA_BUILD_STATE") == "RENDER":
+    epicscorelibs = None
+else:
+    try:
+        import epicscorelibs
+        import epicscorelibs.path
+        from Cython.Build import cythonize
+    except (ImportError, ModuleNotFoundError, Exception) as ex:
+        print(f"""\
 Sorry, the following are required to build `whatrecord`. Please install these first:
     epicscorelibs
     cython
-""")
-    sys.exit(1)
+{type(ex).__name__}: {ex}
+""", file=sys.stderr)
+        raise
 
-
+from setuptools import Extension, find_packages, setup  # isort: skip
 import versioneer
 
-min_version = (3, 6)
+min_version = (3, 7)
 
 if sys.version_info < min_version:
     error = """
@@ -35,18 +38,6 @@ pip install --upgrade pip
         *sys.version_info[:2], *min_version
     )
     sys.exit(error)
-
-
-ext_options = dict(
-    include_dirs=[
-        epicscorelibs.path.base_path,
-        epicscorelibs.path.include_path,
-        "include",
-    ],
-    libraries=["Com", "dbCore"],
-    library_dirs=[epicscorelibs.path.lib_path],
-    language="c++",
-)
 
 
 # https://cython.readthedocs.io/en/latest/src/userguide/source_files_and_compilation.html#distributing-cython-modules
@@ -66,22 +57,39 @@ def no_cythonize(extensions, **_ignore):
     return extensions
 
 
-extensions = [
-    Extension("whatrecord.iocsh", ["src/whatrecord/iocsh.pyx"], **ext_options),
-    Extension(
-        "whatrecord.macro",
-        ["src/whatrecord/macro.pyx"],
-        **ext_options,
-    ),
-]
+def get_extensions():
+    """Get the list of Cython extensions to add."""
+    ext_options = dict(
+        include_dirs=[
+            epicscorelibs.path.base_path,
+            epicscorelibs.path.include_path,
+            "include",
+        ],
+        libraries=["Com", "dbCore"],
+        library_dirs=[epicscorelibs.path.lib_path],
+        language="c++",
+    )
 
-CYTHONIZE = bool(int(os.getenv("CYTHONIZE", 1)))
+    extensions = [
+        Extension(
+            "_whatrecord.iocsh",
+            ["whatrecord/_whatrecord/iocsh.pyx"],
+            **ext_options
+        ),
+        Extension(
+            "_whatrecord.macro",
+            ["whatrecord/_whatrecord/macro.pyx"],
+            **ext_options,
+        ),
+    ]
 
-if CYTHONIZE:
-    compiler_directives = {"language_level": 3, "embedsignature": True}
-    extensions = cythonize(extensions, compiler_directives=compiler_directives)
-else:
-    extensions = no_cythonize(extensions)
+    CYTHONIZE = bool(int(os.getenv("CYTHONIZE", "1")))
+
+    if CYTHONIZE:
+        compiler_directives = {"language_level": 3, "embedsignature": True}
+        return cythonize(extensions, compiler_directives=compiler_directives)
+    return no_cythonize(extensions)
+
 
 with open("requirements.txt") as fp:
     install_requires = [
@@ -94,24 +102,25 @@ with open("README.rst", encoding="utf-8") as fp:
 
 setup(
     name="whatrecord",
-    # cmdclass=versioneer.get_cmdclass(),
-    # version=versioneer.get_version(),
-    packages=find_packages(where="src"),
+    cmdclass=versioneer.get_cmdclass(),
+    version=versioneer.get_version(),
+    packages=find_packages(),
     author="SLAC National Accelerator Laboratory",
     description="EPICS IOC record search and meta information tool",
-    ext_modules=extensions,
+    ext_modules=get_extensions() if epicscorelibs is not None else [],
     include_package_data=True,
     install_requires=install_requires,
     license="BSD",
     long_description=readme,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     entry_points={
         "console_scripts": [
             "whatrec = whatrecord.bin.main:main",
         ]
     },
     package_dir={
-        "": "src",
+        "_whatrecord": "whatrecord/_whatrecord",
+        "whatrecord": "whatrecord",
     },
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

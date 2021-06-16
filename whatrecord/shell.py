@@ -113,6 +113,7 @@ class ShellState:
         self._handlers.update(dict(self.find_handlers()))
         self._setup_dynamic_handlers()
         self._parser.macro_context = self.macro_context
+        self._parser.macro_context.string_encoding = self.string_encoding
         self._parser.string_encoding = self.string_encoding
 
     def _setup_dynamic_handlers(self):
@@ -264,10 +265,7 @@ class ShellState:
         return f"Defined: {variable!r}={value!r}"
 
     def handle_epicsEnvShow(self, *_):
-        return {
-            str(name, self.string_encoding): str(value, self.string_encoding)
-            for name, value in self.macro_context.get_macros().items()
-        }
+        return self.macro_context.get_macros()
 
     def handle_iocshCmd(self, command, *_):
         return IocshCommand(context=self.get_load_context(), command=command)
@@ -301,13 +299,7 @@ class ShellState:
         fn = self._fix_path(fn)
         self.loaded_files[str(fn.resolve())] = str(orig_fn)
 
-        bytes_macros = self.macro_context.definitions_to_dict(
-            bytes(macros, self.string_encoding)
-        )
-        macros = {
-            str(variable, self.string_encoding): str(value, self.string_encoding)
-            for variable, value in bytes_macros.items()
-        }
+        macros = self.macro_context.definitions_to_dict(macros)
 
         try:
             with self.macro_context.scoped(**macros):
@@ -614,7 +606,7 @@ class LoadedIoc:
     script: IocshScript
 
     @classmethod
-    def from_metadata(cls, md: IocMetadata):
+    def from_metadata(cls, md: IocMetadata) -> LoadedIoc:
         sh = ShellState(ioc_info=md)
         sh.working_directory = md.startup_directory
         # sh.macro_context.define(TOP="../..")
@@ -672,20 +664,71 @@ def load_startup_scripts(
             #         print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
             #         container.add_script(iocsh_script, sh_state)
         else:
-            for idx, fn in enumerate(sorted(set(fns)), 1):
-                print(f"{idx}/{total_files}: Loading {fn}...", end="")
-                with time_context() as ctx:
-                    loaded = LoadedIoc.from_metadata(
-                        common.IocMetadata.from_filename(
-                            fn,
-                            standin_directories=standin_directories
+            try:
+                for idx, fn in enumerate(sorted(set(fns)), 1):
+                    print(f"{idx}/{total_files}: Loading {fn}...", end="")
+                    with time_context() as ctx:
+                        loaded = LoadedIoc.from_metadata(
+                            common.IocMetadata.from_filename(
+                                fn,
+                                standin_directories=standin_directories
+                            )
                         )
-                    )
-                    container.add_script(loaded)
-                print(f"[{ctx():.1f} s]")
+                        container.add_script(loaded)
+                    print(f"[{ctx():.1f} s]")
+            except KeyboardInterrupt:
+                print("Ctrl-C: Cancelling loading remaining scripts.")
+                total_files = idx
 
         print(
             f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
             f"with {processes} process(es)"
         )
+    return container
+
+
+def load_startup_scripts_with_metadata(
+    *md_items, standin_directories=None, processes=1
+) -> ScriptContainer:
+    """
+    Load all given startup scripts into a shared ScriptContainer.
+
+    Parameters
+    ----------
+    *md_items : list of IocMetadata
+        List of IOC metadata.
+    standin_directories : dict
+        Stand-in/substitute directory mapping.
+    processes : int
+        The number of processes to use when loading.
+
+    Returns
+    -------
+    container : ScriptContainer
+        The resulting container.
+    """
+    container = ScriptContainer()
+    total_files = len(md_items)
+
+    with time_context() as total_ctx:
+        try:
+            for idx, md in enumerate(sorted(md_items, key=lambda md: md.name), 1):
+                print(f"{idx}/{total_files}: Loading {md.script}...", end="")
+                with time_context() as ctx:
+                    md.standin_directories.update(standin_directories)
+                    try:
+                        loaded = LoadedIoc.from_metadata(md)
+                    except FileNotFoundError as ex:
+                        print(f"Failed to load: {ex}")
+                        continue
+                    container.add_script(loaded)
+                print(f"[{ctx():.1f} s]")
+        except KeyboardInterrupt:
+            print("Ctrl-C: Cancelling loading remaining scripts.")
+            total_files = idx
+
+    print(
+        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
+        f"with {processes} process(es)"
+    )
     return container

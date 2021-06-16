@@ -2,8 +2,19 @@ all: install server
 
 IPY_OPTS ?= -i
 GATEWAY_CONFIG ?= /reg/g/pcds/gateway/config/
-STARTUP_SCRIPTS ?= $(shell cat all_stcmds.txt)
-PORT ?= 8899
+STARTUP_SCRIPTS ?=
+
+# Frontend expects the server to run on a specific port; check its settings
+# here (or use the default below)
+ifneq ("$(wildcard ./frontend/.env)","")
+	include frontend/.env
+endif
+ifneq ("$(wildcard ./frontend/.env.local)","")
+	include frontend/.env.local
+endif
+
+API_PORT ?= 8898
+
 
 MACOSX_DEPLOYMENT_TARGET ?= 10.9
 
@@ -19,7 +30,7 @@ time:
 profile:
 	sudo py-spy record -o profile.speedscope -f speedscope -- python -c "import sys, whatrecord.shell; from whatrecord.shell import whatrec; cnt = whatrecord.shell.load_startup_scripts(*sys.argv[1:])" $(STARTUP_SCRIPTS)
 
-frontend:
+frontend-release:
 	# npm install -g vue@next @vue/cli
 	(cd frontend && yarn build) || exit 1
 	mkdir -p src/whatrecord/server/static/{js,img,css}
@@ -30,11 +41,16 @@ frontend:
 	cp -R frontend/dist/ src/whatrecord/server/static/css/
 
 server:
-	ipython -i `which whatrec` -- server \
+	@echo "Running server with:"
+	@echo " - Gateway config: ${GATEWAY_CONFIG}"
+	@echo " - Startup scripts: ${STARTUP_SCRIPTS}"
+	@echo " - API Port: ${API_PORT}"
+	@echo " - Extra arguments: ${SERVER_ARGS}"
+	ipython -i -m whatrecord.bin.main -- server \
 		--archive-file all_archived_pvs.json \
 		--gateway-config $(GATEWAY_CONFIG) \
 		--scripts $(STARTUP_SCRIPTS) \
-		--port $(PORT) \
+		--port $(API_PORT) \
 		$(SERVER_ARGS)
 
-.phony: install ipython server profile time
+.phony: install ipython server profile time frontend-release
