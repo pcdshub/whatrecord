@@ -82,8 +82,9 @@ jobs:
         - conda info -a
         - conda config --show
 
-        - conda create -n ${CONDA_ENV_NAME} python=$PYTHON_VERSION ${CONDA_PACKAGE} ${CONDA_EXTRAS} --file ${CONDA_REQUIREMENTS}
+        - conda create -n ${CONDA_ENV_NAME} python=$PYTHON_VERSION ${CONDA_PACKAGE} ${CONDA_EXTRAS}
         - source activate ${CONDA_ENV_NAME}
+        - python -m pip install --requirement dev-requirements.txt
         - conda list
       script:
         - |
