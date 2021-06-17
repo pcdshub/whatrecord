@@ -5,7 +5,7 @@ os: linux
 dist: xenial
 
 stages:
-  - build
+  - test
 
 env:
   global:
@@ -27,17 +27,21 @@ env:
 
     # Requirements file with contents for tests dependencies
     - CONDA_REQUIREMENTS="dev-requirements.txt"
+    - CONDA_EXTRAS=""
+    - CONDA_ENV_NAME="testenv"
+    - BUILD_REQUIREMENTS="epicscorelibs cython"
 
 
 jobs:
   include:
-    - stage: build
-      name: "Python 3.9 - PIP"
-      python: 3.9
+    - &testpythonpip
+      stage: test
+      name: "Python 3.8 - PIP"
+      python: 3.8
       install:
         - python -m pip install --upgrade pip
         # Build requirements, for now:
-        - python -m pip install epicscorelibs cython
+        - python -m pip install ${BUILD_REQUIREMENTS}
         - python -m pip install .
         - python -m pip install --requirement dev-requirements.txt
       script:
@@ -45,3 +49,55 @@ jobs:
           set -e
           coverage run --concurrency=thread --parallel-mode -m pytest -vv
           (coverage combine && coverage report | grep -v -e ' 0%') || true
+
+    - <<: *testpythonpip
+      name: "Python 3.9 - PIP"
+      python: 3.9
+
+    - &testpythonconda
+      stage: test
+      name: "Python 3.7 - conda"
+      env:
+        - PYTHON_VERSION: 3.7
+      install:
+        - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - conda config --set always_yes yes --set changeps1 no
+        - conda config --set channel_priority strict
+        - conda config --add channels conda-forge
+        - conda config --remove channels defaults
+        - conda info -a
+        - conda config --show
+
+        - conda install conda-build anaconda-client
+        - conda update -q conda conda-build
+
+      before_script:
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - cat ${CONDA_RECIPE_FOLDER}/meta.yaml
+        - conda build -q ${CONDA_RECIPE_FOLDER} --output-folder bld-dir --no-anaconda-upload
+
+        - conda config --add channels "file://`pwd`/bld-dir"
+        - conda info -a
+        - conda config --show
+
+        - conda create -n ${CONDA_ENV_NAME} python=$PYTHON_VERSION ${CONDA_PACKAGE} ${CONDA_EXTRAS}
+        - source activate ${CONDA_ENV_NAME}
+        - python -m pip install --requirement dev-requirements.txt
+        - conda list
+      script:
+        - |
+          set -e
+          coverage run --concurrency=thread --parallel-mode -m pytest -vv
+          (coverage combine && coverage report | grep -v -e ' 0%') || true
+
+    - <<: *testpythonconda
+      name: "Python 3.8 - conda"
+      env:
+        - PYTHON_VERSION: 3.8
+
+    - <<: *testpythonconda
+      name: "Python 3.9 - conda"
+      env:
+        - PYTHON_VERSION: 3.9
