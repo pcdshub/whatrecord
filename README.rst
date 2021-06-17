@@ -55,7 +55,7 @@ Not yet. But I'm thinking of trying mkdocs for fun.
 Requirements
 ------------
 
-* Python 3.9+
+* Python 3.7+
 * aiohttp
 * apischema[graphql]
 * cython

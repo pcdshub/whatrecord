@@ -38,7 +38,6 @@ def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
 
 FullLoadContext = Tuple[LoadContext, ...]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
-AnyField = Union["RecordField", "PVAFieldReference"]
 
 
 @dataclass(repr=False)
@@ -289,6 +288,9 @@ PVAFieldReference: {{ record_name }}.{{ field_name }}
                  - {{ metadata }}
 """,
     }
+
+
+AnyField = Union[RecordField, PVAFieldReference]
 
 
 @dataclass
