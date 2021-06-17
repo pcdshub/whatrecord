@@ -8,6 +8,13 @@ import jinja2
 logger = logging.getLogger(__name__)
 
 
+pass_eval_context = (
+    jinja2.pass_eval_context
+    if hasattr(jinja2, "pass_eval_context")
+    else jinja2.evalcontextfilter
+)
+
+
 class FormatContext:
     def __init__(
         self, helpers=None, *, trim_blocks=True, lstrip_blocks=True, **env_kwargs
@@ -28,17 +35,17 @@ class FormatContext:
     def get_filters(self, **user_config):
         """All jinja filters."""
 
-        @jinja2.evalcontextfilter
+        @pass_eval_context
         def title_fill(eval_ctx, text, fill_char):
             return fill_char * len(text)
 
-        @jinja2.evalcontextfilter
+        @pass_eval_context
         def classname(eval_ctx, obj):
             if inspect.isclass(obj):
                 return obj.__name__
             return type(obj).__name__
 
-        @jinja2.evalcontextfilter
+        @pass_eval_context
         def render_object(eval_ctx, obj, option):
             return self.render_object(obj, option)
 
