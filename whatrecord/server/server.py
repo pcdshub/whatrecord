@@ -108,7 +108,9 @@ class ServerState:
             if not instance.is_pva:
                 # For now, V3 only
                 instance.metadata["archived"] = instance.name in self.archived_pvs
-                instance.metadata["gateway"] = self.get_gateway_info(instance.name)
+                instance.metadata["gateway"] = apischema.serialize(
+                    self.get_gateway_info(instance.name)
+                )
         return whatrec
 
     def whatrec(self, pvname) -> List[WhatRecord]:
