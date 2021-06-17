@@ -355,6 +355,12 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             context=_context_from_token(self.fn, value),
         )
 
+    def json_array(self, elements):
+        return elements
+
+    def json_elements(self, elements):
+        return elements
+
     recordtype_field_item_menu = recordtype_field_item
 
     def cdef(self, cdef_text):
