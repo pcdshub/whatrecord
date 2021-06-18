@@ -724,7 +724,7 @@ def _load_ioc(md, standin_directories):
 
 
 async def load_startup_scripts_with_metadata(
-    *md_items, standin_directories=None, processes=4
+    *md_items, standin_directories=None, processes=8
 ) -> ScriptContainer:
     """
     Load all given startup scripts into a shared ScriptContainer.
@@ -759,11 +759,13 @@ async def load_startup_scripts_with_metadata(
                     print(f"{idx}/{total_files}: Loading {md.script}...", end="")
                     try:
                         load_elapsed, loaded_ser = await fut
+                    except FileNotFoundError as ex:
+                        print(f"Missing file for loading this IOC: {ex}")
+                        continue
                     except Exception:
-                        with open("temp1", "wt") as fp:
-                            import pprint
-                            pprint.pprint(_load_ioc(md, standin_directories), stream=fp, width=200)
-                        raise
+                        print(f"Failed to load unexpectedly:")
+                        print(type(ex).__name__, ex)
+                        continue
 
                     total_child_load_time += load_elapsed
 
@@ -772,14 +774,6 @@ async def load_startup_scripts_with_metadata(
                         container.add_script(loaded)
                         print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
 
-                #     with time_context() as ctx:
-                #         md.standin_directories.update(standin_directories)
-                #         try:
-                #             loaded = LoadedIoc.from_metadata(md)
-                #         except FileNotFoundError as ex:
-                #             print(f"Failed to load: {ex}")
-                #             continue
-                #         container.add_script(loaded)
         except KeyboardInterrupt:
             print("Ctrl-C: Cancelling loading remaining scripts.")
             total_files = idx
