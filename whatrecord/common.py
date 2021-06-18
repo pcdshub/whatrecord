@@ -59,15 +59,23 @@ class IocshCommand:
 
 
 @dataclass
+class IocshRedirect:
+    fileno: int
+    name: str
+    mode: str
+
+
+@dataclass
 class IocshResult:
     context: FullLoadContext
     line: str
     outputs: List[str]
     argv: Optional[List[str]]
     error: Optional[str]
-    redirects: Dict[str, Dict[str, str]]
+    redirects: List[IocshRedirect]
     # TODO: normalize this
-    result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
+    # result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
+    result: Any
 
 
 @dataclass
@@ -189,7 +197,7 @@ PVAJsonField = Dict[str, str]
 class RecordField:
     dtype: str
     name: str
-    value: Union[str, PVAJsonField]
+    value: Any
     context: FullLoadContext
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
@@ -266,9 +274,9 @@ class RecordInstanceSummary:
 class StringWithContext(str):
     """A string with LoadContext."""
     __slots__ = ("context", )
-    context: FullLoadContext
+    context: Optional[FullLoadContext]
 
-    def __new__(cls, value, context: FullLoadContext):
+    def __new__(cls, value, context: Optional[FullLoadContext] = None):
         self = super().__new__(cls, value)
         self.context = context
         return self

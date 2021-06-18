@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import functools
 import inspect
 import logging
@@ -15,9 +17,10 @@ import apischema
 
 from . import asyn, common
 from . import motor as motor_mod
-from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshResult,
-                     IocshScript, MutableLoadContext, RecordInstance,
-                     ShortLinterResults, WhatRecord, time_context)
+from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshRedirect,
+                     IocshResult, IocshScript, MutableLoadContext,
+                     RecordInstance, ShortLinterResults, WhatRecord,
+                     time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
 from .iocsh import IOCShellLineParser
@@ -132,9 +135,14 @@ class ShellState:
                 name = attr.split("_", 1)[1]
                 yield name, obj
 
-    def _handle_input_redirect(self, fileno, redir, shresult, recurse=True,
-                               raise_on_error=False):
-        filename = self._fix_path(redir["name"])
+    def _handle_input_redirect(
+        self,
+        redir: IocshRedirect,
+        shresult: IocshResult,
+        recurse: bool = True,
+        raise_on_error: bool = False
+    ):
+        filename = self._fix_path(redir.name)
         try:
             fp_redir = open(filename, "rt")
         except Exception as ex:
@@ -145,7 +153,7 @@ class ShellState:
         try:
             yield shresult
             yield from self.interpret_shell_script(
-                fp_redir, recurse=recurse, name=redir["name"]
+                fp_redir, recurse=recurse, name=redir.name
             )
         finally:
             fp_redir.close()
@@ -157,15 +165,15 @@ class ShellState:
             prompt=self.prompt
         )
         input_redirects = [
-            (fileno, redir) for fileno, redir in shresult.redirects.items()
-            if redir["mode"] == "r"
+            redir for redir in shresult.redirects
+            if redir.mode == "r"
         ]
         if shresult.error:
             yield shresult
         elif input_redirects:
             if recurse:
                 yield from self._handle_input_redirect(
-                    *input_redirects[0], shresult, recurse=recurse,
+                    input_redirects[0], shresult, recurse=recurse,
                     raise_on_error=raise_on_error
                 )
         elif shresult.argv:
@@ -234,7 +242,6 @@ class ShellState:
         if handler is not None:
             return handler(*args)
         return self.unhandled(command, args)
-        # return f"No handler for handle_{command}"
 
     def _fix_path(self, filename: str):
         if os.path.isabs(filename):
@@ -689,8 +696,16 @@ def load_startup_scripts(
     return container
 
 
-def load_startup_scripts_with_metadata(
-    *md_items, standin_directories=None, processes=1
+def _load_ioc(md, standin_directories):
+    with time_context() as ctx:
+        loaded = LoadedIoc.from_metadata(md)
+        md.standin_directories.update(standin_directories)
+        serialized = apischema.serialize(loaded)
+        return ctx(), serialized
+
+
+async def load_startup_scripts_with_metadata(
+    *md_items, standin_directories=None, processes=4
 ) -> ScriptContainer:
     """
     Load all given startup scripts into a shared ScriptContainer.
@@ -711,20 +726,41 @@ def load_startup_scripts_with_metadata(
     """
     container = ScriptContainer()
     total_files = len(md_items)
+    total_child_load_time = 0.0
 
     with time_context() as total_ctx:
         try:
-            for idx, md in enumerate(sorted(md_items, key=lambda md: md.name), 1):
-                print(f"{idx}/{total_files}: Loading {md.script}...", end="")
-                with time_context() as ctx:
-                    md.standin_directories.update(standin_directories)
+            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
+                idx_to_future = {
+                    idx: asyncio.wrap_future(executor.submit(_load_ioc, md, standin_directories))
+                    for idx, md in enumerate(md_items)
+                }
+                for idx, fut in idx_to_future.items():
+                    md = md_items[idx]
+                    print(f"{idx}/{total_files}: Loading {md.script}...", end="")
                     try:
-                        loaded = LoadedIoc.from_metadata(md)
-                    except FileNotFoundError as ex:
-                        print(f"Failed to load: {ex}")
-                        continue
-                    container.add_script(loaded)
-                print(f"[{ctx():.1f} s]")
+                        load_elapsed, loaded_ser = await fut
+                    except Exception:
+                        with open("temp1", "wt") as fp:
+                            import pprint
+                            pprint.pprint(_load_ioc(md, standin_directories), stream=fp, width=200)
+                        raise
+
+                    total_child_load_time += load_elapsed
+
+                    with time_context() as ctx:
+                        loaded = apischema.deserialize(LoadedIoc, loaded_ser)
+                        container.add_script(loaded)
+                        print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
+
+                #     with time_context() as ctx:
+                #         md.standin_directories.update(standin_directories)
+                #         try:
+                #             loaded = LoadedIoc.from_metadata(md)
+                #         except FileNotFoundError as ex:
+                #             print(f"Failed to load: {ex}")
+                #             continue
+                #         container.add_script(loaded)
         except KeyboardInterrupt:
             print("Ctrl-C: Cancelling loading remaining scripts.")
             total_files = idx
@@ -732,5 +768,9 @@ def load_startup_scripts_with_metadata(
     print(
         f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
         f"with {processes} process(es)"
+    )
+    print(
+        f"Child processes reported taking a total of {total_child_load_time} "
+        f"sec (wall time)"
     )
     return container

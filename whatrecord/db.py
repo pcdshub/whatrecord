@@ -361,10 +361,20 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def json_elements(self, *elements):
         return elements
 
-    recordtype_field_item_menu = recordtype_field_item
+    def JSON_TRUE(self, _):
+        return True
+
+    def JSON_FALSE(self, _):
+        return False
+
+    def JSON_NULL(self, _):
+        return None
+
+    def recordtype_field_item_menu(self, _, menu):
+        return menu
 
     def cdef(self, cdef_text):
-        return RecordTypeCdef(cdef_text)
+        return RecordTypeCdef(str(cdef_text))
 
     def recordtype(self, _, name, body):
         info = {

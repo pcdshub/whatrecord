@@ -7,17 +7,14 @@ import traceback
 import typing
 from typing import Dict, List, Optional
 
-from whatrecord.common import IocshResult, LoadContext
-
-# cimport epicscorelibs
-# cimport epicscorelibs.Com
-
+from whatrecord.common import IocshRedirect, IocshResult, LoadContext
 
 logger = logging.getLogger(__name__)
 
+
 def _get_redirect(redirects: dict, idx: int):
     if idx not in redirects:
-        redirects[idx] = {"name": "", "mode": ""}
+        redirects[idx] = IocshRedirect(fileno=idx, name="", mode="")
     return redirects[idx]
 
 
@@ -67,11 +64,7 @@ cdef class IOCShellLineParser:
         while idx < len(line):
             c = line[idx]
             idx += 1
-
-            if quote == EOF and not backslash and c in self.ifs:
-                sep = 1
-            else:
-                sep = 0
+            sep = (quote == EOF and not backslash and c in self.ifs)
 
             if quote == EOF and not backslash:
                 if c == b'\\':
@@ -83,7 +76,7 @@ cdef class IOCShellLineParser:
 
                     redirect = _get_redirect(redirects, 0)
                     sep = 1
-                    redirect["mode"] = "r"
+                    redirect.mode = "r"
 
                 if b'1' <= c <= b'9' and line[idx] == b'>':
                     redirectFd = c - b'0'
@@ -100,9 +93,9 @@ cdef class IOCShellLineParser:
                     sep = 1
                     if line[idx] == b'>':
                         idx += 1
-                        redirect["mode"] = "a"
+                        redirect.mode = "a"
                     else:
-                        redirect["mode"] = "w"
+                        redirect.mode = "w"
 
             if inword:
                 if c == quote:
@@ -124,9 +117,9 @@ cdef class IOCShellLineParser:
                 if (c == b'"' or c == b'\'') and not backslash:
                     quote = c
                 if redirect:
-                    if redirect["name"]:
+                    if redirect.name:
                         break
-                    redirect["name"] = idx_out
+                    redirect.name = idx_out
                     redirect = None
                 else:
                     word_starts.append(idx_out)
@@ -143,9 +136,9 @@ cdef class IOCShellLineParser:
         # Python-only as we're not dealing with pointers to the string;
         # fix up redirect names by looking back at ``line``
         for _redir in redirects.values():
-            if isinstance(_redir["name"], int):
-                _redir["name"] = self._decode_string(line[_redir["name"]:])
-            elif not _redir["name"]:
+            if isinstance(_redir.name, int):
+                _redir.name = self._decode_string(line[_redir.name:])
+            elif not _redir.name:
                 error = f"Illegal redirection. ({_redir})"
 
         error = None
@@ -196,7 +189,7 @@ cdef class IOCShellLineParser:
             outputs=[],
             argv=None,
             error=None,
-            redirects={},
+            redirects=[],
             result=None,
         )
         # Skip leading whitespace
@@ -228,6 +221,6 @@ cdef class IOCShellLineParser:
 
         split = self.split_words(line)
         result.argv = split["argv"]
-        result.redirects = split["redirects"]
+        result.redirects = list(split["redirects"].values())
         result.error = split["error"]
         return result

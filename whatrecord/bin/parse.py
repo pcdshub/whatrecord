@@ -108,12 +108,19 @@ def main(
         path.split("=", 1) for path in standin_directory or ""
     )
 
-    result = parse(
-        filename,
-        dbd=dbd,
-        standin_directories=standin_directories,
-        macros=macros,
-    )
+    if isinstance(filename, str) and filename.startswith("{"):   # }
+        # TODO - argparse fixup?
+        ioc_metadata = IocMetadata.from_dict(json.loads(filename))
+        result = LoadedIoc.from_metadata(
+            ioc_metadata
+        )
+    else:
+        result = parse(
+            filename,
+            dbd=dbd,
+            standin_directories=standin_directories,
+            macros=macros,
+        )
 
     if as_json:
         # TODO: JSON -> obj -> JSON round tripping
