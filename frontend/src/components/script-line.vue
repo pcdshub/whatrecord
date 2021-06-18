@@ -1,10 +1,10 @@
 <template>
   <tr>
-    <td class="line-id">
+    <td :class="line_id_class">
       {{ line_id }}:
     </td>
     <td :class="script_line_class">
-      <template v-if="result == null && error == null">
+      <template v-if="!has_details">
         <span class="script-line" :id="line_id">
           {{ line }}
         </span>
@@ -16,7 +16,7 @@
             <span v-if="error != null" class="script-error-line">
               {{line}}
             </span>
-            <span v-else-if="is_error_line" class="script-error-line">
+            <span v-else-if="is_db_load_error" class="script-error-line">
               {{line}}
             </span>
             <span v-else class="script-line">{{line}}</span>
@@ -57,10 +57,26 @@ export default {
     line_id() {
       return this.context.map(ctx => ctx[1]).join(':');
     },
+    line_id_class() {
+      let classes = ["line-id"];
+      if (this.is_error_line) {
+        classes.push("line-id-error");
+      }
+      if (this.has_details) {
+        classes.push("line-id-details");
+      }
+      return classes;
+    },
+    has_details() {
+      return !(this.result == null && this.error == null);
+    },
+    is_error_line() {
+      return (this.is_db_load_error || this.error != null);
+    },
     script_line_class() {
       return (this.line == this.$route.params.line ? ["script-line-selected", "script-line"] : "script-line");
     },
-    is_error_line() {
+    is_db_load_error() {
       return (
         this.result instanceof Object &&
         "load_count" in this.result &&
@@ -91,6 +107,15 @@ td {
 td.line-id {
   font-family: monospace;
   user-select: none;
+}
+
+td.line-id-details {
+  font-weight: bold;
+}
+
+td.line-id-error {
+  font-weight: bold;
+  color: red;
 }
 
 td.script-line {
