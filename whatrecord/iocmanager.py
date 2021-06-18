@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 KEY_RE = re.compile(r"([a-z_]+)\s*:", re.IGNORECASE)
 EPICS_SITE_TOP = os.environ.get("EPICS_SITE_TOP", "/reg/g/pcds/epics")
-REQUIRED_KEYS = {"id", "host", "port", "dir"}
+REQUIRED_KEYS = {"id", "host", "port", "dir", "base_version"}
 
 
 def validate_config_keys(cfg: IocInfoDict) -> bool:
@@ -91,6 +91,8 @@ def load_config_file(fn: Union[str, pathlib.Path]) -> List[IocInfoDict]:
     iocs = parse_config(lines)
 
     for ioc in list(iocs):
+        # For now, assume old database syntax by specifying 3.15:
+        ioc["base_version"] = "3.15"
         if not validate_config_keys(ioc):
             iocs.remove(ioc)
         else:
@@ -98,8 +100,6 @@ def load_config_file(fn: Union[str, pathlib.Path]) -> List[IocInfoDict]:
             ioc["config_file"] = str(fn)
             ioc["name"] = ioc.pop("id")
             ioc["script"] = find_stcmd(ioc["dir"], ioc["name"])
-            # For now, assume old database syntax:
-            ioc["version"] = "3.15"
 
     return iocs
 

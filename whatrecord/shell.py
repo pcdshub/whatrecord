@@ -206,7 +206,7 @@ class ShellState:
         raise_on_error: bool = False
     ) -> Generator[IocshResult, None, None]:
         """Interpret a shell script named ``name`` with ``lines`` of text."""
-        load_ctx = MutableLoadContext(name, 0)
+        load_ctx = MutableLoadContext(str(name), 0)
         try:
             self.load_context.append(load_ctx)
             for lineno, line in enumerate(lines, 1):
@@ -764,10 +764,10 @@ async def load_startup_scripts_with_metadata(
                     try:
                         load_elapsed, loaded_ser = await fut
                     except FileNotFoundError as ex:
-                        print(f"Missing file for loading this IOC: {ex}")
+                        print(f"\n\nMissing file for loading this IOC: {ex}")
                         continue
                     except Exception:
-                        print(f"Failed to load unexpectedly:")
+                        print(f"\n\nFailed to load unexpectedly:")
                         print(type(ex).__name__, ex)
                         continue
 

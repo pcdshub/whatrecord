@@ -98,7 +98,7 @@ class IocMetadata:
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
     host: Optional[str] = None
     port: Optional[int] = None
-    version: str = "3.15"
+    base_version: str = "3.15"
     metadata: Dict[str, Any] = field(default_factory=dict)
     macros: Dict[str, str] = field(default_factory=dict)
     standin_directories: Dict[str, str] = field(default_factory=dict)
@@ -107,7 +107,7 @@ class IocMetadata:
     def database_version_spec(self) -> int:
         """Load databases with this specification."""
         # TODO: version parsing
-        return 3 if version <= "3.15" else 4
+        return 3 if self.base_version <= "3.15" else 4
 
     @classmethod
     def empty(cls):

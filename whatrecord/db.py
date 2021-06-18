@@ -486,14 +486,15 @@ class Database:
                     macro_context=None, version: int = 4) -> Database:
         comments = []
         grammar = lark.Lark.open_from_package(
-            "whatrecord", f"db.v{version}.lark",
+            "whatrecord",
+            f"db.v{version}.lark",
             search_paths=("grammar", ),
             parser="lalr",
             lexer_callbacks={"COMMENT": comments.append},
             transformer=_DatabaseTransformer(filename, dbd=dbd),
             # Caches LALR grammar analysis to a local file:
             # TODO: handle cache paths ourselves
-            cache='db.v{version}.lark.cache',
+            cache=f"db.v{version}.lark.cache",
         )
         if macro_context is not None:
             contents = "\n".join(
