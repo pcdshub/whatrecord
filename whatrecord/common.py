@@ -66,6 +66,13 @@ class IocshRedirect:
 
 
 @dataclass
+class IocshSplit:
+    argv: List[str]
+    redirects: List[IocshRedirect]
+    error: Optional[str]
+
+
+@dataclass
 class IocshResult:
     context: FullLoadContext
     line: str

@@ -23,7 +23,7 @@ from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshRedirect,
                      time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
-from .iocsh import IOCShellLineParser
+from .iocsh import parse_iocsh_line
 from .macro import MacroContext
 
 logger = logging.getLogger(__name__)
@@ -104,22 +104,21 @@ class ShellState:
     loaded_files: Dict[str, str] = field(
         default_factory=dict,
     )
-    macro_context: MacroContext = field(default_factory=MacroContext,
-                                        metadata=apischema.metadata.skip)
+    macro_context: MacroContext = field(
+        default_factory=MacroContext,
+        metadata=apischema.metadata.skip
+    )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
 
-    _handlers: Dict[str, Callable] = field(default_factory=dict,
-                                           metadata=apischema.metadata.skip)
-    _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser,
-                                        metadata=apischema.metadata.skip,
-                                        )
+    _handlers: Dict[str, Callable] = field(
+        default_factory=dict,
+        metadata=apischema.metadata.skip
+    )
 
     def __post_init__(self):
         self._handlers.update(dict(self.find_handlers()))
         self._setup_dynamic_handlers()
-        self._parser.macro_context = self.macro_context
-        self._parser.macro_context.string_encoding = self.string_encoding
-        self._parser.string_encoding = self.string_encoding
+        self.macro_context.string_encoding = self.string_encoding
 
     def _setup_dynamic_handlers(self):
         # Just motors for now
@@ -160,9 +159,11 @@ class ShellState:
 
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
-        shresult = self._parser.parse(
+        shresult = parse_iocsh_line(
             line, context=self.get_load_context(),
-            prompt=self.prompt
+            prompt=self.prompt,
+            macro_context=self.macro_context,
+            string_encoding=self.string_encoding,
         )
         input_redirects = [
             redir for redir in shresult.redirects
