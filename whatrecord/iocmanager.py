@@ -98,6 +98,8 @@ def load_config_file(fn: Union[str, pathlib.Path]) -> List[IocInfoDict]:
             ioc["config_file"] = str(fn)
             ioc["name"] = ioc.pop("id")
             ioc["script"] = find_stcmd(ioc["dir"], ioc["name"])
+            # For now, assume old database syntax:
+            ioc["version"] = "3.15"
 
     return iocs
 

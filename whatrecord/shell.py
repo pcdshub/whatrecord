@@ -302,7 +302,7 @@ class ShellState:
         if self.ioc_initialized:
             raise RuntimeError("Database cannot be loaded after iocInit")
         if self.database_definition:
-            # TODO: technically this is allowed; we'll need to update 
+            # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
             return "whatrecord: TODO multiple dbLoadDatabase"
         # TODO: handle path - see dbLexRoutines.c
@@ -313,7 +313,10 @@ class ShellState:
             if substitutions else {}
         )
         with self.macro_context.scoped(**macros):
-            self.database_definition = Database.from_file(fn)
+            self.database_definition = Database.from_file(
+                fn,
+                version=self.ioc_info.database_version_spec
+            )
 
         self.loaded_files[str(fn.resolve())] = str(dbd)
         return f"Loaded database: {fn}"
@@ -335,6 +338,7 @@ class ShellState:
                     dbd=self.database_definition,
                     db=fn,
                     macro_context=self.macro_context,
+                    version=self.ioc_info.database_version_spec,
                 )
         except Exception as ex:
             # TODO move this around

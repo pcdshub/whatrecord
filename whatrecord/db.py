@@ -613,6 +613,7 @@ def load_database_file(
     db: Union[str, pathlib.Path],
     macro_context: Optional[MacroContext] = None,
     *,
+    version: int = 3,
     full: bool = True,
     warn_ext_links: bool = False,
     warn_bad_fields: bool = True,
@@ -631,6 +632,9 @@ def load_database_file(
         The database definition file; filename or pre-loaded Database
     db : str
         The database filename.
+    version : int, optional
+        Use the old V3 style or new V3 style database grammar by specifying
+        3 or 4, respectively.  Defaults to 3.
     full : bool, optional
         Validate as a complete database
     warn_quoted : bool, optional
@@ -659,8 +663,14 @@ def load_database_file(
     -------
     results : LinterResults
     """
-    dbd = dbd if isinstance(dbd, Database) else Database.from_file(dbd)
-    db = Database.from_file(db, dbd=dbd, macro_context=macro_context)
+    if isinstance(dbd, Database):
+        dbd = dbd
+    else:
+        dbd = Database.from_file(dbd, version=version)
+
+    db = Database.from_file(
+        db, dbd=dbd, macro_context=macro_context, version=version
+    )
 
     # all TODO
     return LinterResults(
