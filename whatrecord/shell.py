@@ -92,6 +92,7 @@ class ShellState:
     prompt: str = "epics>"
     variables: Dict[str, str] = field(default_factory=dict)
     string_encoding: str = "latin-1"
+    ioc_initialized: bool = False
     standin_directories: Dict[str, str] = field(default_factory=dict)
     working_directory: pathlib.Path = field(
         default_factory=lambda: pathlib.Path.cwd(),
@@ -294,17 +295,34 @@ class ShellState:
 
     handle_chdir = handle_cd
 
-    def handle_dbLoadDatabase(self, dbd, *_):
+    def handle_iocInit(self, *_):
+        self.ioc_initialized = True
+
+    def handle_dbLoadDatabase(self, dbd, path=None, substitutions=None, *_):
+        if self.ioc_initialized:
+            raise RuntimeError("Database cannot be loaded after iocInit")
         if self.database_definition:
-            raise RuntimeError("dbd already loaded")
+            # TODO: technically this is allowed; we'll need to update 
+            # raise RuntimeError("dbd already loaded")
+            return "whatrecord: TODO multiple dbLoadDatabase"
+        # TODO: handle path - see dbLexRoutines.c
+        # env vars: EPICS_DB_INCLUDE_PATH, fallback to "."
         fn = self._fix_path(dbd)
-        self.database_definition = Database.from_file(fn)
+        macros = (
+            self.macro_context.definitions_to_dict(substitutions)
+            if substitutions else {}
+        )
+        with self.macro_context.scoped(**macros):
+            self.database_definition = Database.from_file(fn)
+
         self.loaded_files[str(fn.resolve())] = str(dbd)
         return f"Loaded database: {fn}"
 
     def handle_dbLoadRecords(self, fn, macros, *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
+        if self.ioc_initialized:
+            raise RuntimeError("Records cannot be loaded after iocInit")
         orig_fn = fn
         fn = self._fix_path(fn)
         self.loaded_files[str(fn.resolve())] = str(orig_fn)
