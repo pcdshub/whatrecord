@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import pathlib
 from dataclasses import field
@@ -370,6 +371,12 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def JSON_NULL(self, _):
         return None
 
+    def nan(self):
+        return math.nan
+
+    def hexint(self, sign, _, digits):
+        return f"{sign}0x{digits}"
+
     def recordtype_field_item_menu(self, _, menu):
         return menu
 
@@ -476,16 +483,17 @@ class Database:
 
     @classmethod
     def from_string(cls, contents, dbd=None, filename=None,
-                    macro_context=None) -> Database:
+                    macro_context=None, version: int = 4) -> Database:
         comments = []
         grammar = lark.Lark.open_from_package(
-            "whatrecord", "db.lark", search_paths=("grammar", ),
+            "whatrecord", f"db.v{version}.lark",
+            search_paths=("grammar", ),
             parser="lalr",
             lexer_callbacks={"COMMENT": comments.append},
             transformer=_DatabaseTransformer(filename, dbd=dbd),
             # Caches LALR grammar analysis to a local file:
             # TODO: handle cache paths ourselves
-            cache='db.lark.cache',
+            cache='db.v{version}.lark.cache',
         )
         if macro_context is not None:
             contents = "\n".join(
@@ -498,19 +506,20 @@ class Database:
         return db
 
     @classmethod
-    def from_file_obj(cls, fp, dbd=None, macro_context=None) -> Database:
+    def from_file_obj(cls, fp, dbd=None, macro_context=None, version: int = 4) -> Database:
         return cls.from_string(
             fp.read(),
             filename=getattr(fp, "name", None),
             dbd=dbd,
             macro_context=macro_context,
+            version=version,
         )
 
     @classmethod
-    def from_file(cls, fn, dbd=None, macro_context=None) -> Database:
+    def from_file(cls, fn, dbd=None, macro_context=None, version: int = 4) -> Database:
         with open(fn, "rt") as fp:
             return cls.from_string(fp.read(), filename=fn, dbd=dbd,
-                                   macro_context=macro_context)
+                                   macro_context=macro_context, version=version)
 
 
 @dataclass(repr=False)
