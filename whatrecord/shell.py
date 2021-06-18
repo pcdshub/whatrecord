@@ -153,7 +153,7 @@ class ShellState:
         try:
             yield shresult
             yield from self.interpret_shell_script(
-                fp_redir, recurse=recurse, name=redir.name
+                fp_redir, recurse=recurse, name=filename
             )
         finally:
             fp_redir.close()
