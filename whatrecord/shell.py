@@ -408,7 +408,7 @@ class ShellState:
         )
         return metadata
 
-    @_motor_wrapper
+    # @_motor_wrapper  # TODO
     def handle_drvAsynSerialPortConfigure(
         self,
         portName=None,
