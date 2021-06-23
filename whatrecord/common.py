@@ -36,7 +36,8 @@ def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
     return LoadContext(*items)
 
 
-FullLoadContext = Tuple[LoadContext, ...]
+# FullLoadContext = Tuple[LoadContext, ...]
+FullLoadContext = List[LoadContext]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
 
 
@@ -88,7 +89,8 @@ class IocshResult:
 @dataclass
 class IocshScript:
     path: str
-    lines: Tuple[IocshResult, ...]
+    # lines: Tuple[IocshResult, ...]
+    lines: List[IocshResult]
 
 
 @dataclass

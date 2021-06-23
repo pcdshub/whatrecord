@@ -1,10 +1,10 @@
 """Placeholder for V3 database parsing tests, for the most part..."""
 
+import apischema
 import pytest
 
-from whatrecord import Database
-from whatrecord.db import (DatabaseBreakTable, LoadContext, RecordField,
-                           RecordInstance)
+from .. import Database
+from ..db import DatabaseBreakTable, LoadContext, RecordField, RecordInstance
 
 v3_or_v4 = pytest.mark.parametrize("version", [3, 4])
 
@@ -39,6 +39,7 @@ record(ai, "rec:X") {
             ),
         }
     )
+    apischema.deserialize(Database, apischema.serialize(db))
 
 
 def test_tab_in_field():
@@ -64,6 +65,7 @@ record(ai, "rec:X") {
             ),
         }
     )
+    apischema.deserialize(Database, apischema.serialize(db))
 
 
 @v3_or_v4
@@ -85,3 +87,4 @@ def test_breaktable(version):
         values=('0.8', '0.18', '0.9', '0.25', '8.0', '150.13', '8.5', '174.81',
                 '9.0', '204.32')
     )
+    apischema.deserialize(Database, apischema.serialize(db))

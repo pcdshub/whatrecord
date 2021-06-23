@@ -97,7 +97,8 @@ class DatabaseDevice:
 @dataclass
 class DatabaseBreakTable:
     name: str
-    values: List[Tuple[str, ...]]
+    # values: Tuple[str, ...]
+    values: List[str]
 
 
 @dataclass
