@@ -1,7 +1,7 @@
 import collections
 import html
 import logging
-from typing import DefaultDict, Dict, Tuple
+from typing import DefaultDict, Dict, List, Tuple
 
 import graphviz as gv
 
@@ -20,7 +20,8 @@ class LinkInfo:
     field1: RecordField
     record2: RecordInstance
     field2: RecordField
-    info: Tuple[str, ...]
+    # info: Tuple[str, ...]
+    info: List[str]
 
 
 def build_database_relations(

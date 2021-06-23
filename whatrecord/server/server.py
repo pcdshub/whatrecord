@@ -82,7 +82,7 @@ class ServerState:
                 startup_md.append(md)
 
         # TODO this should be an _update_, but uh... clear cache for now?
-        self.container = load_startup_scripts_with_metadata(
+        self.container = await load_startup_scripts_with_metadata(
             *startup_md, standin_directories=self.standin_directories
         )
         self.pv_relations = graph.build_database_relations(self.container.database)

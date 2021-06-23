@@ -36,7 +36,8 @@ def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
     return LoadContext(*items)
 
 
-FullLoadContext = Tuple[LoadContext, ...]
+# FullLoadContext = Tuple[LoadContext, ...]
+FullLoadContext = List[LoadContext]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
 
 
@@ -59,21 +60,37 @@ class IocshCommand:
 
 
 @dataclass
+class IocshRedirect:
+    fileno: int
+    name: str
+    mode: str
+
+
+@dataclass
+class IocshSplit:
+    argv: List[str]
+    redirects: List[IocshRedirect]
+    error: Optional[str]
+
+
+@dataclass
 class IocshResult:
     context: FullLoadContext
     line: str
     outputs: List[str]
     argv: Optional[List[str]]
     error: Optional[str]
-    redirects: Dict[str, Dict[str, str]]
+    redirects: List[IocshRedirect]
     # TODO: normalize this
-    result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
+    # result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
+    result: Any
 
 
 @dataclass
 class IocshScript:
     path: str
-    lines: Tuple[IocshResult, ...]
+    # lines: Tuple[IocshResult, ...]
+    lines: List[IocshResult]
 
 
 @dataclass
@@ -83,9 +100,16 @@ class IocMetadata:
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
     host: Optional[str] = None
     port: Optional[int] = None
+    base_version: str = "3.15"
     metadata: Dict[str, Any] = field(default_factory=dict)
     macros: Dict[str, str] = field(default_factory=dict)
     standin_directories: Dict[str, str] = field(default_factory=dict)
+
+    @property
+    def database_version_spec(self) -> int:
+        """Load databases with this specification."""
+        # TODO: version parsing
+        return 3 if self.base_version <= "3.15" else 4
 
     @classmethod
     def empty(cls):
@@ -189,7 +213,7 @@ PVAJsonField = Dict[str, str]
 class RecordField:
     dtype: str
     name: str
-    value: Union[str, PVAJsonField]
+    value: Any
     context: FullLoadContext
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
@@ -266,9 +290,9 @@ class RecordInstanceSummary:
 class StringWithContext(str):
     """A string with LoadContext."""
     __slots__ = ("context", )
-    context: FullLoadContext
+    context: Optional[FullLoadContext]
 
-    def __new__(cls, value, context: FullLoadContext):
+    def __new__(cls, value, context: Optional[FullLoadContext] = None):
         self = super().__new__(cls, value)
         self.context = context
         return self

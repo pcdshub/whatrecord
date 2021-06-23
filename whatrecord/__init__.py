@@ -15,7 +15,7 @@ del epicscorelibs.path
 del ctypes
 
 from .macro import MacroContext  # isort: skip  # noqa
-from .iocsh import IOCShellLineParser  # isort: skip  # noqa
+from .iocsh import parse_iocsh_line  # isort: skip  # noqa
 from .db import Database, load_database_file  # isort: skip  # noqa
 
-__all__ = ["MacroContext", "IOCShellLineParser", "Database", "load_database_file"]
+__all__ = ["MacroContext", "parse_iocsh_line", "Database", "load_database_file"]

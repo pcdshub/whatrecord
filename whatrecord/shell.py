@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import functools
 import inspect
 import logging
@@ -15,12 +17,13 @@ import apischema
 
 from . import asyn, common
 from . import motor as motor_mod
-from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshResult,
-                     IocshScript, MutableLoadContext, RecordInstance,
-                     ShortLinterResults, WhatRecord, time_context)
+from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshRedirect,
+                     IocshResult, IocshScript, MutableLoadContext,
+                     RecordInstance, ShortLinterResults, WhatRecord,
+                     time_context)
 from .db import Database, DatabaseLoadFailure, load_database_file
 from .format import FormatContext
-from .iocsh import IOCShellLineParser
+from .iocsh import parse_iocsh_line
 from .macro import MacroContext
 
 logger = logging.getLogger(__name__)
@@ -89,6 +92,7 @@ class ShellState:
     prompt: str = "epics>"
     variables: Dict[str, str] = field(default_factory=dict)
     string_encoding: str = "latin-1"
+    ioc_initialized: bool = False
     standin_directories: Dict[str, str] = field(default_factory=dict)
     working_directory: pathlib.Path = field(
         default_factory=lambda: pathlib.Path.cwd(),
@@ -101,22 +105,21 @@ class ShellState:
     loaded_files: Dict[str, str] = field(
         default_factory=dict,
     )
-    macro_context: MacroContext = field(default_factory=MacroContext,
-                                        metadata=apischema.metadata.skip)
+    macro_context: MacroContext = field(
+        default_factory=MacroContext,
+        metadata=apischema.metadata.skip
+    )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
 
-    _handlers: Dict[str, Callable] = field(default_factory=dict,
-                                           metadata=apischema.metadata.skip)
-    _parser: IOCShellLineParser = field(default_factory=IOCShellLineParser,
-                                        metadata=apischema.metadata.skip,
-                                        )
+    _handlers: Dict[str, Callable] = field(
+        default_factory=dict,
+        metadata=apischema.metadata.skip
+    )
 
     def __post_init__(self):
         self._handlers.update(dict(self.find_handlers()))
         self._setup_dynamic_handlers()
-        self._parser.macro_context = self.macro_context
-        self._parser.macro_context.string_encoding = self.string_encoding
-        self._parser.string_encoding = self.string_encoding
+        self.macro_context.string_encoding = self.string_encoding
 
     def _setup_dynamic_handlers(self):
         # Just motors for now
@@ -132,9 +135,14 @@ class ShellState:
                 name = attr.split("_", 1)[1]
                 yield name, obj
 
-    def _handle_input_redirect(self, fileno, redir, shresult, recurse=True,
-                               raise_on_error=False):
-        filename = self._fix_path(redir["name"])
+    def _handle_input_redirect(
+        self,
+        redir: IocshRedirect,
+        shresult: IocshResult,
+        recurse: bool = True,
+        raise_on_error: bool = False
+    ):
+        filename = self._fix_path(redir.name)
         try:
             fp_redir = open(filename, "rt")
         except Exception as ex:
@@ -145,27 +153,29 @@ class ShellState:
         try:
             yield shresult
             yield from self.interpret_shell_script(
-                fp_redir, recurse=recurse, name=redir["name"]
+                fp_redir, recurse=recurse, name=filename
             )
         finally:
             fp_redir.close()
 
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
-        shresult = self._parser.parse(
+        shresult = parse_iocsh_line(
             line, context=self.get_load_context(),
-            prompt=self.prompt
+            prompt=self.prompt,
+            macro_context=self.macro_context,
+            string_encoding=self.string_encoding,
         )
         input_redirects = [
-            (fileno, redir) for fileno, redir in shresult.redirects.items()
-            if redir["mode"] == "r"
+            redir for redir in shresult.redirects
+            if redir.mode == "r"
         ]
         if shresult.error:
             yield shresult
         elif input_redirects:
             if recurse:
                 yield from self._handle_input_redirect(
-                    *input_redirects[0], shresult, recurse=recurse,
+                    input_redirects[0], shresult, recurse=recurse,
                     raise_on_error=raise_on_error
                 )
         elif shresult.argv:
@@ -196,7 +206,7 @@ class ShellState:
         raise_on_error: bool = False
     ) -> Generator[IocshResult, None, None]:
         """Interpret a shell script named ``name`` with ``lines`` of text."""
-        load_ctx = MutableLoadContext(name, 0)
+        load_ctx = MutableLoadContext(str(name), 0)
         try:
             self.load_context.append(load_ctx)
             for lineno, line in enumerate(lines, 1):
@@ -234,7 +244,6 @@ class ShellState:
         if handler is not None:
             return handler(*args)
         return self.unhandled(command, args)
-        # return f"No handler for handle_{command}"
 
     def _fix_path(self, filename: str):
         if os.path.isabs(filename):
@@ -286,17 +295,37 @@ class ShellState:
 
     handle_chdir = handle_cd
 
-    def handle_dbLoadDatabase(self, dbd, *_):
+    def handle_iocInit(self, *_):
+        self.ioc_initialized = True
+
+    def handle_dbLoadDatabase(self, dbd, path=None, substitutions=None, *_):
+        if self.ioc_initialized:
+            raise RuntimeError("Database cannot be loaded after iocInit")
         if self.database_definition:
-            raise RuntimeError("dbd already loaded")
+            # TODO: technically this is allowed; we'll need to update
+            # raise RuntimeError("dbd already loaded")
+            return "whatrecord: TODO multiple dbLoadDatabase"
+        # TODO: handle path - see dbLexRoutines.c
+        # env vars: EPICS_DB_INCLUDE_PATH, fallback to "."
         fn = self._fix_path(dbd)
-        self.database_definition = Database.from_file(fn)
+        macros = (
+            self.macro_context.definitions_to_dict(substitutions)
+            if substitutions else {}
+        )
+        with self.macro_context.scoped(**macros):
+            self.database_definition = Database.from_file(
+                fn,
+                version=self.ioc_info.database_version_spec
+            )
+
         self.loaded_files[str(fn.resolve())] = str(dbd)
         return f"Loaded database: {fn}"
 
     def handle_dbLoadRecords(self, fn, macros, *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
+        if self.ioc_initialized:
+            raise RuntimeError("Records cannot be loaded after iocInit")
         orig_fn = fn
         fn = self._fix_path(fn)
         self.loaded_files[str(fn.resolve())] = str(orig_fn)
@@ -309,6 +338,7 @@ class ShellState:
                     dbd=self.database_definition,
                     db=fn,
                     macro_context=self.macro_context,
+                    version=self.ioc_info.database_version_spec,
                 )
         except Exception as ex:
             # TODO move this around
@@ -382,7 +412,7 @@ class ShellState:
         )
         return metadata
 
-    @_motor_wrapper
+    # @_motor_wrapper  # TODO
     def handle_drvAsynSerialPortConfigure(
         self,
         portName=None,
@@ -689,8 +719,16 @@ def load_startup_scripts(
     return container
 
 
-def load_startup_scripts_with_metadata(
-    *md_items, standin_directories=None, processes=1
+def _load_ioc(md, standin_directories):
+    with time_context() as ctx:
+        loaded = LoadedIoc.from_metadata(md)
+        md.standin_directories.update(standin_directories)
+        serialized = apischema.serialize(loaded)
+        return ctx(), serialized
+
+
+async def load_startup_scripts_with_metadata(
+    *md_items, standin_directories=None, processes=8
 ) -> ScriptContainer:
     """
     Load all given startup scripts into a shared ScriptContainer.
@@ -711,20 +749,35 @@ def load_startup_scripts_with_metadata(
     """
     container = ScriptContainer()
     total_files = len(md_items)
+    total_child_load_time = 0.0
 
     with time_context() as total_ctx:
         try:
-            for idx, md in enumerate(sorted(md_items, key=lambda md: md.name), 1):
-                print(f"{idx}/{total_files}: Loading {md.script}...", end="")
-                with time_context() as ctx:
-                    md.standin_directories.update(standin_directories)
+            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
+                idx_to_future = {
+                    idx: asyncio.wrap_future(executor.submit(_load_ioc, md, standin_directories))
+                    for idx, md in enumerate(md_items)
+                }
+                for idx, fut in idx_to_future.items():
+                    md = md_items[idx]
+                    print(f"{idx}/{total_files}: Loading {md.script}...", end="")
                     try:
-                        loaded = LoadedIoc.from_metadata(md)
+                        load_elapsed, loaded_ser = await fut
                     except FileNotFoundError as ex:
-                        print(f"Failed to load: {ex}")
+                        print(f"\n\nMissing file for loading this IOC: {ex}")
                         continue
-                    container.add_script(loaded)
-                print(f"[{ctx():.1f} s]")
+                    except Exception:
+                        print(f"\n\nFailed to load unexpectedly:")
+                        print(type(ex).__name__, ex)
+                        continue
+
+                    total_child_load_time += load_elapsed
+
+                    with time_context() as ctx:
+                        loaded = apischema.deserialize(LoadedIoc, loaded_ser)
+                        container.add_script(loaded)
+                        print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
+
         except KeyboardInterrupt:
             print("Ctrl-C: Cancelling loading remaining scripts.")
             total_files = idx
@@ -732,5 +785,9 @@ def load_startup_scripts_with_metadata(
     print(
         f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
         f"with {processes} process(es)"
+    )
+    print(
+        f"Child processes reported taking a total of {total_child_load_time} "
+        f"sec (wall time)"
     )
     return container

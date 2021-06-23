@@ -1,5 +1,10 @@
 """Placeholder for PVA parsing tests, for the most part..."""
 
+import math
+
+import lark
+import pytest
+
 from whatrecord import Database
 from whatrecord.db import LoadContext, PVAFieldReference, RecordInstance
 
@@ -110,3 +115,35 @@ record(longin, "src3") {
 }
 """
     )
+
+
+@pytest.mark.xfail
+def test_numbers():
+    db = Database.from_string(
+        """
+record(ai, "value") {
+    field(NAN, NaN)
+    field(HEXINT, 0x10)
+    field(VAL, {"a": 1e10})
+}
+""")
+
+    # I think json_string is taking priority, meaning we faithfully get
+    # back the strings, but we don't interpret the "number" rule at all.
+    # All numbers then become strings, which isn't exactly ideal, but
+    # also not a deal-breaker for the most part.
+    assert db.records["value"].fields["NAN"].value is math.nan
+    assert db.records["value"].fields["HEXINT"].value == 0x10
+    assert db.records["value"].fields["VAL"].value == {"a": 1e10}
+
+
+def test_tab_in_field():
+    # Believe it or not, tabs are not accepted in fields in V4 (V3 is more lax)
+    with pytest.raises(lark.UnexpectedToken):
+        Database.from_string(
+            """\
+record(ai, "rec:X") {
+    field(A, "test\tvalue")
+}
+"""
+        )

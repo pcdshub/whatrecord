@@ -21,6 +21,13 @@
             :cls="'metadata'"
             :skip_keys="[]" />
         </td>
+        <td v-else-if="value instanceof Array">
+          <ul>
+            <li v-for="item of value" :key="item">
+              {{ item }}
+            </li>
+          </ul>
+        </td>
         <td v-else>
           {{ value }}
         </td>

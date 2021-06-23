@@ -1,0 +1,182 @@
+// Lark grammar for db and dbd files
+// Based on epics-base specified grammar in dbStatic (dbLex/dbYacc)
+//
+// V4 grammar, including support for JSON
+// (_actually_ R3.16 supports this, too, but let's call it V4)
+
+?start: database
+
+%import common.WS_INLINE
+%import common.WS
+%ignore WS_INLINE
+%ignore WS
+
+COMMENT     : "#" /[^\n\r]/*
+%ignore COMMENT
+
+NEWLINE     : "\n"
+BACKSLASH   : "\\"
+SINGLEQUOTE : "'"
+DOUBLEQUOTE : "\""
+WHITESPACE  : /[ \t\r\n]/
+ESCAPE      : BACKSLASH /./
+STRINGCHAR  : /[^"\n\\]/
+BAREWORD    : /[a-zA-Z0-9_\-+:.\[\]<>;]/
+
+PUNCTUATION : /[:,\[\]{}]/
+NORMALCHAR  : /[^"'\\\0-\x1f]/
+BARECHAR    : /[a-zA-Z0-9_\-+.]/
+ESCAPEDCHAR : BACKSLASH /[^ux1-9]/
+HEXDIGIT    : /[0-9a-fA-F]/
+LATINCHAR   : BACKSLASH "x" HEXDIGIT~2
+UNICODECHAR : BACKSLASH "u" HEXDIGIT~4
+JSONDQCHAR  : NORMALCHAR
+            | SINGLEQUOTE
+            | ESCAPEDCHAR
+            | LATINCHAR
+            | UNICODECHAR
+
+JSONSQCHAR  : NORMALCHAR
+            | DOUBLEQUOTE
+            | ESCAPEDCHAR
+            | LATINCHAR
+            | UNICODECHAR
+
+JSONSTR     : DOUBLEQUOTE JSONDQCHAR* DOUBLEQUOTE
+            | SINGLEQUOTE JSONSQCHAR* SINGLEQUOTE
+            | BARECHAR+
+
+SIGN        : /[+-]/
+INT         : SIGN? /[0-9]|[1-9][0-9]+/
+FRAC        : "." /[0-9]+/
+EXP         : "e"i SIGN? /[0-9]+/
+jsonnum     : INT FRAC? EXP?
+intexp      : INT "." EXP?
+fracexp     : SIGN? FRAC EXP?
+specialnum  : "NaN"             -> nan
+            | "+"? "Infinity"   -> pos_infinity
+            | "-" "Infinity"    -> neg_infinity
+
+hexint      : SIGN? ("0x" | "0X") HEXDIGIT+
+
+?number.2   : jsonnum
+            | intexp
+            | fracexp
+            | hexint
+            | specialnum
+
+TOKEN_INCLUDE     : "include"
+TOKEN_PATH        : "path"
+TOKEN_ADDPATH     : "addpath"
+TOKEN_MENU        : "menu"
+TOKEN_CHOICE      : "choice"
+TOKEN_RECORDTYPE  : "recordtype"
+TOKEN_FIELD       : "field"
+TOKEN_DEVICE      : "device"
+TOKEN_DRIVER      : "driver"
+TOKEN_LINK        : "link"
+TOKEN_BREAKTABLE  : "breaktable"
+TOKEN_RECORD      : "record"
+TOKEN_GRECORD     : "grecord"
+TOKEN_ALIAS       : "alias"
+TOKEN_INFO        : "info"
+TOKEN_REGISTRAR   : "registrar"
+TOKEN_FUNCTION    : "function"
+TOKEN_VARIABLE    : "variable"
+
+UNQUOTED_STRING_OR_NUMBER: BAREWORD+
+QUOTED_STRING:  DOUBLEQUOTE (STRINGCHAR | ESCAPE )* DOUBLEQUOTE
+string: UNQUOTED_STRING_OR_NUMBER
+      | QUOTED_STRING
+
+
+TOKEN_CDEFS: "%" /.*/
+
+JSON_NULL: "null"
+JSON_TRUE: "true"
+JSON_FALSE: "false"
+
+database: dbitem*
+
+dbitem: include
+      | TOKEN_PATH string                                            -> path
+      | TOKEN_ADDPATH string                                         -> addpath
+      | TOKEN_MENU menu_head menu_body                               -> menu
+      | TOKEN_RECORDTYPE recordtype_head recordtype_body             -> recordtype
+      | TOKEN_DEVICE "(" string "," string "," string "," string ")" -> device
+      | TOKEN_DRIVER "(" string ")"                                  -> driver
+      | TOKEN_LINK "(" string "," string ")"                         -> link
+      | TOKEN_REGISTRAR "(" string ")"                               -> registrar
+      | TOKEN_FUNCTION "(" string ")"                                -> function
+      | TOKEN_VARIABLE "(" string ["," string ] ")"                  -> variable
+      | TOKEN_BREAKTABLE break_head break_body                       -> breaktable
+      | (TOKEN_RECORD | TOKEN_GRECORD) record_head record_body       -> record
+      | TOKEN_ALIAS "(" string "," string ")"                        -> standalone_alias
+
+include:    TOKEN_INCLUDE string
+
+menu_head:  "(" string ")"
+
+menu_body:  "{" choice* "}"
+
+choice: TOKEN_CHOICE "(" string "," string ")"
+      | include
+
+recordtype_head: "(" string ")"
+
+recordtype_body: "{" recordtype_field* "}"
+
+recordtype_field: TOKEN_FIELD recordtype_field_head recordtype_field_body
+                | TOKEN_CDEFS -> cdef
+                | include     -> recordtype_field_include
+
+recordtype_field_head: "(" string "," string ")"
+
+recordtype_field_body: "{" recordtype_field_item* "}"
+
+recordtype_field_item: string "(" string ")"      -> recordtype_field_item
+                     | TOKEN_MENU "(" string ")"  -> recordtype_field_item_menu
+
+break_head: "(" string ")"
+
+break_body : "{" break_list "}"
+
+break_list: _optionally_comma_separated{break_item}
+
+break_item: string
+
+record_head: "(" string "," string ")"
+
+record_body: [ "{" record_field* "}" ]
+
+record_field: TOKEN_FIELD "(" string "," json_value ")" -> record_field
+            | TOKEN_INFO "(" string "," json_value ")"  -> record_field_info
+            | TOKEN_ALIAS "(" string ")"                -> record_field_alias
+            | include
+
+json_dict: "{" [ _comma_separated{json_key_value} ] "}"
+
+json_key_value: json_key ":" json_value
+
+json_key: JSONSTR
+
+json_string.1: JSONSTR
+
+json_array: "[" "]"
+          | "[" json_elements "]"
+
+json_elements: _comma_separated{json_value}
+
+// TODO: Retain the trailing "," so link parser can distinguish a 1-element
+// const list from a PV name (commas are illegal)
+
+?json_value: JSON_NULL
+           | JSON_TRUE
+           | JSON_FALSE
+           | json_string
+           | number
+           | json_array
+           | json_dict
+
+_comma_separated{x}: x ("," x)* ","?
+_optionally_comma_separated{x}: x (","? x)* ","?

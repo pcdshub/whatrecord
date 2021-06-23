@@ -123,3 +123,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 /old
+
+# Lark cache files
+*.cache
