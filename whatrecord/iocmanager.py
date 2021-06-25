@@ -12,7 +12,6 @@ from typing import Any, Callable, List, Optional, Union
 from .common import IocInfoDict
 from .util import find_binary_from_hashbang
 
-
 logger = logging.getLogger(__name__)
 
 KEY_RE = re.compile(r"([a-z_]+)\s*:", re.IGNORECASE)
