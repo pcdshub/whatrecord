@@ -4,7 +4,6 @@ import logging
 from typing import DefaultDict, Dict, List, Tuple
 
 import graphviz as gv
-
 from whatrecord.common import LoadContext, dataclass
 from whatrecord.db import RecordField, RecordInstance
 
@@ -62,7 +61,7 @@ def build_database_relations(
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
                 # TODO: check for constant links, ignore card/slot syntax, etc
-                if link.startswith("#") or link in warned:
+                if link.startswith("#") or link.startswith("0x") or link in warned:
                     ...
                 else:
                     logger.warning("Linked record not in database: %s", link)

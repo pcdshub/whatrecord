@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 import pathlib
@@ -15,12 +16,21 @@ MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 T = TypeVar("T")
 
 
+def get_file_sha256(binary: pathlib.Path):
+    """Hash a binary with the SHA-256 algorithm."""
+    # This doesn't do any sort of buffering; but our binaries are pretty small
+    # in comparison to what we're storing as metadata, anyway
+    with open(binary, "rb") as fp:
+        return hashlib.sha256(fp.read()).hexdigest()
+
+
 async def run_gdb(
     script: str,
     binary: Union[pathlib.Path, str],
     cls: T,
     args: Optional[List[str]] = None,
     gdb_path: Optional[str] = None,
+    use_cache: bool = True,
 ) -> T:
     """
     Run a script and deserialize its output.
@@ -43,6 +53,18 @@ async def run_gdb(
         The path to the gdb binary.  Defaults to ``WHATRECORD_GDB_PATH``
         from the environment (``gdb``).
     """
+    cache_path = pathlib.Path(settings.GDB_CACHE)
+    binary_hash = get_file_sha256(binary)
+
+    hash_filename = cache_path / f"{script}_{cls.__name__}_{binary_hash}.json"
+    if use_cache:
+        if not settings.GDB_CACHE or not cache_path.exists():
+            use_cache = False
+        elif hash_filename.exists():
+            with open(hash_filename, "rt") as fp:
+                json_data = json.load(fp)
+            return apischema.deserialize(cls, json_data)
+
     args = " ".join(f'"{arg}"' for arg in args or [])
     script_path = MODULE_PATH / f"{script}.py"
     gdb_path = gdb_path or settings.GDB_PATH
@@ -68,6 +90,10 @@ async def run_gdb(
     else:
         logger.warning("No standard output while getting GDB output (%r)", to_execute)
         json_data = {}
+
+    if use_cache:
+        with open(hash_filename, "wt") as fp:
+            json.dump(json_data, fp, indent=4)
 
     try:
         return apischema.deserialize(cls, json_data)
