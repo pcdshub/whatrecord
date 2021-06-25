@@ -13,7 +13,7 @@ import apischema
 if typing.TYPE_CHECKING:
     from .db import LinterResults
 
-from . import util
+from . import settings, util
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class IocMetadata:
     host: Optional[str] = None
     port: Optional[int] = None
     binary: Optional[str] = None
-    base_version: str = "3.15"
+    base_version: str = settings.DEFAULT_BASE_VERSION
     metadata: Dict[str, Any] = field(default_factory=dict)
     macros: Dict[str, str] = field(default_factory=dict)
     standin_directories: Dict[str, str] = field(default_factory=dict)
@@ -156,9 +156,7 @@ class IocMetadata:
             logger.error("Failed to get gdb information: %s", info.error)
             return
 
-        if info.base_version is not None:
-            self.base_version = info.base_version
-
+        self.base_version = info.base_version or self.base_version
         self.commands.update(info.commands)
         self.variables.update(info.variables)
         return info
@@ -186,6 +184,7 @@ class IocMetadata:
         macros: Optional[Dict[str, str]] = None,
         standin_directories: Optional[Dict[str, str]] = None,
         binary: Optional[str] = None,
+        base_version: Optional[str] = settings.DEFAULT_BASE_VERSION,
         **metadata
     ):
         """Given at minimum a filename, guess the rest."""
@@ -201,6 +200,7 @@ class IocMetadata:
             macros=macros or {},
             standin_directories=standin_directories or {},
             binary=binary or util.find_binary_from_hashbang(filename),
+            base_version=base_version,
         )
 
     @classmethod
@@ -221,6 +221,7 @@ class IocMetadata:
         script = ioc.pop("script")
         script = pathlib.Path(str(script)).expanduser().resolve()
         binary = ioc.pop("binary", None)
+        base_version = ioc.pop("base_version", None)
         return cls(
             name=name,
             script=script,
@@ -230,6 +231,7 @@ class IocMetadata:
             metadata=ioc,
             macros=macros or {},
             binary=binary or util.find_binary_from_hashbang(script),
+            base_version=base_version or settings.DEFAULT_BASE_VERSION,
         )
 
 

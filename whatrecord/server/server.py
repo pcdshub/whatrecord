@@ -1,7 +1,6 @@
 import fnmatch
 import functools
 import json
-import os
 import re
 import sys
 import tempfile
@@ -12,7 +11,7 @@ import apischema
 import graphviz
 from aiohttp import web
 
-from .. import common, gateway, graph, ioc_finder
+from .. import common, gateway, graph, ioc_finder, settings
 from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
 from ..shell import (LoadedIoc, ScriptContainer,
@@ -24,7 +23,6 @@ from ..shell import (LoadedIoc, ScriptContainer,
 # STATIC_PATH = pathlib.Path(static.__file__).parent
 # HTML_PATH = pathlib.Path(html_mod.__file__).parent
 TRUE_VALUES = {"1", "true", "True"}
-MAX_RECORDS = int(os.environ.get("WHATRECORD_MAX_RECORDS", 200))
 
 # aiohttp_jinja2.setup(
 #     app,
@@ -139,7 +137,7 @@ class ServerState:
         raise RuntimeError("Invalid graph type")
 
     def get_script_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
-        if len(pv_names) > MAX_RECORDS:
+        if len(pv_names) > settings.MAX_RECORDS:
             raise TooManyRecordsError()
 
         if not pv_names:
@@ -153,7 +151,7 @@ class ServerState:
         return digraph
 
     def get_link_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
-        if len(pv_names) > MAX_RECORDS:
+        if len(pv_names) > settings.MAX_RECORDS:
             raise TooManyRecordsError()
 
         if not pv_names:

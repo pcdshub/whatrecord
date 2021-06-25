@@ -150,6 +150,7 @@ class ShellState:
             yield shresult
             return
 
+        self.loaded_files[str(filename.resolve())] = str(filename)
         try:
             yield shresult
             yield from self.interpret_shell_script(
@@ -781,12 +782,12 @@ async def load_startup_scripts_with_metadata(
                         print(f"\n\nMissing file for loading this IOC: {ex}")
                         continue
                     except Exception as ex:
-                        print(f"\n\nFailed to load unexpectedly:")
+                        print("\n\nFailed to load unexpectedly:")
                         print(type(ex).__name__, ex)
                         continue
 
                     if isinstance(loaded_ser, Exception):
-                        print(f"\n\nFailed to load unexpectedly:")
+                        print("\n\nFailed to load unexpectedly:")
                         print(type(loaded_ser).__name__, loaded_ser)
                         continue
 

@@ -1,16 +1,14 @@
 import asyncio
 import json
 import logging
-import os
 import pathlib
 from typing import List, Optional, TypeVar, Union
 
 import apischema
 
+from . import settings
+
 logger = logging.getLogger(__name__)
-
-
-WHATRECORD_GDB_PATH = os.environ.get("WHATRECORD_GDB_PATH", "gdb")
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 
 
@@ -22,7 +20,7 @@ async def run_gdb(
     binary: Union[pathlib.Path, str],
     cls: T,
     args: Optional[List[str]] = None,
-    gdb_path: str = WHATRECORD_GDB_PATH,
+    gdb_path: Optional[str] = None,
 ) -> T:
     """
     Run a script and deserialize its output.
@@ -47,6 +45,7 @@ async def run_gdb(
     """
     args = " ".join(f'"{arg}"' for arg in args or [])
     script_path = MODULE_PATH / f"{script}.py"
+    gdb_path = gdb_path or settings.GDB_PATH
     to_execute = (
         f'"{gdb_path}" '
         f"--batch-silent "
