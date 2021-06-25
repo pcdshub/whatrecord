@@ -22,9 +22,14 @@ const routes = [
   },
   {
       name: 'file',
-      path: '/file/:filename/:line',
+      path: '/file/:filename/:line?',
       component: ScriptView,
-      props: true
+      props: route => (
+          {
+              filename: route.params.filename || "",
+              line: route.params.line || 0,
+          }
+      )
   },
   {
       name: 'iocs',

@@ -1,40 +1,40 @@
 <template>
-  <table class="table" v-if="Object.keys(dict).length > 0">
-    <thead :class="cls">
+  <table :class="cls" v-if="Object.keys(filtered_dict).length > 0">
+    <thead>
       <tr>
-        <th>Item</th>
-        <th>Value</th>
+        <th>{{ key_column || "Key" }}</th>
+        <th>{{ value_column || "Value" }}</th>
       </tr>
     </thead>
     <tbody>
-      <tr v-for="(value, key) in dict" :key="key + '-' + value">
-        <td :id="key">{{ key }}</td>
+      <tr v-for="value, key in filtered_dict" :key="key + '-' + value">
+        <td class="key" :id="key">{{ key }}</td>
 
-        <td v-if="skip_keys.indexOf(key) >= 0">
+        <td v-if="skip_keys.indexOf(key) >= 0" class="value">
         </td>
-        <td v-else-if="key == 'context'">
+        <td v-else-if="key == 'context'" class="value">
           <script-context-link :context=value :short=true></script-context-link>
         </td>
-        <td v-else-if="key == 'metadata'">
+        <td v-else-if="key == 'metadata'" class="value">
           <dictionary-table
             :dict="value"
-            :cls="'metadata'"
+            cls="metadata"
             :skip_keys="[]" />
         </td>
-        <td v-else-if="value instanceof Array">
+        <td v-else-if="value instanceof Array" class="value">
           <ul>
             <li v-for="item of value" :key="item">
               {{ item }}
             </li>
           </ul>
         </td>
-        <td v-else-if="value instanceof Object">
+        <td v-else-if="value instanceof Object" class="value">
           <dictionary-table
             :dict="value"
-            cls=""
+            cls="nested_table"
             :skip_keys="[]" />
         </td>
-        <td v-else>
+        <td v-else class="value">
           {{ value }}
         </td>
       </tr>
@@ -50,34 +50,96 @@ export default {
   props: {
     cls: String,
     dict: Object,
-    skip_keys: Array
+    skip_keys: Array,
+    key_column: String,
+    value_column: String,
   },
   components: {
     ScriptContextLink,
+  },
+  computed: {
+    filtered_dict() {
+      let filtered = {};
+      for (const key in this.dict) {
+        if (this.skip_keys.indexOf(key) < 0) {
+          filtered[key] = this.dict[key];
+        }
+      }
+      return filtered;
+    },
   }
 }
 </script>
 
 <style scoped>
-thead tr {
-  color: #000000;
-  text-align: center;
-}
-
 th, td {
-  padding: 12px 15px;
+  padding: 5px 5px;
 }
 
-tbody tr {
-  border-bottom: 1px solid #dddddd;
-  background-color: #ffffff;
+table {
+  font-size: 12px;
+  font-weight: normal;
+  border: thin solid;
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  white-space: nowrap;
+  background-color: white;
 }
 
-tbody tr:nth-of-type(even) {
-  background-color: #eeeeee;
+table .metadata {
+  border: thin dotted;
 }
 
-tbody tr:last-of-type {
-  border-bottom: 2px solid black;
+table .nested_table {
+  border: thin dotted;
+}
+
+th {
+  text-align: center;
+  padding: 8px;
+}
+
+td .key {
+  text-align: right;
+  padding: 8px;
+  border-right: 1px solid #f8f8f8;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+td .value {
+  text-align: left;
+  padding: 8px;
+  border-right: 1px solid #f8f8f8;
+  font-size: 1em;
+}
+
+thead th {
+  color: black;
+  background: white;
+  border: solid black 1px;
+  font-size: 1.2em;
+}
+
+thead th:nth-child(odd) {
+  color: black;
+  background: white;
+}
+
+tr:nth-child(even) {
+  background: #F8F8F8;
+}
+
+ul {
+    list-style: none;
+    margin-left: 0;
+    padding-left: 1em;
+}
+ul > li:before {
+    display: inline-block;
+    content: "-";
+    width: 1em;
+    margin-left: -1em;
 }
 </style>

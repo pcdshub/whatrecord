@@ -4,7 +4,7 @@
       <DataTable id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
           selectionMode="multiple" @rowSelect="new_ioc_selection"
           :paginator="true" :rows="300" v-model:filters="ioc_filters"
-          filterDisplay="row" :globalFilterFields="['name', 'host', 'port', 'description']"
+          filterDisplay="row" :globalFilterFields="['name', 'host', 'port', 'description', 'base_version']"
           >
         <template #header>
           <div class="p-d-flex p-jc-between">
@@ -15,7 +15,11 @@
             </span>
           </div>
         </template>
-        <Column field="name" header="IOC Name"/>
+        <Column field="name" header="IOC Name">
+          <template #body="{data}">
+            <router-link :to="{ name: 'file', params: { filename: data.script, line: 0 }}">{{data.name}}</router-link>
+          </template>
+        </Column>
         <Column field="host" header="Host"/>
         <Column field="base_version" header="Version"/>
         <!-- <Column field="port" header="Port"/> -->

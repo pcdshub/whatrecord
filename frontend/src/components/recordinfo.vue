@@ -21,7 +21,7 @@
       <dictionary-table
         :dict="whatrec.ioc"
         :cls="'metadata'"
-        :skip_keys="[]">
+        :skip_keys="['commands', 'variables']">
       </dictionary-table>
     </AccordionTab>
     <AccordionTab header="Record links">
