@@ -93,12 +93,12 @@ if not OLD_GDB:
                 continue
 
             try:
-                val["name"].string()
+                name = val["name"].string()
             except gdb.error:
                 # optimized out; skip this one entirely
                 continue
 
-            yield funcdef_name, val
+            yield name, val
 
 else:
     def get_variables():

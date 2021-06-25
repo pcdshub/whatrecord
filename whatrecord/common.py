@@ -15,7 +15,6 @@ if typing.TYPE_CHECKING:
 
 from . import util
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -139,7 +138,7 @@ class IocMetadata:
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
 
-    async def get_binary_information(self):
+    async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
         if not self.binary or not pathlib.Path(self.binary).exists():
             return
 
@@ -162,6 +161,7 @@ class IocMetadata:
 
         self.commands.update(info.commands)
         self.variables.update(info.variables)
+        return info
 
     @property
     def database_version_spec(self) -> int:

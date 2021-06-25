@@ -1,12 +1,11 @@
 import asyncio
-import os
 import json
 import logging
-
+import os
 import pathlib
-import apischema
+from typing import List, Optional, TypeVar, Union
 
-from typing import Optional, Union, List
+import apischema
 
 logger = logging.getLogger(__name__)
 
@@ -15,14 +14,37 @@ WHATRECORD_GDB_PATH = os.environ.get("WHATRECORD_GDB_PATH", "gdb")
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 
 
+T = TypeVar("T")
+
+
 async def run_gdb(
     script: str,
     binary: Union[pathlib.Path, str],
-    cls: type,
+    cls: T,
     args: Optional[List[str]] = None,
     gdb_path: str = WHATRECORD_GDB_PATH,
-) -> dict:
-    """Run a script and deserialize its output."""
+) -> T:
+    """
+    Run a script and deserialize its output.
+
+    Parameters
+    ----------
+    script : str
+        The script name to run (whatrecord.__script__, omitting .py)
+
+    binary : str or pathlib.Path
+        The binary file to load into GDB.
+
+    cls : type
+        The dataclass type to deserialize gdb's output to.
+
+    args : list, optional
+        List of string arguments to pass to gdb.
+
+    gdb_path : str, optional
+        The path to the gdb binary.  Defaults to ``WHATRECORD_GDB_PATH``
+        from the environment (``gdb``).
+    """
     args = " ".join(f'"{arg}"' for arg in args or [])
     script_path = MODULE_PATH / f"{script}.py"
     to_execute = (
@@ -74,7 +96,7 @@ def find_binary_from_hashbang(
     try:
         with open(startup_script, "rt") as fp:
             first_line = fp.read().splitlines()[0]
-    except Exception as ex:
+    except Exception:
         return None
 
     if first_line.startswith("#!"):

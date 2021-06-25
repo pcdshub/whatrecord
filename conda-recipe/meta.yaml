@@ -31,6 +31,8 @@ test:
       - whatrecord
     requires:
       - pytest
+      - gdb
+      - epics-base
 
 about:
   home: https://github.com/pcdshub/whatrecord
