@@ -28,6 +28,12 @@
             </li>
           </ul>
         </td>
+        <td v-else-if="value instanceof Object">
+          <dictionary-table
+            :dict="value"
+            cls=""
+            :skip_keys="[]" />
+        </td>
         <td v-else>
           {{ value }}
         </td>

@@ -13,6 +13,8 @@ import apischema
 if typing.TYPE_CHECKING:
     from .db import LinterResults
 
+from . import util
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,8 @@ class MutableLoadContext:
 
 
 @dataclass
-class IocshCommand:
+class IocshCmdArgs:
+    """iocshCmd(...) arguments."""
     context: FullLoadContext
     command: str
 
@@ -82,7 +85,7 @@ class IocshResult:
     error: Optional[str]
     redirects: List[IocshRedirect]
     # TODO: normalize this
-    # result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
+    # result: Optional[Union[str, Dict[str, str], IocshCmdArgs, ShortLinterResults]]
     result: Any
 
 
@@ -94,16 +97,71 @@ class IocshScript:
 
 
 @dataclass
+class IocshArgument:
+    name: str
+    type: str
+
+
+@dataclass
+class IocshCommand:
+    name: str
+    args: List[IocshArgument] = field(default_factory=list)
+    usage: Optional[str] = None
+
+
+@dataclass
+class IocshVariable:
+    name: str
+    value: Optional[str] = None
+    type: Optional[str] = None
+
+
+@dataclass
+class GdbBinaryInfo:
+    commands: Dict[str, IocshCommand]
+    base_version: Optional[str]
+    variables: Dict[str, IocshVariable]
+    error: Optional[str]
+
+
+@dataclass
 class IocMetadata:
     name: str = "unset"
     script: pathlib.Path = field(default_factory=pathlib.Path)
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
     host: Optional[str] = None
     port: Optional[int] = None
+    binary: Optional[str] = None
     base_version: str = "3.15"
     metadata: Dict[str, Any] = field(default_factory=dict)
     macros: Dict[str, str] = field(default_factory=dict)
     standin_directories: Dict[str, str] = field(default_factory=dict)
+    commands: Dict[str, IocshCommand] = field(default_factory=dict)
+    variables: Dict[str, IocshVariable] = field(default_factory=dict)
+
+    async def get_binary_information(self):
+        if not self.binary or not pathlib.Path(self.binary).exists():
+            return
+
+        try:
+            info = await util.run_gdb(
+                "gdb_binary_info",
+                self.binary,
+                cls=GdbBinaryInfo,
+            )
+        except apischema.ValidationError:
+            logger.error("Failed to get gdb information", exc_info=True)
+            return
+
+        if info.error:
+            logger.error("Failed to get gdb information: %s", info.error)
+            return
+
+        if info.base_version is not None:
+            self.base_version = info.base_version
+
+        self.commands.update(info.commands)
+        self.variables.update(info.variables)
 
     @property
     def database_version_spec(self) -> int:
@@ -127,6 +185,7 @@ class IocMetadata:
         startup_directory: Optional[pathlib.Path] = None,
         macros: Optional[Dict[str, str]] = None,
         standin_directories: Optional[Dict[str, str]] = None,
+        binary: Optional[str] = None,
         **metadata
     ):
         """Given at minimum a filename, guess the rest."""
@@ -141,6 +200,7 @@ class IocMetadata:
             metadata=metadata,
             macros=macros or {},
             standin_directories=standin_directories or {},
+            binary=binary or util.find_binary_from_hashbang(filename),
         )
 
     @classmethod
@@ -160,6 +220,7 @@ class IocMetadata:
 
         script = ioc.pop("script")
         script = pathlib.Path(str(script)).expanduser().resolve()
+        binary = ioc.pop("binary", None)
         return cls(
             name=name,
             script=script,
@@ -168,6 +229,7 @@ class IocMetadata:
             port=port,
             metadata=ioc,
             macros=macros or {},
+            binary=binary or util.find_binary_from_hashbang(script),
         )
 
 

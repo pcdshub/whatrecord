@@ -17,6 +17,7 @@
         </template>
         <Column field="name" header="IOC Name"/>
         <Column field="host" header="Host"/>
+        <Column field="base_version" header="Version"/>
         <!-- <Column field="port" header="Port"/> -->
         <!-- <Column field="description" header="Description"/> -->
         <!-- <Column field="script" header="Script"/> -->
@@ -189,6 +190,7 @@ export default {
         'name': {value: null, matchMode: FilterMatchMode.CONTAINS},
         'host': {value: null, matchMode: FilterMatchMode.CONTAINS},
         'port': {value: null, matchMode: FilterMatchMode.CONTAINS},
+        'base_version': {value: null, matchMode: FilterMatchMode.CONTAINS},
         'description': {value: null, matchMode: FilterMatchMode.CONTAINS},
       };
     },

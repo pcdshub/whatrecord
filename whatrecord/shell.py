@@ -17,7 +17,7 @@ import apischema
 
 from . import asyn, common
 from . import motor as motor_mod
-from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshRedirect,
+from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, MutableLoadContext,
                      RecordInstance, ShortLinterResults, WhatRecord,
                      time_context)
@@ -186,11 +186,11 @@ class ShellState:
                     raise
                 ex_details = traceback.format_exc()
                 shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
-                print("\n", type(ex), ex)
-                print(ex_details)
+                # print("\n", type(ex), ex, file=sys.stderr)
+                # print(ex_details, file=sys.stderr)
 
             yield shresult
-            if isinstance(shresult.result, IocshCommand):
+            if isinstance(shresult.result, IocshCmdArgs):
                 yield from self.interpret_shell_line(
                     shresult.result.command, recurse=recurse
                 )
@@ -279,7 +279,7 @@ class ShellState:
         return self.macro_context.get_macros()
 
     def handle_iocshCmd(self, command, *_):
-        return IocshCommand(context=self.get_load_context(), command=command)
+        return IocshCmdArgs(context=self.get_load_context(), command=command)
 
     def handle_cd(self, path, *_):
         path = self._fix_path(path)
@@ -719,16 +719,28 @@ def load_startup_scripts(
     return container
 
 
-def _load_ioc(md, standin_directories):
-    with time_context() as ctx:
-        loaded = LoadedIoc.from_metadata(md)
-        md.standin_directories.update(standin_directories)
-        serialized = apischema.serialize(loaded)
-        return ctx(), serialized
+def _load_ioc(md, standin_directories, use_gdb=True):
+    async def _load():
+        with time_context() as ctx:
+            try:
+                md.standin_directories.update(standin_directories)
+                if use_gdb:
+                    await md.get_binary_information()
+                loaded = LoadedIoc.from_metadata(md)
+                serialized = apischema.serialize(loaded)
+            except Exception as ex:
+                return ctx(), ex
+
+            return ctx(), serialized
+
+    return asyncio.run(_load())
 
 
 async def load_startup_scripts_with_metadata(
-    *md_items, standin_directories=None, processes=8
+    *md_items,
+    standin_directories=None,
+    processes: int = 8,
+    use_gdb: bool = True,
 ) -> ScriptContainer:
     """
     Load all given startup scripts into a shared ScriptContainer.
@@ -755,7 +767,9 @@ async def load_startup_scripts_with_metadata(
         try:
             with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
                 idx_to_future = {
-                    idx: asyncio.wrap_future(executor.submit(_load_ioc, md, standin_directories))
+                    idx: asyncio.wrap_future(executor.submit(_load_ioc, md,
+                                                             standin_directories,
+                                                             use_gdb=use_gdb))
                     for idx, md in enumerate(md_items)
                 }
                 for idx, fut in idx_to_future.items():
@@ -766,9 +780,14 @@ async def load_startup_scripts_with_metadata(
                     except FileNotFoundError as ex:
                         print(f"\n\nMissing file for loading this IOC: {ex}")
                         continue
-                    except Exception:
+                    except Exception as ex:
                         print(f"\n\nFailed to load unexpectedly:")
                         print(type(ex).__name__, ex)
+                        continue
+
+                    if isinstance(loaded_ser, Exception):
+                        print(f"\n\nFailed to load unexpectedly:")
+                        print(type(loaded_ser).__name__, loaded_ser)
                         continue
 
                     total_child_load_time += load_elapsed
@@ -783,11 +802,11 @@ async def load_startup_scripts_with_metadata(
             total_files = idx
 
     print(
-        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
+        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s (wall time) "
         f"with {processes} process(es)"
     )
     print(
         f"Child processes reported taking a total of {total_child_load_time} "
-        f"sec (wall time)"
+        f"sec (total time on all {processes} processes)"
     )
     return container
