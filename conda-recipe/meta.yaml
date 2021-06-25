@@ -31,7 +31,6 @@ test:
       - whatrecord
     requires:
       - pytest
-      - gdb
       - epics-base
 
 about:
