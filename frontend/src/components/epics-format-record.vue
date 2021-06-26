@@ -9,7 +9,7 @@
         :key=field.name
         :title="field.dtype + ':' + field.context.join(', ')"
         >
-      &nbsp;field({{ field.name }}, "{{ field.value }}")   #  {{ field.dtype }}<br/>
+      &nbsp;field({{ field.name }}, "{{ field.value }}")<br/>
       </span>
     }
     </div>
