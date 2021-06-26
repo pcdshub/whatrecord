@@ -54,7 +54,8 @@ class ServerState:
         self,
         startup_scripts: List[str],
         script_loaders: List[str],
-        standin_directories: Dict[str, str]
+        standin_directories: Dict[str, str],
+        gateway_config: Optional[str] = None,
     ):
         self.standin_directories = standin_directories
         self.container = ScriptContainer()
@@ -67,7 +68,7 @@ class ServerState:
             for loader in script_loaders
         ]
         self.archived_pvs = set()
-        self.gateway_config = None
+        self.gateway_config_path = gateway_config
 
     async def async_init(self, app):
         await self.update_from_script_loaders()
@@ -87,8 +88,13 @@ class ServerState:
         self.script_relations = graph.build_script_relations(
             self.container.database, self.pv_relations)
 
-    def load_gateway_config(self, path):
-        self.gateway_config = gateway.GatewayConfig(path)
+        self._load_gateway_config()
+
+    def _load_gateway_config(self):
+        if not self.gateway_config_path:
+            return
+
+        self.gateway_config = gateway.GatewayConfig(self.gateway_config_path)
         for config in self.gateway_config.filenames:
             config = str(config)
             self.container.loaded_files[config] = config
@@ -255,10 +261,12 @@ class ServerHandler:
         startup_scripts: List[str],
         script_loader: List[str],
         standin_directories: Dict[str, str],
-        archive_viewer_url: Optional[str] = None
+        archive_viewer_url: Optional[str] = None,
+        gateway_config: Optional[str] = None,
     ):
         self.state = ServerState(
-            startup_scripts, script_loader, standin_directories
+            startup_scripts, script_loader, standin_directories,
+            gateway_config
         )
 
     async def async_init(self, app):
@@ -509,7 +517,8 @@ def main(
         scripts,
         script_loader,
         standin_directories=standin_directory,
-        archive_viewer_url=archive_viewer_url
+        archive_viewer_url=archive_viewer_url,
+        gateway_config=gateway_config,
     )
     add_routes(app, handler)
 
@@ -518,9 +527,6 @@ def main(
     elif archive_management_url:
         ...
         # handler.set_archiver_url(archive_management_url)
-
-    if gateway_config:
-        handler.state.load_gateway_config(gateway_config)
 
     app.on_startup.append(handler.async_init)
     web.run_app(app, port=port)
