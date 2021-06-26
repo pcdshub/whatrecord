@@ -101,7 +101,7 @@ def build_database_relations(
                 field2 = RecordField(
                     dtype="unknown",
                     name=field2,
-                    value="(unknown-field)",
+                    value="",  # unset or invalid, can't tell yet
                     context=unset_ctx,
                 )
 
