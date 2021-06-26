@@ -104,7 +104,7 @@ class IocshScript:
 
     @classmethod
     def from_metadata(cls, md: IocMetadata, sh: ShellState):
-        looks_like_sh = (
+        looks_like_sh = md.binary and (
             "bin/bash" in md.binary or
             "env bash" in md.binary or
             "bin/tcsh" in md.binary
