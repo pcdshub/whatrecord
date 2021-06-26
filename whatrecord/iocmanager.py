@@ -111,13 +111,21 @@ def find_stcmd(directory: str, ioc_id: str) -> str:
     if directory.startswith("ioc"):
         directory = os.path.join(EPICS_SITE_TOP, directory)
 
+    suffix = ("iocBoot", ioc_id, "st.cmd")
     # Templated IOCs are... different:
-    build_path = os.path.join(directory, "build", "iocBoot", ioc_id)
-    if os.path.exists(build_path):
-        return os.path.join(build_path, "st.cmd")
+    options = [
+        os.path.join(directory, "children", "build", *suffix),
+        os.path.join(directory, "build", *suffix),
+        os.path.join(directory, *suffix),
+        os.path.join(directory, "st.cmd"),
+    ]
 
-    # Otherwise, it should be straightforward:
-    return os.path.join(directory, "iocBoot", ioc_id, "st.cmd")
+    for option in options:
+        if os.path.exists(option):
+            return option
+
+    # Guess at what's correct:
+    return options[-1]
 
 
 def get_iocs_from_configs(
