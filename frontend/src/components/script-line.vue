@@ -5,10 +5,7 @@
     </td>
     <td :class="script_line_class">
       <template v-if="!has_details">
-        <span class="script-line" :id="line_id">
-          {{ line }}
-        </span>
-        <br/>
+        <pre class="script-line" :id="line_id">{{ line }}</pre>
       </template>
       <template v-else>
         <details :id="line_id" class="script-line">
