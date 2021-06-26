@@ -12,6 +12,7 @@ import apischema
 
 if typing.TYPE_CHECKING:
     from .db import LinterResults
+    from .shell import ShellState
 
 from . import settings, util
 
@@ -79,13 +80,20 @@ class IocshSplit:
 class IocshResult:
     context: FullLoadContext
     line: str
-    outputs: List[str]
-    argv: Optional[List[str]]
-    error: Optional[str]
-    redirects: List[IocshRedirect]
+    outputs: List[str] = field(default_factory=list)
+    argv: Optional[List[str]] = None
+    error: Optional[str] = None
+    redirects: List[IocshRedirect] = field(default_factory=list)
     # TODO: normalize this
     # result: Optional[Union[str, Dict[str, str], IocshCmdArgs, ShortLinterResults]]
-    result: Any
+    result: Any = None
+
+    @classmethod
+    def from_line(cls, line: str, context: Optional[FullLoadContext] = None) -> IocshResult:
+        return cls(
+            context=context or (),
+            line=line,
+        )
 
 
 @dataclass
@@ -93,6 +101,48 @@ class IocshScript:
     path: str
     # lines: Tuple[IocshResult, ...]
     lines: List[IocshResult]
+
+    @classmethod
+    def from_metadata(cls, md: IocMetadata, sh: ShellState):
+        looks_like_sh = (
+            "bin/bash" in md.binary or
+            "env bash" in md.binary or
+            "bin/tcsh" in md.binary
+        )
+
+        if looks_like_sh:
+            if md.base_version == settings.DEFAULT_BASE_VERSION:
+                md.base_version = "unknown"
+            return cls.from_general_file(md.script)
+
+        return cls.from_interpreted_script(md.script, sh)
+
+    @classmethod
+    def from_interpreted_script(cls, filename: Union[pathlib.Path, str], sh: ShellState):
+        with open(filename, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        return cls(
+            path=str(filename),
+            lines=tuple(sh.interpret_shell_script(lines, name=str(filename))),
+        )
+
+    @classmethod
+    def from_general_file(cls, filename: Union[pathlib.Path, str]):
+        # For use when shoehorning in a file that's not _really_ an IOC script
+        # TODO: instead rework the api
+        with open(filename, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        return cls(
+            path=str(filename),
+            lines=tuple(
+                IocshResult.from_line(
+                    line, context=(LoadContext(str(filename), lineno), )
+                )
+                for lineno, line in enumerate(lines, 1)
+            ),
+        )
 
 
 @dataclass

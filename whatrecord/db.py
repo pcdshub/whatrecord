@@ -413,7 +413,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     ...
                 else:
                     fld.dtype = field_info.type
-                    fld.context = field_info.context + fld.context
+                    # TODO: originally had merged dbd field context with record
+                    # instance field context, but this seems to be overkill
+                    # fld.context = field_info.context + fld.context
 
         return RecordInstance(
             aliases=[alias.alias_name for alias in info[DatabaseRecordAlias]],
