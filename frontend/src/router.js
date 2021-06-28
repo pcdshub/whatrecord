@@ -3,8 +3,12 @@ import * as VueRouter from 'vue-router';
 import WhatRec from './views/whatrec.vue';
 import ScriptView from './views/script-view.vue';
 import IocView from './views/iocs.vue';
+import HappiView from './views/happi.vue';
 
-const routes = [
+import { happi_enabled } from './settings.js';
+
+
+let routes = [
   {
       path: '/',
       redirect: '/whatrec/*/'
@@ -45,7 +49,25 @@ const routes = [
   },
 ]
 
+if (happi_enabled) {
+    routes.push(
+        {
+            name: 'happi',
+            path: '/happi/:item_name?',
+            component: HappiView,
+            props: route => (
+                {
+                    item_name: route.params.item_name || null,
+                }
+            )
+        },
+    )
+}
+
 export const router = VueRouter.createRouter({
   history: VueRouter.createWebHistory(),
   routes: routes,
+  scrollBehavior() {
+    document.getElementById('app').scrollIntoView();
+  }
 })

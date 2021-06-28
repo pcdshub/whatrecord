@@ -24,6 +24,35 @@ def get_file_sha256(binary: pathlib.Path):
         return hashlib.sha256(fp.read()).hexdigest()
 
 
+async def run_script_with_json_output(
+    script_line: str,
+    encoding: str = "utf-8",
+    log_errors: bool = True,
+) -> Optional[dict]:
+    """Run a script and get its JSON output."""
+    proc = await asyncio.create_subprocess_shell(
+        script_line,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+
+    (stdout, stderr) = await proc.communicate()
+    if stderr and log_errors:
+        logger.warning(
+            "Standard error output while updating IOCs (%r): %s",
+            script_line, stderr
+        )
+
+    if stdout:
+        return json.loads(stdout.decode(encoding))
+
+    if log_errors:
+        logger.warning(
+            "No standard output while updating IOCs (%r)",
+            script_line
+        )
+
+
 async def run_gdb(
     script: str,
     binary: Union[pathlib.Path, str],
@@ -75,21 +104,8 @@ async def run_gdb(
         f'--args "{binary}" {args}'
     )
 
-    proc = await asyncio.create_subprocess_shell(
-        to_execute, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-    )
-
-    (stdout, stderr) = await proc.communicate()
-    if stderr:
-        logger.warning(
-            "Standard error output while running gdb (%r): %s", to_execute, stderr
-        )
-
-    if stdout:
-        json_data = json.loads(stdout.decode("utf-8"))
-    else:
-        logger.warning("No standard output while getting GDB output (%r)", to_execute)
-        json_data = {}
+    json_data = await run_script_with_json_output(to_execute)
+    json_data = json_data or {}
 
     if use_cache:
         with open(hash_filename, "wt") as fp:

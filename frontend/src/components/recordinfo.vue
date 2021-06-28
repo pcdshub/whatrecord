@@ -13,7 +13,22 @@
         :is_grecord=instance.is_grecord
         :is_pva=instance.is_pva
       />
+
+      <template v-for="plugin_name in plugins" :key="plugin_name">
+        <template v-for="plugin_match in instance.metadata[plugin_name] || []" :key="plugin_match.name">
+          <details>
+            <summary>{{ plugin_name }} - {{ plugin_match.name }}</summary>
+            <dictionary-table
+              :dict="plugin_match"
+              :cls="'metadata'"
+              :skip_keys="[]"
+              />
+          </details>
+          <br />
+        </template>
+      </template>
     </template>
+
   </template>
 
   <Accordion :multiple="true">
@@ -88,6 +103,8 @@ import ScriptContextLink from './script-context-link.vue'
 import Accordion from 'primevue/accordion';
 import AccordionTab from 'primevue/accordiontab';
 
+import { plugins } from '../settings.js';
+
 
 export default {
   name: 'Recordinfo',
@@ -138,6 +155,15 @@ export default {
       }
       return null;
     },
+    happi_metadata() {
+      if (this.instance_v3 == null) {
+        return [];
+      }
+      return this.instance_v3.metadata["happi"] || [];
+    },
+    plugins() {
+      return plugins;
+    }
   }
 }
 </script>

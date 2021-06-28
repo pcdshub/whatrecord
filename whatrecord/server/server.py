@@ -1,17 +1,19 @@
+import dataclasses
 import fnmatch
 import functools
 import json
+import logging
 import re
 import sys
 import tempfile
-from typing import (ClassVar, DefaultDict, Dict, List, Optional, Set, Tuple,
-                    Union)
+from typing import (Any, ClassVar, DefaultDict, Dict, List, Optional, Set,
+                    Tuple, Union)
 
 import apischema
 import graphviz
 from aiohttp import web
 
-from .. import common, gateway, graph, ioc_finder, settings
+from .. import common, gateway, graph, ioc_finder, settings, util
 from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
 from ..shell import (LoadedIoc, ScriptContainer,
@@ -28,6 +30,40 @@ TRUE_VALUES = {"1", "true", "True"}
 #     app,
 #     loader=jinja2.FileSystemLoader('/path/to/templates/folder')
 # )
+
+logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class ServerPluginSpec:
+    name: str
+    #: Python module
+    module: Optional[str] = None
+    #: Or any executable
+    executable: Optional[List[str]] = None
+    #: Can be a dataclass or a builtin type
+    # result_class: type
+    files_to_monitor: List[str] = dataclasses.field(default_factory=list)
+    results: Any = None
+
+    async def update(self):
+        if self.executable:
+            script = " ".join(f'"{param}"' for param in self.executable)
+        elif self.module:
+            script = f'"{sys.executable}" -m {self.module}'
+        else:
+            raise ValueError("module and executable both unset")
+
+        results = await util.run_script_with_json_output(script)
+        results = results or {}
+        files_to_monitor = results.get("files_to_monitor", None)
+        if files_to_monitor:
+            self.files_to_monitor = files_to_monitor
+        if "record_to_metadata" not in results:
+            raise ValueError(f"Invalid plugin output: {results}")
+
+        self.results = results
+        return results
 
 
 class TooManyRecordsError(Exception):
@@ -49,6 +85,7 @@ class ServerState:
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
+    plugin_data: Dict[str, Any]
 
     def __init__(
         self,
@@ -56,6 +93,7 @@ class ServerState:
         script_loaders: List[str],
         standin_directories: Dict[str, str],
         gateway_config: Optional[str] = None,
+        plugins: Optional[List[ServerPluginSpec]] = None,
     ):
         self.standin_directories = standin_directories
         self.container = ScriptContainer()
@@ -69,6 +107,8 @@ class ServerState:
         ]
         self.archived_pvs = set()
         self.gateway_config_path = gateway_config
+        self.plugins = plugins or []
+        self.plugin_data = {}
 
     async def async_init(self, app):
         await self.update_from_script_loaders()
@@ -89,6 +129,27 @@ class ServerState:
             self.container.database, self.pv_relations)
 
         self._load_gateway_config()
+        await self.update_plugins()
+
+    async def update_plugins(self):
+        for plugin in self.plugins:
+            logger.info("Updating plugin: %s", plugin.name)
+            try:
+                info = await plugin.update()
+            except Exception:
+                logger.exception("Failed to update plugin (%s)", plugin.name)
+                continue
+
+            for record, md in info["record_to_metadata"].items():
+                ...
+                # TODO update to not require annotation?
+
+    def get_plugin_info(self) -> Dict[str, Any]:
+        return {
+            plugin.name: plugin.results
+            for plugin in self.plugins
+            if plugin.results
+        }
 
     def _load_gateway_config(self):
         if not self.gateway_config_path:
@@ -115,6 +176,16 @@ class ServerState:
                 instance.metadata["gateway"] = apischema.serialize(
                     self.get_gateway_info(instance.name)
                 )
+            for plugin in self.plugins:
+                if not plugin.results:
+                    continue
+
+                instance_md = plugin.results["record_to_metadata"].get(
+                    instance.name, None
+                )
+                if instance_md is not None:
+                    instance.metadata[plugin.name] = instance_md
+
         return whatrec
 
     def whatrec(self, pvname) -> List[WhatRecord]:
@@ -256,18 +327,8 @@ class FileLine:
 class ServerHandler:
     routes = web.RouteTableDef()
 
-    def __init__(
-        self,
-        startup_scripts: List[str],
-        script_loader: List[str],
-        standin_directories: Dict[str, str],
-        archive_viewer_url: Optional[str] = None,
-        gateway_config: Optional[str] = None,
-    ):
-        self.state = ServerState(
-            startup_scripts, script_loader, standin_directories,
-            gateway_config
-        )
+    def __init__(self, state: ServerState):
+        self.state = state
 
     async def async_init(self, app):
         await self.state.async_init(app)
@@ -349,6 +410,10 @@ class ServerHandler:
     # @routes.get("/api/graphql/query")
     # async def api_graphql_query(self, request: web.Request):
     # TODO: ...
+
+    @routes.get("/api/plugin/info")
+    async def api_plugin_info(self, request: web.Request):
+        return web.json_response(self.state.get_plugin_info())
 
     @functools.lru_cache(maxsize=2048)
     def script_info_from_loaded_file(self, fn) -> common.IocshScript:
@@ -513,13 +578,24 @@ def main(
     if not isinstance(standin_directory, dict):
         standin_directory = dict(path.split("=", 1) for path in standin_directory)
 
-    handler = ServerHandler(
-        scripts,
-        script_loader,
+    state = ServerState(
+        startup_scripts=scripts,
+        script_loaders=script_loader,
         standin_directories=standin_directory,
-        archive_viewer_url=archive_viewer_url,
+        # archive_viewer_url=archive_viewer_url,
         gateway_config=gateway_config,
+        plugins=[
+            ServerPluginSpec(
+                name="happi",
+                module="whatrecord.plugins.happi",
+                executable=None,
+                # result_class=dict,
+            ),
+        ],
     )
+
+    handler = ServerHandler(state)
+
     add_routes(app, handler)
 
     if archive_file:
