@@ -17,7 +17,8 @@ import apischema
 
 from . import asyn, common
 from . import motor as motor_mod
-from .common import (FullLoadContext, IocMetadata, IocshCommand, IocshRedirect,
+from . import settings
+from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, MutableLoadContext,
                      RecordInstance, ShortLinterResults, WhatRecord,
                      time_context)
@@ -150,6 +151,7 @@ class ShellState:
             yield shresult
             return
 
+        self.loaded_files[str(filename.resolve())] = str(filename)
         try:
             yield shresult
             yield from self.interpret_shell_script(
@@ -186,11 +188,11 @@ class ShellState:
                     raise
                 ex_details = traceback.format_exc()
                 shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
-                print("\n", type(ex), ex)
-                print(ex_details)
+                # print("\n", type(ex), ex, file=sys.stderr)
+                # print(ex_details, file=sys.stderr)
 
             yield shresult
-            if isinstance(shresult.result, IocshCommand):
+            if isinstance(shresult.result, IocshCmdArgs):
                 yield from self.interpret_shell_line(
                     shresult.result.command, recurse=recurse
                 )
@@ -271,15 +273,45 @@ class ShellState:
         self.variables[variable] = value
         return f"Registered variable: {variable!r}={value!r}"
 
+    def env_set_EPICS_BASE(self, path):
+        # TODO: slac-specific
+        version_prefixes = [
+            "/reg/g/pcds/epics/base/",
+            "/cds/group/pcds/epics/base/",
+        ]
+        for prefix in version_prefixes:
+            if path.startswith(prefix):
+                path = path[len(prefix):]
+                if "/" in path:
+                    path = path.split("/")[0]
+                version = path.lstrip("R")
+                if self.ioc_info.base_version == settings.DEFAULT_BASE_VERSION:
+                    self.ioc_info.base_version = version
+                    return f"Set base version: {version}"
+                return (
+                    f"Found version ({version}) but version already specified:"
+                    f" {self.ioc_info.base_version}"
+                )
+
     def handle_epicsEnvSet(self, variable, value, *_):
         self.macro_context.define(**{variable: value})
-        return f"Defined: {variable!r}={value!r}"
+        hook = getattr(self, f"env_set_{variable}", None)
+        if hook and callable(hook):
+            hook_result = hook(value)
+        else:
+            hook_result = ""
+
+        return {
+            "variable": variable,
+            "value": value,
+            "hook": hook_result,
+        }
 
     def handle_epicsEnvShow(self, *_):
         return self.macro_context.get_macros()
 
     def handle_iocshCmd(self, command, *_):
-        return IocshCommand(context=self.get_load_context(), command=command)
+        return IocshCmdArgs(context=self.get_load_context(), command=command)
 
     def handle_cd(self, path, *_):
         path = self._fix_path(path)
@@ -638,19 +670,35 @@ class LoadedIoc:
     script: IocshScript
 
     @classmethod
+    def from_errored_load(cls, md: IocMetadata, ex: Exception) -> LoadedIoc:
+        script = IocshScript(
+            path=str(md.script),
+            lines=tuple(
+                IocshResult.from_line(line)
+                for line in str(ex).splitlines()
+            ),
+        )
+        md.metadata["load_error"] = f"{type(ex).__name__}: {ex}"
+        return cls(
+            name=md.name,
+            path=md.script,
+            metadata=md,
+            shell_state=ShellState(),
+            script=script
+        )
+
+    @classmethod
     def from_metadata(cls, md: IocMetadata) -> LoadedIoc:
         sh = ShellState(ioc_info=md)
         sh.working_directory = md.startup_directory
         sh.macro_context.define(**md.macros)
         sh.standin_directories = md.standin_directories or {}
 
-        with open(md.script, "rt") as fp:
-            lines = fp.read().splitlines()
-
-        script = IocshScript(
-            path=str(md.script),
-            lines=tuple(sh.interpret_shell_script(lines, name=str(md.script))),
+        script = IocshScript.from_metadata(
+            md,
+            sh=sh
         )
+
         return cls(
             name=md.name,
             path=md.script,
@@ -719,16 +767,28 @@ def load_startup_scripts(
     return container
 
 
-def _load_ioc(md, standin_directories):
-    with time_context() as ctx:
-        loaded = LoadedIoc.from_metadata(md)
-        md.standin_directories.update(standin_directories)
-        serialized = apischema.serialize(loaded)
-        return ctx(), serialized
+def _load_ioc(identifier, md, standin_directories, use_gdb=True):
+    async def _load():
+        with time_context() as ctx:
+            try:
+                md.standin_directories.update(standin_directories)
+                if use_gdb:
+                    await md.get_binary_information()
+                loaded = LoadedIoc.from_metadata(md)
+                serialized = apischema.serialize(loaded)
+            except Exception as ex:
+                return identifier, ctx(), ex
+
+            return identifier, ctx(), serialized
+
+    return asyncio.run(_load())
 
 
 async def load_startup_scripts_with_metadata(
-    *md_items, standin_directories=None, processes=8
+    *md_items,
+    standin_directories=None,
+    processes: int = 8,
+    use_gdb: bool = True,
 ) -> ScriptContainer:
     """
     Load all given startup scripts into a shared ScriptContainer.
@@ -752,42 +812,54 @@ async def load_startup_scripts_with_metadata(
     total_child_load_time = 0.0
 
     with time_context() as total_ctx:
-        try:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
-                idx_to_future = {
-                    idx: asyncio.wrap_future(executor.submit(_load_ioc, md, standin_directories))
-                    for idx, md in enumerate(md_items)
-                }
-                for idx, fut in idx_to_future.items():
-                    md = md_items[idx]
-                    print(f"{idx}/{total_files}: Loading {md.script}...", end="")
-                    try:
-                        load_elapsed, loaded_ser = await fut
-                    except FileNotFoundError as ex:
-                        print(f"\n\nMissing file for loading this IOC: {ex}")
-                        continue
-                    except Exception:
-                        print(f"\n\nFailed to load unexpectedly:")
-                        print(type(ex).__name__, ex)
-                        continue
+        with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
+            coros = [
+                asyncio.wrap_future(
+                    executor.submit(_load_ioc, idx, md,
+                                    standin_directories, use_gdb=use_gdb)
+                )
+                for idx, md in enumerate(md_items)
+            ]
 
-                    total_child_load_time += load_elapsed
+            for completed_count, coro in enumerate(
+                asyncio.as_completed(coros), 1
+            ):
+                print(f"{completed_count}/{total_files}: ", end="")
+                try:
+                    script_idx, load_elapsed, loaded_ser = await coro
+                    md = md_items[script_idx]
+                    print(f"{md.name or md.script} ", end="")
+                except Exception as ex:
+                    print("\n\nInternal error while loading:")
+                    print(type(ex).__name__, ex)
+                    continue
 
-                    with time_context() as ctx:
-                        loaded = apischema.deserialize(LoadedIoc, loaded_ser)
-                        container.add_script(loaded)
-                        print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
+                total_child_load_time += load_elapsed
 
-        except KeyboardInterrupt:
-            print("Ctrl-C: Cancelling loading remaining scripts.")
-            total_files = idx
+                if isinstance(loaded_ser, Exception):
+                    print(f"\n\nFailed to load: [{load_elapsed:.1f} s]")
+                    print(type(loaded_ser).__name__, loaded_ser)
+                    if md.base_version == settings.DEFAULT_BASE_VERSION:
+                        md.base_version = "unknown"
+                    container.add_script(
+                        LoadedIoc.from_errored_load(
+                            md,
+                            loaded_ser
+                        )
+                    )
+                    continue
+
+                with time_context() as ctx:
+                    loaded = apischema.deserialize(LoadedIoc, loaded_ser)
+                    container.add_script(loaded)
+                    print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
 
     print(
-        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
+        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s (wall time) "
         f"with {processes} process(es)"
     )
     print(
         f"Child processes reported taking a total of {total_child_load_time} "
-        f"sec (wall time)"
+        f"sec (total time on all {processes} processes)"
     )
     return container

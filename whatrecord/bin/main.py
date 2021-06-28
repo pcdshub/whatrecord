@@ -1,5 +1,5 @@
 """
-`whatrec` is the top-level command for accessing various subcommands.
+`whatrecord` is the top-level command for accessing various subcommands.
 
 Try::
 
@@ -30,13 +30,14 @@ def _build_commands():
     unavailable = []
 
     for module in sorted(MODULES):
+        subcommand = module.replace("_", "-")
         try:
             mod = _try_import(module)
         except Exception as ex:
             unavailable.append((module, ex))
         else:
-            result[module] = (mod.build_arg_parser, mod.main)
-            DESCRIPTION += f"\n    $ whatrecord {module} --help"
+            result[subcommand] = (mod.build_arg_parser, mod.main)
+            DESCRIPTION += f"\n    $ whatrecord {subcommand} --help"
 
     if unavailable:
         DESCRIPTION += "\n\n"
@@ -79,7 +80,7 @@ def main():
 
     subparsers = top_parser.add_subparsers(help="Possible subcommands")
     for command_name, (build_func, main) in COMMANDS.items():
-        sub = subparsers.add_parser(command_name.replace("_", "-"))
+        sub = subparsers.add_parser(command_name)
         build_func(sub)
         sub.set_defaults(func=main)
 

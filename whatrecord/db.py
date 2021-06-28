@@ -1,22 +1,16 @@
 from __future__ import annotations
 
 import math
-import os
 import pathlib
 from dataclasses import field
 from typing import Dict, List, Optional, Tuple, Union
 
 import lark
 
-from whatrecord.common import (FullLoadContext, LinterError, LinterWarning,
-                               LoadContext, PVAFieldReference, RecordField,
-                               RecordInstance, StringWithContext, dataclass)
-from whatrecord.macro import MacroContext
-
-# TODO: change back to relative imports
-
-
-MAX_RECORD_LENGTH = int(os.environ.get("EPICS_MAX_RECORD_LENGTH", "60"))
+from .common import (FullLoadContext, LinterError, LinterWarning, LoadContext,
+                     PVAFieldReference, RecordField, RecordInstance,
+                     StringWithContext, dataclass)
+from .macro import MacroContext
 
 
 def split_record_and_field(pvname) -> Tuple[str, str]:
@@ -419,7 +413,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     ...
                 else:
                     fld.dtype = field_info.type
-                    fld.context = field_info.context + fld.context
+                    # TODO: originally had merged dbd field context with record
+                    # instance field context, but this seems to be overkill
+                    # fld.context = field_info.context + fld.context
 
         return RecordInstance(
             aliases=[alias.alias_name for alias in info[DatabaseRecordAlias]],

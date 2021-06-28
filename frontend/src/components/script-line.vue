@@ -5,10 +5,7 @@
     </td>
     <td :class="script_line_class">
       <template v-if="!has_details">
-        <span class="script-line" :id="line_id">
-          {{ line }}
-        </span>
-        <br/>
+        <pre class="script-line" :id="line_id">{{ line.replace("\t", "    ") }}</pre>
       </template>
       <template v-else>
         <details :id="line_id" class="script-line">
@@ -32,12 +29,38 @@
           </template>
           <template v-else>
             <span v-if="error != null" class="error-block">
-              <pre>{{error}}</pre>
+              <template v-if="typeof error == 'string'">
+                <pre>{{ error }}</pre>
+              </template>
+              <template v-else>
+                <dictionary-table
+                  :dict="error"
+                  cls="error"
+                  :skip_keys="[]" />
+              </template>
             </span>
             <span v-if="result != null" class="result-block">
-              <pre>{{ result }}</pre>
+              <template v-if="typeof result == 'string'">
+                <pre>{{ result }}</pre>
+              </template>
+              <template v-else>
+                <dictionary-table
+                  :dict="result"
+                  cls="result"
+                  :skip_keys="[]" />
+              </template>
             </span>
           </template>
+          <template v-if="command_info_table != null">
+            <br />
+            <dictionary-table
+              :dict="command_info_table"
+              key_column="Argument"
+              value_column="Value"
+              cls="command_info_table"
+              :skip_keys="[]" />
+          </template>
+
         </details>
       </template>
     </td>
@@ -45,15 +68,32 @@
 </template>
 
 <script>
+import DictionaryTable from './dictionary-table.vue';
 import LinterResults from './linter-results.vue';
 
 export default {
   name: 'ScriptLine',
   components: [
+    DictionaryTable,
     LinterResults,
   ],
-  props: ["context", "line", "outputs", "argv", "error", "redirects", "result"],
+  props: ["context", "line", "outputs", "argv", "error", "redirects", "result", "command_info"],
   computed: {
+    command_info_table() {
+      if (this.command_info == null || this.command_info.length == 0) {
+        return null;
+      }
+      var info_table = {};
+      if (this.command_info["usage"]) {
+        info_table["usage"] = this.command_info["usage"];
+      }
+      for (const [idx, arg_info] of this.command_info["args"].entries()) {
+        const argv_idx = idx + 1;
+        const arg_value = argv_idx < this.argv.length ? this.argv[argv_idx] : "";
+        info_table[arg_info.name] = arg_value;
+      }
+      return info_table;
+    },
     line_id() {
       return this.context.map(ctx => ctx[1]).join(':');
     },
@@ -68,13 +108,13 @@ export default {
       return classes;
     },
     has_details() {
-      return !(this.result == null && this.error == null);
+      return !(this.result == null && this.error == null && this.command_info == null);
     },
     is_error_line() {
       return (this.is_db_load_error || this.error != null);
     },
     script_line_class() {
-      return (this.line == this.$route.params.line ? ["script-line-selected", "script-line"] : "script-line");
+      return ((this.context.length > 0 && this.context[0][1] == this.$route.params.line) ? ["script-line-selected", "script-line"] : "script-line");
     },
     is_db_load_error() {
       return (
@@ -94,6 +134,7 @@ export default {
     // TODO: I don't think this is circular; why am I running into this?
     // V2 ref: https://vuejs.org/v2/guide/components-edge-cases.html#Circular-References-Between-Components
     this.$options.components.LinterResults = require('./linter-results.vue').default;
+    this.$options.components.DictionaryTable = require('./dictionary-table.vue').default;
   },
 }
 </script>

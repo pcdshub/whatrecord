@@ -1,19 +1,14 @@
-import os
 from typing import Dict
 
 import aiohttp
 import apischema
 
+from . import settings
 from .server.server import PVGetInfo
-
-WHATREC_SERVER = os.environ.get(
-    "WHATREC_SERVER",
-    "http://localhost:8898/"
-)
 
 
 async def make_query(path, server=None):
-    server = (server or WHATREC_SERVER).rstrip("/")
+    server = (server or settings.WHATREC_SERVER).rstrip("/")
 
     if not path.startswith("/"):
         raise ValueError(

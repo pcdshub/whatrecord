@@ -12,7 +12,9 @@ import apischema
 
 if typing.TYPE_CHECKING:
     from .db import LinterResults
+    from .shell import ShellState
 
+from . import settings, util
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,8 @@ class MutableLoadContext:
 
 
 @dataclass
-class IocshCommand:
+class IocshCmdArgs:
+    """iocshCmd(...) arguments."""
     context: FullLoadContext
     command: str
 
@@ -77,13 +80,20 @@ class IocshSplit:
 class IocshResult:
     context: FullLoadContext
     line: str
-    outputs: List[str]
-    argv: Optional[List[str]]
-    error: Optional[str]
-    redirects: List[IocshRedirect]
+    outputs: List[str] = field(default_factory=list)
+    argv: Optional[List[str]] = None
+    error: Optional[str] = None
+    redirects: List[IocshRedirect] = field(default_factory=list)
     # TODO: normalize this
-    # result: Optional[Union[str, Dict[str, str], IocshCommand, ShortLinterResults]]
-    result: Any
+    # result: Optional[Union[str, Dict[str, str], IocshCmdArgs, ShortLinterResults]]
+    result: Any = None
+
+    @classmethod
+    def from_line(cls, line: str, context: Optional[FullLoadContext] = None) -> IocshResult:
+        return cls(
+            context=context or (),
+            line=line,
+        )
 
 
 @dataclass
@@ -91,6 +101,76 @@ class IocshScript:
     path: str
     # lines: Tuple[IocshResult, ...]
     lines: List[IocshResult]
+
+    @classmethod
+    def from_metadata(cls, md: IocMetadata, sh: ShellState):
+        looks_like_sh = md.binary and (
+            "bin/bash" in md.binary or
+            "env bash" in md.binary or
+            "bin/tcsh" in md.binary
+        )
+
+        if looks_like_sh:
+            if md.base_version == settings.DEFAULT_BASE_VERSION:
+                md.base_version = "unknown"
+            return cls.from_general_file(md.script)
+
+        return cls.from_interpreted_script(md.script, sh)
+
+    @classmethod
+    def from_interpreted_script(cls, filename: Union[pathlib.Path, str], sh: ShellState):
+        with open(filename, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        return cls(
+            path=str(filename),
+            lines=tuple(sh.interpret_shell_script(lines, name=str(filename))),
+        )
+
+    @classmethod
+    def from_general_file(cls, filename: Union[pathlib.Path, str]):
+        # For use when shoehorning in a file that's not _really_ an IOC script
+        # TODO: instead rework the api
+        with open(filename, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        return cls(
+            path=str(filename),
+            lines=tuple(
+                IocshResult.from_line(
+                    line, context=(LoadContext(str(filename), lineno), )
+                )
+                for lineno, line in enumerate(lines, 1)
+            ),
+        )
+
+
+@dataclass
+class IocshArgument:
+    name: str
+    type: str
+
+
+@dataclass
+class IocshCommand:
+    name: str
+    args: List[IocshArgument] = field(default_factory=list)
+    usage: Optional[str] = None
+
+
+@dataclass
+class IocshVariable:
+    name: str
+    value: Optional[str] = None
+    type: Optional[str] = None
+
+
+@dataclass
+class GdbBinaryInfo:
+    commands: Dict[str, IocshCommand]
+    base_version: Optional[str]
+    variables: Dict[str, IocshVariable]
+    error: Optional[str]
 
 
 @dataclass
@@ -100,10 +180,36 @@ class IocMetadata:
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
     host: Optional[str] = None
     port: Optional[int] = None
-    base_version: str = "3.15"
+    binary: Optional[str] = None
+    base_version: str = settings.DEFAULT_BASE_VERSION
     metadata: Dict[str, Any] = field(default_factory=dict)
     macros: Dict[str, str] = field(default_factory=dict)
     standin_directories: Dict[str, str] = field(default_factory=dict)
+    commands: Dict[str, IocshCommand] = field(default_factory=dict)
+    variables: Dict[str, IocshVariable] = field(default_factory=dict)
+
+    async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
+        if not self.binary or not pathlib.Path(self.binary).exists():
+            return
+
+        try:
+            info = await util.run_gdb(
+                "gdb_binary_info",
+                self.binary,
+                cls=GdbBinaryInfo,
+            )
+        except apischema.ValidationError:
+            logger.error("Failed to get gdb information", exc_info=True)
+            return
+
+        if info.error:
+            logger.error("Failed to get gdb information: %s", info.error)
+            return
+
+        self.base_version = info.base_version or self.base_version
+        self.commands.update(info.commands)
+        self.variables.update(info.variables)
+        return info
 
     @property
     def database_version_spec(self) -> int:
@@ -127,6 +233,8 @@ class IocMetadata:
         startup_directory: Optional[pathlib.Path] = None,
         macros: Optional[Dict[str, str]] = None,
         standin_directories: Optional[Dict[str, str]] = None,
+        binary: Optional[str] = None,
+        base_version: Optional[str] = settings.DEFAULT_BASE_VERSION,
         **metadata
     ):
         """Given at minimum a filename, guess the rest."""
@@ -141,6 +249,8 @@ class IocMetadata:
             metadata=metadata,
             macros=macros or {},
             standin_directories=standin_directories or {},
+            binary=binary or util.find_binary_from_hashbang(filename),
+            base_version=base_version,
         )
 
     @classmethod
@@ -160,6 +270,8 @@ class IocMetadata:
 
         script = ioc.pop("script")
         script = pathlib.Path(str(script)).expanduser().resolve()
+        binary = ioc.pop("binary", None)
+        base_version = ioc.pop("base_version", None)
         return cls(
             name=name,
             script=script,
@@ -168,6 +280,8 @@ class IocMetadata:
             port=port,
             metadata=ioc,
             macros=macros or {},
+            binary=binary or util.find_binary_from_hashbang(script),
+            base_version=base_version or settings.DEFAULT_BASE_VERSION,
         )
 
 

@@ -2,14 +2,14 @@
   <button @click="expand_all">Expand all</button>
   <div>
     <div>
-      <h2>{{ filename }}:{{ line }}</h2>
+      <h2>{{ filename }}<template v-if="line > 0">:{{ line }}</template></h2>
       <template v-if="metadata">
         <details>
           <summary>{{ metadata.name }}</summary>
           <dictionary-table
             :dict="metadata"
             cls="metadata"
-            :skip_keys="[]">
+            :skip_keys="['commands', 'variables']">
           </dictionary-table>
         </details>
       </template>
@@ -23,6 +23,7 @@
              :outputs="line.outputs"
              :redirects="line.redirects"
              :result="line.result"
+             :command_info="(line.argv != null && line.argv.length > 0) ? metadata.commands[line.argv[0]] : null"
              :key="line.context.map(ctx => ctx[0] + ':' + ctx[1]).join(',')"
              />
         </tbody>
@@ -82,4 +83,7 @@ export default {
 </script>
 
 <style scoped>
+table {
+  width: 100%;
+}
 </style>

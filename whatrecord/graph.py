@@ -1,10 +1,10 @@
+import ast
 import collections
 import html
 import logging
 from typing import DefaultDict, Dict, List, Tuple
 
 import graphviz as gv
-
 from whatrecord.common import LoadContext, dataclass
 from whatrecord.db import RecordField, RecordInstance
 
@@ -22,6 +22,18 @@ class LinkInfo:
     field2: RecordField
     # info: Tuple[str, ...]
     info: List[str]
+
+
+def is_supported_link(link: str) -> bool:
+    if link.startswith("#") or link.startswith("0x") or link.startswith("@"):
+        return False
+    try:
+        ast.literal_eval(link)
+    except Exception:
+        # Should not be an integer literal
+        return True
+
+    return False
 
 
 def build_database_relations(
@@ -61,25 +73,40 @@ def build_database_relations(
             rec2 = database.get(link, None)
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
-                # TODO: check for constant links, ignore card/slot syntax, etc
-                if link.startswith("#") or link in warned:
-                    ...
-                else:
-                    logger.warning("Linked record not in database: %s", link)
+                if not is_supported_link(link):
+                    continue
+
+                if link not in warned:
                     warned.add(link)
-            else:
-                if field2 in rec2.fields:
-                    field2 = rec2.fields[field2]
-                else:
-                    field2 = RecordField(
-                        dtype="unknown",
-                        name=field2,
-                        value="",
-                        context=unset_ctx,
+                    logger.warning(
+                        "Linked record from %s.%s not in database: %s",
+                        rec1.name, field1.name, link
                     )
 
-                by_record[rec1.name][rec2.name].append((field1, field2, info))
-                by_record[rec2.name][rec1.name].append((field2, field1, info))
+                field2 = RecordField(
+                    dtype="unknown",
+                    name=field2,
+                    value="(unknown-record)",
+                    context=unset_ctx,
+                )
+                rec2_name = link
+            elif field2 in rec2.fields:
+                rec2_name = rec2.name
+                field2 = rec2.fields[field2]
+            else:
+                rec2_name = rec2.name
+                # TODO: this is not accurate; not all fields will be present in
+                # the database unless set in the database file; perhaps these
+                # should be populated from the dbd if necessary here?
+                field2 = RecordField(
+                    dtype="unknown",
+                    name=field2,
+                    value="",  # unset or invalid, can't tell yet
+                    context=unset_ctx,
+                )
+
+            by_record[rec1.name][rec2_name].append((field1, field2, info))
+            by_record[rec2_name][rec1.name].append((field2, field1, info))
 
     return dict(by_record)
 
@@ -313,12 +340,12 @@ def build_script_relations(database, by_record, limit_to_records=None):
 
     by_script = collections.defaultdict(lambda: collections.defaultdict(set))
     for rec1_name, list_of_rec2s in record_items:
-        rec1 = database[rec1_name]
+        rec1 = database.get(rec1_name, None)
         for rec2_name in list_of_rec2s:
-            rec2 = database[rec2_name]
+            rec2 = database.get(rec2_name, None)
 
-            rec1_file = rec1.context[0].name
-            rec2_file = rec2.context[0].name
+            rec1_file = rec1.context[0].name if rec1 else "unknown"
+            rec2_file = rec2.context[0].name if rec2 else "unknown"
 
             if rec1_file != rec2_file:
                 by_script[rec2_file][rec1_file].add(rec2_name)

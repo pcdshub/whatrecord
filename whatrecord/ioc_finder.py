@@ -19,7 +19,6 @@ async def load_from_external_script(script_line: str) -> List[IocInfoDict]:
         stderr=asyncio.subprocess.PIPE
     )
 
-    # Read one line of output.
     (stdout, stderr) = await proc.communicate()
     if stderr:
         logger.warning(
