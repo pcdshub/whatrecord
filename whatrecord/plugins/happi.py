@@ -77,6 +77,11 @@ def get_all_devices(
     if client is None:
         client = happi.Client.from_config()
 
+    # HACK: TODO: avoid re-re-re-reading the JSON database; happi needs some
+    # work.
+    loaded_database = client.backend._load_or_initialize()
+    client.backend._load_or_initialize = lambda: loaded_database
+
     for dev in client:
         try:
             obj = client[dev].get()
