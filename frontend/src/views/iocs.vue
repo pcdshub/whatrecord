@@ -67,7 +67,7 @@
 </template>
 
 <script>
-import { mapState } from 'vuex'
+import { mapState } from 'vuex';
 
 import Button from 'primevue/button';
 import Column from 'primevue/column';

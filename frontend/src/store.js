@@ -9,6 +9,7 @@ export const store = createStore({
       record_glob: "*",
       glob_to_pvs: {},
       record_info: {},
+      plugin_info: {},
       ioc_info: [],
       selected_records: [],
       ioc_to_records: {},
@@ -35,6 +36,9 @@ export const store = createStore({
     set_ioc_info (state, { ioc_info }) {
       state.ioc_info = ioc_info;
     },
+    set_plugin_info (state, { plugin_info }) {
+      state.plugin_info = plugin_info;
+    },
     add_record_info (state, { record, info}) {
       console.debug("Adding record info", record, info);
       state.record_info[record] = info;
@@ -55,6 +59,18 @@ export const store = createStore({
         await commit("start_query");
         const response = await axios.get(`/api/iocs/*/matches`, {})
         await commit("set_ioc_info", {ioc_info: response.data.matches});
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
+    },
+
+    async update_plugin_info ({commit}) {
+      try {
+        await commit("start_query");
+        const response = await axios.get(`/api/plugin/info`, {})
+        await commit("set_plugin_info", {plugin_info: response.data});
       } catch (error) {
         console.error(error);
       } finally {

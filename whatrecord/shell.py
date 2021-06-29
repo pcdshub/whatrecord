@@ -275,6 +275,7 @@ class ShellState:
 
     def env_set_EPICS_BASE(self, path):
         # TODO: slac-specific
+        path = str(pathlib.Path(path).resolve())
         version_prefixes = [
             "/reg/g/pcds/epics/base/",
             "/cds/group/pcds/epics/base/",
