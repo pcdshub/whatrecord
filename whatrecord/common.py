@@ -103,7 +103,7 @@ class IocshScript:
     lines: List[IocshResult]
 
     @classmethod
-    def from_metadata(cls, md: IocMetadata, sh: ShellState):
+    def from_metadata(cls, md: IocMetadata, sh: ShellState) -> IocshScript:
         looks_like_sh = md.binary and (
             "bin/bash" in md.binary or
             "env bash" in md.binary or
@@ -115,16 +115,30 @@ class IocshScript:
                 md.base_version = "unknown"
             return cls.from_general_file(md.script)
 
-        return cls.from_interpreted_script(md.script, sh)
+        return cls(
+            path=str(md.script),
+            lines=tuple(
+                sh.interpret_shell_script(
+                    md.script
+                )
+            ),
+        )
 
     @classmethod
-    def from_interpreted_script(cls, filename: Union[pathlib.Path, str], sh: ShellState):
-        with open(filename, "rt") as fp:
-            lines = fp.read().splitlines()
-
+    def from_interpreted_script(
+        cls,
+        filename: Union[pathlib.Path, str],
+        contents: str,
+        sh: ShellState
+    ) -> IocshScript:
         return cls(
             path=str(filename),
-            lines=tuple(sh.interpret_shell_script(lines, name=str(filename))),
+            lines=tuple(
+                sh.interpret_shell_script_text(
+                    contents.splitlines(),
+                    name=str(filename)
+                )
+            ),
         )
 
     @classmethod
@@ -191,6 +205,8 @@ class IocMetadata:
 
     def is_up_to_date(self) -> bool:
         """Is this IOC up-to-date with what is on disk?"""
+        if not self.loaded_files:
+            return False
         return util.check_files_up_to_date(self.loaded_files)
 
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:

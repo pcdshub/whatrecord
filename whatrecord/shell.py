@@ -167,7 +167,7 @@ class ShellState:
             return
 
         yield shresult
-        yield from self.interpret_shell_script(
+        yield from self.interpret_shell_script_text(
             contents.splitlines(),
             recurse=recurse,
             name=filename
@@ -215,6 +215,21 @@ class ShellState:
 
     def interpret_shell_script(
         self,
+        filename: Union[pathlib.Path, str],
+        recurse: bool = True,
+        raise_on_error: bool = False
+    ) -> Generator[IocshResult, None, None]:
+        """Load and interpret a shell script named ``filename``."""
+        filename, contents = self.load_file(filename)
+        yield from self.interpret_shell_script_text(
+            contents.splitlines(),
+            name=str(filename),
+            recurse=recurse,
+            raise_on_error=raise_on_error,
+        )
+
+    def interpret_shell_script_text(
+        self,
         lines: Iterable[str],
         name: str = "unknown",
         recurse: bool = True,
@@ -260,7 +275,8 @@ class ShellState:
             return handler(*args)
         return self.unhandled(command, args)
 
-    def _fix_path(self, filename: str):
+    def _fix_path(self, filename: Union[str, pathlib.Path]):
+        filename = str(filename)
         if os.path.isabs(filename):
             for from_, to in self.standin_directories.items():
                 if filename.startswith(from_):
@@ -735,6 +751,12 @@ class LoadedIoc:
         )
 
 
+@dataclass
+class FailureResult:
+    ex: Exception
+    traceback: str
+
+
 def _load_ioc(identifier, md, standin_directories, use_gdb=True):
     async def _load():
         with time_context() as ctx:
@@ -745,7 +767,8 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True):
                 loaded = LoadedIoc.from_metadata(md)
                 serialized = apischema.serialize(loaded)
             except Exception as ex:
-                return identifier, ctx(), ex
+                result = FailureResult(ex=ex, traceback=traceback.format_exc())
+                return identifier, ctx(), result
 
             return identifier, ctx(), serialized
 
@@ -769,13 +792,7 @@ async def load_startup_scripts_with_metadata(
         Stand-in/substitute directory mapping.
     processes : int
         The number of processes to use when loading.
-
-    Returns
-    -------
-    container : ScriptContainer
-        The resulting container.
     """
-    container = ScriptContainer()
     total_files = len(md_items)
     total_child_load_time = 0.0
 
@@ -792,42 +809,44 @@ async def load_startup_scripts_with_metadata(
             for completed_count, coro in enumerate(
                 asyncio.as_completed(coros), 1
             ):
-                print(f"{completed_count}/{total_files}: ", end="")
                 try:
                     script_idx, load_elapsed, loaded_ser = await coro
                     md = md_items[script_idx]
-                    print(f"{md.name or md.script} ", end="")
                 except Exception as ex:
-                    print("\n\nInternal error while loading:")
-                    print(type(ex).__name__, ex)
+                    logger.exception(
+                        "Internal error while loading: %s. %s: %s",
+                        md.name or md.script,
+                        type(ex).__name__, ex
+                    )
                     continue
 
                 total_child_load_time += load_elapsed
 
-                if isinstance(loaded_ser, Exception):
-                    print(f"\n\nFailed to load: [{load_elapsed:.1f} s]")
-                    print(type(loaded_ser).__name__, loaded_ser)
+                if isinstance(loaded_ser, FailureResult):
+                    failure_result: FailureResult = loaded_ser
+                    logger.error(
+                        "Failed to load %s in subprocess: [%.1f s]\n%s %s",
+                        md.name or md.script, load_elapsed,
+                        type(failure_result.ex).__name__,
+                        failure_result.traceback,
+                    )
                     if md.base_version == settings.DEFAULT_BASE_VERSION:
                         md.base_version = "unknown"
-                    container.add_script(
-                        LoadedIoc.from_errored_load(
-                            md,
-                            loaded_ser
-                        )
-                    )
+                    yield md, LoadedIoc.from_errored_load(md, loaded_ser)
                     continue
 
                 with time_context() as ctx:
-                    loaded = apischema.deserialize(LoadedIoc, loaded_ser)
-                    container.add_script(loaded)
-                    print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
+                    yield md, apischema.deserialize(LoadedIoc, loaded_ser)
+                    logger.debug(
+                        f"Deserialized %s in {load_elapsed:.1f} s, {ctx():.1f} s]",
+                        md.name or md.script
+                    )
 
-    print(
+    logger.info(
         f"Loaded {total_files} startup scripts in {total_ctx():.1f} s (wall time) "
         f"with {processes} process(es)"
     )
-    print(
+    logger.info(
         f"Child processes reported taking a total of {total_child_load_time} "
         f"sec (total time on all {processes} processes)"
     )
-    return container

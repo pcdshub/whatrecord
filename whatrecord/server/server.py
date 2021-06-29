@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import fnmatch
 import functools
@@ -18,6 +19,7 @@ from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
                       dataclass)
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
+from .util import TaskHandler
 
 # from . import html as html_mod
 # from . import static
@@ -95,23 +97,26 @@ class ServerState:
         gateway_config: Optional[str] = None,
         plugins: Optional[List[ServerPluginSpec]] = None,
     ):
-        self.standin_directories = standin_directories
+        self.archived_pvs = set()
         self.container = ScriptContainer()
+        self.gateway_config = None
+        self.gateway_config_path = gateway_config
+        self.plugin_data = {}
+        self.plugins = plugins or []
         self.pv_relations = {}
         self.script_relations = {}
+        self.standin_directories = standin_directories
+        self.tasks = TaskHandler()
         self.script_loaders = [
             ioc_finder.IocScriptStaticList(startup_scripts)
         ] + [
             ioc_finder.IocScriptExternalLoader(loader)
             for loader in script_loaders
         ]
-        self.archived_pvs = set()
-        self.gateway_config_path = gateway_config
-        self.plugins = plugins or []
-        self.plugin_data = {}
 
     async def async_init(self, app):
-        await self.update_from_script_loaders()
+        self.tasks.create(self.update_from_script_loaders())
+        self.tasks.create(self.update_plugins())
 
     async def update_from_script_loaders(self):
         startup_md = []
@@ -120,16 +125,45 @@ class ServerState:
             for _, md in loader.scripts.items():
                 startup_md.append(md)
 
-        # TODO this should be an _update_, but uh... clear cache for now?
-        self.container = await load_startup_scripts_with_metadata(
-            *startup_md, standin_directories=self.standin_directories
-        )
-        self.pv_relations = graph.build_database_relations(self.container.database)
-        self.script_relations = graph.build_script_relations(
-            self.container.database, self.pv_relations)
+        while True:
+            logger.info("Checking for changed scripts and database files...")
+            self._load_gateway_config()
+            updated = [
+                md for md in startup_md
+                if not md.is_up_to_date()
+            ]
+            if not updated:
+                logger.info("No changes found.")
+                await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
+                continue
 
-        self._load_gateway_config()
-        await self.update_plugins()
+            logger.info(
+                "%d IOC%s changed.", len(updated),
+                " has" if len(updated) == 1 else "s have"
+            )
+            for idx, ioc in enumerate(updated[:10], 1):
+                logger.info("* %d: %s", idx, ioc.name)
+            if len(updated) > 10:
+                logger.info("...")
+
+            async for md, loaded in load_startup_scripts_with_metadata(
+                *updated, standin_directories=self.standin_directories
+            ):
+                self.container.add_script(loaded)
+                # Swap out the new loaded metadata
+                idx = startup_md.index(md)
+                startup_md.remove(md)
+                startup_md.insert(idx, loaded.metadata)
+
+            self.pv_relations = graph.build_database_relations(
+                self.container.database
+            )
+            self.script_relations = graph.build_script_relations(
+                self.container.database, self.pv_relations
+            )
+
+            self.clear_cache()
+            await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
 
     async def update_plugins(self):
         for plugin in self.plugins:
@@ -155,7 +189,13 @@ class ServerState:
         if not self.gateway_config_path:
             return
 
-        self.gateway_config = gateway.GatewayConfig(self.gateway_config_path)
+        if self.gateway_config is None:
+            self.gateway_config = gateway.GatewayConfig(
+                self.gateway_config_path
+            )
+        else:
+            self.gateway_config.update_changed()
+
         for filename, pvlist in self.gateway_config.pvlists.items():
             if pvlist.hash is not None:
                 self.container.loaded_files[str(filename)] = pvlist.hash
@@ -241,6 +281,15 @@ class ServerState:
             relations=self.pv_relations,
         )
         return digraph
+
+    def clear_cache(self):
+        for method in [
+            self.get_gateway_info,
+            self.get_matching_pvs,
+            self.get_matching_iocs,
+            self.get_graph_rendered,
+        ]:
+            method.cache_clear()
 
     @functools.lru_cache(maxsize=2048)
     def get_gateway_info(self, pvname: str) -> Optional[gateway.PVListMatches]:

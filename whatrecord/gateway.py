@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.8
 import argparse
 import io
+import logging
 import pathlib
 import re
 import sys
@@ -8,10 +9,11 @@ import typing
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 from .common import FullLoadContext, LoadContext, dataclass
-from .util import get_bytes_sha256
+from .util import get_bytes_sha256, get_file_sha256
 
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 RE_WHITESPACE = re.compile(r"\s+")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -329,6 +331,17 @@ class GatewayConfig:
         self.pvlists = {
             filename: PVList.from_file(filename) for filename in filenames
         }
+
+    def _update(self, filename):
+        """Update a gateway configuration file."""
+        self.pvlists[filename] = PVList.from_file(filename)
+
+    def update_changed(self):
+        """Update any changed files."""
+        for filename, pvlist in self.pvlists.items():
+            if get_file_sha256(filename) != pvlist.hash:
+                logger.info("Updating changed gateway file: %s", filename)
+                self._update(filename)
 
     def get_matches(self, name: str, remove_any: bool = True):
         def get_comment_context(fn, context) -> Optional[FullLoadContext]:
