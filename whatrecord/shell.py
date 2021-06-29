@@ -16,7 +16,7 @@ from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
 
 import apischema
 
-from . import asyn, common
+from . import asyn
 from . import motor as motor_mod
 from . import settings, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
@@ -610,6 +610,11 @@ class ShellState:
 
 @dataclass
 class ScriptContainer:
+    """
+    Aggregate container for any number of LoadedIoc instances.
+
+    Combines databases, sets of loaded files ease of querying.
+    """
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
@@ -728,65 +733,6 @@ class LoadedIoc:
             shell_state=sh,
             script=script,
         )
-
-
-def load_startup_scripts(
-    *fns, standin_directories=None, processes=1
-) -> ScriptContainer:
-    """
-    Load all given startup scripts into a shared ScriptContainer.
-
-    Parameters
-    ----------
-    *fns :
-        List of filenames to load.
-    standin_directories : dict
-        Stand-in/substitute directory mapping.
-    processes : int
-        The number of processes to use when loading.
-
-    Returns
-    -------
-    container : ScriptContainer
-        The resulting container.
-    """
-    container = ScriptContainer()
-    total_files = len(set(fns))
-
-    with time_context() as total_ctx:
-        if processes > 1:
-            ...
-            # loader = functools.partial(_load_startup_script_json, standin_directories)
-            # with mp.Pool(processes=processes) as pool:
-            #     results = pool.imap(loader, sorted(set(fns)))
-            #     for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
-            #         iocsh_script = apischema.deserialize(
-            #             IocshScript, iocsh_script_raw)
-            #         sh_state = apischema.deserialize(ShellState, sh_state_raw)
-            #         print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
-            #         container.add_script(iocsh_script, sh_state)
-        else:
-            try:
-                for idx, fn in enumerate(sorted(set(fns)), 1):
-                    print(f"{idx}/{total_files}: Loading {fn}...", end="")
-                    with time_context() as ctx:
-                        loaded = LoadedIoc.from_metadata(
-                            common.IocMetadata.from_filename(
-                                fn,
-                                standin_directories=standin_directories
-                            )
-                        )
-                        container.add_script(loaded)
-                    print(f"[{ctx():.1f} s]")
-            except KeyboardInterrupt:
-                print("Ctrl-C: Cancelling loading remaining scripts.")
-                total_files = idx
-
-        print(
-            f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
-            f"with {processes} process(es)"
-        )
-    return container
 
 
 def _load_ioc(identifier, md, standin_directories, use_gdb=True):

@@ -189,6 +189,10 @@ class IocMetadata:
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(default_factory=dict)
 
+    def is_up_to_date(self) -> bool:
+        """Is this IOC up-to-date with what is on disk?"""
+        return util.check_files_up_to_date(self.loaded_files)
+
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
         if not self.binary or not pathlib.Path(self.binary).exists():
             return

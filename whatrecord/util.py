@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 import pathlib
-from typing import List, Optional, Tuple, TypeVar, Union
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import apischema
 
@@ -19,6 +19,33 @@ T = TypeVar("T")
 def get_bytes_sha256(contents: bytes):
     """Hash a byte string with the SHA-256 algorithm."""
     return hashlib.sha256(contents).hexdigest()
+
+
+def check_files_up_to_date(
+    file_to_hash: Dict[Union[str, pathlib.Path], str]
+) -> bool:
+    """
+    Check if the provided files are up-to-date by way of recorded hash vs
+    current hash.
+
+    Parameters
+    ----------
+    file_to_hash : Dict[Union[str, pathlib.Path], str]
+        File path to hash.
+
+    Returns
+    -------
+    up_to_date : bool
+        If all files maintain their stored hashes, returns True.
+    """
+    for fn, file_hash in file_to_hash.items():
+        try:
+            if get_file_sha256(fn) != file_hash:
+                return False
+        except FileNotFoundError:
+            return False
+
+    return True
 
 
 def get_file_sha256(binary: pathlib.Path):
@@ -113,7 +140,7 @@ async def run_gdb(
             return apischema.deserialize(cls, json_data)
 
     args = " ".join(f'"{arg}"' for arg in args or [])
-    script_path = MODULE_PATH / f"{script}.py"
+    script_path = MODULE_PATH / "plugins" / f"{script}.py"
     gdb_path = gdb_path or settings.GDB_PATH
     to_execute = (
         f'"{gdb_path}" '
