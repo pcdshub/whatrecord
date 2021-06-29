@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import dataclasses
 import fnmatch
 import functools
@@ -21,19 +22,24 @@ from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .util import TaskHandler
 
-# from . import html as html_mod
-# from . import static
-
-# STATIC_PATH = pathlib.Path(static.__file__).parent
-# HTML_PATH = pathlib.Path(html_mod.__file__).parent
 TRUE_VALUES = {"1", "true", "True"}
 
-# aiohttp_jinja2.setup(
-#     app,
-#     loader=jinja2.FileSystemLoader('/path/to/templates/folder')
-# )
-
 logger = logging.getLogger(__name__)
+_log_handler = None
+
+
+class ServerLogHandler(logging.Handler):
+    def __init__(self, message_count: int = 1000, level="DEBUG"):
+        super().__init__(level=level)
+        self.formatter = logging.Formatter(
+            "%(asctime)s - PID %(process)d %(filename)18s: %(lineno)-3s "
+            "%(funcName)-18s %(levelname)-8s %(message)s"
+        )
+        self.message_count = message_count
+        self.messages = collections.deque(maxlen=message_count)
+
+    def emit(self, record):
+        self.messages.append(self.format(record))
 
 
 @dataclasses.dataclass
@@ -552,6 +558,12 @@ class ServerHandler:
             body=rendered,
         )
 
+    @routes.get("/api/logs/get")
+    async def api_logs_get(self, request: web.Request):
+        return web.json_response(
+            list(_log_handler.messages)
+        )
+
     @routes.get("/api/pv/{pv_names}/graph/{format}")
     async def api_pv_get_record_graph(self, request: web.Request):
         return await self.get_graph(
@@ -569,20 +581,6 @@ class ServerHandler:
             format=request.match_info["format"],
             graph_type="script",
         )
-
-    # # TODO: these will go away when not in development mode
-    # @routes.get("/index.html")
-    # @routes.get("/")
-    # async def index_page(self, request: web.Request):
-    #     return web.FileResponse(HTML_PATH / "index.html")
-
-    # @routes.get("/file")
-    # @routes.get("/whatrec")
-    # async def misc_page(self, request: web.Request):
-    #     fn = request.path.split("/")[-1]
-    #     return web.FileResponse(HTML_PATH / (fn + ".html"))
-
-    # routes.static("/_static", STATIC_PATH, show_index=False)
 
 
 def add_routes(app: web.Application, handler: ServerHandler):
@@ -608,6 +606,15 @@ def run(*args, **kwargs):
     app, handler = new_server(*args, **kwargs)
     web.run_app(app)
     return app, handler
+
+
+def configure_logging(loggers=None):
+    global _log_handler
+    _log_handler = ServerLogHandler()
+
+    loggers = loggers or ["whatrecord"]
+    for logger_name in loggers:
+        logging.getLogger(logger_name).addHandler(_log_handler)
 
 
 def main(
@@ -656,6 +663,7 @@ def main(
         ...
         # handler.set_archiver_url(archive_management_url)
 
+    configure_logging()
     app.on_startup.append(handler.async_init)
     web.run_app(app, port=port)
     return app, handler

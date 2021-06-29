@@ -4,6 +4,7 @@ import WhatRec from './views/whatrec.vue';
 import ScriptView from './views/script-view.vue';
 import IocView from './views/iocs.vue';
 import HappiView from './views/happi.vue';
+import ServerLogView from './views/logs.vue';
 
 import { happi_enabled } from './settings.js';
 
@@ -63,6 +64,14 @@ if (happi_enabled) {
         },
     )
 }
+
+routes.push(
+    {
+        name: 'logs',
+        path: '/logs',
+        component: ServerLogView,
+    },
+)
 
 export const router = VueRouter.createRouter({
   history: VueRouter.createWebHistory(),

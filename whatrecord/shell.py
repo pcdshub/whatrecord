@@ -837,8 +837,8 @@ async def load_startup_scripts_with_metadata(
 
                 with time_context() as ctx:
                     yield md, apischema.deserialize(LoadedIoc, loaded_ser)
-                    logger.debug(
-                        f"Deserialized %s in {load_elapsed:.1f} s, {ctx():.1f} s]",
+                    logger.info(
+                        f"Loaded %s in {load_elapsed:.1f} s, deserialized in {ctx():.1f} s",
                         md.name or md.script
                     )
 
