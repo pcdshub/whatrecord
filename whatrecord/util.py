@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 import pathlib
-from typing import List, Optional, TypeVar, Union
+from typing import List, Optional, Tuple, TypeVar, Union
 
 import apischema
 
@@ -16,12 +16,30 @@ MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 T = TypeVar("T")
 
 
+def get_bytes_sha256(contents: bytes):
+    """Hash a byte string with the SHA-256 algorithm."""
+    return hashlib.sha256(contents).hexdigest()
+
+
 def get_file_sha256(binary: pathlib.Path):
     """Hash a binary with the SHA-256 algorithm."""
     # This doesn't do any sort of buffering; but our binaries are pretty small
     # in comparison to what we're storing as metadata, anyway
     with open(binary, "rb") as fp:
         return hashlib.sha256(fp.read()).hexdigest()
+
+
+def read_text_file_with_hash(
+    fn: pathlib.Path,
+    encoding="latin-1",
+) -> Tuple[str, str]:
+    """Hash a binary with the SHA-256 algorithm."""
+    # This doesn't do any sort of buffering; but our binaries are pretty small
+    # in comparison to what we're storing as metadata, anyway
+    with open(fn, "rb") as fp:
+        contents = fp.read()
+    sha256 = hashlib.sha256(contents).hexdigest()
+    return sha256, contents.decode(encoding)
 
 
 async def run_script_with_json_output(

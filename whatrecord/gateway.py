@@ -8,6 +8,7 @@ import typing
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 from .common import FullLoadContext, LoadContext, dataclass
+from .util import get_bytes_sha256
 
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 RE_WHITESPACE = re.compile(r"\s+")
@@ -92,6 +93,7 @@ class PVList:
 
     identifier: Optional[str] = None
     tokenized_lines: Optional[List[Token]] = None
+    hash: Optional[str] = None
 
     def find(
         self, cls: typing.Type
@@ -129,11 +131,13 @@ class PVList:
     @classmethod
     def from_file_obj(cls, fp, identifier=None):
         lines = []
-        for lineno, line in enumerate(fp.read().splitlines(), 1):
+        contents = fp.read()
+        contents_hash = get_bytes_sha256(contents.encode("utf-8"))
+        for lineno, line in enumerate(contents.splitlines(), 1):
             tok = PVList.tokenize(line, lineno=lineno)
             if tok is not None:
                 lines.append(tok)
-        return cls(identifier, lines)
+        return cls(identifier, lines, hash=contents_hash)
 
     @classmethod
     def from_file(cls, fn):
@@ -161,23 +165,6 @@ def create_arg_parser():
     )
     parser.add_argument("names", nargs="*", type=str, help="PV names to match")
     return parser
-
-
-def load_pvlists(pvlists: List[str]) -> List[PVList]:
-    """
-    Load .pvlist files, given their filenames.
-
-    Parameters
-    ----------
-    pvlists : List[str]
-        The .pvlist filenames.
-
-    Returns
-    -------
-    List[PVList]:
-        PVList instances from the files, if successful.
-    """
-    return [PVList.from_file(fn) for fn in pvlists]
 
 
 def run_lint(pvlists: List[PVList], show_context=False):
@@ -330,18 +317,18 @@ class PVListMatches:
 
 
 class GatewayConfig:
-    filenames: List[pathlib.Path]
+    filename_to_hash: Dict[pathlib.Path, str]
     pvlists: Dict[pathlib.Path, PVList]
 
     def __init__(self, path: Union[str, pathlib.Path], glob_str: str = "*.pvlist"):
-        path = pathlib.Path(path)
+        path = pathlib.Path(path).resolve()
         if path.is_file():
-            self.filenames = [path.resolve()]
+            self.filename_to_hash = {path: None}
         else:
-            self.filenames = list(p.resolve() for p in path.glob(glob_str))
+            self.filename_to_hash = {p.resolve(): None for p in path.glob(glob_str)}
 
         self.pvlists = {
-            filename: PVList.from_file(filename) for filename in self.filenames
+            filename: PVList.from_file(filename) for filename in self.filename_to_hash
         }
 
     def get_matches(self, name: str, remove_any: bool = True):

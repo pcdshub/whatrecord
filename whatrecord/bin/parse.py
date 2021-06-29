@@ -12,10 +12,10 @@ from typing import Dict, List, Optional, Union
 import apischema
 
 from ..common import IocMetadata
-from ..db import Database
+from ..db import Database, load_database_file
 from ..format import FormatContext
 from ..macro import MacroContext
-from ..shell import LoadedIoc, load_database_file
+from ..shell import LoadedIoc
 
 logger = logging.getLogger(__name__)
 DESCRIPTION = __doc__

@@ -11,18 +11,19 @@ import pathlib
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, Iterable, List, Optional
+from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
+                    Union)
 
 import apischema
 
 from . import asyn, common
 from . import motor as motor_mod
-from . import settings
+from . import settings, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, MutableLoadContext,
                      RecordInstance, ShortLinterResults, WhatRecord,
                      time_context)
-from .db import Database, DatabaseLoadFailure, load_database_file
+from .db import Database, DatabaseLoadFailure, LinterResults
 from .format import FormatContext
 from .iocsh import parse_iocsh_line
 from .macro import MacroContext
@@ -136,6 +137,20 @@ class ShellState:
                 name = attr.split("_", 1)[1]
                 yield name, obj
 
+    def load_file(
+        self,
+        filename: Union[pathlib.Path, str]
+    ) -> Tuple[pathlib.Path, str]:
+        """Load a file, record its hash, and return its contents."""
+        filename = self._fix_path(filename)
+        filename = filename.resolve()
+        shasum, contents = util.read_text_file_with_hash(
+            filename,
+            encoding=self.string_encoding
+        )
+        self.loaded_files[str(filename)] = shasum
+        return filename, contents
+
     def _handle_input_redirect(
         self,
         redir: IocshRedirect,
@@ -143,22 +158,19 @@ class ShellState:
         recurse: bool = True,
         raise_on_error: bool = False
     ):
-        filename = self._fix_path(redir.name)
         try:
-            fp_redir = open(filename, "rt")
+            filename, contents = self.load_file(redir.name)
         except Exception as ex:
-            shresult.error = f"{type(ex).__name__}: {filename}"
+            shresult.error = f"{type(ex).__name__}: {redir.name}"
             yield shresult
             return
 
-        self.loaded_files[str(filename.resolve())] = str(filename)
-        try:
-            yield shresult
-            yield from self.interpret_shell_script(
-                fp_redir, recurse=recurse, name=filename
-            )
-        finally:
-            fp_redir.close()
+        yield shresult
+        yield from self.interpret_shell_script(
+            contents.splitlines(),
+            recurse=recurse,
+            name=filename
+        )
 
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
@@ -340,44 +352,53 @@ class ShellState:
             return "whatrecord: TODO multiple dbLoadDatabase"
         # TODO: handle path - see dbLexRoutines.c
         # env vars: EPICS_DB_INCLUDE_PATH, fallback to "."
-        fn = self._fix_path(dbd)
+        fn, contents = self.load_file(dbd)
         macros = (
             self.macro_context.definitions_to_dict(substitutions)
             if substitutions else {}
         )
         with self.macro_context.scoped(**macros):
-            self.database_definition = Database.from_file(
-                fn,
-                version=self.ioc_info.database_version_spec
+            self.database_definition = Database.from_string(
+                contents,
+                version=self.ioc_info.database_version_spec,
+                filename=fn
             )
 
-        self.loaded_files[str(fn.resolve())] = str(dbd)
         return f"Loaded database: {fn}"
 
-    def handle_dbLoadRecords(self, fn, macros, *_):
+    def handle_dbLoadRecords(self, filename, macros, *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
         if self.ioc_initialized:
             raise RuntimeError("Records cannot be loaded after iocInit")
-        orig_fn = fn
-        fn = self._fix_path(fn)
-        self.loaded_files[str(fn.resolve())] = str(orig_fn)
-
+        filename, contents = self.load_file(filename)
         macros = self.macro_context.definitions_to_dict(macros)
 
+        # TODO: refactor as this was pulled out of load_database_file
         try:
             with self.macro_context.scoped(**macros):
-                linter_results = load_database_file(
-                    dbd=self.database_definition,
-                    db=fn,
+                db = Database.from_file(
+                    filename, dbd=self.database_definition,
                     macro_context=self.macro_context,
                     version=self.ioc_info.database_version_spec,
                 )
         except Exception as ex:
             # TODO move this around
             raise DatabaseLoadFailure(
-                f"Failed to load {fn}: {type(ex).__name__} {ex}"
+                f"Failed to load {filename}: {type(ex).__name__} {ex}"
             ) from ex
+
+        linter_results = LinterResults(
+            record_types=self.database_definition.record_types,
+            # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
+            # recdsets=dbd.devices,  # TODO
+            # {'inst:name':'ao', ...}
+            records=db.records,
+            pva_groups=db.pva_groups,
+            extinst=[],
+            errors=[],
+            warnings=[],
+        )
 
         context = self.get_load_context()
         for name, rec in linter_results.records.items():
@@ -591,8 +612,7 @@ class ScriptContainer:
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
-
-    # TODO: add mtime information for update checking
+    #: absolute filename path to sha
     loaded_files: Dict[str, str] = field(default_factory=dict)
 
     def add_script(self, loaded: LoadedIoc):
