@@ -30,25 +30,6 @@ from .macro import MacroContext
 logger = logging.getLogger(__name__)
 
 
-def _motor_wrapper(method):
-    """
-    Method decorator for motor-related commands
-
-    Use specific command handler, but also show general parameter information.
-    """
-    _, name = method.__name__.split("handle_")
-
-    @functools.wraps(method)
-    def wrapped(self, *args):
-        specific_info = method(self, *args) or ""
-        generic_info = self._generic_motor_handler(name, *args)
-        if specific_info:
-            return f"{specific_info}\n\n{generic_info}"
-        return generic_info
-
-    return wrapped
-
-
 @dataclass
 class ShellState:
     """
@@ -482,7 +463,6 @@ class ShellState:
         )
         return metadata
 
-    # @_motor_wrapper  # TODO
     def handle_drvAsynSerialPortConfigure(
         self,
         portName=None,
@@ -505,7 +485,6 @@ class ShellState:
             noProcessEos=noProcessEos,
         )
 
-    # @_motor_wrapper  # TODO
     def handle_drvAsynIPPortConfigure(
         self,
         portName=None,
@@ -526,7 +505,6 @@ class ShellState:
                 noProcessEos=noProcessEos,
             )
 
-    @_motor_wrapper
     def handle_adsAsynPortDriverConfigure(
         self,
         portName=None,
@@ -572,7 +550,6 @@ class ShellState:
         else:
             port.options[key] = opt
 
-    @_motor_wrapper
     def handle_drvAsynMotorConfigure(
         self,
         port_name: str = "",
@@ -592,7 +569,6 @@ class ShellState:
             ),
         )
 
-    @_motor_wrapper
     def handle_EthercatMCCreateController(
         self,
         motor_port: str = "",
@@ -607,8 +583,6 @@ class ShellState:
         motor = asyn.AsynMotor(
             context=self.get_load_context(),
             name=motor_port,
-            # TODO: would like to reference the object, but dataclasses
-            # asdict recursion is tripping me up
             parent=asyn_port,
             metadata=dict(
                 num_axes=num_axes,
