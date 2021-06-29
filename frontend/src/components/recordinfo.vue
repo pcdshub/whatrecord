@@ -17,7 +17,12 @@
       <template v-for="plugin_name in plugins" :key="plugin_name">
         <template v-for="plugin_match in instance.metadata[plugin_name] || []" :key="plugin_match.name">
           <details>
-            <summary>{{ plugin_name }} - {{ plugin_match.name }}</summary>
+            <summary>
+              {{ plugin_name }} - {{ plugin_match.name }}
+              <router-link :to="`/${plugin_name}/${plugin_match.name}`">
+                (Details)
+              </router-link>
+            </summary>
             <dictionary-table
               :dict="plugin_match"
               :cls="'metadata'"
