@@ -317,18 +317,17 @@ class PVListMatches:
 
 
 class GatewayConfig:
-    filename_to_hash: Dict[pathlib.Path, str]
     pvlists: Dict[pathlib.Path, PVList]
 
     def __init__(self, path: Union[str, pathlib.Path], glob_str: str = "*.pvlist"):
         path = pathlib.Path(path).resolve()
         if path.is_file():
-            self.filename_to_hash = {path: None}
+            filenames = [path]
         else:
-            self.filename_to_hash = {p.resolve(): None for p in path.glob(glob_str)}
+            filenames = [p.resolve() for p in path.glob(glob_str)]
 
         self.pvlists = {
-            filename: PVList.from_file(filename) for filename in self.filename_to_hash
+            filename: PVList.from_file(filename) for filename in filenames
         }
 
     def get_matches(self, name: str, remove_any: bool = True):

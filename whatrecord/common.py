@@ -187,6 +187,7 @@ class IocMetadata:
     standin_directories: Dict[str, str] = field(default_factory=dict)
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
+    loaded_files: Dict[str, str] = field(default_factory=dict)
 
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
         if not self.binary or not pathlib.Path(self.binary).exists():

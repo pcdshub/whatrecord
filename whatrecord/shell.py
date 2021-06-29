@@ -149,6 +149,7 @@ class ShellState:
             encoding=self.string_encoding
         )
         self.loaded_files[str(filename)] = shasum
+        self.ioc_info.loaded_files[str(filename)] = shasum
         return filename, contents
 
     def _handle_input_redirect(
@@ -725,7 +726,7 @@ class LoadedIoc:
             path=md.script,
             metadata=md,
             shell_state=sh,
-            script=script
+            script=script,
         )
 
 

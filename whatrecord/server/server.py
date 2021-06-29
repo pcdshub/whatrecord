@@ -156,9 +156,9 @@ class ServerState:
             return
 
         self.gateway_config = gateway.GatewayConfig(self.gateway_config_path)
-        for config in self.gateway_config.filenames:
-            config = str(config)
-            self.container.loaded_files[config] = config
+        for filename, pvlist in self.gateway_config.pvlists.items():
+            if pvlist.hash is not None:
+                self.container.loaded_files[str(filename)] = pvlist.hash
 
     def load_archived_pvs_from_file(self, filename):
         # TODO: could retrieve it at startup/periodically from the appliance
@@ -371,12 +371,15 @@ class ServerHandler:
         # Ignore max for now. This is not much in the way of information.
         # max_matches = int(request.query.get("max", "1000"))
         glob_str = request.match_info.get("glob_str", "*")
-        matches = self.state.get_matching_iocs(glob_str)
+        match_metadata = [
+            loaded_ioc.metadata
+            for loaded_ioc in self.state.get_matching_iocs(glob_str)
+        ]
         return web.json_response(
             apischema.serialize(
                 IocGetMatchesResponse(
                     glob=glob_str,
-                    matches=[match.metadata for match in matches],
+                    matches=match_metadata,
                 )
             )
         )
