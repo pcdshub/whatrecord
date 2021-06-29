@@ -5,6 +5,7 @@
 
 <script>
 import TabMenu from 'primevue/tabmenu';
+import { plugins } from "./settings.js";
 
 export default {
   name: "App",
@@ -16,7 +17,7 @@ export default {
       {label: 'Records', icon: 'pi pi-fw pi-tags', to: '/'},
       {label: 'IOCs', icon: 'pi pi-fw pi-sitemap', to: '/iocs'},
     ]
-    for (const plugin of ["happi", ]) {
+    for (const plugin of plugins) {
       tab_menu_items.push(
         {label: plugin, icon: 'pi pi-fw pi-info-circle', to: '/' + plugin},
       );
