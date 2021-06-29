@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import functools
 import inspect
 import logging
-# import multiprocessing as mp
 import os
 import pathlib
 import sys
 import traceback
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
                     Union)
@@ -796,51 +795,53 @@ async def load_startup_scripts_with_metadata(
     total_files = len(md_items)
     total_child_load_time = 0.0
 
-    with time_context() as total_ctx:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
-            coros = [
-                asyncio.wrap_future(
-                    executor.submit(_load_ioc, idx, md,
-                                    standin_directories, use_gdb=use_gdb)
+    with time_context() as total_ctx, ProcessPoolExecutor(
+        max_workers=processes
+    ) as executor:
+        coros = [
+            asyncio.wrap_future(
+                executor.submit(
+                    _load_ioc, idx, md, standin_directories, use_gdb=use_gdb
                 )
-                for idx, md in enumerate(md_items)
-            ]
+            )
+            for idx, md in enumerate(md_items)
+        ]
 
-            for completed_count, coro in enumerate(
-                asyncio.as_completed(coros), 1
-            ):
-                try:
-                    script_idx, load_elapsed, loaded_ser = await coro
-                    md = md_items[script_idx]
-                except Exception as ex:
-                    logger.exception(
-                        "Internal error while loading: %s. %s: %s",
-                        md.name or md.script,
-                        type(ex).__name__, ex
-                    )
-                    continue
+        for completed_count, coro in enumerate(asyncio.as_completed(coros), 1):
+            try:
+                script_idx, load_elapsed, loaded_ser = await coro
+                md = md_items[script_idx]
+            except Exception as ex:
+                logger.exception(
+                    "Internal error while loading: %s. %s: %s",
+                    md.name or md.script,
+                    type(ex).__name__,
+                    ex,
+                )
+                continue
 
-                total_child_load_time += load_elapsed
+            total_child_load_time += load_elapsed
 
-                if isinstance(loaded_ser, FailureResult):
-                    failure_result: FailureResult = loaded_ser
-                    logger.error(
-                        "Failed to load %s in subprocess: [%.1f s]\n%s %s",
-                        md.name or md.script, load_elapsed,
-                        type(failure_result.ex).__name__,
-                        failure_result.traceback,
-                    )
-                    if md.base_version == settings.DEFAULT_BASE_VERSION:
-                        md.base_version = "unknown"
-                    yield md, LoadedIoc.from_errored_load(md, loaded_ser)
-                    continue
+            if isinstance(loaded_ser, FailureResult):
+                failure_result: FailureResult = loaded_ser
+                logger.error(
+                    "Failed to load %s in subprocess: [%.1f s]\n%s %s",
+                    md.name or md.script,
+                    load_elapsed,
+                    type(failure_result.ex).__name__,
+                    failure_result.traceback,
+                )
+                if md.base_version == settings.DEFAULT_BASE_VERSION:
+                    md.base_version = "unknown"
+                yield md, LoadedIoc.from_errored_load(md, loaded_ser)
+                continue
 
-                with time_context() as ctx:
-                    yield md, apischema.deserialize(LoadedIoc, loaded_ser)
-                    logger.info(
-                        f"Loaded %s in {load_elapsed:.1f} s, deserialized in {ctx():.1f} s",
-                        md.name or md.script
-                    )
+            with time_context() as ctx:
+                yield md, apischema.deserialize(LoadedIoc, loaded_ser)
+                logger.info(
+                    f"Loaded %s in {load_elapsed:.1f} s, deserialized in {ctx():.1f} s",
+                    md.name or md.script,
+                )
 
     logger.info(
         f"Loaded {total_files} startup scripts in {total_ctx():.1f} s (wall time) "
