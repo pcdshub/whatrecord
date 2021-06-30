@@ -8,16 +8,14 @@ import logging
 import re
 import sys
 import tempfile
-from typing import (Any, ClassVar, DefaultDict, Dict, List, Optional, Set,
-                    Tuple, Union)
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import apischema
 import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph, ioc_finder, settings, util
-from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
-                      dataclass)
+from ..common import LoadContext, RecordInstance, WhatRecord, dataclass
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .util import TaskHandler
@@ -87,9 +85,6 @@ def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
 
 class ServerState:
     container: ScriptContainer
-    pv_relations: Dict[
-        str, DefaultDict[str, Tuple[RecordField, RecordField, Tuple[str, ...]]]
-    ]
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
@@ -109,7 +104,6 @@ class ServerState:
         self.gateway_config_path = gateway_config
         self.plugin_data = {}
         self.plugins = plugins or []
-        self.pv_relations = {}
         self.script_relations = {}
         self.standin_directories = standin_directories
         self.tasks = TaskHandler()
@@ -150,25 +144,22 @@ class ServerState:
             for idx, ioc in enumerate(updated[:10], 1):
                 logger.info("* %d: %s", idx, ioc.name)
             if len(updated) > 10:
-                logger.info("...")
+                logger.info("... and %d more", len(updated) - 10)
 
             async for md, loaded in load_startup_scripts_with_metadata(
                 *updated, standin_directories=self.standin_directories
             ):
-                self.container.add_script(loaded)
+                self.container.add_loaded_ioc(loaded)
                 # Swap out the new loaded metadata
                 idx = startup_md.index(md)
                 startup_md.remove(md)
                 startup_md.insert(idx, loaded.metadata)
 
             with common.time_context() as ctx:
-                self.pv_relations = graph.build_database_relations(
-                    self.container.database
-                )
                 self.script_relations = graph.build_script_relations(
                     self.container.database, self.pv_relations
                 )
-                logger.info("Updated PV/script relations in %.1f s", ctx())
+                logger.info("Updated script relations in %.1f s", ctx())
 
             self.clear_cache()
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
@@ -298,6 +289,10 @@ class ServerState:
             relations=self.pv_relations,
         )
         return digraph
+
+    @property
+    def pv_relations(self):
+        return self.container.pv_relations
 
     def clear_cache(self):
         for method in [

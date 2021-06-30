@@ -2,10 +2,10 @@ import ast
 import collections
 import html
 import logging
-from typing import DefaultDict, Dict, List, Tuple
+from typing import Dict, List
 
 import graphviz as gv
-from whatrecord.common import LoadContext, dataclass
+from whatrecord.common import LoadContext, PVRelations, dataclass
 from whatrecord.db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def is_supported_link(link: str) -> bool:
 
 def build_database_relations(
     database: Dict[str, RecordInstance]
-) -> Dict[str, DefaultDict[str, Tuple[RecordField, RecordField, Tuple[str, ...]]]]:
+) -> PVRelations:
     """
     Build a dictionary of PV relationships.
 
@@ -108,7 +108,25 @@ def build_database_relations(
             by_record[rec1.name][rec2_name].append((field1, field2, info))
             by_record[rec2_name][rec1.name].append((field2, field1, info))
 
-    return dict(by_record)
+    return dict(
+        (key, dict(inner_dict))
+        for key, inner_dict in by_record.items()
+    )
+
+
+def combine_relations(dest, *others):
+    """Combine multiple script relations into one."""
+    for other in others:
+        for rec1_name, rec1_items in other.items():
+            if rec1_name not in dest:
+                dest[rec1_name] = {}
+            rec1_dict = dest[rec1_name]
+            for rec2_name, rec2_items in rec1_items.items():
+                if rec2_name not in rec1_dict:
+                    rec1_dict[rec2_name] = []
+                relation_list = rec1_dict[rec2_name]
+                for relation in rec2_items:
+                    relation_list.append(relation)
 
 
 def find_record_links(database, starting_records, check_all=True, relations=None):

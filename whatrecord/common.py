@@ -420,6 +420,11 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
     }
 
 
+PVRelations = Dict[
+    str, Dict[str, List[Tuple[RecordField, RecordField, Tuple[str, ...]]]]
+]
+
+
 def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
     if isinstance(link_str, dict):

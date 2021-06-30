@@ -16,13 +16,13 @@ from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
 
 import apischema
 
-from . import asyn
+from . import asyn, graph
 from . import motor as motor_mod
 from . import settings, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
-                     RecordInstance, ShortLinterResults, WhatRecord,
-                     time_context)
+                     PVRelations, RecordInstance, ShortLinterResults,
+                     WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults
 from .format import FormatContext
 from .iocsh import parse_iocsh_line
@@ -599,12 +599,14 @@ class ScriptContainer:
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
     #: absolute filename path to sha
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    pv_relations: PVRelations = field(default_factory=dict)
 
-    def add_script(self, loaded: LoadedIoc):
+    def add_loaded_ioc(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
         self.database.update(loaded.shell_state.database)
         self.pva_database.update(loaded.shell_state.pva_database)
         self.loaded_files.update(loaded.shell_state.loaded_files)
+        graph.combine_relations(self.pv_relations, loaded.pv_relations)
 
     def whatrec(
         self,
@@ -669,6 +671,7 @@ class LoadedIoc:
     shell_state: ShellState
     script: IocshScript
     load_failure: bool = False
+    pv_relations: PVRelations = field(default_factory=dict)
 
     @classmethod
     def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:
@@ -729,13 +732,13 @@ class LoadedIoc:
         sh.standin_directories = md.standin_directories or {}
 
         script = IocshScript.from_metadata(md, sh=sh)
-
         return cls(
             name=md.name,
             path=md.script,
             metadata=md,
             shell_state=sh,
             script=script,
+            pv_relations=graph.build_database_relations(sh.database),
         )
 
 
