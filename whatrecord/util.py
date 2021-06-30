@@ -134,10 +134,21 @@ async def run_gdb(
     if use_cache:
         if not settings.CACHE_PATH or not cache_path.exists():
             use_cache = False
-        elif hash_filename.exists():
-            with open(hash_filename, "rt") as fp:
-                json_data = json.load(fp)
-            return apischema.deserialize(cls, json_data)
+        else:
+            try:
+                with open(hash_filename, "rt") as fp:
+                    json_data = json.load(fp)
+                return apischema.deserialize(cls, json_data)
+            except FileNotFoundError:
+                ...
+            except Exception as ex:
+                logger.warning(
+                    "Failed to load cached gdb information from disk; "
+                    "re-running gdb (%s, filename=%s)",
+                    ex,
+                    hash_filename,
+                    exc_info=True
+                )
 
     args = " ".join(f'"{arg}"' for arg in args or [])
     script_path = MODULE_PATH / "plugins" / f"{script}.py"

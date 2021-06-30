@@ -275,16 +275,16 @@ class IocMetadata:
             )
         except apischema.ValidationError:
             logger.error(
-                "Failed to get gdb information for %s",
-                self.binary,
+                "Failed to get gdb information for %s (%s)",
+                self.name, self.binary,
                 exc_info=True,
             )
             return
 
         if info.error:
             logger.error(
-                "Failed to get gdb information for %s: %s",
-                self.binary, info.error
+                "Failed to get gdb information for %s (%s): %s",
+                self.name, self.binary, info.error
             )
             return
 

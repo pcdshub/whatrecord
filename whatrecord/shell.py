@@ -89,14 +89,12 @@ class ShellState:
         default_factory=dict,
     )
     macro_context: MacroContext = field(
-        default_factory=MacroContext,
-        metadata=apischema.metadata.skip
+        default_factory=MacroContext, metadata=apischema.metadata.skip
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
 
     _handlers: Dict[str, Callable] = field(
-        default_factory=dict,
-        metadata=apischema.metadata.skip
+        default_factory=dict, metadata=apischema.metadata.skip
     )
 
     def __post_init__(self):
@@ -118,16 +116,12 @@ class ShellState:
                 name = attr.split("_", 1)[1]
                 yield name, obj
 
-    def load_file(
-        self,
-        filename: Union[pathlib.Path, str]
-    ) -> Tuple[pathlib.Path, str]:
+    def load_file(self, filename: Union[pathlib.Path, str]) -> Tuple[pathlib.Path, str]:
         """Load a file, record its hash, and return its contents."""
         filename = self._fix_path(filename)
         filename = filename.resolve()
         shasum, contents = util.read_text_file_with_hash(
-            filename,
-            encoding=self.string_encoding
+            filename, encoding=self.string_encoding
         )
         self.loaded_files[str(filename)] = shasum
         self.ioc_info.loaded_files[str(filename)] = shasum
@@ -138,7 +132,7 @@ class ShellState:
         redir: IocshRedirect,
         shresult: IocshResult,
         recurse: bool = True,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ):
         try:
             filename, contents = self.load_file(redir.name)
@@ -149,30 +143,28 @@ class ShellState:
 
         yield shresult
         yield from self.interpret_shell_script_text(
-            contents.splitlines(),
-            recurse=recurse,
-            name=filename
+            contents.splitlines(), recurse=recurse, name=filename
         )
 
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
         shresult = parse_iocsh_line(
-            line, context=self.get_load_context(),
+            line,
+            context=self.get_load_context(),
             prompt=self.prompt,
             macro_context=self.macro_context,
             string_encoding=self.string_encoding,
         )
-        input_redirects = [
-            redir for redir in shresult.redirects
-            if redir.mode == "r"
-        ]
+        input_redirects = [redir for redir in shresult.redirects if redir.mode == "r"]
         if shresult.error:
             yield shresult
         elif input_redirects:
             if recurse:
                 yield from self._handle_input_redirect(
-                    input_redirects[0], shresult, recurse=recurse,
-                    raise_on_error=raise_on_error
+                    input_redirects[0],
+                    shresult,
+                    recurse=recurse,
+                    raise_on_error=raise_on_error,
                 )
         elif shresult.argv:
             try:
@@ -196,7 +188,7 @@ class ShellState:
         self,
         filename: Union[pathlib.Path, str],
         recurse: bool = True,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ) -> Generator[IocshResult, None, None]:
         """Load and interpret a shell script named ``filename``."""
         filename, contents = self.load_file(filename)
@@ -212,7 +204,7 @@ class ShellState:
         lines: Iterable[str],
         name: str = "unknown",
         recurse: bool = True,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ) -> Generator[IocshResult, None, None]:
         """Interpret a shell script named ``name`` with ``lines`` of text."""
         load_ctx = MutableLoadContext(str(name), 0)
@@ -351,13 +343,12 @@ class ShellState:
         fn, contents = self.load_file(dbd)
         macros = (
             self.macro_context.definitions_to_dict(substitutions)
-            if substitutions else {}
+            if substitutions
+            else {}
         )
         with self.macro_context.scoped(**macros):
             self.database_definition = Database.from_string(
-                contents,
-                version=self.ioc_info.database_version_spec,
-                filename=fn
+                contents, version=self.ioc_info.database_version_spec, filename=fn
             )
 
         return f"Loaded database: {fn}"
@@ -374,7 +365,8 @@ class ShellState:
         try:
             with self.macro_context.scoped(**macros):
                 db = Database.from_file(
-                    filename, dbd=self.database_definition,
+                    filename,
+                    dbd=self.database_definition,
                     macro_context=self.macro_context,
                     version=self.ioc_info.database_version_spec,
                 )
@@ -456,9 +448,7 @@ class ShellState:
             record_type="PVA",
             fields={},
             is_pva=True,
-            metadata={
-                "areaDetector": metadata
-            }
+            metadata={"areaDetector": metadata},
         )
         return metadata
 
@@ -603,6 +593,7 @@ class ScriptContainer:
 
     Combines databases, sets of loaded files ease of querying.
     """
+
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
@@ -626,9 +617,7 @@ class ScriptContainer:
         fmt = FormatContext()
         result = []
         for stcmd, loaded in self.scripts.items():
-            info = whatrec(
-                loaded.shell_state, rec, field, include_pva=include_pva
-            )
+            info = whatrec(loaded.shell_state, rec, field, include_pva=include_pva)
             if info is not None:
                 info.owner = str(stcmd)
                 info.ioc = loaded.metadata
@@ -636,15 +625,15 @@ class ScriptContainer:
                     if file is not None:
                         print(fmt.render_object(inst, format_option), file=file)
                         for asyn_port in info.asyn_ports:
-                            print(fmt.render_object(asyn_port, format_option),
-                                  file=file)
+                            print(
+                                fmt.render_object(asyn_port, format_option), file=file
+                            )
                 result.append(info)
         return result
 
 
 def whatrec(
-    state: ShellState, rec: str, field: Optional[str] = None,
-    include_pva: bool = True
+    state: ShellState, rec: str, field: Optional[str] = None, include_pva: bool = True
 ) -> Optional[WhatRecord]:
     """Get record information."""
     v3_inst = state.database.get(rec, None)
@@ -668,11 +657,7 @@ def whatrec(
         instances.append(pva_inst)
 
     return WhatRecord(
-        name=rec,
-        owner=None,
-        instances=instances,
-        asyn_ports=asyn_ports,
-        ioc=None
+        name=rec, owner=None, instances=instances, asyn_ports=asyn_ports, ioc=None
     )
 
 
@@ -712,9 +697,7 @@ class LoadedIoc:
 
     @classmethod
     def from_errored_load(
-        cls,
-        md: IocMetadata,
-        load_failure: IocLoadFailure
+        cls, md: IocMetadata, load_failure: IocLoadFailure
     ) -> LoadedIoc:
         exception_line = f"{load_failure.ex_class}: {load_failure.ex_message}"
         error_lines = [exception_line] + load_failure.traceback.splitlines()
@@ -745,10 +728,7 @@ class LoadedIoc:
         sh.macro_context.define(**md.macros)
         sh.standin_directories = md.standin_directories or {}
 
-        script = IocshScript.from_metadata(
-            md,
-            sh=sh
-        )
+        script = IocshScript.from_metadata(md, sh=sh)
 
         return cls(
             name=md.name,
@@ -767,8 +747,7 @@ class IocLoadFailure:
 
 
 def load_cached_ioc(
-    md: IocMetadata,
-    allow_failed_load: bool = False
+    md: IocMetadata, allow_failed_load: bool = False
 ) -> Optional[LoadedIoc]:
     cached_md = md.from_cache()
     if cached_md is None:
@@ -776,16 +755,17 @@ def load_cached_ioc(
         return None
 
     if md._cache_key != cached_md._cache_key:
-        logger.error(
-            "Cache key mismatch?! %s %s",
-            md._cache_key, cached_md._cache_key
-        )
+        logger.error("Cache key mismatch?! %s %s", md._cache_key, cached_md._cache_key)
         return None
 
-    if allow_failed_load and (cached_md.metadata.get("load_failure") or md.looks_like_sh):
+    if allow_failed_load and (
+        cached_md.metadata.get("load_failure") or md.looks_like_sh
+    ):
         logger.debug(
             "%s allow_failed_load=True; %s, md.looks_like_sh=%s",
-            md.name, cached_md.metadata.get("load_failure"), md.looks_like_sh
+            md.name,
+            cached_md.metadata.get("load_failure"),
+            md.looks_like_sh,
         )
     elif not cached_md.is_up_to_date():
         logger.debug("%s is not up-to-date", md.name)
@@ -795,12 +775,10 @@ def load_cached_ioc(
         logger.debug("%s is up-to-date; load from cache", md.name)
         return LoadedIoc._json_from_cache(cached_md)
     except FileNotFoundError:
-        logger.error("%s is noted as up-to-date; but cache file missing",
-                     md.name)
+        logger.error("%s is noted as up-to-date; but cache file missing", md.name)
 
 
-def _load_ioc(identifier, md, standin_directories, use_gdb=True,
-              use_cache=True):
+def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True):
     async def _load():
         with time_context() as ctx:
             try:
@@ -819,8 +797,9 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True,
                     loaded.save_to_cache()
             except Exception as ex:
                 result = IocLoadFailure(
-                    ex_class=type(ex).__name__, ex_message=str(ex),
-                    traceback=traceback.format_exc()
+                    ex_class=type(ex).__name__,
+                    ex_message=str(ex),
+                    traceback=traceback.format_exc(),
                 )
                 return identifier, ctx(), result
 
@@ -876,7 +855,7 @@ async def load_startup_scripts_with_metadata(
                     "Internal error while loading: %s: %s [server %.1f s]",
                     type(ex).__name__,
                     ex,
-                    total_time()
+                    total_time(),
                 )
                 continue
 
@@ -891,7 +870,7 @@ async def load_startup_scripts_with_metadata(
                         "%s: %s [server %.1f s]",
                         type(ex).__name__,
                         ex,
-                        total_time()
+                        total_time(),
                     )
                     continue
 
@@ -907,7 +886,11 @@ async def load_startup_scripts_with_metadata(
                     load_elapsed,
                     total_time(),
                     failure_result.ex_message,
-                    failure_result.traceback,
+                    (
+                        failure_result.traceback
+                        if failure_result.ex_class != "FileNotFoundError"
+                        else ""
+                    ),
                 )
                 if md.base_version == settings.DEFAULT_BASE_VERSION:
                     md.base_version = "unknown"
@@ -918,16 +901,21 @@ async def load_startup_scripts_with_metadata(
                 loaded_ioc = apischema.deserialize(LoadedIoc, loaded)
                 logger.info(
                     "Child loaded %s in %.1f s, server deserialized in %.1f s",
-                    md.name or md.script, load_elapsed, ctx()
+                    md.name or md.script,
+                    load_elapsed,
+                    ctx(),
                 )
                 yield md, loaded_ioc
 
     logger.info(
         "Loaded %d startup scripts in %.1f s (wall time) with %d process(es)",
-        total_files, total_time(), processes
+        total_files,
+        total_time(),
+        processes,
     )
     logger.info(
         "Child processes reported taking a total of %.1f "
         "sec, the total time on %d process(es)",
-        total_child_load_time, processes
+        total_child_load_time,
+        processes,
     )
