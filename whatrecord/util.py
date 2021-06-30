@@ -127,12 +127,12 @@ async def run_gdb(
         The path to the gdb binary.  Defaults to ``WHATRECORD_GDB_PATH``
         from the environment (``gdb``).
     """
-    cache_path = pathlib.Path(settings.GDB_CACHE)
+    cache_path = pathlib.Path(settings.CACHE_PATH)
     binary_hash = get_file_sha256(binary)
 
     hash_filename = cache_path / f"{script}_{cls.__name__}_{binary_hash}.json"
     if use_cache:
-        if not settings.GDB_CACHE or not cache_path.exists():
+        if not settings.CACHE_PATH or not cache_path.exists():
             use_cache = False
         elif hash_filename.exists():
             with open(hash_filename, "rt") as fp:
