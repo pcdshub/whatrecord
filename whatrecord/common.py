@@ -105,13 +105,7 @@ class IocshScript:
 
     @classmethod
     def from_metadata(cls, md: IocMetadata, sh: ShellState) -> IocshScript:
-        looks_like_sh = md.binary and (
-            "bin/bash" in md.binary or
-            "env bash" in md.binary or
-            "bin/tcsh" in md.binary
-        )
-
-        if looks_like_sh:
+        if md.looks_like_sh:
             if md.base_version == settings.DEFAULT_BASE_VERSION:
                 md.base_version = "unknown"
             return cls.from_general_file(md.script)
@@ -203,6 +197,18 @@ class IocMetadata:
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    load_success: bool = True
+
+    @property
+    def looks_like_sh(self) -> bool:
+        """Is the script likely sh/bash/etc?"""
+        return self.binary and (
+            "bin/sh" in self.binary or
+            "bin/bash" in self.binary or
+            "env bash" in self.binary or
+            "bin/tcsh" in self.binary or
+            "/python" in self.binary
+        )
 
     @property
     def _cache_key(self) -> str:

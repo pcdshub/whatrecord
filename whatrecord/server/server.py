@@ -161,12 +161,14 @@ class ServerState:
                 startup_md.remove(md)
                 startup_md.insert(idx, loaded.metadata)
 
-            self.pv_relations = graph.build_database_relations(
-                self.container.database
-            )
-            self.script_relations = graph.build_script_relations(
-                self.container.database, self.pv_relations
-            )
+            with common.time_context() as ctx:
+                self.pv_relations = graph.build_database_relations(
+                    self.container.database
+                )
+                self.script_relations = graph.build_script_relations(
+                    self.container.database, self.pv_relations
+                )
+                logger.info("Updated PV/script relations in %.1f s", ctx())
 
             self.clear_cache()
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
@@ -174,11 +176,20 @@ class ServerState:
     async def update_plugins(self):
         for plugin in self.plugins:
             logger.info("Updating plugin: %s", plugin.name)
-            try:
-                info = await plugin.update()
-            except Exception:
-                logger.exception("Failed to update plugin (%s)", plugin.name)
-                continue
+            with common.time_context() as ctx:
+                try:
+                    info = await plugin.update()
+                except Exception:
+                    logger.exception(
+                        "Failed to update plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
+                    continue
+                else:
+                    logger.info(
+                        "Update plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
 
             for record, md in info["record_to_metadata"].items():
                 ...

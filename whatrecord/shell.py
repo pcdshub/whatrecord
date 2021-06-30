@@ -683,6 +683,7 @@ class LoadedIoc:
     metadata: IocMetadata
     shell_state: ShellState
     script: IocshScript
+    load_failure: bool = False
 
     @classmethod
     def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:
@@ -727,12 +728,14 @@ class LoadedIoc:
         md.metadata["exception_class"] = load_failure.ex_class
         md.metadata["exception_message"] = load_failure.ex_message
         md.metadata["traceback"] = load_failure.traceback
+        md.metadata["load_failure"] = True
         return cls(
             name=md.name,
             path=md.script,
             metadata=md,
             shell_state=ShellState(),
-            script=script
+            script=script,
+            load_failure=True,
         )
 
     @classmethod
@@ -763,19 +766,41 @@ class IocLoadFailure:
     traceback: str
 
 
+def load_cached_ioc(
+    md: IocMetadata,
+    allow_failed_load: bool = False
+) -> Optional[LoadedIoc]:
+    cached_md = md.from_cache()
+    if cached_md is None:
+        logger.debug("Cached metadata unavailable %s", md.name)
+        return None
+
+    if md._cache_key != cached_md._cache_key:
+        logger.error(
+            "Cache key mismatch?! %s %s",
+            md._cache_key, cached_md._cache_key
+        )
+        return None
+
+    if allow_failed_load and (cached_md.metadata.get("load_failure") or md.looks_like_sh):
+        logger.debug(
+            "%s allow_failed_load=True; %s, md.looks_like_sh=%s",
+            md.name, cached_md.metadata.get("load_failure"), md.looks_like_sh
+        )
+    elif not cached_md.is_up_to_date():
+        logger.debug("%s is not up-to-date", md.name)
+        return
+
+    try:
+        logger.debug("%s is up-to-date; load from cache", md.name)
+        return LoadedIoc._json_from_cache(cached_md)
+    except FileNotFoundError:
+        logger.error("%s is noted as up-to-date; but cache file missing",
+                     md.name)
+
+
 def _load_ioc(identifier, md, standin_directories, use_gdb=True,
               use_cache=True):
-
-    def load_cached_ioc():
-        cached_md = md.from_cache()
-        if cached_md is not None:
-            assert md._cache_key == cached_md._cache_key
-            if cached_md.is_up_to_date():
-                try:
-                    return LoadedIoc._json_from_cache(cached_md)
-                except FileNotFoundError:
-                    ...
-
     async def _load():
         with time_context() as ctx:
             try:
@@ -783,9 +808,9 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True,
                 if use_gdb:
                     await md.get_binary_information()
                 if use_cache:
-                    cached_ioc = load_cached_ioc()
+                    cached_ioc = load_cached_ioc(md)
                     if cached_ioc:
-                        return identifier, ctx(), cached_ioc
+                        return identifier, ctx(), "cached"
 
                 loaded = LoadedIoc.from_metadata(md)
                 serialized = apischema.serialize(loaded)
@@ -798,6 +823,11 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True,
                     traceback=traceback.format_exc()
                 )
                 return identifier, ctx(), result
+
+            if use_cache:
+                # Avoid pickling massive JSON blob; instruct server to load
+                # from cache
+                serialized = "cached"
 
             return identifier, ctx(), serialized
 
@@ -825,7 +855,7 @@ async def load_startup_scripts_with_metadata(
     total_files = len(md_items)
     total_child_load_time = 0.0
 
-    with time_context() as total_ctx, ProcessPoolExecutor(
+    with time_context() as total_time, ProcessPoolExecutor(
         max_workers=processes
     ) as executor:
         coros = [
@@ -839,44 +869,62 @@ async def load_startup_scripts_with_metadata(
 
         for completed_count, coro in enumerate(asyncio.as_completed(coros), 1):
             try:
-                script_idx, load_elapsed, loaded_ser = await coro
+                script_idx, load_elapsed, loaded = await coro
                 md = md_items[script_idx]
             except Exception as ex:
                 logger.exception(
-                    "Internal error while loading: %s: %s",
+                    "Internal error while loading: %s: %s [server %.1f s]",
                     type(ex).__name__,
                     ex,
+                    total_time()
                 )
                 continue
 
+            if loaded == "cached":
+                try:
+                    loaded = load_cached_ioc(md, allow_failed_load=True)
+                    if loaded is None:
+                        raise ValueError("Cache entry is empty?")
+                except Exception as ex:
+                    logger.exception(
+                        "Internal error while loading cached IOC from disk: "
+                        "%s: %s [server %.1f s]",
+                        type(ex).__name__,
+                        ex,
+                        total_time()
+                    )
+                    continue
+
             total_child_load_time += load_elapsed
 
-            if isinstance(loaded_ser, IocLoadFailure):
-                failure_result: IocLoadFailure = loaded_ser
+            if isinstance(loaded, IocLoadFailure):
+                failure_result: IocLoadFailure = loaded
                 logger.error(
-                    "Failed to load %s in subprocess: %s [%.1f s]: %s\n%s",
+                    "Failed to load %s in subprocess: %s "
+                    "[%.1f s; server %.1f]: %s\n%s",
                     md.name or md.script,
                     failure_result.ex_class,
                     load_elapsed,
+                    total_time(),
                     failure_result.ex_message,
                     failure_result.traceback,
                 )
                 if md.base_version == settings.DEFAULT_BASE_VERSION:
                     md.base_version = "unknown"
-                yield md, LoadedIoc.from_errored_load(md, loaded_ser)
+                yield md, LoadedIoc.from_errored_load(md, loaded)
                 continue
 
             with time_context() as ctx:
-                loaded_ioc = apischema.deserialize(LoadedIoc, loaded_ser)
+                loaded_ioc = apischema.deserialize(LoadedIoc, loaded)
                 logger.info(
-                    "Loaded %s in %.1f s, deserialized in %.1f s",
+                    "Child loaded %s in %.1f s, server deserialized in %.1f s",
                     md.name or md.script, load_elapsed, ctx()
                 )
                 yield md, loaded_ioc
 
     logger.info(
         "Loaded %d startup scripts in %.1f s (wall time) with %d process(es)",
-        total_files, total_ctx(), processes
+        total_files, total_time(), processes
     )
     logger.info(
         "Child processes reported taking a total of %.1f "
