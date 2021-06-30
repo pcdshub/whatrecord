@@ -35,7 +35,7 @@
             :skip_keys="[]" />
         </td>
         <td v-else class="value">
-          {{ value }}
+          <pre>{{ value }}</pre>
         </td>
       </tr>
     </tbody>
@@ -156,5 +156,8 @@ ul > li:before {
     content: "-";
     width: 1em;
     margin-left: -1em;
+}
+pre {
+  margin: 0px;
 }
 </style>

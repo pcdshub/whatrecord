@@ -20,7 +20,7 @@ from . import asyn
 from . import motor as motor_mod
 from . import settings, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
-                     IocshResult, IocshScript, MutableLoadContext,
+                     IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      RecordInstance, ShortLinterResults, WhatRecord,
                      time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults
@@ -710,15 +710,23 @@ class LoadedIoc:
         return True
 
     @classmethod
-    def from_errored_load(cls, md: IocMetadata, ex: Exception) -> LoadedIoc:
+    def from_errored_load(
+        cls,
+        md: IocMetadata,
+        load_failure: IocLoadFailure
+    ) -> LoadedIoc:
+        exception_line = f"{load_failure.ex_class}: {load_failure.ex_message}"
+        error_lines = [exception_line] + load_failure.traceback.splitlines()
         script = IocshScript(
             path=str(md.script),
             lines=tuple(
-                IocshResult.from_line(line)
-                for line in str(ex).splitlines()
+                IocshResult.from_line(line, context=(LoadContext("error", lineno),))
+                for lineno, line in enumerate(error_lines, 1)
             ),
         )
-        md.metadata["load_error"] = f"{type(ex).__name__}: {ex}"
+        md.metadata["exception_class"] = load_failure.ex_class
+        md.metadata["exception_message"] = load_failure.ex_message
+        md.metadata["traceback"] = load_failure.traceback
         return cls(
             name=md.name,
             path=md.script,
@@ -749,8 +757,9 @@ class LoadedIoc:
 
 
 @dataclass
-class FailureResult:
-    ex: Exception
+class IocLoadFailure:
+    ex_class: str
+    ex_message: str
     traceback: str
 
 
@@ -784,7 +793,10 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True,
                     loaded.metadata.save_to_cache()
                     loaded.save_to_cache()
             except Exception as ex:
-                result = FailureResult(ex=ex, traceback=traceback.format_exc())
+                result = IocLoadFailure(
+                    ex_class=type(ex).__name__, ex_message=str(ex),
+                    traceback=traceback.format_exc()
+                )
                 return identifier, ctx(), result
 
             return identifier, ctx(), serialized
@@ -839,13 +851,14 @@ async def load_startup_scripts_with_metadata(
 
             total_child_load_time += load_elapsed
 
-            if isinstance(loaded_ser, FailureResult):
-                failure_result: FailureResult = loaded_ser
+            if isinstance(loaded_ser, IocLoadFailure):
+                failure_result: IocLoadFailure = loaded_ser
                 logger.error(
-                    "Failed to load %s in subprocess: [%.1f s]\n%s %s",
+                    "Failed to load %s in subprocess: %s [%.1f s]: %s\n%s",
                     md.name or md.script,
+                    failure_result.ex_class,
                     load_elapsed,
-                    type(failure_result.ex).__name__,
+                    failure_result.ex_message,
                     failure_result.traceback,
                 )
                 if md.base_version == settings.DEFAULT_BASE_VERSION:
@@ -854,17 +867,19 @@ async def load_startup_scripts_with_metadata(
                 continue
 
             with time_context() as ctx:
-                yield md, apischema.deserialize(LoadedIoc, loaded_ser)
+                loaded_ioc = apischema.deserialize(LoadedIoc, loaded_ser)
                 logger.info(
-                    f"Loaded %s in {load_elapsed:.1f} s, deserialized in {ctx():.1f} s",
-                    md.name or md.script,
+                    "Loaded %s in %.1f s, deserialized in %.1f s",
+                    md.name or md.script, load_elapsed, ctx()
                 )
+                yield md, loaded_ioc
 
     logger.info(
-        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s (wall time) "
-        f"with {processes} process(es)"
+        "Loaded %d startup scripts in %.1f s (wall time) with %d process(es)",
+        total_files, total_ctx(), processes
     )
     logger.info(
-        f"Child processes reported taking a total of {total_child_load_time} "
-        f"sec (total time on all {processes} processes)"
+        "Child processes reported taking a total of %.1f "
+        "sec, the total time on %d process(es)",
+        total_child_load_time, processes
     )
