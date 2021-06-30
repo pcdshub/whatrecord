@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import pathlib
 import typing
@@ -202,6 +203,50 @@ class IocMetadata:
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(default_factory=dict)
+
+    @property
+    def _cache_key(self) -> str:
+        """Cache key for storing this IOC information in a file."""
+        key = "".join(
+            str(v)
+            for v in (
+                self.name,
+                str(self.script.resolve()),
+                str(self.startup_directory.resolve()),
+                str(self.host),
+                str(self.port),
+            )
+        )
+        hash = util.get_bytes_sha256(bytes(key, "utf-8"))
+        return f"{self.name}.{hash}"
+
+    @property
+    def cache_filename(self) -> pathlib.Path:
+        metadata_fn = f"{self._cache_key}.IocMetadata.json"
+        return pathlib.Path(settings.CACHE_PATH) / metadata_fn
+
+    @property
+    def ioc_cache_filename(self) -> pathlib.Path:
+        metadata_fn = f"{self._cache_key}.LoadedIoc.json"
+        return pathlib.Path(settings.CACHE_PATH) / metadata_fn
+
+    def from_cache(self) -> Optional[IocMetadata]:
+        if not settings.CACHE_PATH:
+            return
+
+        try:
+            with open(self.cache_filename, "rb") as fp:
+                return apischema.deserialize(type(self), json.load(fp))
+        except FileNotFoundError:
+            return
+
+    def save_to_cache(self) -> bool:
+        if not settings.CACHE_PATH:
+            return False
+
+        with open(self.cache_filename, "wt") as fp:
+            json.dump(apischema.serialize(self), fp=fp)
+        return True
 
     def is_up_to_date(self) -> bool:
         """Is this IOC up-to-date with what is on disk?"""

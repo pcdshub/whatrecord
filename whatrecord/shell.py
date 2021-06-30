@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
+import json
 import logging
 import os
 import pathlib
@@ -181,8 +182,6 @@ class ShellState:
                     raise
                 ex_details = traceback.format_exc()
                 shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
-                # print("\n", type(ex), ex, file=sys.stderr)
-                # print(ex_details, file=sys.stderr)
 
             yield shresult
             if isinstance(shresult.result, IocshCmdArgs):
@@ -686,6 +685,22 @@ class LoadedIoc:
     script: IocshScript
 
     @classmethod
+    def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
+        try:
+            with open(md.ioc_cache_filename, "rb") as fp:
+                return apischema.deserialize(cls, json.load(fp))
+        except FileNotFoundError:
+            return
+
+    def save_to_cache(self) -> bool:
+        if not settings.CACHE_PATH:
+            return False
+
+        with open(self.metadata.ioc_cache_filename, "wt") as fp:
+            json.dump(apischema.serialize(self), fp=fp)
+        return True
+
+    @classmethod
     def from_errored_load(cls, md: IocMetadata, ex: Exception) -> LoadedIoc:
         script = IocshScript(
             path=str(md.script),
@@ -730,15 +745,28 @@ class FailureResult:
     traceback: str
 
 
-def _load_ioc(identifier, md, standin_directories, use_gdb=True):
+def _load_ioc(identifier, md, standin_directories, use_gdb=True,
+              use_cache=True):
     async def _load():
         with time_context() as ctx:
             try:
                 md.standin_directories.update(standin_directories)
                 if use_gdb:
                     await md.get_binary_information()
+                if use_cache:
+                    cached_md = md.from_cache()
+                    if cached_md is not None:
+                        assert md._cache_key == cached_md._cache_key
+                        if cached_md.is_up_to_date():
+                            cached_ioc = LoadedIoc.from_cache(cached_md)
+                            if cached_ioc is not None:
+                                return identifier, ctx(), cached_ioc
+
                 loaded = LoadedIoc.from_metadata(md)
                 serialized = apischema.serialize(loaded)
+                if use_cache:
+                    loaded.metadata.save_to_cache()
+                    loaded.save_to_cache()
             except Exception as ex:
                 result = FailureResult(ex=ex, traceback=traceback.format_exc())
                 return identifier, ctx(), result
