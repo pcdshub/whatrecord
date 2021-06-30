@@ -685,10 +685,14 @@ class LoadedIoc:
     script: IocshScript
 
     @classmethod
+    def _json_from_cache(cls, md: IocMetadata) -> dict:
+        with open(md.ioc_cache_filename, "rb") as fp:
+            return json.load(fp)
+
+    @classmethod
     def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
         try:
-            with open(md.ioc_cache_filename, "rb") as fp:
-                return apischema.deserialize(cls, json.load(fp))
+            return apischema.deserialize(cls, cls._json_from_cache(md))
         except FileNotFoundError:
             return
 
@@ -747,6 +751,17 @@ class FailureResult:
 
 def _load_ioc(identifier, md, standin_directories, use_gdb=True,
               use_cache=True):
+
+    def load_cached_ioc():
+        cached_md = md.from_cache()
+        if cached_md is not None:
+            assert md._cache_key == cached_md._cache_key
+            if cached_md.is_up_to_date():
+                try:
+                    return LoadedIoc._json_from_cache(cached_md)
+                except FileNotFoundError:
+                    ...
+
     async def _load():
         with time_context() as ctx:
             try:
@@ -754,13 +769,9 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True,
                 if use_gdb:
                     await md.get_binary_information()
                 if use_cache:
-                    cached_md = md.from_cache()
-                    if cached_md is not None:
-                        assert md._cache_key == cached_md._cache_key
-                        if cached_md.is_up_to_date():
-                            cached_ioc = LoadedIoc.from_cache(cached_md)
-                            if cached_ioc is not None:
-                                return identifier, ctx(), cached_ioc
+                    cached_ioc = load_cached_ioc()
+                    if cached_ioc:
+                        return identifier, ctx(), cached_ioc
 
                 loaded = LoadedIoc.from_metadata(md)
                 serialized = apischema.serialize(loaded)
@@ -815,8 +826,7 @@ async def load_startup_scripts_with_metadata(
                 md = md_items[script_idx]
             except Exception as ex:
                 logger.exception(
-                    "Internal error while loading: %s. %s: %s",
-                    md.name or md.script,
+                    "Internal error while loading: %s: %s",
                     type(ex).__name__,
                     ex,
                 )
