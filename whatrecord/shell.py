@@ -685,16 +685,21 @@ class LoadedIoc:
     script: IocshScript
 
     @classmethod
-    def _json_from_cache(cls, md: IocMetadata) -> dict:
-        with open(md.ioc_cache_filename, "rb") as fp:
-            return json.load(fp)
+    def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:
+        try:
+            with open(md.ioc_cache_filename, "rb") as fp:
+                return json.load(fp)
+        except FileNotFoundError:
+            return
+        except json.decoder.JSONDecodeError:
+            # Truncated output file, perhaps
+            return
 
     @classmethod
     def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
-        try:
-            return apischema.deserialize(cls, cls._json_from_cache(md))
-        except FileNotFoundError:
-            return
+        json_dict = cls._json_from_cache(md)
+        if json_dict is not None:
+            return apischema.deserialize(cls, json_dict)
 
     def save_to_cache(self) -> bool:
         if not settings.CACHE_PATH:
