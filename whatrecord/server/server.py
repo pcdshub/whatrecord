@@ -296,10 +296,12 @@ class ServerState:
 
     def clear_cache(self):
         for method in [
+            self.get_graph,
             self.get_gateway_info,
             self.get_matching_pvs,
             self.get_matching_iocs,
             self.get_graph_rendered,
+            self.script_info_from_loaded_file,
         ]:
             method.cache_clear()
 
@@ -626,7 +628,6 @@ def configure_logging(loggers=None):
 def main(
     scripts: Optional[List[str]] = None,
     script_loader: Optional[List[str]] = None,
-    archive_file: Optional[str] = None,
     archive_viewer_url: Optional[str] = None,
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
@@ -647,7 +648,6 @@ def main(
         startup_scripts=scripts,
         script_loaders=script_loader,
         standin_directories=standin_directory,
-        # archive_viewer_url=archive_viewer_url,
         gateway_config=gateway_config,
         plugins=[
             ServerPluginSpec(
@@ -662,12 +662,6 @@ def main(
     handler = ServerHandler(state)
 
     add_routes(app, handler)
-
-    if archive_file:
-        handler.state.load_archived_pvs_from_file(archive_file)
-    elif archive_management_url:
-        ...
-        # handler.set_archiver_url(archive_management_url)
 
     configure_logging()
     app.on_startup.append(handler.async_init)

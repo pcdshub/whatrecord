@@ -78,7 +78,7 @@ def build_database_relations(
 
                 if link not in warned:
                     warned.add(link)
-                    logger.warning(
+                    logger.debug(
                         "Linked record from %s.%s not in database: %s",
                         rec1.name, field1.name, link
                     )
@@ -116,6 +116,8 @@ def build_database_relations(
 
 def combine_relations(dest, *others):
     """Combine multiple script relations into one."""
+    # TODO: this needs more work, it isn't as smart as it needs to be;
+    # "unknown" field information needs updating
     for other in others:
         for rec1_name, rec1_items in other.items():
             if rec1_name not in dest:
