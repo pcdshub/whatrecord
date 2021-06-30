@@ -862,7 +862,8 @@ async def load_startup_scripts_with_metadata(
                 )
                 continue
 
-            if loaded == "cached":
+            cached = loaded == "cached"
+            if cached:
                 try:
                     loaded = load_cached_ioc(md, allow_failed_load=True)
                     if loaded is None:
@@ -903,8 +904,9 @@ async def load_startup_scripts_with_metadata(
             with time_context() as ctx:
                 loaded_ioc = apischema.deserialize(LoadedIoc, loaded)
                 logger.info(
-                    "Child loaded %s in %.1f s, server deserialized in %.1f s",
+                    "Child loaded %s%s in %.1f s, server deserialized in %.1f s",
                     md.name or md.script,
+                    " from cache" if cached else "",
                     load_elapsed,
                     ctx(),
                 )

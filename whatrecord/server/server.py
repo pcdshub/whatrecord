@@ -306,6 +306,28 @@ class ServerState:
             method.cache_clear()
 
     @functools.lru_cache(maxsize=2048)
+    def script_info_from_loaded_file(self, fn) -> common.IocshScript:
+        assert fn in self.container.loaded_files
+
+        with open(fn, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        result = []
+        for lineno, line in enumerate(lines, 1):
+            result.append(
+                common.IocshResult(
+                    context=(LoadContext(fn, lineno),),
+                    line=line,
+                    outputs=[],
+                    argv=None,
+                    error=None,
+                    redirects={},
+                    result=None,
+                )
+            )
+        return common.IocshScript(path=fn, lines=tuple(result))
+
+    @functools.lru_cache(maxsize=2048)
     def get_gateway_info(self, pvname: str) -> Optional[gateway.PVListMatches]:
         if self.gateway_config is None:
             return None
@@ -481,28 +503,6 @@ class ServerHandler:
     async def api_plugin_info(self, request: web.Request):
         return web.json_response(self.state.get_plugin_info())
 
-    @functools.lru_cache(maxsize=2048)
-    def script_info_from_loaded_file(self, fn) -> common.IocshScript:
-        assert fn in self.state.container.loaded_files
-
-        with open(fn, "rt") as fp:
-            lines = fp.read().splitlines()
-
-        result = []
-        for lineno, line in enumerate(lines, 1):
-            result.append(
-                common.IocshResult(
-                    context=(LoadContext(fn, lineno),),
-                    line=line,
-                    outputs=[],
-                    argv=None,
-                    error=None,
-                    redirects={},
-                    result=None,
-                )
-            )
-        return common.IocshScript(path=fn, lines=tuple(result))
-
     @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):
         # script_name = pathlib.Path(request.query["file"])
@@ -516,7 +516,7 @@ class ServerHandler:
             ioc_md = None
             try:
                 self.state.container.loaded_files[filename]
-                script_info = self.script_info_from_loaded_file(filename)
+                script_info = self.state.script_info_from_loaded_file(filename)
             except KeyError as ex:
                 raise web.HTTPBadRequest() from ex
 

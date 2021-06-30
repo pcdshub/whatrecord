@@ -52,17 +52,11 @@
     <AccordionTab header="Archiver" :disabled="instance_v3 == null">
       <template v-if="instance_v3 != null">
         <a :href="appliance_viewer_url + instance_v3.name" target="_blank">
-            <div v-if="instance_v3.metadata.archived">
-                In archiver
-            </div>
-            <div v-else>
-                Not in archiver
-            </div>
+          Archive Viewer
         </a>
         <iframe
           :src="appliance_viewer_url + instance_v3.name"
           title="Archive viewer"
-          v-if="instance_v3.metadata.archived"
           />
         </template>
     </AccordionTab>
