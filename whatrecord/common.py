@@ -238,7 +238,10 @@ class IocMetadata:
             with open(self.cache_filename, "rb") as fp:
                 return apischema.deserialize(type(self), json.load(fp))
         except FileNotFoundError:
-            return
+            ...
+        except json.decoder.JSONDecodeError:
+            # Truncated output file, perhaps
+            ...
 
     def save_to_cache(self) -> bool:
         if not settings.CACHE_PATH:

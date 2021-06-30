@@ -690,10 +690,10 @@ class LoadedIoc:
             with open(md.ioc_cache_filename, "rb") as fp:
                 return json.load(fp)
         except FileNotFoundError:
-            return
+            ...
         except json.decoder.JSONDecodeError:
             # Truncated output file, perhaps
-            return
+            ...
 
     @classmethod
     def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
