@@ -296,8 +296,14 @@ class IocMetadata:
     @property
     def database_version_spec(self) -> int:
         """Load databases with this specification."""
-        # TODO: version parsing
-        return 3 if self.base_version <= "3.15" else 4
+        # TODO: better version parsing
+        try:
+            base_major_minor = tuple(
+                int(v) for v in self.base_version.split(".")[:2]
+            )
+            return 3 if base_major_minor < (3, 16) else 4
+        except Exception:
+            return 3
 
     @classmethod
     def empty(cls):
