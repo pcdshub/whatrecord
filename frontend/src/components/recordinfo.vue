@@ -66,8 +66,12 @@
       </a>
     </AccordionTab>
     <AccordionTab header="Gateway" :disabled="instance_v3 == null">
-      <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches">
+      <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches.length > 0">
+        Matching gateway rules:
         <gateway-matches :matches="instance_v3.metadata.gateway.matches"/>
+      </template>
+      <template v-else>
+        No matches with gateway rules.
       </template>
     </AccordionTab>
     <AccordionTab header="Asyn" :disabled="whatrec.asyn_ports.length == 0">
