@@ -125,6 +125,8 @@ class ServerState:
             for _, md in loader.scripts.items():
                 startup_md.append(md)
 
+        first_load = True
+
         while True:
             logger.info("Checking for changed scripts and database files...")
             self._load_gateway_config()
@@ -132,6 +134,12 @@ class ServerState:
                 md for md in startup_md
                 if not md.is_up_to_date()
             ]
+            for item in list(updated):
+                if not item.script or not item.script.exists():
+                    if not first_load:
+                        # Don't attempt another load unless the file exists
+                        updated.pop(item)
+
             if not updated:
                 logger.info("No changes found.")
                 await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
@@ -163,6 +171,7 @@ class ServerState:
 
             self.clear_cache()
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
+            first_load = False
 
     async def update_plugins(self):
         for plugin in self.plugins:

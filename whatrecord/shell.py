@@ -742,13 +742,6 @@ class LoadedIoc:
         )
 
 
-@dataclass
-class IocLoadFailure:
-    ex_class: str
-    ex_message: str
-    traceback: str
-
-
 def load_cached_ioc(
     md: IocMetadata, allow_failed_load: bool = False
 ) -> Optional[LoadedIoc]:
@@ -781,39 +774,81 @@ def load_cached_ioc(
         logger.error("%s is noted as up-to-date; but cache file missing", md.name)
 
 
-def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True):
-    async def _load():
-        with time_context() as ctx:
-            try:
-                md.standin_directories.update(standin_directories)
-                if use_gdb:
-                    await md.get_binary_information()
-                if use_cache:
-                    cached_ioc = load_cached_ioc(md)
-                    if cached_ioc:
-                        return identifier, ctx(), "cached"
+@dataclass
+class IocLoadFailure:
+    ex_class: str
+    ex_message: str
+    traceback: str
 
-                loaded = LoadedIoc.from_metadata(md)
-                serialized = apischema.serialize(loaded)
-                if use_cache:
-                    loaded.metadata.save_to_cache()
-                    loaded.save_to_cache()
-            except Exception as ex:
-                result = IocLoadFailure(
+
+@dataclass
+class IocLoadResult:
+    identifier: Union[int, str]
+    load_time: float
+    cache_hit: bool
+    result: Union[IocLoadFailure, str]
+
+
+async def async_load_ioc(
+    identifier: Union[int, str],
+    md: IocMetadata,
+    standin_directories,
+    use_gdb: bool = True,
+    use_cache: bool = True,
+) -> IocLoadResult:
+    """
+    Helper function for loading an IOC in a subprocess and relying on the cache.
+    """
+    with time_context() as ctx:
+        try:
+            md.standin_directories.update(standin_directories)
+            if use_gdb:
+                await md.get_binary_information()
+            if use_cache:
+                cached_ioc = load_cached_ioc(md)
+                if cached_ioc:
+                    return IocLoadResult(
+                        identifier=identifier,
+                        load_time=ctx(),
+                        cache_hit=True,
+                        result="use_cache"
+                    )
+
+            loaded = LoadedIoc.from_metadata(md)
+            serialized = apischema.serialize(loaded)
+            if use_cache:
+                loaded.metadata.save_to_cache()
+                loaded.save_to_cache()
+        except Exception as ex:
+            return IocLoadResult(
+                identifier=identifier,
+                load_time=ctx(),
+                cache_hit=False,
+                result=IocLoadFailure(
                     ex_class=type(ex).__name__,
                     ex_message=str(ex),
                     traceback=traceback.format_exc(),
-                )
-                return identifier, ctx(), result
+                ),
+            )
 
-            if use_cache:
-                # Avoid pickling massive JSON blob; instruct server to load
-                # from cache
-                serialized = "cached"
+        return IocLoadResult(
+            identifier=identifier,
+            load_time=ctx(),
+            cache_hit=False,
+            # Avoid pickling massive JSON blob; instruct server to load from
+            # cache with token 'use_cache'
+            result="use_cache" if use_cache else serialized,
+        )
 
-            return identifier, ctx(), serialized
 
-    return asyncio.run(_load())
+def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True) -> IocLoadResult:
+    return asyncio.run(
+        async_load_ioc(
+            identifier=identifier, md=md,
+            standin_directories=standin_directories, use_gdb=use_gdb,
+            use_cache=use_cache
+        )
+    )
 
 
 async def load_startup_scripts_with_metadata(
@@ -843,16 +878,17 @@ async def load_startup_scripts_with_metadata(
         coros = [
             asyncio.wrap_future(
                 executor.submit(
-                    _load_ioc, idx, md, standin_directories, use_gdb=use_gdb
+                    _load_ioc, identifier=idx, md=md,
+                    standin_directories=standin_directories, use_gdb=use_gdb
                 )
             )
             for idx, md in enumerate(md_items)
         ]
 
-        for completed_count, coro in enumerate(asyncio.as_completed(coros), 1):
+        for coro in asyncio.as_completed(coros):
             try:
-                script_idx, load_elapsed, loaded = await coro
-                md = md_items[script_idx]
+                load_result = await coro
+                md = md_items[load_result.identifier]
             except Exception as ex:
                 logger.exception(
                     "Internal error while loading: %s: %s [server %.1f s]",
@@ -862,8 +898,10 @@ async def load_startup_scripts_with_metadata(
                 )
                 continue
 
-            cached = loaded == "cached"
-            if cached:
+            use_cache = load_result.result == "use_cache"
+            if not use_cache:
+                loaded = load_result.result
+            else:
                 try:
                     loaded = load_cached_ioc(md, allow_failed_load=True)
                     if loaded is None:
@@ -878,7 +916,7 @@ async def load_startup_scripts_with_metadata(
                     )
                     continue
 
-            total_child_load_time += load_elapsed
+            total_child_load_time += load_result.load_time
 
             if isinstance(loaded, IocLoadFailure):
                 failure_result: IocLoadFailure = loaded
@@ -887,7 +925,7 @@ async def load_startup_scripts_with_metadata(
                     "[%.1f s; server %.1f]: %s\n%s",
                     md.name or md.script,
                     failure_result.ex_class,
-                    load_elapsed,
+                    load_result.load_time,
                     total_time(),
                     failure_result.ex_message,
                     (
@@ -906,8 +944,8 @@ async def load_startup_scripts_with_metadata(
                 logger.info(
                     "Child loaded %s%s in %.1f s, server deserialized in %.1f s",
                     md.name or md.script,
-                    " from cache" if cached else "",
-                    load_elapsed,
+                    " from cache" if load_result.cache_hit else "",
+                    load_result.load_time,
                     ctx(),
                 )
                 yield md, loaded_ioc
