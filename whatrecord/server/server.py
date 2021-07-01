@@ -195,17 +195,23 @@ class ServerState:
 
     def _load_gateway_config(self):
         if not self.gateway_config_path:
+            logger.warning(
+                "Gateway path not set; gateway configuration will not be loaded"
+            )
             return
 
         if self.gateway_config is None:
+            logger.info("Loading gateway configuration for the first time...")
             self.gateway_config = gateway.GatewayConfig(
                 self.gateway_config_path
             )
         else:
+            logger.info("Updating gateway configuration...")
             self.gateway_config.update_changed()
 
         for filename, pvlist in self.gateway_config.pvlists.items():
             if pvlist.hash is not None:
+                logger.debug("New gateway file: %s (%s)", filename, pvlist.hash)
                 self.container.loaded_files[str(filename)] = pvlist.hash
 
     def load_archived_pvs_from_file(self, filename):
@@ -253,7 +259,6 @@ class ServerState:
         """The pvAccess Database of groups/records."""
         return self.container.pva_database
 
-    @functools.lru_cache(maxsize=2048)
     def get_graph(self, pv_names: Tuple[str], graph_type: str) -> graphviz.Digraph:
         if graph_type == "record":
             return self.get_link_graph(tuple(pv_names))
@@ -296,11 +301,11 @@ class ServerState:
 
     def clear_cache(self):
         for method in [
-            self.get_graph,
+            # self.get_graph,
+            # self.get_graph_rendered,
             self.get_gateway_info,
             self.get_matching_pvs,
             self.get_matching_iocs,
-            self.get_graph_rendered,
             self.script_info_from_loaded_file,
         ]:
             method.cache_clear()
@@ -348,14 +353,15 @@ class ServerState:
             if regex.match(script_path) or regex.match(loaded_ioc.metadata.name)
         ]
 
-    @functools.lru_cache(maxsize=2048)
-    def get_graph_rendered(
+    async def get_graph_rendered(
         self, pv_names: Tuple[str], format: str, graph_type: str
     ) -> bytes:
         graph = self.get_graph(pv_names, graph_type=graph_type)
 
         with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
-            rendered_filename = graph.render(source_file.name, format=format)
+            rendered_filename = await graph.async_render(
+                source_file.name, format=format
+            )
 
         with open(rendered_filename, "rb") as fp:
             return fp.read()
@@ -549,7 +555,7 @@ class ServerHandler:
                 body=digraph.source,
             )
 
-        rendered = self.state.get_graph_rendered(
+        rendered = await self.state.get_graph_rendered(
             tuple(pv_names), format=format, graph_type=graph_type
         )
         try:
