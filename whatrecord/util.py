@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 import pathlib
-from typing import List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import apischema
 
@@ -16,12 +16,57 @@ MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 T = TypeVar("T")
 
 
+def get_bytes_sha256(contents: bytes):
+    """Hash a byte string with the SHA-256 algorithm."""
+    return hashlib.sha256(contents).hexdigest()
+
+
+def check_files_up_to_date(
+    file_to_hash: Dict[Union[str, pathlib.Path], str]
+) -> bool:
+    """
+    Check if the provided files are up-to-date by way of recorded hash vs
+    current hash.
+
+    Parameters
+    ----------
+    file_to_hash : Dict[Union[str, pathlib.Path], str]
+        File path to hash.
+
+    Returns
+    -------
+    up_to_date : bool
+        If all files maintain their stored hashes, returns True.
+    """
+    for fn, file_hash in file_to_hash.items():
+        try:
+            if get_file_sha256(fn) != file_hash:
+                return False
+        except FileNotFoundError:
+            return False
+
+    return True
+
+
 def get_file_sha256(binary: pathlib.Path):
     """Hash a binary with the SHA-256 algorithm."""
     # This doesn't do any sort of buffering; but our binaries are pretty small
     # in comparison to what we're storing as metadata, anyway
     with open(binary, "rb") as fp:
         return hashlib.sha256(fp.read()).hexdigest()
+
+
+def read_text_file_with_hash(
+    fn: pathlib.Path,
+    encoding="latin-1",
+) -> Tuple[str, str]:
+    """Hash a binary with the SHA-256 algorithm."""
+    # This doesn't do any sort of buffering; but our binaries are pretty small
+    # in comparison to what we're storing as metadata, anyway
+    with open(fn, "rb") as fp:
+        contents = fp.read()
+    sha256 = hashlib.sha256(contents).hexdigest()
+    return sha256, contents.decode(encoding)
 
 
 async def run_script_with_json_output(
@@ -82,20 +127,31 @@ async def run_gdb(
         The path to the gdb binary.  Defaults to ``WHATRECORD_GDB_PATH``
         from the environment (``gdb``).
     """
-    cache_path = pathlib.Path(settings.GDB_CACHE)
+    cache_path = pathlib.Path(settings.CACHE_PATH)
     binary_hash = get_file_sha256(binary)
 
     hash_filename = cache_path / f"{script}_{cls.__name__}_{binary_hash}.json"
     if use_cache:
-        if not settings.GDB_CACHE or not cache_path.exists():
+        if not settings.CACHE_PATH or not cache_path.exists():
             use_cache = False
-        elif hash_filename.exists():
-            with open(hash_filename, "rt") as fp:
-                json_data = json.load(fp)
-            return apischema.deserialize(cls, json_data)
+        else:
+            try:
+                with open(hash_filename, "rt") as fp:
+                    json_data = json.load(fp)
+                return apischema.deserialize(cls, json_data)
+            except FileNotFoundError:
+                ...
+            except Exception as ex:
+                logger.warning(
+                    "Failed to load cached gdb information from disk; "
+                    "re-running gdb (%s, filename=%s)",
+                    ex,
+                    hash_filename,
+                    exc_info=True
+                )
 
     args = " ".join(f'"{arg}"' for arg in args or [])
-    script_path = MODULE_PATH / f"{script}.py"
+    script_path = MODULE_PATH / "plugins" / f"{script}.py"
     gdb_path = gdb_path or settings.GDB_PATH
     to_execute = (
         f'"{gdb_path}" '

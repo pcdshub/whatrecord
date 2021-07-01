@@ -52,17 +52,11 @@
     <AccordionTab header="Archiver" :disabled="instance_v3 == null">
       <template v-if="instance_v3 != null">
         <a :href="appliance_viewer_url + instance_v3.name" target="_blank">
-            <div v-if="instance_v3.metadata.archived">
-                In archiver
-            </div>
-            <div v-else>
-                Not in archiver
-            </div>
+          Archive Viewer
         </a>
         <iframe
           :src="appliance_viewer_url + instance_v3.name"
           title="Archive viewer"
-          v-if="instance_v3.metadata.archived"
           />
         </template>
     </AccordionTab>
@@ -72,8 +66,12 @@
       </a>
     </AccordionTab>
     <AccordionTab header="Gateway" :disabled="instance_v3 == null">
-      <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches">
+      <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches.length > 0">
+        Matching gateway rules:
         <gateway-matches :matches="instance_v3.metadata.gateway.matches"/>
+      </template>
+      <template v-else>
+        No matches with gateway rules.
       </template>
     </AccordionTab>
     <AccordionTab header="Asyn" :disabled="whatrec.asyn_ports.length == 0">

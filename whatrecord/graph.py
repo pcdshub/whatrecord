@@ -1,17 +1,167 @@
 import ast
+import asyncio
 import collections
 import html
 import logging
-from typing import DefaultDict, Dict, List, Tuple
+import os
+from typing import Dict, List
 
 import graphviz as gv
-from whatrecord.common import LoadContext, dataclass
+from whatrecord.common import LoadContext, PVRelations, dataclass
 from whatrecord.db import RecordField, RecordInstance
 
 logger = logging.getLogger(__name__)
 
 # TODO: refactor this to not be graphviz-dependent; instead return node/link
 # information in terms of dataclasses
+
+# NOTE: the following is borrowed from pygraphviz, reimplemented to allow
+# for asyncio compatibility
+
+
+async def async_render(
+    engine, format, filepath, renderer=None, formatter=None, quiet=False
+):
+    """
+    Async Render file with Graphviz ``engine`` into ``format``,  return result
+    filename.
+
+    Parameters
+    ----------
+    engine :
+        The layout commmand used for rendering (``'dot'``, ``'neato'``, ...).
+    format :
+        The output format used for rendering (``'pdf'``, ``'png'``, ...).
+    filepath :
+        Path to the DOT source file to render.
+    renderer :
+        The output renderer used for rendering (``'cairo'``, ``'gd'``, ...).
+    formatter :
+        The output formatter used for rendering (``'cairo'``, ``'gd'``, ...).
+    quiet : bool
+        Suppress ``stderr`` output from the layout subprocess.
+
+    Returns
+    -------
+    The (possibly relative) path of the rendered file.
+
+    Raises
+    ------
+    ValueError: If ``engine``, ``format``, ``renderer``, or ``formatter`` are not known.
+    graphviz.RequiredArgumentError: If ``formatter`` is given but ``renderer`` is None.
+    graphviz.ExecutableNotFound: If the Graphviz executable is not found.
+    subprocess.CalledProcessError: If the exit status is non-zero.
+
+    Notes
+    -----
+    The layout command is started from the directory of ``filepath``, so that
+    references to external files (e.g. ``[image=...]``) can be given as paths
+    relative to the DOT source file.
+    """
+    # Adapted from graphviz under the MIT License (MIT) Copyright (c) 2013-2020
+    # Sebastian Bank
+    dirname, filename = os.path.split(filepath)
+
+    cmd, rendered = gv.backend.command(engine, format, filename, renderer, formatter)
+    if dirname:
+        cwd = dirname
+        rendered = os.path.join(dirname, rendered)
+    else:
+        cwd = None
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd,
+    )
+
+    (stdout, stderr) = await proc.communicate()
+    if proc.returncode:
+        raise gv.backend.CalledProcessError(
+            proc.returncode, cmd, output=stdout, stderr=stderr
+        )
+    return rendered
+
+
+class AsyncDigraph(gv.Digraph):
+    async def async_render(
+        self,
+        filename=None,
+        directory=None,
+        view=False,
+        cleanup=False,
+        format=None,
+        renderer=None,
+        formatter=None,
+        quiet=False,
+        quiet_view=False,
+    ):
+        """
+        Save the source to file and render with the Graphviz engine.
+
+        Parameters
+        ----------
+        filename :
+            Filename for saving the source (defaults to ``name`` + ``'.gv'``)
+        directory :
+            (Sub)directory for source saving and rendering.
+        view (bool) :
+            Open the rendered result with the default application.
+        cleanup (bool) :
+            Delete the source file after rendering.
+        format :
+            The output format used for rendering (``'pdf'``, ``'png'``, etc.).
+        renderer :
+            The output renderer used for rendering (``'cairo'``, ``'gd'``, ...).
+        formatter :
+            The output formatter used for rendering (``'cairo'``, ``'gd'``, ...).
+        quiet (bool) :
+            Suppress ``stderr`` output from the layout subprocess.
+        quiet_view (bool) :
+            Suppress ``stderr`` output from the viewer process;
+           implies ``view=True``, ineffective on Windows.
+        Returns:
+            The (possibly relative) path of the rendered file.
+
+        Raises
+        ------
+        ValueError: If ``format``, ``renderer``, or ``formatter`` are not known.
+        graphviz.RequiredArgumentError: If ``formatter`` is given but ``renderer`` is None.
+        graphviz.ExecutableNotFound: If the Graphviz executable is not found.
+        subprocess.CalledProcessError: If the exit status is non-zero.
+        RuntimeError: If viewer opening is requested but not supported.
+
+        Notes
+        -----
+        The layout command is started from the directory of ``filepath``, so that
+        references to external files (e.g. ``[image=...]``) can be given as paths
+        relative to the DOT source file.
+        """
+        # Adapted from graphviz under the MIT License (MIT) Copyright (c) 2013-2020
+        # Sebastian Bank
+        filepath = self.save(filename, directory)
+
+        if format is None:
+            format = self._format
+
+        rendered = await async_render(
+            self._engine,
+            format,
+            filepath,
+            renderer=renderer,
+            formatter=formatter,
+            quiet=quiet,
+        )
+
+        if cleanup:
+            logger.debug("delete %r", filepath)
+            os.remove(filepath)
+
+        if quiet_view or view:
+            self._view(rendered, self._format, quiet_view)
+
+        return rendered
 
 
 @dataclass
@@ -38,7 +188,7 @@ def is_supported_link(link: str) -> bool:
 
 def build_database_relations(
     database: Dict[str, RecordInstance]
-) -> Dict[str, DefaultDict[str, Tuple[RecordField, RecordField, Tuple[str, ...]]]]:
+) -> PVRelations:
     """
     Build a dictionary of PV relationships.
 
@@ -78,7 +228,7 @@ def build_database_relations(
 
                 if link not in warned:
                     warned.add(link)
-                    logger.warning(
+                    logger.debug(
                         "Linked record from %s.%s not in database: %s",
                         rec1.name, field1.name, link
                     )
@@ -108,7 +258,27 @@ def build_database_relations(
             by_record[rec1.name][rec2_name].append((field1, field2, info))
             by_record[rec2_name][rec1.name].append((field2, field1, info))
 
-    return dict(by_record)
+    return dict(
+        (key, dict(inner_dict))
+        for key, inner_dict in by_record.items()
+    )
+
+
+def combine_relations(dest, *others):
+    """Combine multiple script relations into one."""
+    # TODO: this needs more work, it isn't as smart as it needs to be;
+    # "unknown" field information needs updating
+    for other in others:
+        for rec1_name, rec1_items in other.items():
+            if rec1_name not in dest:
+                dest[rec1_name] = {}
+            rec1_dict = dest[rec1_name]
+            for rec2_name, rec2_items in rec1_items.items():
+                if rec2_name not in rec1_dict:
+                    rec1_dict[rec2_name] = []
+                relation_list = rec1_dict[rec2_name]
+                for relation in rec2_items:
+                    relation_list.append(relation)
 
 
 def find_record_links(database, starting_records, check_all=True, relations=None):
@@ -221,7 +391,7 @@ def graph_links(
     -------
     nodes: dict
     edges: dict
-    graph : graphviz.Digraph
+    graph : AsyncDigraph
     """
     node_id = 0
     edges = []
@@ -229,7 +399,7 @@ def graph_links(
     existing_edges = set()
 
     if graph is None:
-        graph = gv.Digraph(format="pdf")
+        graph = AsyncDigraph(format="pdf")
 
     if font_name is not None:
         graph.attr("graph", dict(fontname=font_name))
@@ -413,7 +583,7 @@ def graph_script_relations(
 
     limit_to_records = limit_to_records or []
     if graph is None:
-        graph = gv.Digraph(format="pdf")
+        graph = AsyncDigraph(format="pdf")
 
     if font_name is not None:
         graph.attr("graph", dict(fontname=font_name))

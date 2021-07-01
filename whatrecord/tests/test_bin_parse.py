@@ -17,6 +17,8 @@ def test_load_smoke(startup_script):
 def test_load_round_trip_smoke(startup_script):
     loaded_ioc = parse(startup_script)
     apischema.deserialize(LoadedIoc, apischema.serialize(loaded_ioc))
+
+    assert loaded_ioc.metadata.is_up_to_date()
     # assert loaded_ioc == round_tripped
 
 

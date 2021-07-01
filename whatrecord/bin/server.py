@@ -34,11 +34,6 @@ def build_arg_parser(parser=None):
     )
 
     archive_group = parser.add_mutually_exclusive_group()
-    archive_group.add_argument(
-        '--archive-file',
-        type=str,
-        help='Static list of archived PV names'
-    )
 
     archive_group.add_argument(
         '--archive-management-url',

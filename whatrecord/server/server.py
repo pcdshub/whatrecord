@@ -1,3 +1,5 @@
+import asyncio
+import collections
 import dataclasses
 import fnmatch
 import functools
@@ -6,32 +8,36 @@ import logging
 import re
 import sys
 import tempfile
-from typing import (Any, ClassVar, DefaultDict, Dict, List, Optional, Set,
-                    Tuple, Union)
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import apischema
 import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph, ioc_finder, settings, util
-from ..common import (LoadContext, RecordField, RecordInstance, WhatRecord,
-                      dataclass)
+from ..common import LoadContext, RecordInstance, WhatRecord, dataclass
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
+from .util import TaskHandler
 
-# from . import html as html_mod
-# from . import static
-
-# STATIC_PATH = pathlib.Path(static.__file__).parent
-# HTML_PATH = pathlib.Path(html_mod.__file__).parent
 TRUE_VALUES = {"1", "true", "True"}
 
-# aiohttp_jinja2.setup(
-#     app,
-#     loader=jinja2.FileSystemLoader('/path/to/templates/folder')
-# )
-
 logger = logging.getLogger(__name__)
+_log_handler = None
+
+
+class ServerLogHandler(logging.Handler):
+    def __init__(self, message_count: int = 1000, level="DEBUG"):
+        super().__init__(level=level)
+        self.formatter = logging.Formatter(
+            "%(asctime)s - PID %(process)d %(filename)18s: %(lineno)-3s "
+            "%(funcName)-18s %(levelname)-8s %(message)s"
+        )
+        self.message_count = message_count
+        self.messages = collections.deque(maxlen=message_count)
+
+    def emit(self, record):
+        self.messages.append(self.format(record))
 
 
 @dataclasses.dataclass
@@ -79,9 +85,6 @@ def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
 
 class ServerState:
     container: ScriptContainer
-    pv_relations: Dict[
-        str, DefaultDict[str, Tuple[RecordField, RecordField, Tuple[str, ...]]]
-    ]
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
@@ -95,23 +98,25 @@ class ServerState:
         gateway_config: Optional[str] = None,
         plugins: Optional[List[ServerPluginSpec]] = None,
     ):
-        self.standin_directories = standin_directories
+        self.archived_pvs = set()
         self.container = ScriptContainer()
-        self.pv_relations = {}
+        self.gateway_config = None
+        self.gateway_config_path = gateway_config
+        self.plugin_data = {}
+        self.plugins = plugins or []
         self.script_relations = {}
+        self.standin_directories = standin_directories
+        self.tasks = TaskHandler()
         self.script_loaders = [
             ioc_finder.IocScriptStaticList(startup_scripts)
         ] + [
             ioc_finder.IocScriptExternalLoader(loader)
             for loader in script_loaders
         ]
-        self.archived_pvs = set()
-        self.gateway_config_path = gateway_config
-        self.plugins = plugins or []
-        self.plugin_data = {}
 
     async def async_init(self, app):
-        await self.update_from_script_loaders()
+        self.tasks.create(self.update_from_script_loaders())
+        self.tasks.create(self.update_plugins())
 
     async def update_from_script_loaders(self):
         startup_md = []
@@ -120,25 +125,71 @@ class ServerState:
             for _, md in loader.scripts.items():
                 startup_md.append(md)
 
-        # TODO this should be an _update_, but uh... clear cache for now?
-        self.container = await load_startup_scripts_with_metadata(
-            *startup_md, standin_directories=self.standin_directories
-        )
-        self.pv_relations = graph.build_database_relations(self.container.database)
-        self.script_relations = graph.build_script_relations(
-            self.container.database, self.pv_relations)
+        first_load = True
 
-        self._load_gateway_config()
-        await self.update_plugins()
+        while True:
+            logger.info("Checking for changed scripts and database files...")
+            self._load_gateway_config()
+            updated = [
+                md for md in startup_md
+                if not md.is_up_to_date()
+            ]
+            for item in list(updated):
+                if not item.script or not item.script.exists():
+                    if not first_load:
+                        # Don't attempt another load unless the file exists
+                        updated.pop(item)
+
+            if not updated:
+                logger.info("No changes found.")
+                await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
+                continue
+
+            logger.info(
+                "%d IOC%s changed.", len(updated),
+                " has" if len(updated) == 1 else "s have"
+            )
+            for idx, ioc in enumerate(updated[:10], 1):
+                logger.info("* %d: %s", idx, ioc.name)
+            if len(updated) > 10:
+                logger.info("... and %d more", len(updated) - 10)
+
+            async for md, loaded in load_startup_scripts_with_metadata(
+                *updated, standin_directories=self.standin_directories
+            ):
+                self.container.add_loaded_ioc(loaded)
+                # Swap out the new loaded metadata
+                idx = startup_md.index(md)
+                startup_md.remove(md)
+                startup_md.insert(idx, loaded.metadata)
+
+            with common.time_context() as ctx:
+                self.script_relations = graph.build_script_relations(
+                    self.container.database, self.pv_relations
+                )
+                logger.info("Updated script relations in %.1f s", ctx())
+
+            self.clear_cache()
+            await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
+            first_load = False
 
     async def update_plugins(self):
         for plugin in self.plugins:
             logger.info("Updating plugin: %s", plugin.name)
-            try:
-                info = await plugin.update()
-            except Exception:
-                logger.exception("Failed to update plugin (%s)", plugin.name)
-                continue
+            with common.time_context() as ctx:
+                try:
+                    info = await plugin.update()
+                except Exception:
+                    logger.exception(
+                        "Failed to update plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
+                    continue
+                else:
+                    logger.info(
+                        "Update plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
 
             for record, md in info["record_to_metadata"].items():
                 ...
@@ -153,12 +204,24 @@ class ServerState:
 
     def _load_gateway_config(self):
         if not self.gateway_config_path:
+            logger.warning(
+                "Gateway path not set; gateway configuration will not be loaded"
+            )
             return
 
-        self.gateway_config = gateway.GatewayConfig(self.gateway_config_path)
-        for config in self.gateway_config.filenames:
-            config = str(config)
-            self.container.loaded_files[config] = config
+        if self.gateway_config is None:
+            logger.info("Loading gateway configuration for the first time...")
+            self.gateway_config = gateway.GatewayConfig(
+                self.gateway_config_path
+            )
+        else:
+            logger.info("Updating gateway configuration...")
+            self.gateway_config.update_changed()
+
+        for filename, pvlist in self.gateway_config.pvlists.items():
+            if pvlist.hash is not None:
+                logger.debug("New gateway file: %s (%s)", filename, pvlist.hash)
+                self.container.loaded_files[str(filename)] = pvlist.hash
 
     def load_archived_pvs_from_file(self, filename):
         # TODO: could retrieve it at startup/periodically from the appliance
@@ -205,7 +268,6 @@ class ServerState:
         """The pvAccess Database of groups/records."""
         return self.container.pva_database
 
-    @functools.lru_cache(maxsize=2048)
     def get_graph(self, pv_names: Tuple[str], graph_type: str) -> graphviz.Digraph:
         if graph_type == "record":
             return self.get_link_graph(tuple(pv_names))
@@ -242,6 +304,43 @@ class ServerState:
         )
         return digraph
 
+    @property
+    def pv_relations(self):
+        return self.container.pv_relations
+
+    def clear_cache(self):
+        for method in [
+            # self.get_graph,
+            # self.get_graph_rendered,
+            self.get_gateway_info,
+            self.get_matching_pvs,
+            self.get_matching_iocs,
+            self.script_info_from_loaded_file,
+        ]:
+            method.cache_clear()
+
+    @functools.lru_cache(maxsize=2048)
+    def script_info_from_loaded_file(self, fn) -> common.IocshScript:
+        assert fn in self.container.loaded_files
+
+        with open(fn, "rt") as fp:
+            lines = fp.read().splitlines()
+
+        result = []
+        for lineno, line in enumerate(lines, 1):
+            result.append(
+                common.IocshResult(
+                    context=(LoadContext(fn, lineno),),
+                    line=line,
+                    outputs=[],
+                    argv=None,
+                    error=None,
+                    redirects={},
+                    result=None,
+                )
+            )
+        return common.IocshScript(path=fn, lines=tuple(result))
+
     @functools.lru_cache(maxsize=2048)
     def get_gateway_info(self, pvname: str) -> Optional[gateway.PVListMatches]:
         if self.gateway_config is None:
@@ -263,14 +362,15 @@ class ServerState:
             if regex.match(script_path) or regex.match(loaded_ioc.metadata.name)
         ]
 
-    @functools.lru_cache(maxsize=2048)
-    def get_graph_rendered(
+    async def get_graph_rendered(
         self, pv_names: Tuple[str], format: str, graph_type: str
     ) -> bytes:
         graph = self.get_graph(pv_names, graph_type=graph_type)
 
         with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
-            rendered_filename = graph.render(source_file.name, format=format)
+            rendered_filename = await graph.async_render(
+                source_file.name, format=format
+            )
 
         with open(rendered_filename, "rb") as fp:
             return fp.read()
@@ -371,12 +471,15 @@ class ServerHandler:
         # Ignore max for now. This is not much in the way of information.
         # max_matches = int(request.query.get("max", "1000"))
         glob_str = request.match_info.get("glob_str", "*")
-        matches = self.state.get_matching_iocs(glob_str)
+        match_metadata = [
+            loaded_ioc.metadata
+            for loaded_ioc in self.state.get_matching_iocs(glob_str)
+        ]
         return web.json_response(
             apischema.serialize(
                 IocGetMatchesResponse(
                     glob=glob_str,
-                    matches=[match.metadata for match in matches],
+                    matches=match_metadata,
                 )
             )
         )
@@ -415,28 +518,6 @@ class ServerHandler:
     async def api_plugin_info(self, request: web.Request):
         return web.json_response(self.state.get_plugin_info())
 
-    @functools.lru_cache(maxsize=2048)
-    def script_info_from_loaded_file(self, fn) -> common.IocshScript:
-        assert fn in self.state.container.loaded_files
-
-        with open(fn, "rt") as fp:
-            lines = fp.read().splitlines()
-
-        result = []
-        for lineno, line in enumerate(lines, 1):
-            result.append(
-                common.IocshResult(
-                    context=(LoadContext(fn, lineno),),
-                    line=line,
-                    outputs=[],
-                    argv=None,
-                    error=None,
-                    redirects={},
-                    result=None,
-                )
-            )
-        return common.IocshScript(path=fn, lines=tuple(result))
-
     @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):
         # script_name = pathlib.Path(request.query["file"])
@@ -450,7 +531,7 @@ class ServerHandler:
             ioc_md = None
             try:
                 self.state.container.loaded_files[filename]
-                script_info = self.script_info_from_loaded_file(filename)
+                script_info = self.state.script_info_from_loaded_file(filename)
             except KeyError as ex:
                 raise web.HTTPBadRequest() from ex
 
@@ -483,7 +564,7 @@ class ServerHandler:
                 body=digraph.source,
             )
 
-        rendered = self.state.get_graph_rendered(
+        rendered = await self.state.get_graph_rendered(
             tuple(pv_names), format=format, graph_type=graph_type
         )
         try:
@@ -498,6 +579,12 @@ class ServerHandler:
         return web.Response(
             content_type=content_type,
             body=rendered,
+        )
+
+    @routes.get("/api/logs/get")
+    async def api_logs_get(self, request: web.Request):
+        return web.json_response(
+            list(_log_handler.messages)
         )
 
     @routes.get("/api/pv/{pv_names}/graph/{format}")
@@ -517,20 +604,6 @@ class ServerHandler:
             format=request.match_info["format"],
             graph_type="script",
         )
-
-    # # TODO: these will go away when not in development mode
-    # @routes.get("/index.html")
-    # @routes.get("/")
-    # async def index_page(self, request: web.Request):
-    #     return web.FileResponse(HTML_PATH / "index.html")
-
-    # @routes.get("/file")
-    # @routes.get("/whatrec")
-    # async def misc_page(self, request: web.Request):
-    #     fn = request.path.split("/")[-1]
-    #     return web.FileResponse(HTML_PATH / (fn + ".html"))
-
-    # routes.static("/_static", STATIC_PATH, show_index=False)
 
 
 def add_routes(app: web.Application, handler: ServerHandler):
@@ -558,10 +631,18 @@ def run(*args, **kwargs):
     return app, handler
 
 
+def configure_logging(loggers=None):
+    global _log_handler
+    _log_handler = ServerLogHandler()
+
+    loggers = loggers or ["whatrecord"]
+    for logger_name in loggers:
+        logging.getLogger(logger_name).addHandler(_log_handler)
+
+
 def main(
     scripts: Optional[List[str]] = None,
     script_loader: Optional[List[str]] = None,
-    archive_file: Optional[str] = None,
     archive_viewer_url: Optional[str] = None,
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
@@ -582,7 +663,6 @@ def main(
         startup_scripts=scripts,
         script_loaders=script_loader,
         standin_directories=standin_directory,
-        # archive_viewer_url=archive_viewer_url,
         gateway_config=gateway_config,
         plugins=[
             ServerPluginSpec(
@@ -598,12 +678,7 @@ def main(
 
     add_routes(app, handler)
 
-    if archive_file:
-        handler.state.load_archived_pvs_from_file(archive_file)
-    elif archive_management_url:
-        ...
-        # handler.set_archiver_url(archive_management_url)
-
+    configure_logging()
     app.on_startup.append(handler.async_init)
     web.run_app(app, port=port)
     return app, handler

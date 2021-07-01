@@ -1,5 +1,5 @@
 <template>
-  <table :class="cls" v-if="Object.keys(filtered_dict).length > 0">
+  <table :class="[cls, table_default_class, path_table_class]" v-if="Object.keys(filtered_dict).length > 0">
     <thead>
       <tr>
         <th>{{ key_column || "Key" }}</th>
@@ -8,17 +8,16 @@
     </thead>
     <tbody>
       <tr v-for="value, key in filtered_dict" :key="key + '-' + value">
-        <td class="key" :id="key">{{ key }}</td>
+        <td class="key">{{ key }}</td>
 
-        <td v-if="skip_keys.indexOf(key) >= 0" class="value">
-        </td>
-        <td v-else-if="key == 'context'" class="value">
+        <td v-if="key == 'context'" class="value">
           <script-context-link :context=value :short=true></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'" class="value">
           <dictionary-table
             :dict="value"
             cls="metadata"
+            :path="path ? path + '.' + key : key"
             :skip_keys="[]" />
         </td>
         <td v-else-if="value instanceof Array" class="value">
@@ -31,11 +30,12 @@
         <td v-else-if="value instanceof Object" class="value">
           <dictionary-table
             :dict="value"
-            cls="nested_table"
+            cls=""
+            :path="path ? path + '.' + key : key"
             :skip_keys="[]" />
         </td>
         <td v-else class="value">
-          {{ value }}
+          <pre>{{ value }}</pre>
         </td>
       </tr>
     </tbody>
@@ -53,15 +53,26 @@ export default {
     skip_keys: Array,
     key_column: String,
     value_column: String,
+    path: String,
   },
   components: {
     ScriptContextLink,
   },
   computed: {
+    nest_level() {
+      const path = this.path || "";
+      return (path.match(/\./g) || []).length;
+    },
+    path_table_class() {
+      return this.path ? `path-${this.path}` : "";
+    },
+    table_default_class() {
+      return `nested-${this.nest_level}`;
+    },
     filtered_dict() {
       let filtered = {};
       for (const key in this.dict) {
-        if (this.skip_keys.indexOf(key) < 0) {
+        if (this.skip_keys.indexOf(key) < 0 && this.dict[key]) {
           filtered[key] = this.dict[key];
         }
       }
@@ -91,8 +102,12 @@ table .metadata {
   border: thin dotted;
 }
 
-table .nested_table {
+table .nested-0 {
   border: thin dotted;
+}
+
+table .nested-1 {
+  border: thin dashed;
 }
 
 th {
@@ -141,5 +156,8 @@ ul > li:before {
     content: "-";
     width: 1em;
     margin-left: -1em;
+}
+pre {
+  margin: 0px;
 }
 </style>

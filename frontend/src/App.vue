@@ -21,6 +21,9 @@ export default {
       tab_menu_items.push(
         {label: plugin, icon: 'pi pi-fw pi-info-circle', to: '/' + plugin},
       );
+      tab_menu_items.push(
+        {label: 'Logs', icon: 'pi pi-fw pi-list', to: '/logs'},
+      );
     }
     return {
       tab_menu_items: tab_menu_items

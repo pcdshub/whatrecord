@@ -1,52 +1,34 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import functools
 import inspect
+import json
 import logging
-# import multiprocessing as mp
 import os
 import pathlib
 import sys
 import traceback
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, Iterable, List, Optional
+from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
+                    Union)
 
 import apischema
 
-from . import asyn, common
+from . import asyn, graph
 from . import motor as motor_mod
-from . import settings
+from . import settings, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
-                     IocshResult, IocshScript, MutableLoadContext,
-                     RecordInstance, ShortLinterResults, WhatRecord,
-                     time_context)
-from .db import Database, DatabaseLoadFailure, load_database_file
+                     IocshResult, IocshScript, LoadContext, MutableLoadContext,
+                     PVRelations, RecordInstance, ShortLinterResults,
+                     WhatRecord, time_context)
+from .db import Database, DatabaseLoadFailure, LinterResults
 from .format import FormatContext
 from .iocsh import parse_iocsh_line
 from .macro import MacroContext
 
 logger = logging.getLogger(__name__)
-
-
-def _motor_wrapper(method):
-    """
-    Method decorator for motor-related commands
-
-    Use specific command handler, but also show general parameter information.
-    """
-    _, name = method.__name__.split("handle_")
-
-    @functools.wraps(method)
-    def wrapped(self, *args):
-        specific_info = method(self, *args) or ""
-        generic_info = self._generic_motor_handler(name, *args)
-        if specific_info:
-            return f"{specific_info}\n\n{generic_info}"
-        return generic_info
-
-    return wrapped
 
 
 @dataclass
@@ -107,14 +89,12 @@ class ShellState:
         default_factory=dict,
     )
     macro_context: MacroContext = field(
-        default_factory=MacroContext,
-        metadata=apischema.metadata.skip
+        default_factory=MacroContext, metadata=apischema.metadata.skip
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
 
     _handlers: Dict[str, Callable] = field(
-        default_factory=dict,
-        metadata=apischema.metadata.skip
+        default_factory=dict, metadata=apischema.metadata.skip
     )
 
     def __post_init__(self):
@@ -136,49 +116,55 @@ class ShellState:
                 name = attr.split("_", 1)[1]
                 yield name, obj
 
+    def load_file(self, filename: Union[pathlib.Path, str]) -> Tuple[pathlib.Path, str]:
+        """Load a file, record its hash, and return its contents."""
+        filename = self._fix_path(filename)
+        filename = filename.resolve()
+        shasum, contents = util.read_text_file_with_hash(
+            filename, encoding=self.string_encoding
+        )
+        self.loaded_files[str(filename)] = shasum
+        self.ioc_info.loaded_files[str(filename)] = shasum
+        return filename, contents
+
     def _handle_input_redirect(
         self,
         redir: IocshRedirect,
         shresult: IocshResult,
         recurse: bool = True,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ):
-        filename = self._fix_path(redir.name)
         try:
-            fp_redir = open(filename, "rt")
+            filename, contents = self.load_file(redir.name)
         except Exception as ex:
-            shresult.error = f"{type(ex).__name__}: {filename}"
+            shresult.error = f"{type(ex).__name__}: {redir.name}"
             yield shresult
             return
 
-        self.loaded_files[str(filename.resolve())] = str(filename)
-        try:
-            yield shresult
-            yield from self.interpret_shell_script(
-                fp_redir, recurse=recurse, name=filename
-            )
-        finally:
-            fp_redir.close()
+        yield shresult
+        yield from self.interpret_shell_script_text(
+            contents.splitlines(), recurse=recurse, name=filename
+        )
 
     def interpret_shell_line(self, line, recurse=True, raise_on_error=False):
         """Interpret a single shell script line."""
         shresult = parse_iocsh_line(
-            line, context=self.get_load_context(),
+            line,
+            context=self.get_load_context(),
             prompt=self.prompt,
             macro_context=self.macro_context,
             string_encoding=self.string_encoding,
         )
-        input_redirects = [
-            redir for redir in shresult.redirects
-            if redir.mode == "r"
-        ]
+        input_redirects = [redir for redir in shresult.redirects if redir.mode == "r"]
         if shresult.error:
             yield shresult
         elif input_redirects:
             if recurse:
                 yield from self._handle_input_redirect(
-                    input_redirects[0], shresult, recurse=recurse,
-                    raise_on_error=raise_on_error
+                    input_redirects[0],
+                    shresult,
+                    recurse=recurse,
+                    raise_on_error=raise_on_error,
                 )
         elif shresult.argv:
             try:
@@ -188,8 +174,6 @@ class ShellState:
                     raise
                 ex_details = traceback.format_exc()
                 shresult.error = f"Failed to execute: {ex}:\n{ex_details}"
-                # print("\n", type(ex), ex, file=sys.stderr)
-                # print(ex_details, file=sys.stderr)
 
             yield shresult
             if isinstance(shresult.result, IocshCmdArgs):
@@ -202,10 +186,25 @@ class ShellState:
 
     def interpret_shell_script(
         self,
+        filename: Union[pathlib.Path, str],
+        recurse: bool = True,
+        raise_on_error: bool = False,
+    ) -> Generator[IocshResult, None, None]:
+        """Load and interpret a shell script named ``filename``."""
+        filename, contents = self.load_file(filename)
+        yield from self.interpret_shell_script_text(
+            contents.splitlines(),
+            name=str(filename),
+            recurse=recurse,
+            raise_on_error=raise_on_error,
+        )
+
+    def interpret_shell_script_text(
+        self,
         lines: Iterable[str],
         name: str = "unknown",
         recurse: bool = True,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ) -> Generator[IocshResult, None, None]:
         """Interpret a shell script named ``name`` with ``lines`` of text."""
         load_ctx = MutableLoadContext(str(name), 0)
@@ -247,7 +246,8 @@ class ShellState:
             return handler(*args)
         return self.unhandled(command, args)
 
-    def _fix_path(self, filename: str):
+    def _fix_path(self, filename: Union[str, pathlib.Path]):
+        filename = str(filename)
         if os.path.isabs(filename):
             for from_, to in self.standin_directories.items():
                 if filename.startswith(from_):
@@ -340,44 +340,53 @@ class ShellState:
             return "whatrecord: TODO multiple dbLoadDatabase"
         # TODO: handle path - see dbLexRoutines.c
         # env vars: EPICS_DB_INCLUDE_PATH, fallback to "."
-        fn = self._fix_path(dbd)
+        fn, contents = self.load_file(dbd)
         macros = (
             self.macro_context.definitions_to_dict(substitutions)
-            if substitutions else {}
+            if substitutions
+            else {}
         )
         with self.macro_context.scoped(**macros):
-            self.database_definition = Database.from_file(
-                fn,
-                version=self.ioc_info.database_version_spec
+            self.database_definition = Database.from_string(
+                contents, version=self.ioc_info.database_version_spec, filename=fn
             )
 
-        self.loaded_files[str(fn.resolve())] = str(dbd)
         return f"Loaded database: {fn}"
 
-    def handle_dbLoadRecords(self, fn, macros, *_):
+    def handle_dbLoadRecords(self, filename, macros, *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
         if self.ioc_initialized:
             raise RuntimeError("Records cannot be loaded after iocInit")
-        orig_fn = fn
-        fn = self._fix_path(fn)
-        self.loaded_files[str(fn.resolve())] = str(orig_fn)
-
+        filename, contents = self.load_file(filename)
         macros = self.macro_context.definitions_to_dict(macros)
 
+        # TODO: refactor as this was pulled out of load_database_file
         try:
             with self.macro_context.scoped(**macros):
-                linter_results = load_database_file(
+                db = Database.from_file(
+                    filename,
                     dbd=self.database_definition,
-                    db=fn,
                     macro_context=self.macro_context,
                     version=self.ioc_info.database_version_spec,
                 )
         except Exception as ex:
             # TODO move this around
             raise DatabaseLoadFailure(
-                f"Failed to load {fn}: {type(ex).__name__} {ex}"
+                f"Failed to load {filename}: {type(ex).__name__} {ex}"
             ) from ex
+
+        linter_results = LinterResults(
+            record_types=self.database_definition.record_types,
+            # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
+            # recdsets=dbd.devices,  # TODO
+            # {'inst:name':'ao', ...}
+            records=db.records,
+            pva_groups=db.pva_groups,
+            extinst=[],
+            errors=[],
+            warnings=[],
+        )
 
         context = self.get_load_context()
         for name, rec in linter_results.records.items():
@@ -439,13 +448,10 @@ class ShellState:
             record_type="PVA",
             fields={},
             is_pva=True,
-            metadata={
-                "areaDetector": metadata
-            }
+            metadata={"areaDetector": metadata},
         )
         return metadata
 
-    # @_motor_wrapper  # TODO
     def handle_drvAsynSerialPortConfigure(
         self,
         portName=None,
@@ -468,7 +474,6 @@ class ShellState:
             noProcessEos=noProcessEos,
         )
 
-    # @_motor_wrapper  # TODO
     def handle_drvAsynIPPortConfigure(
         self,
         portName=None,
@@ -489,7 +494,6 @@ class ShellState:
                 noProcessEos=noProcessEos,
             )
 
-    @_motor_wrapper
     def handle_adsAsynPortDriverConfigure(
         self,
         portName=None,
@@ -535,7 +539,6 @@ class ShellState:
         else:
             port.options[key] = opt
 
-    @_motor_wrapper
     def handle_drvAsynMotorConfigure(
         self,
         port_name: str = "",
@@ -555,7 +558,6 @@ class ShellState:
             ),
         )
 
-    @_motor_wrapper
     def handle_EthercatMCCreateController(
         self,
         motor_port: str = "",
@@ -570,8 +572,6 @@ class ShellState:
         motor = asyn.AsynMotor(
             context=self.get_load_context(),
             name=motor_port,
-            # TODO: would like to reference the object, but dataclasses
-            # asdict recursion is tripping me up
             parent=asyn_port,
             metadata=dict(
                 num_axes=num_axes,
@@ -588,18 +588,25 @@ class ShellState:
 
 @dataclass
 class ScriptContainer:
+    """
+    Aggregate container for any number of LoadedIoc instances.
+
+    Combines databases, sets of loaded files ease of querying.
+    """
+
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
-
-    # TODO: add mtime information for update checking
+    #: absolute filename path to sha
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    pv_relations: PVRelations = field(default_factory=dict)
 
-    def add_script(self, loaded: LoadedIoc):
+    def add_loaded_ioc(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
         self.database.update(loaded.shell_state.database)
         self.pva_database.update(loaded.shell_state.pva_database)
         self.loaded_files.update(loaded.shell_state.loaded_files)
+        graph.combine_relations(self.pv_relations, loaded.pv_relations)
 
     def whatrec(
         self,
@@ -612,9 +619,7 @@ class ScriptContainer:
         fmt = FormatContext()
         result = []
         for stcmd, loaded in self.scripts.items():
-            info = whatrec(
-                loaded.shell_state, rec, field, include_pva=include_pva
-            )
+            info = whatrec(loaded.shell_state, rec, field, include_pva=include_pva)
             if info is not None:
                 info.owner = str(stcmd)
                 info.ioc = loaded.metadata
@@ -622,15 +627,15 @@ class ScriptContainer:
                     if file is not None:
                         print(fmt.render_object(inst, format_option), file=file)
                         for asyn_port in info.asyn_ports:
-                            print(fmt.render_object(asyn_port, format_option),
-                                  file=file)
+                            print(
+                                fmt.render_object(asyn_port, format_option), file=file
+                            )
                 result.append(info)
         return result
 
 
 def whatrec(
-    state: ShellState, rec: str, field: Optional[str] = None,
-    include_pva: bool = True
+    state: ShellState, rec: str, field: Optional[str] = None, include_pva: bool = True
 ) -> Optional[WhatRecord]:
     """Get record information."""
     v3_inst = state.database.get(rec, None)
@@ -654,11 +659,7 @@ def whatrec(
         instances.append(pva_inst)
 
     return WhatRecord(
-        name=rec,
-        owner=None,
-        instances=instances,
-        asyn_ports=asyn_ports,
-        ioc=None
+        name=rec, owner=None, instances=instances, asyn_ports=asyn_ports, ioc=None
     )
 
 
@@ -669,23 +670,58 @@ class LoadedIoc:
     metadata: IocMetadata
     shell_state: ShellState
     script: IocshScript
+    load_failure: bool = False
+    pv_relations: PVRelations = field(default_factory=dict)
 
     @classmethod
-    def from_errored_load(cls, md: IocMetadata, ex: Exception) -> LoadedIoc:
+    def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:
+        try:
+            with open(md.ioc_cache_filename, "rb") as fp:
+                return json.load(fp)
+        except FileNotFoundError:
+            ...
+        except json.decoder.JSONDecodeError:
+            # Truncated output file, perhaps
+            ...
+
+    @classmethod
+    def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
+        json_dict = cls._json_from_cache(md)
+        if json_dict is not None:
+            return apischema.deserialize(cls, json_dict)
+
+    def save_to_cache(self) -> bool:
+        if not settings.CACHE_PATH:
+            return False
+
+        with open(self.metadata.ioc_cache_filename, "wt") as fp:
+            json.dump(apischema.serialize(self), fp=fp)
+        return True
+
+    @classmethod
+    def from_errored_load(
+        cls, md: IocMetadata, load_failure: IocLoadFailure
+    ) -> LoadedIoc:
+        exception_line = f"{load_failure.ex_class}: {load_failure.ex_message}"
+        error_lines = [exception_line] + load_failure.traceback.splitlines()
         script = IocshScript(
             path=str(md.script),
             lines=tuple(
-                IocshResult.from_line(line)
-                for line in str(ex).splitlines()
+                IocshResult.from_line(line, context=(LoadContext("error", lineno),))
+                for lineno, line in enumerate(error_lines, 1)
             ),
         )
-        md.metadata["load_error"] = f"{type(ex).__name__}: {ex}"
+        md.metadata["exception_class"] = load_failure.ex_class
+        md.metadata["exception_message"] = load_failure.ex_message
+        md.metadata["traceback"] = load_failure.traceback
+        md.metadata["load_failure"] = True
         return cls(
             name=md.name,
             path=md.script,
             metadata=md,
             shell_state=ShellState(),
-            script=script
+            script=script,
+            load_failure=True,
         )
 
     @classmethod
@@ -695,94 +731,124 @@ class LoadedIoc:
         sh.macro_context.define(**md.macros)
         sh.standin_directories = md.standin_directories or {}
 
-        script = IocshScript.from_metadata(
-            md,
-            sh=sh
-        )
-
+        script = IocshScript.from_metadata(md, sh=sh)
         return cls(
             name=md.name,
             path=md.script,
             metadata=md,
             shell_state=sh,
-            script=script
+            script=script,
+            pv_relations=graph.build_database_relations(sh.database),
         )
 
 
-def load_startup_scripts(
-    *fns, standin_directories=None, processes=1
-) -> ScriptContainer:
-    """
-    Load all given startup scripts into a shared ScriptContainer.
+def load_cached_ioc(
+    md: IocMetadata, allow_failed_load: bool = False
+) -> Optional[LoadedIoc]:
+    cached_md = md.from_cache()
+    if cached_md is None:
+        logger.debug("Cached metadata unavailable %s", md.name)
+        return None
 
-    Parameters
-    ----------
-    *fns :
-        List of filenames to load.
-    standin_directories : dict
-        Stand-in/substitute directory mapping.
-    processes : int
-        The number of processes to use when loading.
+    if md._cache_key != cached_md._cache_key:
+        logger.error("Cache key mismatch?! %s %s", md._cache_key, cached_md._cache_key)
+        return None
 
-    Returns
-    -------
-    container : ScriptContainer
-        The resulting container.
-    """
-    container = ScriptContainer()
-    total_files = len(set(fns))
-
-    with time_context() as total_ctx:
-        if processes > 1:
-            ...
-            # loader = functools.partial(_load_startup_script_json, standin_directories)
-            # with mp.Pool(processes=processes) as pool:
-            #     results = pool.imap(loader, sorted(set(fns)))
-            #     for idx, (iocsh_script_raw, sh_state_raw) in enumerate(results, 1):
-            #         iocsh_script = apischema.deserialize(
-            #             IocshScript, iocsh_script_raw)
-            #         sh_state = apischema.deserialize(ShellState, sh_state_raw)
-            #         print(f"{idx}/{total_files}: Loaded {iocsh_script.path}")
-            #         container.add_script(iocsh_script, sh_state)
-        else:
-            try:
-                for idx, fn in enumerate(sorted(set(fns)), 1):
-                    print(f"{idx}/{total_files}: Loading {fn}...", end="")
-                    with time_context() as ctx:
-                        loaded = LoadedIoc.from_metadata(
-                            common.IocMetadata.from_filename(
-                                fn,
-                                standin_directories=standin_directories
-                            )
-                        )
-                        container.add_script(loaded)
-                    print(f"[{ctx():.1f} s]")
-            except KeyboardInterrupt:
-                print("Ctrl-C: Cancelling loading remaining scripts.")
-                total_files = idx
-
-        print(
-            f"Loaded {total_files} startup scripts in {total_ctx():.1f} s "
-            f"with {processes} process(es)"
+    if allow_failed_load and (
+        cached_md.metadata.get("load_failure") or md.looks_like_sh
+    ):
+        logger.debug(
+            "%s allow_failed_load=True; %s, md.looks_like_sh=%s",
+            md.name,
+            cached_md.metadata.get("load_failure"),
+            md.looks_like_sh,
         )
-    return container
+    elif not cached_md.is_up_to_date():
+        logger.debug("%s is not up-to-date", md.name)
+        return
+
+    try:
+        logger.debug("%s is up-to-date; load from cache", md.name)
+        return LoadedIoc._json_from_cache(cached_md)
+    except FileNotFoundError:
+        logger.error("%s is noted as up-to-date; but cache file missing", md.name)
 
 
-def _load_ioc(identifier, md, standin_directories, use_gdb=True):
-    async def _load():
-        with time_context() as ctx:
-            try:
-                md.standin_directories.update(standin_directories)
-                if use_gdb:
-                    await md.get_binary_information()
-                loaded = LoadedIoc.from_metadata(md)
-                serialized = apischema.serialize(loaded)
-            except Exception as ex:
-                return identifier, ctx(), ex
+@dataclass
+class IocLoadFailure:
+    ex_class: str
+    ex_message: str
+    traceback: str
 
-            return identifier, ctx(), serialized
 
-    return asyncio.run(_load())
+@dataclass
+class IocLoadResult:
+    identifier: Union[int, str]
+    load_time: float
+    cache_hit: bool
+    result: Union[IocLoadFailure, str]
+
+
+async def async_load_ioc(
+    identifier: Union[int, str],
+    md: IocMetadata,
+    standin_directories,
+    use_gdb: bool = True,
+    use_cache: bool = True,
+) -> IocLoadResult:
+    """
+    Helper function for loading an IOC in a subprocess and relying on the cache.
+    """
+    with time_context() as ctx:
+        try:
+            md.standin_directories.update(standin_directories)
+            if use_gdb:
+                await md.get_binary_information()
+            if use_cache:
+                cached_ioc = load_cached_ioc(md)
+                if cached_ioc:
+                    return IocLoadResult(
+                        identifier=identifier,
+                        load_time=ctx(),
+                        cache_hit=True,
+                        result="use_cache"
+                    )
+
+            loaded = LoadedIoc.from_metadata(md)
+            serialized = apischema.serialize(loaded)
+            if use_cache:
+                loaded.metadata.save_to_cache()
+                loaded.save_to_cache()
+        except Exception as ex:
+            return IocLoadResult(
+                identifier=identifier,
+                load_time=ctx(),
+                cache_hit=False,
+                result=IocLoadFailure(
+                    ex_class=type(ex).__name__,
+                    ex_message=str(ex),
+                    traceback=traceback.format_exc(),
+                ),
+            )
+
+        return IocLoadResult(
+            identifier=identifier,
+            load_time=ctx(),
+            cache_hit=False,
+            # Avoid pickling massive JSON blob; instruct server to load from
+            # cache with token 'use_cache'
+            result="use_cache" if use_cache else serialized,
+        )
+
+
+def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True) -> IocLoadResult:
+    return asyncio.run(
+        async_load_ioc(
+            identifier=identifier, md=md,
+            standin_directories=standin_directories, use_gdb=use_gdb,
+            use_cache=use_cache
+        )
+    )
 
 
 async def load_startup_scripts_with_metadata(
@@ -802,65 +868,97 @@ async def load_startup_scripts_with_metadata(
         Stand-in/substitute directory mapping.
     processes : int
         The number of processes to use when loading.
-
-    Returns
-    -------
-    container : ScriptContainer
-        The resulting container.
     """
-    container = ScriptContainer()
     total_files = len(md_items)
     total_child_load_time = 0.0
 
-    with time_context() as total_ctx:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=processes) as executor:
-            coros = [
-                asyncio.wrap_future(
-                    executor.submit(_load_ioc, idx, md,
-                                    standin_directories, use_gdb=use_gdb)
+    with time_context() as total_time, ProcessPoolExecutor(
+        max_workers=processes
+    ) as executor:
+        coros = [
+            asyncio.wrap_future(
+                executor.submit(
+                    _load_ioc, identifier=idx, md=md,
+                    standin_directories=standin_directories, use_gdb=use_gdb
                 )
-                for idx, md in enumerate(md_items)
-            ]
+            )
+            for idx, md in enumerate(md_items)
+        ]
 
-            for completed_count, coro in enumerate(
-                asyncio.as_completed(coros), 1
-            ):
-                print(f"{completed_count}/{total_files}: ", end="")
+        for coro in asyncio.as_completed(coros):
+            try:
+                load_result = await coro
+                md = md_items[load_result.identifier]
+            except Exception as ex:
+                logger.exception(
+                    "Internal error while loading: %s: %s [server %.1f s]",
+                    type(ex).__name__,
+                    ex,
+                    total_time(),
+                )
+                continue
+
+            use_cache = load_result.result == "use_cache"
+            if not use_cache:
+                loaded = load_result.result
+            else:
                 try:
-                    script_idx, load_elapsed, loaded_ser = await coro
-                    md = md_items[script_idx]
-                    print(f"{md.name or md.script} ", end="")
+                    loaded = load_cached_ioc(md, allow_failed_load=True)
+                    if loaded is None:
+                        raise ValueError("Cache entry is empty?")
                 except Exception as ex:
-                    print("\n\nInternal error while loading:")
-                    print(type(ex).__name__, ex)
-                    continue
-
-                total_child_load_time += load_elapsed
-
-                if isinstance(loaded_ser, Exception):
-                    print(f"\n\nFailed to load: [{load_elapsed:.1f} s]")
-                    print(type(loaded_ser).__name__, loaded_ser)
-                    if md.base_version == settings.DEFAULT_BASE_VERSION:
-                        md.base_version = "unknown"
-                    container.add_script(
-                        LoadedIoc.from_errored_load(
-                            md,
-                            loaded_ser
-                        )
+                    logger.exception(
+                        "Internal error while loading cached IOC from disk: "
+                        "%s: %s [server %.1f s]",
+                        type(ex).__name__,
+                        ex,
+                        total_time(),
                     )
                     continue
 
-                with time_context() as ctx:
-                    loaded = apischema.deserialize(LoadedIoc, loaded_ser)
-                    container.add_script(loaded)
-                    print(f"[{load_elapsed:.1f} s, {ctx():.1f} s]")
+            total_child_load_time += load_result.load_time
 
-    print(
-        f"Loaded {total_files} startup scripts in {total_ctx():.1f} s (wall time) "
-        f"with {processes} process(es)"
+            if isinstance(loaded, IocLoadFailure):
+                failure_result: IocLoadFailure = loaded
+                logger.error(
+                    "Failed to load %s in subprocess: %s "
+                    "[%.1f s; server %.1f]: %s\n%s",
+                    md.name or md.script,
+                    failure_result.ex_class,
+                    load_result.load_time,
+                    total_time(),
+                    failure_result.ex_message,
+                    (
+                        failure_result.traceback
+                        if failure_result.ex_class != "FileNotFoundError"
+                        else ""
+                    ),
+                )
+                if md.base_version == settings.DEFAULT_BASE_VERSION:
+                    md.base_version = "unknown"
+                yield md, LoadedIoc.from_errored_load(md, loaded)
+                continue
+
+            with time_context() as ctx:
+                loaded_ioc = apischema.deserialize(LoadedIoc, loaded)
+                logger.info(
+                    "Child loaded %s%s in %.1f s, server deserialized in %.1f s",
+                    md.name or md.script,
+                    " from cache" if load_result.cache_hit else "",
+                    load_result.load_time,
+                    ctx(),
+                )
+                yield md, loaded_ioc
+
+    logger.info(
+        "Loaded %d startup scripts in %.1f s (wall time) with %d process(es)",
+        total_files,
+        total_time(),
+        processes,
     )
-    print(
-        f"Child processes reported taking a total of {total_child_load_time} "
-        f"sec (total time on all {processes} processes)"
+    logger.info(
+        "Child processes reported taking a total of %.1f "
+        "sec, the total time on %d process(es)",
+        total_child_load_time,
+        processes,
     )
-    return container

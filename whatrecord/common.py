@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import pathlib
 import typing
@@ -103,28 +104,36 @@ class IocshScript:
     lines: List[IocshResult]
 
     @classmethod
-    def from_metadata(cls, md: IocMetadata, sh: ShellState):
-        looks_like_sh = md.binary and (
-            "bin/bash" in md.binary or
-            "env bash" in md.binary or
-            "bin/tcsh" in md.binary
-        )
-
-        if looks_like_sh:
+    def from_metadata(cls, md: IocMetadata, sh: ShellState) -> IocshScript:
+        if md.looks_like_sh:
             if md.base_version == settings.DEFAULT_BASE_VERSION:
                 md.base_version = "unknown"
             return cls.from_general_file(md.script)
 
-        return cls.from_interpreted_script(md.script, sh)
+        return cls(
+            path=str(md.script),
+            lines=tuple(
+                sh.interpret_shell_script(
+                    md.script
+                )
+            ),
+        )
 
     @classmethod
-    def from_interpreted_script(cls, filename: Union[pathlib.Path, str], sh: ShellState):
-        with open(filename, "rt") as fp:
-            lines = fp.read().splitlines()
-
+    def from_interpreted_script(
+        cls,
+        filename: Union[pathlib.Path, str],
+        contents: str,
+        sh: ShellState
+    ) -> IocshScript:
         return cls(
             path=str(filename),
-            lines=tuple(sh.interpret_shell_script(lines, name=str(filename))),
+            lines=tuple(
+                sh.interpret_shell_script_text(
+                    contents.splitlines(),
+                    name=str(filename)
+                )
+            ),
         )
 
     @classmethod
@@ -187,6 +196,72 @@ class IocMetadata:
     standin_directories: Dict[str, str] = field(default_factory=dict)
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
+    loaded_files: Dict[str, str] = field(default_factory=dict)
+    load_success: bool = True
+
+    @property
+    def looks_like_sh(self) -> bool:
+        """Is the script likely sh/bash/etc?"""
+        return self.binary and (
+            "bin/sh" in self.binary or
+            "bin/bash" in self.binary or
+            "env bash" in self.binary or
+            "bin/tcsh" in self.binary or
+            "/python" in self.binary
+        )
+
+    @property
+    def _cache_key(self) -> str:
+        """Cache key for storing this IOC information in a file."""
+        key = "".join(
+            str(v)
+            for v in (
+                self.name,
+                str(self.script.resolve()),
+                str(self.startup_directory.resolve()),
+                str(self.host),
+                str(self.port),
+            )
+        )
+        hash = util.get_bytes_sha256(bytes(key, "utf-8"))
+        return f"{self.name}.{hash}"
+
+    @property
+    def cache_filename(self) -> pathlib.Path:
+        metadata_fn = f"{self._cache_key}.IocMetadata.json"
+        return pathlib.Path(settings.CACHE_PATH) / metadata_fn
+
+    @property
+    def ioc_cache_filename(self) -> pathlib.Path:
+        metadata_fn = f"{self._cache_key}.LoadedIoc.json"
+        return pathlib.Path(settings.CACHE_PATH) / metadata_fn
+
+    def from_cache(self) -> Optional[IocMetadata]:
+        if not settings.CACHE_PATH:
+            return
+
+        try:
+            with open(self.cache_filename, "rb") as fp:
+                return apischema.deserialize(type(self), json.load(fp))
+        except FileNotFoundError:
+            ...
+        except json.decoder.JSONDecodeError:
+            # Truncated output file, perhaps
+            ...
+
+    def save_to_cache(self) -> bool:
+        if not settings.CACHE_PATH:
+            return False
+
+        with open(self.cache_filename, "wt") as fp:
+            json.dump(apischema.serialize(self), fp=fp)
+        return True
+
+    def is_up_to_date(self) -> bool:
+        """Is this IOC up-to-date with what is on disk?"""
+        if not self.loaded_files:
+            return False
+        return util.check_files_up_to_date(self.loaded_files)
 
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
         if not self.binary or not pathlib.Path(self.binary).exists():
@@ -199,11 +274,18 @@ class IocMetadata:
                 cls=GdbBinaryInfo,
             )
         except apischema.ValidationError:
-            logger.error("Failed to get gdb information", exc_info=True)
+            logger.error(
+                "Failed to get gdb information for %s (%s)",
+                self.name, self.binary,
+                exc_info=True,
+            )
             return
 
         if info.error:
-            logger.error("Failed to get gdb information: %s", info.error)
+            logger.error(
+                "Failed to get gdb information for %s (%s): %s",
+                self.name, self.binary, info.error
+            )
             return
 
         self.base_version = info.base_version or self.base_version
@@ -214,8 +296,14 @@ class IocMetadata:
     @property
     def database_version_spec(self) -> int:
         """Load databases with this specification."""
-        # TODO: version parsing
-        return 3 if self.base_version <= "3.15" else 4
+        # TODO: better version parsing
+        try:
+            base_major_minor = tuple(
+                int(v) for v in self.base_version.split(".")[:2]
+            )
+            return 3 if base_major_minor < (3, 16) else 4
+        except Exception:
+            return 3
 
     @classmethod
     def empty(cls):
@@ -336,6 +424,11 @@ class RecordField:
 field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% endif %}\
 """,
     }
+
+
+PVRelations = Dict[
+    str, Dict[str, List[Tuple[RecordField, RecordField, List[str]]]]
+]
 
 
 def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
@@ -518,7 +611,7 @@ class WhatRecord:
     name: str
     owner: Optional[str]
     instances: List[RecordInstance]
-    asyn_ports: List["AsynPortBase"]
+    asyn_ports: List[AsynPortBase]
     ioc: Optional[IocMetadata]
     # TODO:
     # - gateway rule matches?

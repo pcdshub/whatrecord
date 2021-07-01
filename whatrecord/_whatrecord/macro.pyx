@@ -70,6 +70,9 @@ cdef class MacroContext:
 
     Parameters
     ----------
+    use_environment : bool, optional
+        Include environment variables when expanding macros.
+
     show_warnings : bool, optional
         Show warnings (see ``macSuppressWarning``).
 
@@ -82,7 +85,17 @@ cdef class MacroContext:
     _show_warnings: bool
     cdef public str string_encoding
 
-    def __init__(self, show_warnings=False, string_encoding: str = "latin-1"):
+    def __init__(
+        self,
+        use_environment=True,
+        show_warnings=False,
+        string_encoding: str = "latin-1",
+    ):
+        cdef const char **env_pairs = ["", "environ", NULL, NULL]
+
+        if macCreateHandle(&self.handle, env_pairs if use_environment else NULL):
+            raise RuntimeError("Failed to initialize the handle")
+
         self.show_warnings = show_warnings
         self.string_encoding = string_encoding
 
@@ -97,8 +110,7 @@ cdef class MacroContext:
         macSuppressWarning(self.handle, suppress)
 
     def __cinit__(self):
-        if macCreateHandle(&self.handle, NULL):
-            raise RuntimeError("Failed to initialize the handle")
+        self.handle = NULL
 
     def __dealloc__(self):
         if self.handle is not NULL:
