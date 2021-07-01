@@ -427,7 +427,7 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
 
 
 PVRelations = Dict[
-    str, Dict[str, List[Tuple[RecordField, RecordField, Tuple[str, ...]]]]
+    str, Dict[str, List[Tuple[RecordField, RecordField, List[str]]]]
 ]
 
 
@@ -611,7 +611,7 @@ class WhatRecord:
     name: str
     owner: Optional[str]
     instances: List[RecordInstance]
-    asyn_ports: List["AsynPortBase"]
+    asyn_ports: List[AsynPortBase]
     ioc: Optional[IocMetadata]
     # TODO:
     # - gateway rule matches?
