@@ -371,18 +371,13 @@ class ShellState:
         dbd = self._fix_database_path(dbd)
         fn, contents = self.load_file(dbd)
         macro_context = MacroContext(use_environment=False)
-        macros = (
-            macro_context.definitions_to_dict(substitutions)
-            if substitutions
-            else {}
+        macro_context.define_from_string(substitutions or "")
+        self.database_definition = Database.from_string(
+            contents,
+            version=self.ioc_info.database_version_spec,
+            filename=fn,
+            macro_context=macro_context,
         )
-        with macro_context.scoped(**macros):
-            self.database_definition = Database.from_string(
-                contents,
-                version=self.ioc_info.database_version_spec,
-                filename=fn,
-                macro_context=macro_context,
-            )
 
         return f"Loaded database: {fn}"
 
@@ -396,17 +391,16 @@ class ShellState:
         filename, contents = self.load_file(filename)
 
         macro_context = MacroContext(use_environment=False)
-        macros = macro_context.definitions_to_dict(macros)
+        macros = macro_context.define_from_string(macros or "")
 
         # TODO: refactor as this was pulled out of load_database_file
         try:
-            with macro_context.scoped(**macros):
-                db = Database.from_file(
-                    filename,
-                    dbd=self.database_definition,
-                    macro_context=macro_context,
-                    version=self.ioc_info.database_version_spec,
-                )
+            db = Database.from_file(
+                filename,
+                dbd=self.database_definition,
+                macro_context=macro_context,
+                version=self.ioc_info.database_version_spec,
+            )
         except Exception as ex:
             # TODO move this around
             raise DatabaseLoadFailure(
