@@ -425,6 +425,24 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
 """,
     }
 
+    def update_unknowns(self, other: RecordField, *, unknown_values=None,
+                        dbd=None):
+        """
+        If this RecordField has some missing information ("unknown"), fill
+        it in with information from the other field.
+        """
+        unknown_values = unknown_values or {"unknown", "", "(unknown-record)"}
+        if other.dtype not in unknown_values and self.dtype in unknown_values:
+            self.dtype = other.dtype
+        if other.value not in unknown_values and self.value in unknown_values:
+            self.value = other.value
+        if len(other.context) and len(self.context) == 1:
+            ctx, = self.context
+            if ctx.name in unknown_values:
+                # Even if the other context is unknown, let's take it anyway:
+                self.context = other.context
+        # if dbd is not None:
+
 
 PVRelations = Dict[
     str, Dict[str, List[Tuple[RecordField, RecordField, List[str]]]]
@@ -461,7 +479,8 @@ def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
     else:
         raise ValueError("float link")
 
-    return link_str, tuple(additional_info.split(" "))
+    link_details = tuple(additional_info.split(" ")) if additional_info else ()
+    return link_str, link_details
 
 
 LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
