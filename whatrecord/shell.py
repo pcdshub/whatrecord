@@ -256,6 +256,32 @@ class ShellState:
 
         return self.working_directory / filename
 
+    @property
+    def db_include_paths(self):
+        env_var = self.macro_context.get("EPICS_DB_INCLUDE_PATH", None) or ""
+        return [
+            pathlib.Path(path)
+            # TODO: this is actually OS-dependent (: on linux, ; on Windows)
+            for path in env_var.split(":")
+        ]
+
+    def _fix_database_path(self, filename: Union[str, pathlib.Path]):
+        filename = str(filename)
+        db_include_paths = self.db_include_paths
+        if not db_include_paths or "/" in filename or "\\" in filename:
+            # Inclue path unset or even something resembling a nested path
+            # automatically is used as-is
+            return self.working_directory / filename
+
+        for path in db_include_paths:
+            option = path / filename
+            if option.exists() and option.is_file():
+                return option
+
+        raise FileNotFoundError(
+            "Database file not found in search path: {self.db_include_paths}"
+        )
+
     def unhandled(self, command, args):
         ...
         # return f"No handler for handle_{command}"
@@ -338,17 +364,20 @@ class ShellState:
             # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
             return "whatrecord: TODO multiple dbLoadDatabase"
-        # TODO: handle path - see dbLexRoutines.c
-        # env vars: EPICS_DB_INCLUDE_PATH, fallback to "."
+        dbd = self._fix_database_path(dbd)
         fn, contents = self.load_file(dbd)
+        macro_context = MacroContext(use_environment=False)
         macros = (
-            self.macro_context.definitions_to_dict(substitutions)
+            macro_context.definitions_to_dict(substitutions)
             if substitutions
             else {}
         )
-        with self.macro_context.scoped(**macros):
+        with macro_context.scoped(**macros):
             self.database_definition = Database.from_string(
-                contents, version=self.ioc_info.database_version_spec, filename=fn
+                contents,
+                version=self.ioc_info.database_version_spec,
+                filename=fn,
+                macro_context=macro_context,
             )
 
         return f"Loaded database: {fn}"
@@ -358,16 +387,20 @@ class ShellState:
             raise RuntimeError("dbd not yet loaded")
         if self.ioc_initialized:
             raise RuntimeError("Records cannot be loaded after iocInit")
+
+        filename = self._fix_database_path(filename)
         filename, contents = self.load_file(filename)
-        macros = self.macro_context.definitions_to_dict(macros)
+
+        macro_context = MacroContext(use_environment=False)
+        macros = macro_context.definitions_to_dict(macros)
 
         # TODO: refactor as this was pulled out of load_database_file
         try:
-            with self.macro_context.scoped(**macros):
+            with macro_context.scoped(**macros):
                 db = Database.from_file(
                     filename,
                     dbd=self.database_definition,
-                    macro_context=self.macro_context,
+                    macro_context=macro_context,
                     version=self.ioc_info.database_version_spec,
                 )
         except Exception as ex:
@@ -799,6 +832,8 @@ async def async_load_ioc(
     """
     Helper function for loading an IOC in a subprocess and relying on the cache.
     """
+    if not settings.CACHE_PATH:
+        use_cache = False
     with time_context() as ctx:
         try:
             md.standin_directories.update(standin_directories)
