@@ -4,9 +4,8 @@ import math
 
 import lark
 import pytest
-from whatrecord.db import LoadContext, PVAFieldReference, RecordInstance
 
-from whatrecord import Database
+from ..db import Database, LoadContext, PVAFieldReference, RecordInstance
 
 
 def test_simple():

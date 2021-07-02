@@ -259,8 +259,11 @@ class ShellState:
     @property
     def db_include_paths(self):
         env_var = self.macro_context.get("EPICS_DB_INCLUDE_PATH", None) or ""
+        if not env_var:
+            return [self.working_directory]
+
         return [
-            pathlib.Path(path)
+            (self.working_directory / pathlib.Path(path)).resolve()
             # TODO: this is actually OS-dependent (: on linux, ; on Windows)
             for path in env_var.split(":")
         ]
@@ -278,8 +281,9 @@ class ShellState:
             if option.exists() and option.is_file():
                 return option
 
+        paths = list(str(path) for path in self.db_include_paths)
         raise FileNotFoundError(
-            "Database file not found in search path: {self.db_include_paths}"
+            f"Database file not found in search path: {paths}"
         )
 
     def unhandled(self, command, args):

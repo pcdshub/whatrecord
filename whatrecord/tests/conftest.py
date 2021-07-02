@@ -2,10 +2,14 @@ import pathlib
 
 import pytest
 
+from .. import settings
+
 MODULE_PATH = pathlib.Path(__file__).resolve().parent
 
 STARTUP_SCRIPTS = list((MODULE_PATH / "iocs").glob("**/st.cmd"))
 
+# Disable caching
+settings.CACHE_PATH = ""
 
 startup_scripts = pytest.mark.parametrize(
     "startup_script",

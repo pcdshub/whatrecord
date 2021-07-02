@@ -7,10 +7,15 @@ from ..bin.parse import main, parse
 from ..shell import LoadedIoc
 from . import conftest
 
+empty_db_iocs = {"fake_ad", }
+
 
 @conftest.startup_scripts
 def test_load_smoke(startup_script):
-    parse(startup_script)
+    loaded_ioc: LoadedIoc = parse(startup_script)
+    if startup_script.parent.name not in empty_db_iocs:
+        assert loaded_ioc.shell_state.database
+        assert loaded_ioc.shell_state.database_definition
 
 
 @conftest.startup_scripts
