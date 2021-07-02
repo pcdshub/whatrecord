@@ -1,6 +1,8 @@
 # cython: language_level=3
 
+import collections
 import contextlib
+import os
 from typing import Dict, Union
 
 cimport epicscorelibs
@@ -61,7 +63,7 @@ cdef extern from "<macLib.h>" nogil:
     void macSuppressWarning(MAC_HANDLE *handle, int)
 
 
-cdef class MacroContext:
+cdef class _MacroContext:
     """
     A context for using EPICS macLib handle from Python.
 
@@ -84,6 +86,7 @@ cdef class MacroContext:
     cdef MAC_HANDLE *handle
     _show_warnings: bool
     cdef public str string_encoding
+    cdef int use_environment
 
     def __init__(
         self,
@@ -98,6 +101,7 @@ cdef class MacroContext:
 
         self.show_warnings = show_warnings
         self.string_encoding = string_encoding
+        self.use_environment = bool(use_environment)
 
     @property
     def show_warnings(self):
@@ -148,6 +152,12 @@ cdef class MacroContext:
         free(pairs)
         return result
 
+    def define_from_string(self, macro_string):
+        """Define macros with the standard VAR=VALUE syntax."""
+        definitions = self.definitions_to_dict(macro_string)
+        self.define(**definitions)
+        return definitions
+
     def define(self, **macros):
         """Use kwargs to define macros."""
         for key, value in macros.items():
@@ -173,8 +183,9 @@ cdef class MacroContext:
         cdef MAC_ENTRY* entry = <MAC_ENTRY*>self.handle.list.node.next
         while entry != NULL:
             if entry.name:
-                result[entry.name] = {
-                    "name": (entry.name or b"").decode(encoding),
+                name = (entry.name or b"").decode(encoding)
+                result[name] = {
+                    "name": name,
                     "rawval": (entry.rawval or b"").decode(encoding),
                     "value": (entry.value or b"").decode(encoding),
                     "type": (entry.type or b"").decode(encoding),
@@ -188,6 +199,44 @@ cdef class MacroContext:
             (macro["name"], macro["value"])
             for macro in self.get_macro_details().values()
         )
+
+    def __len__(self):
+        cdef MAC_ENTRY* entry = <MAC_ENTRY*>self.handle.list.node.next
+        cdef int count = 0
+        while entry != NULL:
+            if entry.name:
+                count += 1
+            entry = <MAC_ENTRY*>entry.node.next
+        return count
+
+    def __iter__(self):
+        cdef MAC_ENTRY* entry = <MAC_ENTRY*>self.handle.list.node.next
+        if self.use_environment:
+            yield from os.environ
+        while entry != NULL:
+            if entry.name:
+                yield (entry.name or b"").decode(self.string_encoding)
+            entry = <MAC_ENTRY*>entry.node.next
+
+    def __getitem__(self, item):
+        encoding = self.string_encoding
+        # Start at the end for scoping
+        cdef MAC_ENTRY* entry = <MAC_ENTRY*>self.handle.list.node.previous
+
+        while entry != NULL:
+            if entry.name:
+                name = (entry.name or b"").decode(encoding)
+                if name == item:
+                    return self.expand((entry.rawval or b"").decode(encoding))
+            entry = <MAC_ENTRY*>entry.node.previous
+
+        if self.use_environment and item in os.environ:
+            return os.environ[item]
+
+        raise KeyError(item)
+
+    def __setitem__(self, item, value):
+        self.define(**{item: value})
 
     def expand_with_length(self, value: str, max_length: int = 1024):
         """
@@ -214,3 +263,7 @@ cdef class MacroContext:
         cdef char buf[1024]
         macExpandString(self.handle, value.encode(self.string_encoding), buf, 1024)
         return buf.decode(self.string_encoding)
+
+
+class MacroContext(_MacroContext, collections.abc.MutableMapping):
+    ...
