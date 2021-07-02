@@ -238,7 +238,9 @@ cdef class _MacroContext:
     def __setitem__(self, item, value):
         self.define(**{item: value})
 
-    def expand_with_length(self, value: str, max_length: int = 1024):
+    def expand_with_length(
+        self, value: str, max_length: int = 1024, *, empty_on_failure: bool = False
+    ) -> str:
         """
         Expand a string, specifying the maximum length of the buffer.
 
@@ -249,19 +251,22 @@ cdef class _MacroContext:
         if not buf:
             raise MemoryError("Failed to allocate buffer")
         try:
-            macExpandString(self.handle, value.encode(self.string_encoding), buf, max_length)
-            # res = macExpandString...
-            # if res < 0:
-            #     raise ValueError(f"failed to expand: {res} ({value})")
+            if macExpandString(self.handle, value.encode(self.string_encoding), buf, max_length) < 0:
+                if empty_on_failure:
+                    return ""
             return buf.decode(self.string_encoding)
         finally:
             free(buf)
 
-    def expand(self, value: str):
+    def expand(self, value: str, *, empty_on_failure: bool = False) -> str:
         """Expand a string, using the implicit buffer length of 1024 used in EPICS."""
         assert len(value) < 1024, "For large strings, use `expand_with_length`"
         cdef char buf[1024]
-        macExpandString(self.handle, value.encode(self.string_encoding), buf, 1024)
+        #         n = macExpandString(handle, str, dest, destCapacity);
+        # return < 0? return NULL...
+        if macExpandString(self.handle, value.encode(self.string_encoding), buf, 1024) < 0:
+            if empty_on_failure:
+                return ""
         return buf.decode(self.string_encoding)
 
 

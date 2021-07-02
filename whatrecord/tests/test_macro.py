@@ -74,21 +74,26 @@ def test_empty():
         ctx["HOSTNAME"]
 
 
-def test_defaults():
+def test_misc_with_env():
     def check(macro_string, macros, expected):
         ctx = MacroContext(use_environment=True)
         ctx.define_from_string(macros)
-        assert ctx.expand(macro_string) == expected
+        expanded = ctx.expand(macro_string, empty_on_failure=True)
+        print(f"{macro_string!r} expanded to {expanded!r} with {macros!r}")
+        assert expanded == expected
 
+    os.environ.pop("FOO", None)
     check("FOO", "", "FOO")
 
-    # check("${FOO}", "", NULL)
-    # check("${FOO,BAR}", "", NULL)
-    # check("${FOO,BAR=baz}", "", NULL)
-    # check("${FOO,BAR=$(FOO)}", "", NULL)
-    # check("${FOO,FOO}", "", NULL)
-    # check("${FOO,FOO=$(FOO)}", "", NULL)
-    # check("${FOO,BAR=baz,FUM}", "", NULL)
+    # NOTE: a bit of an API break here, we always want a string from expand,
+    # but the original would return NULL (could be Python None)
+    check("${FOO}", "", "")
+    check("${FOO,BAR}", "", "")
+    check("${FOO,BAR=baz}", "", "")
+    check("${FOO,BAR=$(FOO)}", "", "")
+    check("${FOO,FOO}", "", "")
+    check("${FOO,FOO=$(FOO)}", "", "")
+    check("${FOO,BAR=baz,FUM}", "", "")
 
     check("${=}", "", "")
     check("x${=}y", "", "xy")
@@ -164,7 +169,8 @@ def test_defaults():
     os.environ["FOO"] = "${BAR}"
     check("${FOO}", "BAR=GLEEP,BLETCH=${BAR}", "GLEEP")
 
-    # check("${FOO}", "BAR=${BAZ},BLETCH=${BAR}", NULL)
+    # NOTE: None case
+    check("${FOO}", "BAR=${BAZ},BLETCH=${BAR}", "")
 
     check("${FOO}", "BAR=${BAZ=GRIBBLE},BLETCH=${BAR}", "GRIBBLE")
 
@@ -172,7 +178,96 @@ def test_defaults():
 
     check("${FOO}", "BAR=${STR2},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "VAL2")
 
-    # check("${FOO}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", NULL)
-    # check("${FOO,FOO=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", NULL)
-    # check("${FOO=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", NULL)
-    # check("${FOO=$(BAR),BAR=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", NULL)
+    # NOTE: None cases
+    check("${FOO}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "")
+    check("${FOO,FOO=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "")
+    check("${FOO=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "")
+    check("${FOO=$(BAR),BAR=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "")
+    os.environ.pop("FOO", None)
+
+
+def test_not_empty_on_failure():
+    def check(macro_string, macros, expected):
+        ctx = MacroContext(use_environment=True)
+        ctx.define_from_string(macros)
+        expanded = ctx.expand(macro_string, empty_on_failure=False)
+        print(f"{macro_string!r} expanded to {expanded!r} with {macros!r}")
+        if expected:
+            assert expanded == expected
+
+    os.environ.pop("FOO", None)
+    check("${FOO}", "", "$(FOO)")
+    check("${FOO,BAR}", "", "$(FOO)")
+    check("${FOO,BAR=baz}", "", "$(FOO)")
+    check("${FOO,BAR=$(FOO)}", "", "$(FOO)")
+    check("${FOO,FOO}", "", "$(FOO)")
+    check("${FOO,FOO=$(FOO)}", "", "$(FOO)")
+    check("${FOO,BAR=baz,FUM}", "", "$(FOO)")
+
+    os.environ["FOO"] = "${BAR}"
+    check("${FOO}", "BAR=${BAZ},BLETCH=${BAR}", "$(BAZ)")
+    check("${FOO}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "$(BAR)")
+    check("${FOO,FOO=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "$(FOO)")
+    check("${FOO=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "$(BAR)")
+    check("${FOO=$(BAR),BAR=$(FOO)}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "$(BAR)")
+
+    os.environ.pop("FOO", None)
+
+
+def test_not_empty_on_failure_show_warnings():
+    def check(macro_string, macros, expected):
+        ctx = MacroContext(use_environment=True, show_warnings=True)
+        ctx.define_from_string(macros)
+        expanded = ctx.expand(macro_string, empty_on_failure=False)
+        print(f"{macro_string!r} expanded to {expanded!r} with {macros!r}")
+        if expected:
+            assert expanded == expected
+
+    os.environ.pop("FOO", None)
+    check("${FOO}", "", "$(FOO,undefined)")
+    check("${FOO,BAR}", "", "$(FOO,undefined)")
+    check("${FOO,BAR=baz}", "", "$(FOO,undefined)")
+    check("${FOO,BAR=$(FOO)}", "", "$(FOO,undefined)")
+    check("${FOO,FOO}", "", "$(FOO,undefined)")
+    check("${FOO,FOO=$(FOO)}", "", "$(FOO,recursive)")
+    check("${FOO,BAR=baz,FUM}", "", "$(FOO,undefined)")
+
+    os.environ["FOO"] = "${BAR}"
+    check("${FOO}", "BAR=${BAZ},BLETCH=${BAR}", "$(BAZ,undefined)")
+    check("${FOO}", "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2", "$(BAR,recursive)")
+    check(
+        "${FOO,FOO=$(FOO)}",
+        "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2",
+        "$(FOO,recursive)",
+    )
+    check(
+        "${FOO=$(FOO)}",
+        "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2",
+        "$(BAR,recursive)",
+    )
+    check(
+        "${FOO=$(BAR),BAR=$(FOO)}",
+        "BAR=${FOO},BLETCH=${BAR},STR1=VAL1,STR2=VAL2",
+        "$(BAR,recursive)",
+    )
+
+    os.environ.pop("FOO", None)
+
+
+def test_python_niceties():
+    ctx = MacroContext(use_environment=False)
+    ctx["B"] = "5"
+    with pytest.raises(KeyError):
+        ctx["A"]
+    assert ctx["B"] == "5"
+
+    ctx.define(C="6")
+    assert ctx["C"] == "6"
+
+    assert ctx.items()
+    assert set(list(ctx.items())) == {
+        ("B", "5"),
+        ("C", "6"),
+    }
+
+    assert set(ctx) == {"B", "C"}
