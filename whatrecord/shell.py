@@ -23,7 +23,7 @@ from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      PVRelations, RecordInstance, ShortLinterResults,
                      WhatRecord, time_context)
-from .db import Database, DatabaseLoadFailure, LinterResults
+from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line
 from .macro import MacroContext
@@ -630,14 +630,24 @@ class ScriptContainer:
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
     #: absolute filename path to sha
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    record_types: Dict[str, RecordType] = field(default_factory=dict)
     pv_relations: PVRelations = field(default_factory=dict)
 
     def add_loaded_ioc(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
+        # TODO: IOCs will have conflicting definitions of records
+        if loaded.shell_state.database_definition:
+            self.record_types.update(
+                loaded.shell_state.database_definition.record_types
+            )
+        graph.combine_relations(
+            self.pv_relations, self.database,
+            loaded.pv_relations, loaded.shell_state.database,
+            record_types=self.record_types,
+        )
         self.database.update(loaded.shell_state.database)
         self.pva_database.update(loaded.shell_state.pva_database)
         self.loaded_files.update(loaded.shell_state.loaded_files)
-        graph.combine_relations(self.pv_relations, loaded.pv_relations)
 
     def whatrec(
         self,

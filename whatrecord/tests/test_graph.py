@@ -157,7 +157,7 @@ def test_with_unset_field(dbd: Database):
                 dtype="DBF_STRING",
                 name="VAL",
                 value="",
-                context=(LoadContext("the.dbd", 7),),
+                context=(LoadContext("the.dbd", 17),),
             ),
             ("CPP", "MS"),
         ),

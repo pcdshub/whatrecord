@@ -121,7 +121,7 @@ def try_to_instantiate(cls):
         elif dataclasses.is_dataclass(field_type):
             kwargs[field.name] = try_to_instantiate(field_type)
         else:
-            origin = typing.get_origin(field_type)
+            origin = apischema.typing.get_origin(field_type)
             try:
                 kwargs[field.name] = init_args_by_type[origin]
             except KeyError:

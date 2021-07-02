@@ -297,7 +297,7 @@ def combine_relations(
     dest_db: Dict[str, RecordInstance],
     source_relations: PVRelations,
     source_db: Dict[str, RecordInstance],
-    # dbd: Optional[Database] = None,
+    record_types: Optional[Dict[str, RecordType]] = None,
 ):
     """Combine multiple script relations into one."""
     def get_relation_by_field() -> Tuple[
@@ -330,12 +330,25 @@ def combine_relations(
 
     def get_record(name) -> RecordInstance:
         """Get record from either database."""
-        return dest_db.get(name, None) or source_db[name]
+        try:
+            return dest_db.get(name, None) or source_db[name]
+        except KeyError:
+            raise
 
-    # def get_record_def(name):
-    #     """Get record definition if available."""
-    #     if dbd is not None:
-    #        return dbd.record_types[]
+    def get_field_info(record, field):
+        """Get record definition if available."""
+        if field in record.fields:
+            return record.fields[field]
+        if record_types:
+            field_def = record_types[field]
+            return RecordField(
+                dtype=field_def.type,
+                name=field,
+                value="",
+                context=field_def.context,
+            )
+
+        raise KeyError("Field not in database or database definitino")
 
     # Part 2:
     # Update any existing relations in the destination relations with
@@ -345,12 +358,27 @@ def combine_relations(
             for rec2_name, rec2_items in dest_relations[rec1_name].items():
                 # We know rec1 is in the source database, but we don't know
                 # where rec2 might be, so use `get_record`.
-                for field1, field2, _ in rec2_items:
-                    field1.update_unknowns(rec1.fields[field1.name])
-                    field2.update_unknowns(get_record(rec2_name).fields[field2.name])
-                for field1, field2, _ in dest_relations[rec2_name][rec1_name]:
-                    field1.update_unknowns(get_record(rec2_name).fields[field1.name])
-                    field2.update_unknowns(rec1.fields[field2.name])
+                try:
+                    rec2 = get_record(rec2_name)
+                except KeyError:
+                    # It's not in this IOC...
+                    continue
+
+                def get_items_to_update():
+                    for field1, field2, _ in rec2_items:
+                        yield (rec1, field1)
+                        yield (rec2, field2)
+                    for field1, field2, _ in dest_relations[rec2_name][rec1_name]:
+                        yield (rec2, field1)
+                        yield (rec1, field2)
+
+                for rec, field in get_items_to_update():
+                    try:
+                        field_info = get_field_info(rec, field.name)
+                    except KeyError:
+                        logger.debug("Missing field? %s.%s", rec.name, field.name)
+                    else:
+                        field.update_unknowns(field_info)
 
 
 def find_record_links(database, starting_records, check_all=True, relations=None):
