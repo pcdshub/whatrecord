@@ -97,8 +97,8 @@ class DatabaseBreakTable:
 
 @dataclass
 class DatabaseRecordAlias:
-    record_name: Optional[str]
-    alias_name: str
+    name: Optional[str]
+    alias: str
 
 
 @dataclass
@@ -224,6 +224,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     @lark.visitors.v_args(tree=True)
     def database(self, body):
         db = Database()
+        standalone_aliases = []
         _separate_by_class(
             body.children,
             {
@@ -236,7 +237,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 DatabaseRegistrar: db.registrars,
                 DatabaseFunction: db.functions,
                 DatabaseVariable: db.variables,
-                DatabaseRecordAlias: db.standalone_aliases,
+                DatabaseRecordAlias: standalone_aliases,
 
                 RecordType: db.record_types,
                 DatabaseBreakTable: db.breaktables,
@@ -244,6 +245,15 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 DatabaseDevice: db.devices,
             }
         )
+
+        # Aggregate the aliases for convenience
+        for alias in standalone_aliases:
+            db.standalone_aliases.append(alias.alias)
+            db.aliases[alias.alias] = alias.name
+
+        for record in db.records.values():
+            for alias in record.aliases:
+                db.aliases[alias] = record.name
 
         db.pva_groups = _extract_pva_groups(db.records.values())
         return db
@@ -418,7 +428,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     # fld.context = field_info.context + fld.context
 
         return RecordInstance(
-            aliases=[alias.alias_name for alias in info[DatabaseRecordAlias]],
+            aliases=[alias.alias for alias in info[DatabaseRecordAlias]],
             context=_context_from_token(self.fn, rec_token),
             fields=info[RecordField],
             is_grecord=(rec_token == "grecord"),
@@ -461,7 +471,19 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
 @dataclass
 class Database:
-    standalone_aliases: List[DatabaseRecordAlias] = field(default_factory=list)
+    """
+    Representation of an EPICS database, database definition, or both.
+
+    Attributes
+    ----------
+    standalone_aliases
+        Standalone aliases are those defined outside of the record body; this
+        may only be useful for faithfully reconstructing the Database according
+        to its original source code.
+    """
+
+    standalone_aliases: List[str] = field(default_factory=list)
+    aliases: Dict[str, str] = field(default_factory=dict)
     addpaths: List[DatabaseAddPath] = field(default_factory=list)
     breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
     comments: List[str] = field(default_factory=list)
@@ -480,7 +502,7 @@ class Database:
 
     @classmethod
     def from_string(cls, contents, dbd=None, filename=None,
-                    macro_context=None, version: int = 4) -> Database:
+                    macro_context=None, version: int = 4, include_aliases=True) -> Database:
         comments = []
         grammar = lark.Lark.open_from_package(
             "whatrecord",
@@ -501,6 +523,12 @@ class Database:
 
         db = grammar.parse(contents)
         db.comments = comments
+
+        if include_aliases:
+            for record_name, record in list(db.records.items()):
+                for alias in record.aliases:
+                    db.records[alias] = record
+
         return db
 
     @classmethod

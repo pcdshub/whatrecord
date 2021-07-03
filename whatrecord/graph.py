@@ -190,6 +190,7 @@ def is_supported_link(link: str) -> bool:
 def build_database_relations(
     database: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
+    aliases: Optional[Dict[str, str]] = None
 ) -> PVRelations:
     """
     Build a dictionary of PV relationships.
@@ -213,10 +214,12 @@ def build_database_relations(
         Such that: ``info[pv1][pv2] = (field1, field2, info)``
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
+    aliases = aliases or {}
     warned = set()
     unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
     by_record = collections.defaultdict(lambda: collections.defaultdict(list))
 
+    # TODO: alias handling?
     for rec1 in database.values():
         for field1, link, info in rec1.get_links():
             if "." in link:
@@ -226,7 +229,7 @@ def build_database_relations(
             else:
                 field2 = "VAL"
 
-            rec2 = database.get(link, None)
+            rec2 = database.get(aliases.get(link, link), None)
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
                 if not is_supported_link(link):
@@ -298,8 +301,11 @@ def combine_relations(
     source_relations: PVRelations,
     source_db: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
+    aliases: Optional[Dict[str, str]] = None,
 ):
     """Combine multiple script relations into one."""
+    aliases = aliases or {}
+
     def get_relation_by_field() -> Tuple[
         str, str, Dict[Tuple[str, str], Tuple[str, str, List[str]]]
     ]:
@@ -312,6 +318,37 @@ def combine_relations(
                     for field1, field2, link in dest_rec2
                 }
                 yield rec1_name, rec2_name, relation_by_field
+
+    # Part 1:
+    # Rebuild with new aliases, if available
+    # Either set of relations could have referred to aliased names, actual
+    # names, or even *both*.
+
+    def alias_to_actual(d):
+        # This is kinda expensive, imperfect, and confusing; consider reworking
+        for alias_from, alias_to in aliases.items():
+            # A -> B
+            inner_dict = d.pop(alias_from, None)
+            if not inner_dict:
+                continue
+
+            # Fix up B <- A first, since it's symmetric
+            for inner_name, inner_items in inner_dict.items():
+                # d[inner_name][alias_to] += d[inner_name][alias_from]
+                d[inner_name].setdefault(alias_to, []).extend(
+                    d[inner_name].pop(alias_from)
+                )
+
+            if alias_to not in d:
+                d[alias_to] = inner_dict
+            else:
+                # The actual record name is already in the relation dict
+                for inner_name, inner_items in inner_dict.items():
+                    # d[alias_to][inner_name] += inner_items
+                    d[alias_to].setdefault(inner_name, []).extend(inner_items)
+
+    alias_to_actual(dest_relations)
+    alias_to_actual(source_relations)
 
     # Part 1:
     # Merge in new or updated relations from the second set
@@ -330,6 +367,7 @@ def combine_relations(
 
     def get_record(name) -> RecordInstance:
         """Get record from either database."""
+        name = aliases.get(name, name)
         try:
             return dest_db.get(name, None) or source_db[name]
         except KeyError:
@@ -578,8 +616,11 @@ def graph_links(
 
         rec = node["record"]
         header = header_format.format(rtype=rec.record_type, name=rec.name)
+        if rec.aliases:
+            header += f"\nAlias: {', '.join(rec.aliases)}"
+
         text = text_format.format(
-            header=html.escape(header, quote=False),
+            header=html.escape(header, quote=False).replace("\n", newline),
             field_lines=newline.join(
                 html.escape(line, quote=False) for line in field_lines
             ),

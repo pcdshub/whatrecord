@@ -202,3 +202,127 @@ def test_with_weird_record_type(dbd: Database):
             ("CPP", "MS"),
         ),
     ]
+
+
+def test_with_alias(dbd: Database):
+    database_1 = {
+        "record_a": create_record("ai", "record_a", {"INP": "foobar CPP MS", "VAL": "10"}),
+        "record_b": create_record("ao", "record_b", {"VAL": "5"}),
+    }
+    relations = graph.build_database_relations(
+        database_1, record_types=dbd.record_types,
+        aliases={"foobar": "record_b"},
+    )
+    assert relations["record_a"]["record_b"] == [
+        (
+            database_1["record_a"].fields["INP"],
+            database_1["record_b"].fields["VAL"],
+            ("CPP", "MS"),
+        ),
+    ]
+
+
+def test_combine_with_alias(dbd: Database):
+    database_1 = {
+        "record_a": create_record("ai", "record_a", {"INP": "record_b CPP MS", "VAL": "10"}),
+        "record_b": create_record("ao", "record_b", {"OUT": "alias_c CA", "VAL": "20"}),
+    }
+    database_2 = {
+        "record_c": create_record("ao", "record_c", {"OUT": "alias_d.INP", "VAL": "10"}),
+        # Refer to record_a through
+        "record_d": create_record("ai", "record_d", {"INP": "record_a", "VAL": "10"}),
+        # ... but _also_ refer to it as alias_a; when combining the relations this makes
+        # it more fun
+        "record_e": create_record("ai", "record_e", {"INP": "alias_a CP", "VAL": "10"}),
+    }
+    relations = graph.build_database_relations(
+        database_1,
+        aliases={
+            "alias_a": "record_a",
+            "alias_b": "record_b",
+        },
+    )
+
+    relations_2 = graph.build_database_relations(
+        database_2,
+        aliases={
+            "alias_c": "record_c",
+            "alias_d": "record_d",
+            "alias_e": "record_e",
+        },
+    )
+
+    graph.combine_relations(
+        relations,
+        database_1,
+        relations_2,
+        database_2,
+        aliases={
+            "alias_a": "record_a",
+            "alias_b": "record_b",
+            "alias_c": "record_c",
+            "alias_d": "record_d",
+            "alias_e": "record_e",
+        },
+    )
+
+    assert relations["record_a"]["record_b"] == [
+        (
+            database_1["record_a"].fields["INP"],
+            database_1["record_b"].fields["VAL"],
+            ("CPP", "MS"),
+        ),
+    ]
+    assert relations["record_b"]["record_a"] == [
+        (
+            database_1["record_b"].fields["VAL"],
+            database_1["record_a"].fields["INP"],
+            ("CPP", "MS"),
+        ),
+    ]
+    assert relations["record_b"]["record_c"] == [
+        (
+            database_1["record_b"].fields["OUT"],
+            # RecordField(
+            #     dtype='unknown', name='VAL', value='(unknown-record)',
+            #     context=(LoadContext("unknown", 0), ),
+            # ),
+            database_2["record_c"].fields["VAL"],
+            ("CA", ),
+        ),
+    ]
+    assert relations["record_c"]["record_d"] == [
+        (
+            database_2["record_c"].fields["OUT"],
+            database_2["record_d"].fields["INP"],
+            (),
+        ),
+    ]
+    assert relations["record_d"]["record_c"] == [
+        (
+            database_2["record_d"].fields["INP"],
+            database_2["record_c"].fields["OUT"],
+            (),
+        ),
+    ]
+    assert relations["record_d"]["record_a"] == [
+        (
+            database_2["record_d"].fields["INP"],
+            database_1["record_a"].fields["VAL"],
+            (),
+        ),
+    ]
+    assert relations["record_e"]["record_a"] == [
+        (
+            database_2["record_e"].fields["INP"],
+            database_1["record_a"].fields["VAL"],
+            ("CP", ),
+        ),
+    ]
+    assert relations["record_a"]["record_e"] == [
+        (
+            database_1["record_a"].fields["VAL"],
+            database_2["record_e"].fields["INP"],
+            ("CP", ),
+        ),
+    ]

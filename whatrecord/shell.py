@@ -626,6 +626,7 @@ class ScriptContainer:
     """
 
     database: Dict[str, RecordInstance] = field(default_factory=dict)
+    aliases: Dict[str, str] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
     #: absolute filename path to sha
@@ -636,6 +637,7 @@ class ScriptContainer:
     def add_loaded_ioc(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
         # TODO: IOCs will have conflicting definitions of records
+        self.aliases.update(loaded.shell_state.database.aliases)
         if loaded.shell_state.database_definition:
             self.record_types.update(
                 loaded.shell_state.database_definition.record_types
@@ -644,6 +646,7 @@ class ScriptContainer:
             self.pv_relations, self.database,
             loaded.pv_relations, loaded.shell_state.database,
             record_types=self.record_types,
+            aliases=self.aliases,
         )
         self.database.update(loaded.shell_state.database)
         self.pva_database.update(loaded.shell_state.pva_database)
