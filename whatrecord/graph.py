@@ -4,11 +4,12 @@ import collections
 import html
 import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import graphviz as gv
-from whatrecord.common import LoadContext, PVRelations, dataclass
-from whatrecord.db import RecordField, RecordInstance
+
+from .common import FullLoadContext, LoadContext, PVRelations, dataclass
+from .db import RecordField, RecordInstance, RecordType
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +188,9 @@ def is_supported_link(link: str) -> bool:
 
 
 def build_database_relations(
-    database: Dict[str, RecordInstance]
+    database: Dict[str, RecordInstance],
+    record_types: Optional[Dict[str, RecordType]] = None,
+    aliases: Optional[Dict[str, str]] = None
 ) -> PVRelations:
     """
     Build a dictionary of PV relationships.
@@ -201,16 +204,22 @@ def build_database_relations(
     database : dict
         Dictionary of record name to record instance.
 
+    record_types : dict, optional
+        The database definitions to use for fields that are not defined in the
+        database file.  Dictionary of record type name to RecordType.
+
     Returns
     -------
     info : dict
         Such that: ``info[pv1][pv2] = (field1, field2, info)``
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
+    aliases = aliases or {}
     warned = set()
-    unset_ctx = (LoadContext("unset", 0), )
+    unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
     by_record = collections.defaultdict(lambda: collections.defaultdict(list))
 
+    # TODO: alias handling?
     for rec1 in database.values():
         for field1, link, info in rec1.get_links():
             if "." in link:
@@ -220,7 +229,7 @@ def build_database_relations(
             else:
                 field2 = "VAL"
 
-            rec2 = database.get(link, None)
+            rec2 = database.get(aliases.get(link, link), None)
             if rec2 is None:
                 # TODO: switch to debug; this will be expensive later
                 if not is_supported_link(link):
@@ -243,11 +252,33 @@ def build_database_relations(
             elif field2 in rec2.fields:
                 rec2_name = rec2.name
                 field2 = rec2.fields[field2]
+            elif record_types:
+                rec2_name = rec2.name
+                dbd_record_type = record_types.get(rec2.record_type, None)
+                if dbd_record_type is None:
+                    field2 = RecordField(
+                        dtype="invalid",
+                        name=field2,
+                        value="(invalid-record-type)",
+                        context=unset_ctx,
+                    )
+                elif field2 not in dbd_record_type.fields:
+                    field2 = RecordField(
+                        dtype="invalid",
+                        name=field2,
+                        value="(invalid-field)",
+                        context=unset_ctx,
+                    )
+                else:
+                    dbd_record_field = dbd_record_type.fields[field2]
+                    field2 = RecordField(
+                        dtype=dbd_record_field.type,
+                        name=field2,
+                        value="",
+                        context=dbd_record_field.context,
+                    )
             else:
                 rec2_name = rec2.name
-                # TODO: this is not accurate; not all fields will be present in
-                # the database unless set in the database file; perhaps these
-                # should be populated from the dbd if necessary here?
                 field2 = RecordField(
                     dtype="unknown",
                     name=field2,
@@ -264,21 +295,128 @@ def build_database_relations(
     )
 
 
-def combine_relations(dest, *others):
+def combine_relations(
+    dest_relations: PVRelations,
+    dest_db: Dict[str, RecordInstance],
+    source_relations: PVRelations,
+    source_db: Dict[str, RecordInstance],
+    record_types: Optional[Dict[str, RecordType]] = None,
+    aliases: Optional[Dict[str, str]] = None,
+):
     """Combine multiple script relations into one."""
-    # TODO: this needs more work, it isn't as smart as it needs to be;
-    # "unknown" field information needs updating
-    for other in others:
-        for rec1_name, rec1_items in other.items():
-            if rec1_name not in dest:
-                dest[rec1_name] = {}
-            rec1_dict = dest[rec1_name]
-            for rec2_name, rec2_items in rec1_items.items():
-                if rec2_name not in rec1_dict:
-                    rec1_dict[rec2_name] = []
-                relation_list = rec1_dict[rec2_name]
-                for relation in rec2_items:
-                    relation_list.append(relation)
+    aliases = aliases or {}
+
+    def get_relation_by_field() -> Tuple[
+        str, str, Dict[Tuple[str, str], Tuple[str, str, List[str]]]
+    ]:
+        for rec1_name, rec2_names in source_relations.items():
+            dest_rec1_dict = dest_relations.setdefault(rec1_name, {})
+            for rec2_name in rec2_names:
+                dest_rec2 = dest_rec1_dict.setdefault(rec2_name, [])
+                relation_by_field = {
+                    (field1.name, field2.name): (field1, field2, link)
+                    for field1, field2, link in dest_rec2
+                }
+                yield rec1_name, rec2_name, relation_by_field
+
+    # Part 1:
+    # Rebuild with new aliases, if available
+    # Either set of relations could have referred to aliased names, actual
+    # names, or even *both*.
+
+    def alias_to_actual(d):
+        # This is kinda expensive, imperfect, and confusing; consider reworking
+        for alias_from, alias_to in aliases.items():
+            # A -> B
+            inner_dict = d.pop(alias_from, None)
+            if not inner_dict:
+                continue
+
+            # Fix up B <- A first, since it's symmetric
+            for inner_name, inner_items in inner_dict.items():
+                # d[inner_name][alias_to] += d[inner_name][alias_from]
+                d[inner_name].setdefault(alias_to, []).extend(
+                    d[inner_name].pop(alias_from)
+                )
+
+            if alias_to not in d:
+                d[alias_to] = inner_dict
+            else:
+                # The actual record name is already in the relation dict
+                for inner_name, inner_items in inner_dict.items():
+                    # d[alias_to][inner_name] += inner_items
+                    d[alias_to].setdefault(inner_name, []).extend(inner_items)
+
+    alias_to_actual(dest_relations)
+    alias_to_actual(source_relations)
+
+    # Part 1:
+    # Merge in new or updated relations from the second set
+    for rec1_name, rec2_name, relation_by_field in get_relation_by_field():
+        for field1, field2, link in source_relations[rec1_name][rec2_name]:
+            key = (field1.name, field2.name)
+            existing_link = relation_by_field.get(key, None)
+            if not existing_link:
+                relation_by_field[key] = (field1, field2, link)
+            else:
+                existing_field1, existing_field2, _ = existing_link
+                existing_field1.update_unknowns(field1)
+                existing_field2.update_unknowns(field2)
+
+        dest_relations[rec1_name][rec2_name] = list(relation_by_field.values())
+
+    def get_record(name) -> RecordInstance:
+        """Get record from either database."""
+        name = aliases.get(name, name)
+        try:
+            return dest_db.get(name, None) or source_db[name]
+        except KeyError:
+            raise
+
+    def get_field_info(record, field):
+        """Get record definition if available."""
+        if field in record.fields:
+            return record.fields[field]
+        if record_types:
+            field_def = record_types[field]
+            return RecordField(
+                dtype=field_def.type,
+                name=field,
+                value="",
+                context=field_def.context,
+            )
+
+        raise KeyError("Field not in database or database definitino")
+
+    # Part 2:
+    # Update any existing relations in the destination relations with
+    # information from the source database
+    for rec1_name, rec1 in source_db.items():
+        if rec1_name in dest_relations:
+            for rec2_name, rec2_items in dest_relations[rec1_name].items():
+                # We know rec1 is in the source database, but we don't know
+                # where rec2 might be, so use `get_record`.
+                try:
+                    rec2 = get_record(rec2_name)
+                except KeyError:
+                    # It's not in this IOC...
+                    continue
+
+                def get_items_to_update():
+                    for field1, field2, _ in rec2_items:
+                        yield (rec1, field1)
+                        yield (rec2, field2)
+                    for field1, field2, _ in dest_relations[rec2_name][rec1_name]:
+                        yield (rec2, field1)
+                        yield (rec1, field2)
+
+                for rec, field in get_items_to_update():
+                    try:
+                        field_info = get_field_info(rec, field.name)
+                    except KeyError:
+                        logger.debug("Missing field? %s.%s", rec.name, field.name)
+                    else:
+                        field.update_unknowns(field_info)
 
 
 def find_record_links(database, starting_records, check_all=True, relations=None):
@@ -478,8 +616,11 @@ def graph_links(
 
         rec = node["record"]
         header = header_format.format(rtype=rec.record_type, name=rec.name)
+        if rec.aliases:
+            header += f"\nAlias: {', '.join(rec.aliases)}"
+
         text = text_format.format(
-            header=html.escape(header, quote=False),
+            header=html.escape(header, quote=False).replace("\n", newline),
             field_lines=newline.join(
                 html.escape(line, quote=False) for line in field_lines
             ),

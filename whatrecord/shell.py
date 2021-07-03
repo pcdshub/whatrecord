@@ -23,7 +23,7 @@ from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      PVRelations, RecordInstance, ShortLinterResults,
                      WhatRecord, time_context)
-from .db import Database, DatabaseLoadFailure, LinterResults
+from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line
 from .macro import MacroContext
@@ -49,25 +49,27 @@ class ShellState:
 
     Attributes
     ----------
-    prompt: str
+    prompt : str
         The prompt - PS1 - as in "epics>".
-    variables: dict
+    variables : dict
         Shell variables.
-    string_encoding: str
+    string_encoding : str
         String encoding for byte strings and files.
-    macro_context: MacroContext
+    macro_context : MacroContext
         Macro context for commands that are evaluated.
-    standin_directories: dict
+    standin_directories : dict
         Rewrite hard-coded directory prefixes by setting::
 
             standin_directories = {"/replace_this/": "/with/this"}
-    working_directory: pathlib.Path
+    working_directory : pathlib.Path
         Current working directory.
-    database_definition: Database
+    database_definition : Database
         Loaded database definition (dbd).
-    database: Dict[str, RecordInstance]
+    database : Dict[str, RecordInstance]
         The IOC database of records.
-    load_context: List[MutableLoadContext]
+    aliases : Dict[str, str]
+        Alias name to record name.
+    load_context : List[MutableLoadContext]
         Current loading context stack (e.g., ``st.cmd`` then
         ``common_startup.cmd``).  Modified in place as scripts are evaluated.
     """
@@ -80,6 +82,7 @@ class ShellState:
     working_directory: pathlib.Path = field(
         default_factory=lambda: pathlib.Path.cwd(),
     )
+    aliases: Dict[str, str] = field(default_factory=dict)
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
@@ -92,6 +95,7 @@ class ShellState:
         default_factory=MacroContext, metadata=apischema.metadata.skip
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
+    db_add_paths: List[pathlib.Path] = field(default_factory=list)
 
     _handlers: Dict[str, Callable] = field(
         default_factory=dict, metadata=apischema.metadata.skip
@@ -256,6 +260,36 @@ class ShellState:
 
         return self.working_directory / filename
 
+    @property
+    def db_include_paths(self):
+        env_var = self.macro_context.get("EPICS_DB_INCLUDE_PATH", None) or ""
+        if not env_var:
+            return [self.working_directory] + self.db_add_paths
+
+        return [
+            (self.working_directory / pathlib.Path(path)).resolve()
+            # TODO: this is actually OS-dependent (: on linux, ; on Windows)
+            for path in env_var.split(":")
+        ] + self.db_add_paths
+
+    def _fix_database_path(self, filename: Union[str, pathlib.Path]):
+        filename = str(filename)
+        db_include_paths = self.db_include_paths
+        if not db_include_paths or "/" in filename or "\\" in filename:
+            # Inclue path unset or even something resembling a nested path
+            # automatically is used as-is
+            return self.working_directory / filename
+
+        for path in db_include_paths:
+            option = path / filename
+            if option.exists() and option.is_file():
+                return option
+
+        paths = list(str(path) for path in self.db_include_paths)
+        raise FileNotFoundError(
+            f"Database file not found in search path: {paths}"
+        )
+
     def unhandled(self, command, args):
         ...
         # return f"No handler for handle_{command}"
@@ -338,38 +372,45 @@ class ShellState:
             # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
             return "whatrecord: TODO multiple dbLoadDatabase"
-        # TODO: handle path - see dbLexRoutines.c
-        # env vars: EPICS_DB_INCLUDE_PATH, fallback to "."
+        dbd = self._fix_database_path(dbd)
         fn, contents = self.load_file(dbd)
-        macros = (
-            self.macro_context.definitions_to_dict(substitutions)
-            if substitutions
-            else {}
+        macro_context = MacroContext(use_environment=False)
+        macro_context.define_from_string(substitutions or "")
+        self.database_definition = Database.from_string(
+            contents,
+            version=self.ioc_info.database_version_spec,
+            filename=fn,
+            macro_context=macro_context,
         )
-        with self.macro_context.scoped(**macros):
-            self.database_definition = Database.from_string(
-                contents, version=self.ioc_info.database_version_spec, filename=fn
-            )
 
-        return f"Loaded database: {fn}"
+        for addpath in dbd.addpaths:
+            for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
+                self.db_add_paths.append((dbd.parent / path).resolve())
+
+        self.aliases.update(dbd.aliases)
+
+        return {"result": f"Loaded database: {fn}"}
 
     def handle_dbLoadRecords(self, filename, macros, *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
         if self.ioc_initialized:
             raise RuntimeError("Records cannot be loaded after iocInit")
+
+        filename = self._fix_database_path(filename)
         filename, contents = self.load_file(filename)
-        macros = self.macro_context.definitions_to_dict(macros)
+
+        macro_context = MacroContext(use_environment=False)
+        macros = macro_context.define_from_string(macros or "")
 
         # TODO: refactor as this was pulled out of load_database_file
         try:
-            with self.macro_context.scoped(**macros):
-                db = Database.from_file(
-                    filename,
-                    dbd=self.database_definition,
-                    macro_context=self.macro_context,
-                    version=self.ioc_info.database_version_spec,
-                )
+            db = Database.from_file(
+                filename,
+                dbd=self.database_definition,
+                macro_context=macro_context,
+                version=self.ioc_info.database_version_spec,
+            )
         except Exception as ex:
             # TODO move this around
             raise DatabaseLoadFailure(
@@ -406,6 +447,11 @@ class ShellState:
                 entry = self.database[name]
                 entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
+
+        self.aliases.update(db.aliases)
+        for addpath in db.addpaths:
+            for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
+                self.db_add_paths.append((db.parent / path).resolve())
 
         return ShortLinterResults.from_full_results(linter_results, macros=macros)
 
@@ -595,18 +641,31 @@ class ScriptContainer:
     """
 
     database: Dict[str, RecordInstance] = field(default_factory=dict)
+    aliases: Dict[str, str] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
     #: absolute filename path to sha
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    record_types: Dict[str, RecordType] = field(default_factory=dict)
     pv_relations: PVRelations = field(default_factory=dict)
 
     def add_loaded_ioc(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
+        # TODO: IOCs will have conflicting definitions of records
+        self.aliases.update(loaded.shell_state.aliases)
+        if loaded.shell_state.database_definition:
+            self.record_types.update(
+                loaded.shell_state.database_definition.record_types
+            )
+        graph.combine_relations(
+            self.pv_relations, self.database,
+            loaded.pv_relations, loaded.shell_state.database,
+            record_types=self.record_types,
+            aliases=self.aliases,
+        )
         self.database.update(loaded.shell_state.database)
         self.pva_database.update(loaded.shell_state.pva_database)
         self.loaded_files.update(loaded.shell_state.loaded_files)
-        graph.combine_relations(self.pv_relations, loaded.pv_relations)
 
     def whatrec(
         self,
@@ -799,6 +858,8 @@ async def async_load_ioc(
     """
     Helper function for loading an IOC in a subprocess and relying on the cache.
     """
+    if not settings.CACHE_PATH:
+        use_cache = False
     with time_context() as ctx:
         try:
             md.standin_directories.update(standin_directories)
