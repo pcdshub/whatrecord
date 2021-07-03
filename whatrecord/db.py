@@ -480,10 +480,57 @@ class Database:
         Standalone aliases are those defined outside of the record body; this
         may only be useful for faithfully reconstructing the Database according
         to its original source code.
+
+    aliases
+        Alias name to record name.
+
+    paths
+    addpaths
+        The path command specifies the current search path for use when loading
+        database and database definition files. The addpath appends directory
+        names to the current path. The path is used to locate the initial
+        database file and included files. An empty dir at the beginning,
+        middle, or end of a non-empty path string means the current directory.
+
+    breaktables
+        Breakpoint table (look-up table) of raw-to-engineering values.
+
+    comments
+        Comments encountered while parsing the database.
+
+    devices
+        Device support declarations (dset).
+
+    drivers
+        Driver declarations (drvet).
+
+    functions
+        Exported C function names.
+
+    includes
+        Inline inclusion. Not supported just yet.
+
+    links
+
+    menus
+        Named value enumerations (enums).
+
+    records
+        Record name to RecordInstance.
+
+    record_types
+        Record type name to RecordType.
+
+    registrars
+        Exported registrar function name.
+
+    variables
+        IOC shell variables.
     """
 
     standalone_aliases: List[str] = field(default_factory=list)
     aliases: Dict[str, str] = field(default_factory=dict)
+    paths: List[DatabasePath] = field(default_factory=list)
     addpaths: List[DatabaseAddPath] = field(default_factory=list)
     breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
     comments: List[str] = field(default_factory=list)
@@ -493,7 +540,6 @@ class Database:
     includes: List[DatabaseInclude] = field(default_factory=list)
     links: List[DatabaseLink] = field(default_factory=list)
     menus: List[DatabaseMenu] = field(default_factory=list)
-    paths: List[DatabasePath] = field(default_factory=list)
     records: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_groups: Dict[str, RecordInstance] = field(default_factory=dict)
     record_types: Dict[str, RecordType] = field(default_factory=dict)

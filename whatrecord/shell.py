@@ -49,25 +49,27 @@ class ShellState:
 
     Attributes
     ----------
-    prompt: str
+    prompt : str
         The prompt - PS1 - as in "epics>".
-    variables: dict
+    variables : dict
         Shell variables.
-    string_encoding: str
+    string_encoding : str
         String encoding for byte strings and files.
-    macro_context: MacroContext
+    macro_context : MacroContext
         Macro context for commands that are evaluated.
-    standin_directories: dict
+    standin_directories : dict
         Rewrite hard-coded directory prefixes by setting::
 
             standin_directories = {"/replace_this/": "/with/this"}
-    working_directory: pathlib.Path
+    working_directory : pathlib.Path
         Current working directory.
-    database_definition: Database
+    database_definition : Database
         Loaded database definition (dbd).
-    database: Dict[str, RecordInstance]
+    database : Dict[str, RecordInstance]
         The IOC database of records.
-    load_context: List[MutableLoadContext]
+    aliases : Dict[str, str]
+        Alias name to record name.
+    load_context : List[MutableLoadContext]
         Current loading context stack (e.g., ``st.cmd`` then
         ``common_startup.cmd``).  Modified in place as scripts are evaluated.
     """
@@ -80,6 +82,7 @@ class ShellState:
     working_directory: pathlib.Path = field(
         default_factory=lambda: pathlib.Path.cwd(),
     )
+    aliases: Dict[str, str] = field(default_factory=dict)
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
@@ -92,6 +95,7 @@ class ShellState:
         default_factory=MacroContext, metadata=apischema.metadata.skip
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
+    db_add_paths: List[pathlib.Path] = field(default_factory=list)
 
     _handlers: Dict[str, Callable] = field(
         default_factory=dict, metadata=apischema.metadata.skip
@@ -260,13 +264,13 @@ class ShellState:
     def db_include_paths(self):
         env_var = self.macro_context.get("EPICS_DB_INCLUDE_PATH", None) or ""
         if not env_var:
-            return [self.working_directory]
+            return [self.working_directory] + self.db_add_paths
 
         return [
             (self.working_directory / pathlib.Path(path)).resolve()
             # TODO: this is actually OS-dependent (: on linux, ; on Windows)
             for path in env_var.split(":")
-        ]
+        ] + self.db_add_paths
 
     def _fix_database_path(self, filename: Union[str, pathlib.Path]):
         filename = str(filename)
@@ -379,7 +383,13 @@ class ShellState:
             macro_context=macro_context,
         )
 
-        return f"Loaded database: {fn}"
+        for addpath in dbd.addpaths:
+            for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
+                self.db_add_paths.append((dbd.parent / path).resolve())
+
+        self.aliases.update(dbd.aliases)
+
+        return {"result": f"Loaded database: {fn}"}
 
     def handle_dbLoadRecords(self, filename, macros, *_):
         if not self.database_definition:
@@ -437,6 +447,11 @@ class ShellState:
                 entry = self.database[name]
                 entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
+
+        self.aliases.update(db.aliases)
+        for addpath in db.addpaths:
+            for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
+                self.db_add_paths.append((db.parent / path).resolve())
 
         return ShortLinterResults.from_full_results(linter_results, macros=macros)
 
@@ -637,7 +652,7 @@ class ScriptContainer:
     def add_loaded_ioc(self, loaded: LoadedIoc):
         self.scripts[str(loaded.metadata.script)] = loaded
         # TODO: IOCs will have conflicting definitions of records
-        self.aliases.update(loaded.shell_state.database.aliases)
+        self.aliases.update(loaded.shell_state.aliases)
         if loaded.shell_state.database_definition:
             self.record_types.update(
                 loaded.shell_state.database_definition.record_types
