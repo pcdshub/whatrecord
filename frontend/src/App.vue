@@ -16,6 +16,7 @@ export default {
     let tab_menu_items = [
       {label: 'Records', icon: 'pi pi-fw pi-tags', to: '/'},
       {label: 'IOCs', icon: 'pi pi-fw pi-sitemap', to: '/iocs'},
+      {label: 'PV Relations', icon: 'pi pi-fw pi-compass', to: {name: 'pv-relations'}},
     ]
     for (const plugin of plugins) {
       tab_menu_items.push(

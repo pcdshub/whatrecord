@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import collections
+import copy
 import html
 import logging
 import os
@@ -8,7 +9,8 @@ from typing import Dict, List, Optional, Tuple
 
 import graphviz as gv
 
-from .common import FullLoadContext, LoadContext, PVRelations, dataclass
+from .common import (FullLoadContext, LoadContext, PVRelations,
+                     ScriptPVRelations, dataclass)
 from .db import RecordField, RecordInstance, RecordType
 
 logger = logging.getLogger(__name__)
@@ -222,6 +224,11 @@ def build_database_relations(
     # TODO: alias handling?
     for rec1 in database.values():
         for field1, link, info in rec1.get_links():
+            # TODO: copied without thinking about implications
+            # due to the removal of st.cmd context as an attempt to reduce
+            field1 = copy.deepcopy(field1)
+            field1.context = rec1.context[:1] + field1.context
+
             if "." in link:
                 link, field2 = link.split(".")
             elif field1.name == "FLNK":
@@ -251,7 +258,9 @@ def build_database_relations(
                 rec2_name = link
             elif field2 in rec2.fields:
                 rec2_name = rec2.name
-                field2 = rec2.fields[field2]
+                # TODO: copied without thinking about implications
+                field2 = copy.deepcopy(rec2.fields[field2])
+                field2.context = rec2.context[:1] + field2.context
             elif record_types:
                 rec2_name = rec2.name
                 dbd_record_type = record_types.get(rec2.record_type, None)
@@ -386,7 +395,7 @@ def combine_relations(
                 context=field_def.context,
             )
 
-        raise KeyError("Field not in database or database definitino")
+        raise KeyError("Field not in database or database definition")
 
     # Part 2:
     # Update any existing relations in the destination relations with
@@ -640,7 +649,11 @@ def graph_links(
     return nodes, edges, graph
 
 
-def build_script_relations(database, by_record, limit_to_records=None):
+def build_script_relations(
+    database: Dict[str, RecordInstance],
+    by_record: Dict[str, RecordInstance],
+    limit_to_records: Optional[List[str]] = None
+) -> ScriptPVRelations:
     if limit_to_records is None:
         record_items = by_record.items()
     else:
@@ -649,18 +662,30 @@ def build_script_relations(database, by_record, limit_to_records=None):
             if name in database
         ]
 
+    def get_owner(rec):
+        if not rec:
+            return "unknown"
+
+        if rec.owner and rec.owner != "unknown":
+            return rec.owner
+
+        if rec.context:
+            return rec.context[0].name
+
+        return "unknown"
+
     by_script = collections.defaultdict(lambda: collections.defaultdict(set))
     for rec1_name, list_of_rec2s in record_items:
         rec1 = database.get(rec1_name, None)
         for rec2_name in list_of_rec2s:
             rec2 = database.get(rec2_name, None)
 
-            rec1_file = rec1.context[0].name if rec1 else "unknown"
-            rec2_file = rec2.context[0].name if rec2 else "unknown"
+            owner1 = get_owner(rec1)
+            owner2 = get_owner(rec2)
 
-            if rec1_file != rec2_file:
-                by_script[rec2_file][rec1_file].add(rec2_name)
-                by_script[rec1_file][rec2_file].add(rec1_name)
+            if owner1 != owner2:
+                by_script[owner2][owner1].add(rec2_name)
+                by_script[owner1][owner2].add(rec1_name)
 
     return by_script
 

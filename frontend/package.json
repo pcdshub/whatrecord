@@ -10,6 +10,8 @@
   "dependencies": {
     "axios": "^0.21.1",
     "core-js": "^3.6.5",
+    "cytoscape": "^3.19.0",
+    "cytoscape-fcose": "^2.1.0",
     "es6-promise": "^4.2.8",
     "primeflex": "^2.0.0",
     "primeicons": "^4.1.0",
@@ -39,8 +41,7 @@
     "parserOptions": {
       "parser": "babel-eslint"
     },
-    "rules": {
-    }
+    "rules": {}
   },
   "browserslist": [
     "> 1%",

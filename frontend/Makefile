@@ -15,8 +15,13 @@ dev:
 	@echo "* (see .env or .env.local to customize this)"
 	yarn serve --port "${FRONTEND_PORT}"
 
+dev-setup:
+	yarn install
+
 prod:
 	yarn build
 
 clean:
 	rm -rf ./dist ./node_modules
+
+.PHONY: dev dev-setup prod clean

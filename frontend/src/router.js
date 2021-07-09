@@ -5,6 +5,7 @@ import ScriptView from './views/script-view.vue';
 import IocView from './views/iocs.vue';
 import HappiView from './views/happi.vue';
 import ServerLogView from './views/logs.vue';
+import PVRelationsView from './views/pv_relations.vue';
 
 import { happi_enabled } from './settings.js';
 
@@ -47,6 +48,11 @@ let routes = [
               record_filter: route.query.record_filter || "",
           }
       )
+  },
+  {
+      name: 'pv-relations',
+      path: '/pv-relations/',
+      component: PVRelationsView,
   },
 ]
 

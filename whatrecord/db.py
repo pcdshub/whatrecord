@@ -423,9 +423,11 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     ...
                 else:
                     fld.dtype = field_info.type
-                    # TODO: originally had merged dbd field context with record
-                    # instance field context, but this seems to be overkill
-                    # fld.context = field_info.context + fld.context
+                    # TODO: not 100% sure about the value of retaining the
+                    # script name + line number in every field just yet;
+                    # know for certain it's a waste of memory and repetetive
+                    # data being sent over the wire at the very least
+                    # fld.context = field_info.context[:1] + fld.context
 
         return RecordInstance(
             aliases=[alias.alias for alias in info[DatabaseRecordAlias]],
