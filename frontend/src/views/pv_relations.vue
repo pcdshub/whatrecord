@@ -76,7 +76,10 @@ export default {
           continue;
         }
         const node2 = pv_to_node[pv2];
-        for (const [field1, field2, info] of fields) {
+        for (const field_info of fields) {
+          const field1 = field_info.fields[0]
+          const field2 = field_info.fields[1]
+          const link_info = field_info.info
           const key1 = `${pv1}-${pv2}-${field1.name}-${field2.name}`;
           if (graphed_fields.indexOf(key1) >= 0) {
             continue;
@@ -99,8 +102,8 @@ export default {
             }
           }
           let field_label = `${field1.name}-${field2.name}`;
-          if (info) {
-            field_label += `\n${info}`;
+          if (link_info) {
+            field_label += "\n" + link_info.join(", ");
           }
           edges.push({
             data: {
