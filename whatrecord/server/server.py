@@ -264,7 +264,11 @@ class ServerState:
     def get_ioc_to_pvs(self, pv_names: Tuple[str]) -> Dict[str, List[str]]:
         ioc_to_pvs = {}
         for pv in pv_names:
-            owner = self.container.database[pv].owner or "unknown"
+            try:
+                owner = self.container.database[pv].owner or "unknown"
+            except KeyError:
+                owner = "unknown"
+
             if owner not in ioc_to_pvs:
                 ioc_to_pvs[owner] = []
             ioc_to_pvs[owner].append(pv)

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import sys
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 from .. import util
-from ..common import (IocMetadata, PVRelations, RecordInstance,
+from ..common import (IocMetadata, PVRelations, RecordField, RecordInstance,
                       RecordInstanceSummary, ScriptPVRelations, WhatRecord)
 
 
@@ -86,7 +88,74 @@ class IocGetMatchingRecordsResponse:
 
 
 @dataclass
+class RecordFieldSummary:
+    dtype: str
+    name: str
+    value: Any
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """field({{name}}, "{{value}}")""",
+        "console-verbose": """\
+field({{name}}, "{{value}}")
+""",
+    }
+
+
+@dataclass
+class PVLinkSummary:
+    fields: Tuple[RecordFieldSummary, RecordFieldSummary]
+    info: List[str]
+
+    @classmethod
+    def from_fields(
+        cls,
+        field1: RecordField,
+        field2: RecordField,
+        link_info: List[str]
+    ) -> PVLinkSummary:
+        return cls(
+            fields=[
+                RecordFieldSummary(dtype=field1.dtype, name=field1.name, value=field1.value),
+                RecordFieldSummary(dtype=field2.dtype, name=field2.name, value=field2.value),
+            ],
+            info=link_info,
+        )
+
+
+PVRelationsSummary = Dict[
+    str, Dict[str, List[PVLinkSummary]]
+]
+
+
+@dataclass
 class PVRelationshipResponse:
-    pv_relations: PVRelations
+    pv_relations: PVRelationsSummary
     script_relations: ScriptPVRelations
     ioc_to_pvs: Dict[str, List[str]]
+
+    @classmethod
+    def from_pv_relations(
+        cls,
+        pv_relations: PVRelations,
+        script_relations: ScriptPVRelations,
+        ioc_to_pvs: Dict[str, List[str]],
+    ) -> PVRelationshipResponse:
+        summary = {
+            pv1: {
+                pv2: [
+                    PVLinkSummary.from_fields(
+                        field1,
+                        field2,
+                        link_info
+                    )
+                    for field1, field2, link_info in links
+                ]
+                for pv2, links in pv2_items.items()
+            }
+            for pv1, pv2_items in pv_relations.items()
+        }
+        return cls(
+            pv_relations=summary,
+            script_relations=script_relations,
+            ioc_to_pvs=ioc_to_pvs,
+        )
