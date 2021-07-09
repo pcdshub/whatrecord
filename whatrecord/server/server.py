@@ -276,7 +276,7 @@ class ServerState:
 
     def get_pv_relations(self, pv_names: Tuple[str]) -> PVRelationshipResponse:
         # TODO: pv_names
-        return PVRelationshipResponse(
+        return PVRelationshipResponse.from_pv_relations(
             pv_relations=self.container.pv_relations,
             script_relations=self.script_relations,
             ioc_to_pvs=self.get_ioc_to_pvs(tuple(self.container.pv_relations))
