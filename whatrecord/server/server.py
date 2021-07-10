@@ -19,7 +19,8 @@ from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
                      PVGetInfo, PVGetMatchesResponse, PVRelationshipResponse,
-                     ServerPluginSpec, TooManyRecordsError)
+                     PVShortRelationshipResponse, ServerPluginSpec,
+                     TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
@@ -109,7 +110,7 @@ class ServerState:
                 if not item.script or not item.script.exists():
                     if not first_load:
                         # Don't attempt another load unless the file exists
-                        updated.pop(item)
+                        updated.remove(item)
 
             if not updated:
                 logger.info("No changes found.")
@@ -274,9 +275,20 @@ class ServerState:
             ioc_to_pvs[owner].append(pv)
         return ioc_to_pvs
 
-    def get_pv_relations(self, pv_names: Tuple[str]) -> PVRelationshipResponse:
+    def get_pv_relations(
+        self,
+        pv_names: Tuple[str],
+        *,
+        full: bool = False,
+    ) -> Union[PVRelationshipResponse, PVShortRelationshipResponse]:
         # TODO: pv_names
-        return PVRelationshipResponse.from_pv_relations(
+        if full:
+            return PVRelationshipResponse(
+                pv_relations=self.container.pv_relations,
+                script_relations=self.script_relations,
+                ioc_to_pvs=self.get_ioc_to_pvs(tuple(self.container.pv_relations))
+            )
+        return PVShortRelationshipResponse.from_pv_relations(
             pv_relations=self.container.pv_relations,
             script_relations=self.script_relations,
             ioc_to_pvs=self.get_ioc_to_pvs(tuple(self.container.pv_relations))
@@ -530,9 +542,9 @@ class ServerHandler:
             pv_names = self.state.get_matching_pvs(pv_names)
         else:
             pv_names = pv_names.split("|")
-
+        full = request.query.get("full", "false") in TRUE_VALUES
         return serialized_response(
-            self.state.get_pv_relations(pv_names=pv_names)
+            self.state.get_pv_relations(pv_names=pv_names, full=full)
         )
 
     @routes.get("/api/pv/{pv_names}/graph/{format}")

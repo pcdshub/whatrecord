@@ -682,6 +682,7 @@ def build_script_relations(
 
             owner1 = get_owner(rec1)
             owner2 = get_owner(rec2)
+            # print(rec1_name, owner1, "|", rec2_name, owner2)
 
             if owner1 != owner2:
                 by_script[owner2][owner1].add(rec2_name)
