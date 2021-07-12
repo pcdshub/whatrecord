@@ -1,5 +1,5 @@
 """
-"whatrec parse" is used to parse and interpret a startup script or database
+"whatrecord parse" is used to parse and interpret a startup script or database
 file, dumping the resulting ``ShellState`` or ``Database``.
 """
 
@@ -97,13 +97,12 @@ def parse(
     )
 
 
-def main(
+def parse_from_cli_args(
     filename: Union[str, pathlib.Path],
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
-    as_json: bool = False,
-):
+) -> Union[Database, LoadedIoc]:
     standin_directories = dict(
         path.split("=", 1) for path in standin_directory or ""
     )
@@ -111,16 +110,33 @@ def main(
     if isinstance(filename, str) and filename.startswith("{"):   # }
         # TODO - argparse fixup?
         ioc_metadata = IocMetadata.from_dict(json.loads(filename))
-        result = LoadedIoc.from_metadata(
+        # TODO macros
+        # ioc_metadata.macros = macros
+        return LoadedIoc.from_metadata(
             ioc_metadata
         )
-    else:
-        result = parse(
-            filename,
-            dbd=dbd,
-            standin_directories=standin_directories,
-            macros=macros,
-        )
+
+    return parse(
+        filename,
+        dbd=dbd,
+        standin_directories=standin_directories,
+        macros=macros,
+    )
+
+
+def main(
+    filename: Union[str, pathlib.Path],
+    dbd: Optional[str] = None,
+    standin_directory: Optional[List[str]] = None,
+    macros: Optional[str] = None,
+    as_json: bool = False,
+):
+    result = parse_from_cli_args(
+        filename=filename,
+        dbd=dbd,
+        standin_directory=standin_directory,
+        macros=macros,
+    )
 
     if as_json:
         # TODO: JSON -> obj -> JSON round tripping

@@ -115,7 +115,7 @@ setup(
     python_requires=">=3.7",
     entry_points={
         "console_scripts": [
-            "whatrec = whatrecord.bin.main:main",
+            "whatrecord = whatrecord.bin.main:main",
         ]
     },
     package_dir={

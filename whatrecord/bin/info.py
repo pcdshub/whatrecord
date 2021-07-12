@@ -1,5 +1,5 @@
 """
-"whatrec info" is used to get PV information from the whatrec server.
+"whatrecord info" is used to get PV information from the whatrecord server.
 """
 
 import argparse

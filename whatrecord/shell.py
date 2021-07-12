@@ -383,11 +383,11 @@ class ShellState:
             macro_context=macro_context,
         )
 
-        for addpath in dbd.addpaths:
+        for addpath in self.database_definition.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((dbd.parent / path).resolve())
 
-        self.aliases.update(dbd.aliases)
+        self.aliases.update(self.database_definition.aliases)
 
         return {"result": f"Loaded database: {fn}"}
 

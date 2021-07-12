@@ -96,6 +96,26 @@ class IocshResult:
             line=line,
         )
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """
+{%- for ctx in context -%}
+    {{ctx.line}}:
+{%- endfor %} {{ line }}
+{% if error %}
+    ** ERROR on line {% if context %}{{ context[0].line }}{% endif %} **
+    {{ error | indent(4) }}
+{% endif %}
+{% if outputs != [line] %}
+{% for output in outputs %}
+    -SH> {{ output | indent(6) }}
+{% endfor %}
+{% endif %}
+{% for redirect in redirects %}
+    -> Redirect: {{ redirect }}
+{%- endfor %}
+""".strip(),
+    }
+
 
 @dataclass
 class IocshScript:
