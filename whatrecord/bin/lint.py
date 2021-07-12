@@ -88,7 +88,7 @@ def main(
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
     as_json: bool = False,
-    verbosity: int = 0,
+    verbosity: Optional[int] = 0,
 ):
     obj = parse_from_cli_args(
         filename=filename,
@@ -96,4 +96,4 @@ def main(
         standin_directory=standin_directory,
         macros=macros,
     )
-    lint(obj, verbosity=verbosity)
+    lint(obj, verbosity=verbosity or 0)
