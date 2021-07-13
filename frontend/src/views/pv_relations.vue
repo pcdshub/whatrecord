@@ -1,9 +1,9 @@
 <template>
-  <div class="p-grid">
-    <div class="p-col-2">
+  <div id="contents">
+    <div id="left" class="column">
       <h3>Include unknown</h3>
       <InputSwitch v-model="include_unknown" :binary="true" @change="update_plot" />
-      <h3>Groups to display</h3>
+      <h3>Groups</h3>
       <DataTable id="groups" :value="groups" dataKey="name"
           v-model:selection="selected_groups"
           selectionMode="multiple" @rowSelect="new_group_selection"
@@ -28,7 +28,7 @@
         </Column>
       </DataTable>
     </div>
-    <div class="p-col-10" id="graph">
+    <div id="graph">
     </div>
   </div>
 </template>
@@ -246,7 +246,6 @@ function groups_from_relations(relations, include_unknown) {
       let group_iocs = [ioc1].concat(ioc2s);
       if (!include_unknown) {
         group_iocs = group_iocs.filter(item => item != "unknown");
-        console.log("filtered", group_iocs);
       }
       groups.push(
         {
@@ -254,7 +253,7 @@ function groups_from_relations(relations, include_unknown) {
           "iocs": group_iocs,
         }
       )
-      for (const ioc in group_iocs) {
+      for (const ioc of group_iocs) {
         saw[ioc] = true;
       }
     }
@@ -413,7 +412,7 @@ export default {
   },
   methods: {
     update_plot() {
-      console.log("Update plot", this.include_unknown, this.selected_ioc_list);
+      console.debug("Update plot", this.include_unknown, this.selected_ioc_list);
       this.groups = groups_from_relations(this.relations, this.include_unknown);
       if (this.full_relations) {
         this.node_info = get_all_nodes(this.relations, this.include_unknown);
@@ -452,36 +451,30 @@ export default {
 </script>
 
 <style>
-.node {
-  stroke: #fff;
-  stroke-width: 1.5px;
-  cursor: move;
+#contents {
+  flex-direction: column;
+  justify-content: flex-start;
+  display: flex;
+  overflow: scroll;
+  height: 95vh;
 }
 
-.group {
-  stroke: #fff;
-  stroke-width: 1.5px;
-  cursor: move;
-  opacity: 0.7;
+.column {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  overflow-y: scroll;
+  flex-wrap: no-wrap;
 }
 
-.link {
-  fill: none;
-  stroke: #000;
-  stroke-width: 3px;
-  opacity: 0.7;
-  marker-end: url(#end-arrow);
-}
-
-.label {
-    fill: white;
-    font-family: Courier;
-    font-size: 12px;
-    text-anchor: middle;
-    cursor: move;
+#left {
+  min-width: 15vw;
+  max-width: 20vw;
 }
 
 #graph {
     height: calc(100vh - 100px);
 }
+
 </style>

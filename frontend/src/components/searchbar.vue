@@ -1,14 +1,19 @@
 <template>
-  <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
-    <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
-    &nbsp;
-    <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
-  </form>
-  <br/>
-  <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
-      @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
-    <Column field="pv" :header="`Results (${this.displayed_info.glob})`"></Column>
-  </DataTable>
+  <div id="contents">
+    <div id="search">
+      <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
+        <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
+        &nbsp;
+        <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
+      </form>
+    </div>
+    <div id="table">
+      <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
+          @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
+        <Column field="pv" :header="`Results (${this.displayed_info.glob})`"></Column>
+      </DataTable>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -105,9 +110,47 @@ export default {
 }
 </script>
 
-<style>
+<style scope>
 .p-datatable-tbody {
     font-family: monospace;
     font-size: 0.9em;
 }
+
+#contents {
+  display: flex;
+  flex-direction: column;
+  flex-flow: column wrap;
+  justify-content: flex-start;
+  overflow: scroll;
+}
+
+#search {
+  order: 1;
+  align-items: flex-start;
+  width: 100%;
+}
+
+#table {
+  order: 2;
+  align-items: stretch;
+  width: 100%;
+}
+
+.code {
+  background: whitesmoke;
+  border-left: 3px solid lightgreen;
+  border: 1px solid lightgray;
+  color: black;
+  display: block;
+  font-family: monospace;
+  font-size: 15px;
+  line-height: 1.0;
+  margin-bottom: 1.6em;
+  max-width: 100%;
+  overflow: auto;
+  padding: 15px;
+  page-break-inside: avoid;
+  word-wrap: break-word;
+}
+
 </style>

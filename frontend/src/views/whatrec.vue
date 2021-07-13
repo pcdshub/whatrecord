@@ -1,9 +1,9 @@
 <template>
-  <div class="p-grid">
-    <div class="p-col-3">
+  <div id="contents">
+    <div id="left">
       <Searchbar :route_record_glob="search_record_glob" :route_selected_records="search_selected_records" />
     </div>
-    <div class="p-col-9" id="record_info">
+    <div id="right" class="column">
       <div v-for="match in record_info" :key="match.pv_name">
         <Recordinfo
           v-for="(whatrec, idx) in match.info"
@@ -66,33 +66,30 @@ export default {
 }
 </script>
 
-<style>
-#record_info {
-  text-align: left;
+<style scoped>
+#contents {
+  flex-direction: row;
+  justify-content: flex-start;
+  display: flex;
+  overflow: scroll;
+  height: 97vh;
 }
 
-.code {
-  background: whitesmoke;
-  border: 1px solid lightgray;
-  border-left: 3px solid lightcoral;
-  color: black;
-  page-break-inside: avoid;
-  font-family: monospace;
-  font-size: 15px;
-  line-height: 1.0;
-  margin-bottom: 1.6em;
-  max-width: 100%;
-  overflow: auto;
-  padding: 15px;
-  display: block;
-  word-wrap: break-word;
+.column {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  overflow: scroll;
 }
 
-.svg-graph {
-  max-width: 70%;
+#left {
+  min-width: 15vw;
+  max-width: 20vw;
 }
 
-.context {
-  margin-left: 1px;
+#right {
+  margin: 1em;
+  min-width: 50%;
 }
 </style>
