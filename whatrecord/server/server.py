@@ -5,8 +5,8 @@ import functools
 import json
 import logging
 import re
-import sys
 import tempfile
+import tracemalloc
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import apischema
@@ -27,6 +27,7 @@ TRUE_VALUES = {"1", "true", "True"}
 
 logger = logging.getLogger(__name__)
 _log_handler = None
+tracemalloc_snapshot = None
 
 
 def serialized_response(obj: Any) -> web.Response:
@@ -578,19 +579,6 @@ def add_routes(app: web.Application, handler: ServerHandler):
     return routes
 
 
-def new_server(startup_scripts) -> web.Application:
-    app = web.Application()
-    handler = ServerHandler(startup_scripts)
-    add_routes(app, handler)
-    return app, handler
-
-
-def run(*args, **kwargs):
-    app, handler = new_server(*args, **kwargs)
-    web.run_app(app)
-    return app, handler
-
-
 def configure_logging(loggers=None):
     global _log_handler
     _log_handler = ServerLogHandler()
@@ -609,7 +597,11 @@ def main(
     gateway_config: Optional[str] = None,
     port: int = 8898,
     standin_directory: Optional[Union[List, Dict]] = None,
+    use_tracemalloc: bool = False,
 ):
+    if use_tracemalloc:
+        tracemalloc.start()
+
     scripts = scripts or []
     script_loader = script_loader or []
 
@@ -640,9 +632,13 @@ def main(
 
     configure_logging()
     app.on_startup.append(handler.async_init)
-    web.run_app(app, port=port)
+    try:
+        web.run_app(app, port=port)
+    except KeyboardInterrupt:
+        ...
+
+    if use_tracemalloc:
+        global tracemalloc_snapshot
+        tracemalloc_snapshot = tracemalloc.take_snapshot()
+
     return app, handler
-
-
-if __name__ == "__main__":
-    app, handler = run(sys.argv[1:])

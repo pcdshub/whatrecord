@@ -1,6 +1,6 @@
 # cython: language_level=3
 
-from whatrecord.common import IocshRedirect, IocshResult, IocshSplit
+from .common import IocshRedirect, IocshSplit
 
 
 def _get_redirect(redirects: dict, idx: int) -> IocshRedirect:

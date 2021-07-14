@@ -11,7 +11,7 @@ import importlib
 import inspect
 import logging
 
-import whatrecord  # noqa
+import whatrecord
 
 DESCRIPTION = __doc__
 RETURN_VALUE = None
@@ -56,7 +56,7 @@ COMMANDS = _build_commands()
 
 def main():
     top_parser = argparse.ArgumentParser(
-        prog="whatrec",
+        prog="whatrecord",
         description=DESCRIPTION,
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -65,7 +65,7 @@ def main():
         "--version",
         "-V",
         action="version",
-        version='0.0.0',  # TODO # whatrecord.__version__,
+        version=whatrecord.__version__,
         help="Show the whatrec version number and exit.",
     )
 

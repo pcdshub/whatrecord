@@ -68,6 +68,13 @@ def build_arg_parser(parser=None):
         help='Web server TCP port'
     )
 
+    parser.add_argument(
+        '--tracemalloc',
+        dest='use_tracemalloc',
+        action='store_true',
+        help='[Debug] Use tracemalloc to debug server memory usage'
+    )
+
     return parser
 
 
