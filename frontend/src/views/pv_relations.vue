@@ -67,7 +67,6 @@ function get_simple_nodes(relations, include_unknown = false) {
         },
         classes: [
           "script",
-          "hide",
         ],
       };
       ioc_to_node[ioc1] = script_node;
@@ -132,7 +131,6 @@ function get_all_nodes(relations, include_unknown = false) {
       },
       classes: [
         "script",
-        "hide",
       ],
     };
     ioc_to_node[script_id] = script_node;
@@ -212,17 +210,6 @@ function get_all_nodes(relations, include_unknown = false) {
 }
 
 
-function toggle_node_visibility(node) {
-  const descendants = node.descendants();
-  for (const child of descendants) {
-    if (child.style("display") == "none") {
-      child.style("display", "element");
-    } else {
-      child.style("display", "none");
-    }
-  }
-}
-
 function groups_from_relations(relations, include_unknown) {
   let groups = [];
   let saw = {};
@@ -237,12 +224,14 @@ function groups_from_relations(relations, include_unknown) {
       if (!include_unknown) {
         group_iocs = group_iocs.filter(item => item != "unknown");
       }
-      groups.push(
-        {
-          "name": name,
-          "iocs": group_iocs,
-        }
-      )
+      if (group_iocs.length > 1) {
+        groups.push(
+          {
+            "name": name,
+            "iocs": group_iocs,
+          }
+        )
+      }
       for (const ioc of group_iocs) {
         saw[ioc] = true;
       }
@@ -340,13 +329,6 @@ function replace_plot(info, ioc_list = null, layout = "fcose") {
   });
 
 
-  cy.on("click", "node", function (event) {
-    toggle_node_visibility(event.target);
-  });
-
-  cy.nodes().forEach(
-    node => toggle_node_visibility(node)
-  );
   return cy;
 }
 
@@ -418,7 +400,25 @@ export default {
         this.node_info = get_simple_nodes(this.pv_relations, this.include_unknown);
       }
       this.cy = replace_plot(this.node_info);
+      this.cy.on("click", "node", this.node_selected);
     },
+
+    node_selected (event) {
+      const node = event.target;
+      if (node.hasClass("script")) {
+        const ioc_name = node.data().id;
+        this.$router.push({
+          name: "iocs",
+          params: {
+            "selected_iocs_in": ioc_name,
+          },
+          query: {
+            "ioc_filter": ioc_name,
+          },
+        });
+      }
+    },
+
     new_group_selection(event, push_route=true) {
       this.cy = replace_plot(this.node_info, this.selected_ioc_list, "fcose");
       if (push_route) {
