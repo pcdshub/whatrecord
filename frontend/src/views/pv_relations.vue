@@ -6,6 +6,10 @@
         <InputSwitch v-model="include_unknown" :binary="true" @change="update_plot" />
       </div>
       <div>
+        <h3>Show records</h3>
+        <InputSwitch v-model="show_records" :binary="true" @change="update_plot" />
+      </div>
+      <div>
         <h3>Groups</h3>
         <DataTable id="groups" :value="groups" dataKey="name"
             v-model:selection="selected_groups"
@@ -15,7 +19,7 @@
             >
           <template #header>
             <div class="p-d-flex p-jc-between">
-              <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_ioc_filters()"/>
+              <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_group_filters()"/>
               <span class="p-input-icon-left">
                 <i class="pi pi-search" />
                 <InputText v-model="group_filters['global'].value" placeholder="Search" />
@@ -52,7 +56,7 @@ import fcose from 'cytoscape-fcose';
 
 cytoscape.use( fcose );
 
-function get_simple_nodes(relations, include_unknown = false) {
+function get_simple_nodes(relations, include_unknown = false, include_records = false) {
   let pv_to_node = {};
   let ioc_to_node = {};
   let script_edges = {};
@@ -71,7 +75,7 @@ function get_simple_nodes(relations, include_unknown = false) {
       };
       ioc_to_node[ioc1] = script_node;
     }
-    for (const ioc2 of Object.keys(ioc2s)) {
+    for (const [ioc2, pvs] of Object.entries(ioc2s)) {
       if (ioc2 === "unknown" && !include_unknown) {
         continue;
       }
@@ -86,23 +90,26 @@ function get_simple_nodes(relations, include_unknown = false) {
           }
         };
       }
-      //for (const pv of pvs) {
-      //  if (pv in pv_to_node === false) {
-      //    const pv_node = {
-      //      data: {
-      //        id: pv,
-      //        parent: ioc2,
-      //        weight: 1,
-      //      },
-      //      classes: [
-      //        "pv",
-      //      ],
-      //    };
-      //    pv_to_node[pv] = pv_node;
-      //  }
-      //}
+      if (include_records) {
+        for (const pv of pvs) {
+          if (pv in pv_to_node === false) {
+            const pv_node = {
+              data: {
+                id: pv,
+                parent: ioc2,
+                weight: 1,
+              },
+              classes: [
+                "pv",
+              ],
+            };
+            pv_to_node[pv] = pv_node;
+          }
+        }
+      }
     }
   }
+
   return {
     pv_to_node: pv_to_node,
     ioc_to_node: ioc_to_node,
@@ -240,20 +247,26 @@ function groups_from_relations(relations, include_unknown) {
   return groups;
 }
 
-function filter_elements(info, ioc_list) {
+function filter_elements(info, ioc_list, include_records) {
   if (!ioc_list) {
     return info.all_nodes.concat(info.all_edges);
   }
   let nodes = [];
   let edges = [];
+  let records = {};
   for (const node_info of info.all_nodes) {
     if (ioc_list.indexOf(node_info.data.id) >= 0) {
       nodes.push(node_info);
+    } else if (include_records && ioc_list.indexOf(node_info.data.parent) >= 0) {
+      nodes.push(node_info);
+      records[node_info.data.id] = true;
     }
   }
   for (const edge_info of info.all_edges) {
     const edge_data = edge_info.data;
     if (ioc_list.indexOf(edge_data.source) >= 0 && ioc_list.indexOf(edge_data.target) >= 0) {
+      edges.push(edge_info);
+     } else if (include_records && edge_data.source in records && edge_data.target in records) {
       edges.push(edge_info);
     }
   }
@@ -261,23 +274,30 @@ function filter_elements(info, ioc_list) {
 }
 
 
-function replace_plot(info, ioc_list = null, layout = "fcose") {
-  const filtered_elements = filter_elements(info, ioc_list);
+function create_plot(info, ioc_list = null, include_records = false) {
+  const filtered_elements = filter_elements(info, ioc_list, include_records);
   let layout_options;
-  if (layout === "fcose") {
+  if (include_records) {
     layout_options = {
-      name: 'breadthfirst',
-      /* quality: 'proof', */
-      /* animate: false, */
-      /* nodeDimensionsIncludeLabels: true, */
-      /* uniformNodeDimensions: false, */
-      /* nodeSeparation: 200, */
-      /* tile: true, */
+      name: 'fcose',
+      animate: false,
+      nodeDimensionsIncludeLabels: true,
+      nodeSeparation: 200,
+      quality: 'proof',
       randomize: false,
+      tile: true,
+      uniformNodeDimensions: false,
     }
   } else {
     layout_options = {
-      name: 'grid',
+      name: 'fcose',
+      animate: false,
+      nodeDimensionsIncludeLabels: true,
+      nodeSeparation: 200,
+      quality: 'proof',
+      randomize: false,
+      tile: true,
+      uniformNodeDimensions: false,
     }
   }
   let cy = cytoscape({
@@ -293,7 +313,6 @@ function replace_plot(info, ioc_list = null, layout = "fcose") {
           'label': 'data(id)',
           'width': 'label',   // TODO: deprecated
           'text-valign': 'center',
-          'shape': 'rectangle',
           'border-style': 'solid',
           'border-color': 'gray',
         }
@@ -302,6 +321,7 @@ function replace_plot(info, ioc_list = null, layout = "fcose") {
         selector: '.script',
         style: {
           'background-color': 'lightgray',
+          'shape': 'rectangle',
           'label': 'data(id)',
           'text-valign': 'bottom',
           'border-style': 'dashed',
@@ -350,11 +370,12 @@ export default {
       full_relations: false,
       group_filters: null,
       groups: [],
-      include_unknown: true,
+      include_unknown: false,
       metadata: null,
       node_info: null,
       relations: [],
       selected_groups: null,
+      show_records: false,
     }
   },
   computed: {
@@ -381,7 +402,6 @@ export default {
   },
   async mounted() {
     if (!Object.keys(this.pv_relations).length) {
-      console.log("Updating pv relations")
       await this.$store.dispatch("get_pv_relations");
     }
     this.update_plot();
@@ -392,14 +412,14 @@ export default {
       if (!Object.keys(this.pv_relations).length) {
         return;
       }
-      console.debug("Update plot", this.include_unknown, this.selected_ioc_list);
+      /* console.debug("Update plot", this.include_unknown, this.selected_ioc_list); */
       this.groups = groups_from_relations(this.pv_relations, this.include_unknown);
       if (this.full_relations) {
         this.node_info = get_all_nodes(this.pv_relations, this.include_unknown);
       } else {
-        this.node_info = get_simple_nodes(this.pv_relations, this.include_unknown);
+        this.node_info = get_simple_nodes(this.pv_relations, this.include_unknown, this.show_records);
       }
-      this.cy = replace_plot(this.node_info);
+      this.cy = create_plot(this.node_info, this.selected_ioc_list, this.show_records);
       this.cy.on("click", "node", this.node_selected);
     },
 
@@ -416,16 +436,28 @@ export default {
             "ioc_filter": ioc_name,
           },
         });
+      } else if (node.hasClass("pv")) {
+        const pv_name = node.data().id;
+        this.$router.push({
+          name: "whatrec",
+          params: {
+            "record_glob": pv_name,
+          },
+          query: {
+            "selected_records": pv_name,
+          },
+        });
       }
     },
 
     new_group_selection(event, push_route=true) {
-      this.cy = replace_plot(this.node_info, this.selected_ioc_list, "fcose");
+      this.cy = create_plot(this.node_info, this.selected_ioc_list, this.show_records);
       if (push_route) {
         this.$router.push({
+          /* TODO
           params: {
             "selected_iocs_in": this.selected_ioc_list.join("|"),
-          },
+          }, */
           query: {
             "global_filter": this.group_filters["global"].value,
           }

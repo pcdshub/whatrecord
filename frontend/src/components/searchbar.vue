@@ -1,5 +1,5 @@
 <template>
-  <div id="contents">
+  <div id="search-contents">
     <div id="search">
       <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
         <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
@@ -111,12 +111,13 @@ export default {
 </script>
 
 <style>
+/* TODO I messed up something here; figure it out */
 .p-datatable-tbody {
     font-family: monospace;
     font-size: 0.9em;
 }
 
-#contents {
+#search-contents {
   display: flex;
   flex-direction: column;
   flex-flow: column wrap;
@@ -132,7 +133,7 @@ export default {
 
 #table {
   order: 2;
-  align-items: stretch;
+  align-items: flex-start;
   width: 100%;
 }
 
