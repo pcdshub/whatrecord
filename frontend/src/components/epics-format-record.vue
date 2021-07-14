@@ -3,13 +3,22 @@
     <div class="code">
       <template v-if="is_grecord">g</template>
       record({{ record_type }}, "{{ name }}") {<br/>
+      <!-- aliases -->
+      <span v-for="alias in aliases" :key="alias">
+        &nbsp;alias("{{ alias }}")<br/>
+      </span>
+      <!-- fields -->
       <span
         class="recordfield"
         v-for="field in fields"
-        :key=field.name
+        :key="field.name"
         :title="field.dtype + ':' + field.context.join(', ')"
         >
-      &nbsp;field({{ field.name }}, "{{ field.value }}")<br/>
+        &nbsp;field({{ field.name }}, "{{ field.value }}")<br/>
+      </span>
+      <!-- info nodes -->
+      <span v-for="[key, value] in info_nodes" :key="key">
+        &nbsp;info({{ key }}, "{{ value }}")<br/>
       </span>
     }
     </div>
@@ -20,7 +29,7 @@
       <span
         class="recordfield"
         v-for="field in fields"
-        :key=field.name
+        :key="field.name"
         :title="field.dtype + ':' + field.context.join(', ')"
         >
       &nbsp;"{{ field.name }}" from "{{ field.record_name }}.{{ field.field_name }}"
@@ -35,13 +44,23 @@
 export default {
   name: 'EpicsFormatRecord',
   props: {
-    name: String,
     context: Array,
+    aliases: Array,
     fields: Object,
-    record_type: String,
     is_grecord: Boolean,
     is_pva: Boolean,
-  }
+    metadata: Object,
+    name: String,
+    record_type: String,
+  },
+  computed: {
+    info_nodes() {
+      const skip_keys = ["gateway", "archived"];
+      return Object.entries(this.metadata).filter(
+        item => skip_keys.indexOf(item[0]) < 0
+      );
+    },
+  },
 }
 </script>
 

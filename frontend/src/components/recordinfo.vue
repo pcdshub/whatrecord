@@ -7,11 +7,13 @@
       <br/>
       <epics-format-record
         :name=instance.name
+        :aliases=instance.aliases
         :context=instance.context
         :fields=instance.fields
         :record_type=instance.record_type
         :is_grecord=instance.is_grecord
         :is_pva=instance.is_pva
+        :metadata=instance.metadata
       />
 
       <template v-for="plugin_name in plugins" :key="plugin_name">
