@@ -1,34 +1,38 @@
 <template>
   <div id="contents">
     <div id="left" class="column">
-      <h3>Include unknown</h3>
-      <InputSwitch v-model="include_unknown" :binary="true" @change="update_plot" />
-      <h3>Groups</h3>
-      <DataTable id="groups" :value="groups" dataKey="name"
-          v-model:selection="selected_groups"
-          selectionMode="multiple" @rowSelect="new_group_selection"
-          :paginator="true" :rows="300" v-model:filters="group_filters"
-          filterDisplay="row" :globalFilterFields="['iocs']"
-          >
-        <template #header>
-          <div class="p-d-flex p-jc-between">
-            <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_ioc_filters()"/>
-            <span class="p-input-icon-left">
-              <i class="pi pi-search" />
-              <InputText v-model="group_filters['global'].value" placeholder="Search" />
-            </span>
-          </div>
-        </template>
-        <Column field="iocs" header="IOC Names">
-          <template #body="{data}">
-            <template v-for="ioc in data.iocs" :key="ioc">
-              {{ioc}}<br/>
-            </template>
+      <div>
+        <h3>Include unknown</h3>
+        <InputSwitch v-model="include_unknown" :binary="true" @change="update_plot" />
+      </div>
+      <div>
+        <h3>Groups</h3>
+        <DataTable id="groups" :value="groups" dataKey="name"
+            v-model:selection="selected_groups"
+            selectionMode="multiple" @rowSelect="new_group_selection"
+            :paginator="true" :rows="300" v-model:filters="group_filters"
+            filterDisplay="row" :globalFilterFields="['iocs']"
+            >
+          <template #header>
+            <div class="p-d-flex p-jc-between">
+              <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_ioc_filters()"/>
+              <span class="p-input-icon-left">
+                <i class="pi pi-search" />
+                <InputText v-model="group_filters['global'].value" placeholder="Search" />
+              </span>
+            </div>
           </template>
-        </Column>
-      </DataTable>
+          <Column field="iocs" header="IOC Names">
+            <template #body="{data}">
+              <template v-for="ioc in data.iocs" :key="ioc">
+                {{ioc}}<br/>
+              </template>
+            </template>
+          </Column>
+        </DataTable>
+      </div>
     </div>
-    <div id="graph">
+    <div id="graph" class="column">
     </div>
   </div>
 </template>
@@ -452,29 +456,29 @@ export default {
 
 <style>
 #contents {
-  flex-direction: column;
-  justify-content: flex-start;
   display: flex;
-  overflow: scroll;
-  height: 95vh;
+  flex-direction: row;
+  height: 94vh;
+  justify-content: flex-start;
+  overflow-y: scroll;
 }
 
 .column {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  justify-content: flex-start;
   overflow-y: scroll;
-  flex-wrap: no-wrap;
 }
 
 #left {
   min-width: 15vw;
-  max-width: 20vw;
+  max-width: 17vw;
+  max-height: 97vh;
 }
 
 #graph {
-    height: calc(100vh - 100px);
+  height: calc(100vh - 100px);
+  min-width: 75vw;
+  max-width: 85vw;
 }
 
 </style>
