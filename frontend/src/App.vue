@@ -34,11 +34,12 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 .p-tabmenu	{
   margin-bottom: 5px;
 }
-.p-grid	{
-  margin: 5px;
+.p-datatable-tbody {
+    font-family: monospace;
+    font-size: 0.9em;
 }
 </style>

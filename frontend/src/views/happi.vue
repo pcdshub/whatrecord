@@ -113,14 +113,20 @@ export default {
   },
   computed: {
     happi_item_related_records () {
-      if (!this.item_name || !this.happi_items || !this.happi_info.metadata.item_to_records) {
+      if (!this.item_name || !this.happi_info_ready) {
         return [];
       }
-      let records = this.happi_info.metadata.item_to_records[this.item_name];
+      let records = this.item_to_records[this.item_name] || [];
       return records.sort();
     },
+    item_to_records () {
+      if (!this.happi_info_ready) {
+        return {};
+      }
+      return this.happi_info.metadata.item_to_records;
+    },
     happi_item_info () {
-      if (!this.item_name || !this.happi_items) {
+      if (!this.item_name || !this.happi_items || !this.happi_info_ready) {
         return {
           "error": "Unknown item name",
         };
@@ -128,7 +134,7 @@ export default {
       return this.happi_info.metadata.item_to_metadata[this.item_name];
     },
     happi_items () {
-      if (!this.happi_info) {
+      if (Object.keys(this.happi_info).length == 0) {
         return [];
       }
       return Object.values(this.happi_info.metadata.item_to_metadata);
@@ -143,6 +149,9 @@ export default {
     },
 
     ...mapState({
+      happi_info_ready (state) {
+        return Object.keys(state.plugin_info).length > 0;
+      },
       happi_info (state) {
         if (!state.plugin_info) {
           return {};
@@ -158,7 +167,7 @@ export default {
     this.init_filters();
   },
   mounted() {
-    if (!this.happi_items.length) {
+    if (!this.happi_info_ready) {
         this.$store.dispatch("update_plugin_info");
     }
   },
