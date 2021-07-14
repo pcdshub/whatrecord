@@ -1,6 +1,6 @@
 <template>
-  <div class="p-grid">
-    <div class="p-col-4">
+  <div id="contents">
+    <div id="left" class="column">
       <DataTable id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
           selectionMode="multiple" @rowSelect="new_ioc_selection"
           :paginator="true" :rows="300" v-model:filters="ioc_filters"
@@ -27,7 +27,7 @@
         <!-- <Column field="script" header="Script"/> -->
       </DataTable>
     </div>
-    <div class="p-col-8">
+    <div id="right" class="column">
       <DataTable :value="record_list" dataKey="record.name"
           :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
           :globalFilterFields="['record.name', 'record.record_type']">
@@ -211,4 +211,30 @@ export default {
 </script>
 
 <style scoped>
+#contents {
+  flex-direction: column;
+  justify-content: flex-start;
+  display: flex;
+  overflow: scroll;
+  height: 97vh;
+}
+
+.column {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  overflow: scroll;
+  height: 97vh;
+}
+
+#left {
+  min-width: 15vw;
+  max-width: 20vw;
+}
+
+#right {
+  margin: 1em;
+  min-width: 50%;
+}
 </style>

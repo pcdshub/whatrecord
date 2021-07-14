@@ -110,7 +110,7 @@ export default {
 }
 </script>
 
-<style scope>
+<style>
 .p-datatable-tbody {
     font-family: monospace;
     font-size: 0.9em;
@@ -134,23 +134,6 @@ export default {
   order: 2;
   align-items: stretch;
   width: 100%;
-}
-
-.code {
-  background: whitesmoke;
-  border-left: 3px solid lightgreen;
-  border: 1px solid lightgray;
-  color: black;
-  display: block;
-  font-family: monospace;
-  font-size: 15px;
-  line-height: 1.0;
-  margin-bottom: 1.6em;
-  max-width: 100%;
-  overflow: auto;
-  padding: 15px;
-  page-break-inside: avoid;
-  word-wrap: break-word;
 }
 
 </style>

@@ -454,7 +454,7 @@ export default {
 }
 </script>
 
-<style>
+<style scoped>
 #contents {
   display: flex;
   flex-direction: row;
