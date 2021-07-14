@@ -38,7 +38,8 @@
 </template>
 
 <script>
-const axios = require('axios').default;
+import { mapState } from 'vuex';
+
 import Button from 'primevue/button';
 import InputSwitch from 'primevue/inputswitch';
 import Column from 'primevue/column';
@@ -50,21 +51,6 @@ import cytoscape from 'cytoscape';
 import fcose from 'cytoscape-fcose';
 
 cytoscape.use( fcose );
-
-async function get_script_relations(pv_glob, full = false) {
-  try {
-    const response = await axios.get(`/api/pv/${pv_glob}/relations`, {
-      params: {
-        full: full
-      }
-    })
-    return response.data;
-  } catch (error) {
-    console.error(error)
-    return;
-  }
-}
-
 
 function get_simple_nodes(relations, include_unknown = false) {
   let pv_to_node = {};
@@ -402,26 +388,34 @@ export default {
       }
       return iocs;
     },
+    ...mapState({
+      pv_relations (state) {
+        return state.pv_relations;
+      },
+    }),
   },
   created() {
     this.init_group_filters();
   },
   async mounted() {
-    this.relations = await get_script_relations("*", this.full_relations);
-    if (!this.relations) {
-        return;
+    if (!Object.keys(this.pv_relations).length) {
+      console.log("Updating pv relations")
+      await this.$store.dispatch("get_pv_relations");
     }
     this.update_plot();
 
   },
   methods: {
     update_plot() {
+      if (!Object.keys(this.pv_relations).length) {
+        return;
+      }
       console.debug("Update plot", this.include_unknown, this.selected_ioc_list);
-      this.groups = groups_from_relations(this.relations, this.include_unknown);
+      this.groups = groups_from_relations(this.pv_relations, this.include_unknown);
       if (this.full_relations) {
-        this.node_info = get_all_nodes(this.relations, this.include_unknown);
+        this.node_info = get_all_nodes(this.pv_relations, this.include_unknown);
       } else {
-        this.node_info = get_simple_nodes(this.relations, this.include_unknown);
+        this.node_info = get_simple_nodes(this.pv_relations, this.include_unknown);
       }
       this.cy = replace_plot(this.node_info);
     },

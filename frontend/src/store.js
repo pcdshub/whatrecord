@@ -6,15 +6,16 @@ const axios = require('axios').default;
 export const store = createStore({
   state: () => (
     {
-      record_glob: "*",
       glob_to_pvs: {},
-      record_info: {},
-      plugin_info: {},
       ioc_info: [],
-      selected_records: [],
       ioc_to_records: {},
-      query_in_progress: false,
+      plugin_info: {},
+      pv_relations: {},
       queries_in_progress: 0,
+      query_in_progress: false,
+      record_glob: "*",
+      record_info: {},
+      selected_records: [],
     }
   ),
   mutations: {
@@ -51,6 +52,9 @@ export const store = createStore({
     },
     set_ioc_records (state, {ioc_name, records}) {
       state.ioc_to_records[ioc_name] = records;
+    },
+    set_pv_relations (state, { data }) {
+      state.pv_relations = data;
     },
   },
   actions: {
@@ -109,6 +113,26 @@ export const store = createStore({
         await commit("set_ioc_records", {ioc_name: ioc_name, records: records});
       } catch (error) {
         console.error(error);
+      } finally {
+        await commit("end_query");
+      }
+    },
+
+    async get_pv_relations({ commit }) {
+      const full = false;
+      const pv_glob = "*";
+
+      try {
+        await commit("start_query");
+        const response = await axios.get(`/api/pv/${pv_glob}/relations`, {
+          params: {
+            full: full
+          }
+        })
+        await commit("set_pv_relations", { data: response.data });
+        return response.data;
+      } catch (error) {
+        console.error(error)
       } finally {
         await commit("end_query");
       }
