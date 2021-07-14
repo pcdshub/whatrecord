@@ -383,11 +383,11 @@ class ShellState:
             macro_context=macro_context,
         )
 
-        for addpath in dbd.addpaths:
+        for addpath in self.database_definition.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((dbd.parent / path).resolve())
 
-        self.aliases.update(dbd.aliases)
+        self.aliases.update(self.database_definition.aliases)
 
         return {"result": f"Loaded database: {fn}"}
 
@@ -434,19 +434,23 @@ class ShellState:
             if name not in self.database:
                 self.database[name] = rec
                 rec.context = context + rec.context
+                rec.owner = self.ioc_info.name
             else:
                 entry = self.database[name]
                 entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
+                # entry.owner = self.ioc_info.name ?
 
         for name, rec in linter_results.pva_groups.items():
             if name not in self.pva_database:
                 self.pva_database[name] = rec
                 rec.context = context + rec.context
+                rec.owner = self.ioc_info.name
             else:
                 entry = self.database[name]
                 entry.context = entry.context + rec.context
                 entry.fields.update(rec.fields)
+                # entry.owner = self.ioc_info.name ?
 
         self.aliases.update(db.aliases)
         for addpath in db.addpaths:
@@ -680,7 +684,7 @@ class ScriptContainer:
         for stcmd, loaded in self.scripts.items():
             info = whatrec(loaded.shell_state, rec, field, include_pva=include_pva)
             if info is not None:
-                info.owner = str(stcmd)
+                info.owner = loaded.metadata.name
                 info.ioc = loaded.metadata
                 for inst in info.instances:
                     if file is not None:

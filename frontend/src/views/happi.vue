@@ -158,7 +158,9 @@ export default {
     this.init_filters();
   },
   mounted() {
-    this.$store.dispatch("update_plugin_info");
+    if (!this.happi_items.length) {
+        this.$store.dispatch("update_plugin_info");
+    }
   },
   methods: {
     init_filters() {

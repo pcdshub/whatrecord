@@ -1,6 +1,5 @@
 import asyncio
 import collections
-import dataclasses
 import fnmatch
 import functools
 import json
@@ -8,22 +7,31 @@ import logging
 import re
 import sys
 import tempfile
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import apischema
 import graphviz
 from aiohttp import web
 
-from .. import common, gateway, graph, ioc_finder, settings, util
-from ..common import LoadContext, RecordInstance, WhatRecord, dataclass
+from .. import common, gateway, graph, ioc_finder, settings
+from ..common import LoadContext, RecordInstance, WhatRecord
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
+from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
+                     PVGetInfo, PVGetMatchesResponse, PVRelationshipResponse,
+                     PVShortRelationshipResponse, ServerPluginSpec,
+                     TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
 
 logger = logging.getLogger(__name__)
 _log_handler = None
+
+
+def serialized_response(obj: Any) -> web.Response:
+    """Return an apischema-serialized JSON response of a dataclass instance."""
+    return web.json_response(apischema.serialize(obj))
 
 
 class ServerLogHandler(logging.Handler):
@@ -38,42 +46,6 @@ class ServerLogHandler(logging.Handler):
 
     def emit(self, record):
         self.messages.append(self.format(record))
-
-
-@dataclasses.dataclass
-class ServerPluginSpec:
-    name: str
-    #: Python module
-    module: Optional[str] = None
-    #: Or any executable
-    executable: Optional[List[str]] = None
-    #: Can be a dataclass or a builtin type
-    # result_class: type
-    files_to_monitor: List[str] = dataclasses.field(default_factory=list)
-    results: Any = None
-
-    async def update(self):
-        if self.executable:
-            script = " ".join(f'"{param}"' for param in self.executable)
-        elif self.module:
-            script = f'"{sys.executable}" -m {self.module}'
-        else:
-            raise ValueError("module and executable both unset")
-
-        results = await util.run_script_with_json_output(script)
-        results = results or {}
-        files_to_monitor = results.get("files_to_monitor", None)
-        if files_to_monitor:
-            self.files_to_monitor = files_to_monitor
-        if "record_to_metadata" not in results:
-            raise ValueError(f"Invalid plugin output: {results}")
-
-        self.results = results
-        return results
-
-
-class TooManyRecordsError(Exception):
-    ...
 
 
 def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
@@ -138,7 +110,7 @@ class ServerState:
                 if not item.script or not item.script.exists():
                     if not first_load:
                         # Don't attempt another load unless the file exists
-                        updated.pop(item)
+                        updated.remove(item)
 
             if not updated:
                 logger.info("No changes found.")
@@ -165,7 +137,8 @@ class ServerState:
 
             with common.time_context() as ctx:
                 self.script_relations = graph.build_script_relations(
-                    self.container.database, self.pv_relations
+                    self.container.database,
+                    self.container.pv_relations
                 )
                 logger.info("Updated script relations in %.1f s", ctx())
 
@@ -289,6 +262,38 @@ class ServerState:
         )
         return digraph
 
+    def get_ioc_to_pvs(self, pv_names: Tuple[str]) -> Dict[str, List[str]]:
+        ioc_to_pvs = {}
+        for pv in pv_names:
+            try:
+                owner = self.container.database[pv].owner or "unknown"
+            except KeyError:
+                owner = "unknown"
+
+            if owner not in ioc_to_pvs:
+                ioc_to_pvs[owner] = []
+            ioc_to_pvs[owner].append(pv)
+        return ioc_to_pvs
+
+    def get_pv_relations(
+        self,
+        pv_names: Tuple[str],
+        *,
+        full: bool = False,
+    ) -> Union[PVRelationshipResponse, PVShortRelationshipResponse]:
+        # TODO: pv_names
+        if full:
+            return PVRelationshipResponse(
+                pv_relations=self.container.pv_relations,
+                script_relations=self.script_relations,
+                ioc_to_pvs=self.get_ioc_to_pvs(tuple(self.container.pv_relations))
+            )
+        return PVShortRelationshipResponse.from_pv_relations(
+            pv_relations=self.container.pv_relations,
+            script_relations=self.script_relations,
+            ioc_to_pvs=self.get_ioc_to_pvs(tuple(self.container.pv_relations))
+        )
+
     def get_link_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
         if len(pv_names) > settings.MAX_RECORDS:
             raise TooManyRecordsError()
@@ -300,13 +305,9 @@ class ServerState:
             starting_records=pv_names,
             sort_fields=True,
             font_name="Courier",
-            relations=self.pv_relations,
+            relations=self.container.pv_relations,
         )
         return digraph
-
-    @property
-    def pv_relations(self):
-        return self.container.pv_relations
 
     def clear_cache(self):
         for method in [
@@ -376,54 +377,6 @@ class ServerState:
             return fp.read()
 
 
-@dataclass
-class PVGetInfo:
-    pv_name: str
-    present: bool
-    info: List[WhatRecord]
-
-    _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-{{ pv_name }}:
-    In database: {{ present }}
-{% for _info in info %}
-{% set item_info = render_object(_info, "console") %}
-    {{ item_info | indent(4)}}
-{% endfor %}
-}
-""",
-    }
-
-
-@dataclass
-class PVGetMatchesResponse:
-    glob: str
-    matches: List[str]
-
-
-@dataclass
-class IocGetMatchesResponse:
-    glob: str
-    matches: List[common.IocMetadata]
-
-
-AnyRecordInstance = Union[common.RecordInstanceSummary, common.RecordInstance]
-
-
-@dataclass
-class IocGetMatchingRecordsResponse:
-    ioc_glob: str
-    pv_glob: str
-    # TODO: ew, redo this
-    matches: List[Tuple[common.IocMetadata, List[AnyRecordInstance]]]
-
-
-@dataclass
-class FileLine:
-    lineno: int
-    line: str
-
-
 class ServerHandler:
     routes = web.RouteTableDef()
 
@@ -437,8 +390,8 @@ class ServerHandler:
     async def api_pv_get_info(self, request: web.Request):
         pv_names = request.match_info.get("pv_names", "").split("|")
         info = {pv_name: self.state.whatrec(pv_name) for pv_name in pv_names}
-        return web.json_response(
-            apischema.serialize({
+        return serialized_response(
+            {
                 pv_name: PVGetInfo(
                     pv_name=pv_name,
                     present=(pv_name in self.state.database or
@@ -446,7 +399,7 @@ class ServerHandler:
                     info=[obj for obj in info[pv_name]],
                 )
                 for pv_name in pv_names
-            })
+            }
         )
 
     @routes.get("/api/pv/{glob_str}/matches")
@@ -457,12 +410,10 @@ class ServerHandler:
         if max_matches > 0:
             matches = matches[:max_matches]
 
-        return web.json_response(
-            apischema.serialize(
-                PVGetMatchesResponse(
-                    glob=glob_str,
-                    matches=matches,
-                )
+        return serialized_response(
+            PVGetMatchesResponse(
+                glob=glob_str,
+                matches=matches,
             )
         )
 
@@ -475,12 +426,10 @@ class ServerHandler:
             loaded_ioc.metadata
             for loaded_ioc in self.state.get_matching_iocs(glob_str)
         ]
-        return web.json_response(
-            apischema.serialize(
-                IocGetMatchesResponse(
-                    glob=glob_str,
-                    matches=match_metadata,
-                )
+        return serialized_response(
+            IocGetMatchesResponse(
+                glob=glob_str,
+                matches=match_metadata,
             )
         )
 
@@ -506,9 +455,7 @@ class ServerHandler:
             if record_matches:
                 response.matches.append((loaded_ioc.metadata, record_matches))
 
-        return web.json_response(
-            apischema.serialize(response)
-        )
+        return serialized_response(response)
 
     # @routes.get("/api/graphql/query")
     # async def api_graphql_query(self, request: web.Request):
@@ -535,11 +482,11 @@ class ServerHandler:
             except KeyError as ex:
                 raise web.HTTPBadRequest() from ex
 
-        return web.json_response(
-            apischema.serialize({
+        return serialized_response(
+            {
                 "script": script_info,
                 "ioc": ioc_md,
-            })
+            }
         )
 
     async def get_graph(self, pv_names: List[str], use_glob: bool = False,
@@ -585,6 +532,19 @@ class ServerHandler:
     async def api_logs_get(self, request: web.Request):
         return web.json_response(
             list(_log_handler.messages)
+        )
+
+    @routes.get("/api/pv/{pv_names}/relations")
+    async def api_pv_get_relations(self, request: web.Request):
+        pv_names = request.match_info.get("pv_names", "")
+        use_glob = request.query.get("glob", "false") in TRUE_VALUES
+        if "*" in pv_names or use_glob:
+            pv_names = self.state.get_matching_pvs(pv_names)
+        else:
+            pv_names = pv_names.split("|")
+        full = request.query.get("full", "false") in TRUE_VALUES
+        return serialized_response(
+            self.state.get_pv_relations(pv_names=pv_names, full=full)
         )
 
     @routes.get("/api/pv/{pv_names}/graph/{format}")

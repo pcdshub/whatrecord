@@ -1,5 +1,5 @@
 """
-"whatrec server" is used to start an aiohttp-backed web server which hosts
+"whatrecord server" is used to start an aiohttp-backed web server which hosts
 startup script and record information.
 """
 

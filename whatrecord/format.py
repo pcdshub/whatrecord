@@ -17,9 +17,12 @@ pass_eval_context = (
 
 class FormatContext:
     def __init__(
-        self, helpers=None, *, trim_blocks=True, lstrip_blocks=True, **env_kwargs
+        self, helpers=None, *, trim_blocks=True, lstrip_blocks=True,
+        default_options="console",
+        **env_kwargs
     ):
         self.helpers = helpers or [self.render_object, type, locals]
+        self.default_options = default_options
         self._template_dict = {}
         self.env = jinja2.Environment(
             loader=jinja2.DictLoader(self._template_dict),
@@ -81,9 +84,11 @@ class FormatContext:
 
         return str(obj)
 
-    def render_object(self, _obj, _option, **context):
+    def render_object(self, _obj, _option=None, **context):
         # TODO: want this to be positional-only; fallback here for pypi
         obj, option = _obj, _option
+        if option is None:
+            option = self.default_options
 
         if dataclasses.is_dataclass(obj):
             for field in dataclasses.fields(obj):

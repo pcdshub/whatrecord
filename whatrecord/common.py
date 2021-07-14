@@ -96,6 +96,26 @@ class IocshResult:
             line=line,
         )
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """
+{%- for ctx in context -%}
+    {{ctx.line}}:
+{%- endfor %} {{ line }}
+{% if error %}
+    ** ERROR on line {% if context %}{{ context[0].line }}{% endif %} **
+    {{ error | indent(4) }}
+{% endif %}
+{% if outputs != [line] %}
+{% for output in outputs %}
+    -SH> {{ output | indent(6) }}
+{% endfor %}
+{% endif %}
+{% for redirect in redirects %}
+    -> Redirect: {{ redirect }}
+{%- endfor %}
+""".strip(),
+    }
+
 
 @dataclass
 class IocshScript:
@@ -449,6 +469,11 @@ PVRelations = Dict[
 ]
 
 
+ScriptPVRelations = Dict[
+    str, Dict[str, List[str]]
+]
+
+
 def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
     if isinstance(link_str, dict):
@@ -499,6 +524,7 @@ class RecordInstanceSummary:
     aliases: List[str] = field(default_factory=list)
     # is_grecord: bool = False
     is_pva: bool = False
+    owner: str = ""
 
     @classmethod
     def from_record_instance(self, instance: RecordInstance) -> RecordInstanceSummary:
@@ -510,6 +536,7 @@ class RecordInstanceSummary:
             metadata=instance.metadata,
             aliases=instance.aliases,
             is_pva=instance.is_pva,
+            owner=instance.owner,
         )
 
 
@@ -555,9 +582,16 @@ class RecordInstance:
     is_grecord: bool = False
     is_pva: bool = False
 
+    # For the convenience of downstream clients, redundantly keep track of the
+    # associated IOC:
+    owner: str = ""
+
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """\
 record("{{record_type}}", "{{name}}") {
+{% if owner %}
+    # Part of {{ owner }}
+{% endif %}
 {% for ctx in context %}
     # {{ctx}}
 {% endfor %}

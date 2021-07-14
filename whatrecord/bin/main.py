@@ -16,7 +16,7 @@ import whatrecord  # noqa
 DESCRIPTION = __doc__
 RETURN_VALUE = None
 
-MODULES = ("server", "iocmanager_loader", "info", "parse")
+MODULES = ("server", "iocmanager_loader", "info", "lint", "parse")
 
 
 def _try_import(module):
