@@ -18,19 +18,22 @@ recordtype({record_type}) {{
 """
 
 
-def create_record(record_type, record_name, fields, filename="filename"):
+def create_record(record_type, record_name, fields, filename=None):
+    filename = filename or f"{record_name}.db"
     field_source = "\n".join(
         f'field({field_name}, "{field_value}")'
         for field_name, field_value in fields.items()
     )
-    db = Database.from_string(
-        create_record_def(record_type) + f"""
+    db_source = create_record_def(record_type) + f"""
 record({record_type}, "{record_name}") {{
     {field_source}
 }}
-        """,
-        filename=filename,
-    )
+"""
+    print(f"---- {filename}:")
+    for lineno, line in enumerate(db_source.splitlines(), 1):
+        print(lineno, line)
+
+    db = Database.from_string(db_source, filename=filename)
     return db.records[record_name]
 
 
@@ -40,6 +43,7 @@ def test_simple_graph():
         "record_b": create_record("ao", "record_b", {"OUT": "record_c CA", "VAL": "20"}),
     }
     relations = graph.build_database_relations(database)
+    print(database["record_a"])
     assert relations["record_a"]["record_b"] == [
         (
             database["record_a"].fields["INP"],
@@ -71,7 +75,7 @@ def dbd():
     return Database.from_string(
         "\n".join((
             create_record_def(rec_type)
-            for rec_type in {"ai", "ao"}
+            for rec_type in ["ai", "ao"]
         )),
         filename="the.dbd",
     )
