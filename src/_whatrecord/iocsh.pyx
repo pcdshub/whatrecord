@@ -52,7 +52,7 @@ cpdef split_words(
     # or free required here.
     cdef char *line = input_line_bytes
 
-    while idx < len(input_line_bytes):
+    while idx < len(input_line_bytes) - 1:
         c = line[idx]
         sep = (quote == EOF and not backslash and c in ifs)
         idx += 1
