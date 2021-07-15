@@ -36,7 +36,7 @@ class ServerPluginSpec:
     # result_class: type
     files_to_monitor: List[str] = field(default_factory=list)
     results: Optional[PluginResults] = None
-    results_json: Optional[Any] = None
+    results_json: Any = None
 
     async def update(self):
         """Call the plugin and get new information, storing it in results."""
