@@ -15,6 +15,7 @@ requirements:
       - python >=3.7
       - setuptools
       - epicscorelibs
+      - setuptools_dso
       - cython
     run:
       - python >=3.7
