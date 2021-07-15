@@ -62,11 +62,6 @@
           />
         </template>
     </AccordionTab>
-    <AccordionTab header="Inter-IOC Links">
-      <a :href="script_graph_link" target="_blank">
-        <img class="svg-graph" :src="script_graph_link" />
-      </a>
-    </AccordionTab>
     <AccordionTab header="Gateway" :disabled="instance_v3 == null">
       <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches.length > 0">
         Matching gateway rules:
