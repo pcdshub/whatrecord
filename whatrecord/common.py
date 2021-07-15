@@ -11,6 +11,8 @@ from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import apischema
 
+from _whatrecord.common import IocshRedirect
+
 if typing.TYPE_CHECKING:
     from .db import LinterResults
     from .shell import ShellState
@@ -61,20 +63,6 @@ class IocshCmdArgs:
     """iocshCmd(...) arguments."""
     context: FullLoadContext
     command: str
-
-
-@dataclass
-class IocshRedirect:
-    fileno: int
-    name: str
-    mode: str
-
-
-@dataclass
-class IocshSplit:
-    argv: List[str]
-    redirects: List[IocshRedirect]
-    error: Optional[str]
 
 
 @dataclass

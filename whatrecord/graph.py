@@ -227,7 +227,7 @@ def build_database_relations(
             # TODO: copied without thinking about implications
             # due to the removal of st.cmd context as an attempt to reduce
             field1 = copy.deepcopy(field1)
-            field1.context = rec1.context[:1] + field1.context
+            # field1.context = rec1.context[:1] + field1.context
 
             if "." in link:
                 link, field2 = link.split(".")
@@ -260,7 +260,7 @@ def build_database_relations(
                 rec2_name = rec2.name
                 # TODO: copied without thinking about implications
                 field2 = copy.deepcopy(rec2.fields[field2])
-                field2.context = rec2.context[:1] + field2.context
+                # field2.context = rec2.context[:1] + field2.context
             elif record_types:
                 rec2_name = rec2.name
                 dbd_record_type = record_types.get(rec2.record_type, None)

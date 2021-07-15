@@ -1,6 +1,6 @@
 <template>
-  <div id="contents">
-    <div id="left" class="column">
+  <div id="iocs-contents">
+    <div id="iocs-left" class="column">
       <DataTable id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
           selectionMode="multiple" @rowSelect="new_ioc_selection"
           :paginator="true" :rows="300" v-model:filters="ioc_filters"
@@ -27,7 +27,7 @@
         <!-- <Column field="script" header="Script"/> -->
       </DataTable>
     </div>
-    <div id="right" class="column">
+    <div id="iocs-right" class="column">
       <DataTable :value="record_list" dataKey="record.name"
           :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
           :globalFilterFields="['record.name', 'record.record_type']">
@@ -211,30 +211,30 @@ export default {
 </script>
 
 <style scoped>
-#contents {
-  flex-direction: column;
+#iocs-contents {
+  flex-direction: row;
   justify-content: flex-start;
   display: flex;
-  overflow: scroll;
+  flex-wrap: nowrap;
   height: 97vh;
 }
 
 .column {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-shrink: 0;
   justify-content: flex-start;
-  overflow: scroll;
-  height: 97vh;
+  overflow-y: scroll;
 }
 
-#left {
+#iocs-left {
   min-width: 15vw;
   max-width: 20vw;
 }
 
-#right {
+#iocs-right {
   margin: 1em;
-  min-width: 50%;
+  justify-content: stretch;
+  max-width: 78vw;
 }
 </style>

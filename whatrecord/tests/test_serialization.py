@@ -37,6 +37,8 @@ def find_whatrecord_submodules() -> Dict[str, ModuleType]:
     modules = {}
     package_root = str(MODULE_PATH.parent)
     for item in pkgutil.walk_packages(path=[package_root], prefix="whatrecord."):
+        if item.name.endswith("__main__"):
+            continue
         try:
             modules[item.name] = sys.modules[item.name]
         except KeyError:

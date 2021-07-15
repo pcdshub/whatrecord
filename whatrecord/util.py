@@ -198,6 +198,6 @@ def find_binary_from_hashbang(
 
     if first_line.startswith("#!"):
         parent_dir = pathlib.Path(startup_script).parent
-        binary = parent_dir / first_line.lstrip("#!")
+        binary = parent_dir / first_line.lstrip("#!").strip()
         if not must_exist or binary.exists():
             return str(binary.resolve())

@@ -1,19 +1,13 @@
 <template>
-  <div id="search-contents">
-    <div id="search">
-      <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
-        <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
-        &nbsp;
-        <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
-      </form>
-    </div>
-    <div id="table">
-      <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
-          @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
-        <Column field="pv" :header="`Results (${this.displayed_info.glob})`"></Column>
-      </DataTable>
-    </div>
-  </div>
+  <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
+    <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
+    &nbsp;
+    <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
+  </form>
+  <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
+      @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
+    <Column field="pv" :header="`Results (${this.displayed_info.glob})`"></Column>
+  </DataTable>
 </template>
 
 <script>
@@ -111,30 +105,4 @@ export default {
 </script>
 
 <style>
-/* TODO I messed up something here; figure it out */
-.p-datatable-tbody {
-    font-family: monospace;
-    font-size: 0.9em;
-}
-
-#search-contents {
-  display: flex;
-  flex-direction: column;
-  flex-flow: column wrap;
-  justify-content: flex-start;
-  overflow: scroll;
-}
-
-#search {
-  order: 1;
-  align-items: flex-start;
-  width: 100%;
-}
-
-#table {
-  order: 2;
-  align-items: flex-start;
-  width: 100%;
-}
-
 </style>

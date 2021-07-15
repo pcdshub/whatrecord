@@ -4,6 +4,7 @@ file, dumping the resulting ``ShellState`` or ``Database``.
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import pathlib
@@ -53,6 +54,12 @@ def build_arg_parser(parser=None):
         action="store_true",
     )
 
+    parser.add_argument(
+        '--use-gdb',
+        action="store_true",
+        help="Use metadata derived from the script binary",
+    )
+
     return parser
 
 
@@ -61,6 +68,7 @@ def parse(
     dbd: Optional[str] = None,
     standin_directories: Optional[Dict[str, str]] = None,
     macros: Optional[str] = None,
+    use_gdb: bool = False,
 ) -> Union[Database, LoadedIoc]:
     """
     Generically parse either a startup script or a database file.
@@ -89,12 +97,18 @@ def parse(
         if filename.suffix == ".dbd" or not dbd:
             return Database.from_file(filename, macro_context=macro_context)
         return load_database_file(dbd=dbd, db=filename, macro_context=macro_context)
-    return LoadedIoc.from_metadata(
-        IocMetadata.from_filename(
-            filename,
-            standin_directories=standin_directories
-        )
+    md = IocMetadata.from_filename(
+        filename,
+        standin_directories=standin_directories,
+
     )
+    if use_gdb:
+        try:
+            asyncio.run(md.get_binary_information())
+        except KeyboardInterrupt:
+            logger.info("Skipping gdb information...")
+
+    return LoadedIoc.from_metadata(md)
 
 
 def parse_from_cli_args(
@@ -102,6 +116,7 @@ def parse_from_cli_args(
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
+    use_gdb: bool = False,
 ) -> Union[Database, LoadedIoc]:
     standin_directories = dict(
         path.split("=", 1) for path in standin_directory or ""
@@ -110,7 +125,7 @@ def parse_from_cli_args(
     if isinstance(filename, str) and filename.startswith("{"):   # }
         # TODO - argparse fixup?
         ioc_metadata = IocMetadata.from_dict(json.loads(filename))
-        # TODO macros
+        # TODO macros, use_gdb, ...
         # ioc_metadata.macros = macros
         return LoadedIoc.from_metadata(
             ioc_metadata
@@ -121,6 +136,7 @@ def parse_from_cli_args(
         dbd=dbd,
         standin_directories=standin_directories,
         macros=macros,
+        use_gdb=use_gdb,
     )
 
 
@@ -130,12 +146,14 @@ def main(
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
     as_json: bool = False,
+    use_gdb: bool = False,
 ):
     result = parse_from_cli_args(
         filename=filename,
         dbd=dbd,
         standin_directory=standin_directory,
         macros=macros,
+        use_gdb=use_gdb,
     )
 
     if as_json:

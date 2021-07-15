@@ -1,6 +1,6 @@
 <template>
   <div id="contents">
-    <div id="left">
+    <div id="left" class="column">
       <Searchbar :route_record_glob="search_record_glob" :route_selected_records="search_selected_records" />
     </div>
     <div id="right" class="column">
@@ -72,7 +72,7 @@ export default {
   justify-content: flex-start;
   display: flex;
   overflow: scroll;
-  height: 97vh;
+  height: 95vh;
 }
 
 .column {

@@ -73,12 +73,12 @@ def get_extensions():
     extensions = [
         Extension(
             "_whatrecord.iocsh",
-            ["whatrecord/_whatrecord/iocsh.pyx"],
+            ["src/_whatrecord/iocsh.pyx"],
             **ext_options
         ),
         Extension(
             "_whatrecord.macro",
-            ["whatrecord/_whatrecord/macro.pyx"],
+            ["src/_whatrecord/macro.pyx"],
             **ext_options,
         ),
     ]
@@ -104,7 +104,7 @@ setup(
     name="whatrecord",
     cmdclass=versioneer.get_cmdclass(),
     version=versioneer.get_version(),
-    packages=find_packages(),
+    packages=find_packages('.') + find_packages('src'),
     author="SLAC National Accelerator Laboratory",
     description="EPICS IOC record search and meta information tool",
     ext_modules=get_extensions() if epicscorelibs is not None else [],
@@ -119,7 +119,7 @@ setup(
         ]
     },
     package_dir={
-        "_whatrecord": "whatrecord/_whatrecord",
+        "_whatrecord": "src/_whatrecord",
         "whatrecord": "whatrecord",
     },
     classifiers=[

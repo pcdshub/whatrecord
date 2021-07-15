@@ -19,7 +19,7 @@ API_PORT ?= 8898
 MACOSX_DEPLOYMENT_TARGET ?= 10.9
 
 install:
-	MACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET) pip install  .
+	MACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET) pip install . --use-feature=in-tree-build
 
 frontend-release:
 	# npm install -g vue@next @vue/cli
