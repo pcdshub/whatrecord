@@ -22,6 +22,7 @@ requirements:
       - aiohttp
       - cython
       - epicscorelibs
+      - setuptools_dso
       - graphviz
       - python-graphviz
       - jinja2
