@@ -4,17 +4,36 @@
     <dictionary-table
       :dict="happi_item_info"
       :cls="'metadata'"
-      :skip_keys="[]"
+      :skip_keys="['_whatrecord']"
       />
 
     <h2>{{ item_name }} - Related Records</h2>
-    <ol>
-      <template v-for="record in happi_item_related_records" :key="record">
-        <li>
-          <router-link :to="`/whatrec/${record}/${record}`">{{record}}</router-link>
-        </li>
-      </template>
-    </ol>
+    <template v-if="Object.keys(kind_to_related_records).length > 0">
+      <table id="related_records">
+        <thead>
+          <th>PV</th>
+          <th>Attribute</th>
+          <th>Kind</th>
+        </thead>
+        <tbody>
+          <template v-for="[kind, records] in Object.entries(kind_to_related_records)" :key="kind">
+            <tr v-for="rec in records" :key="rec.name">
+              <td class="pv">
+                <router-link :to="`/whatrec/${rec.name}/${rec.name}`">
+                  {{rec.name}}
+                </router-link>
+              </td>
+              <td class="pv">
+                {{ rec.signal }}
+              </td>
+              <td class="pv">
+                {{ kind.replaceAll("Kind.", "") }}
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </template>
   </template>
   <template v-else>
     <DataTable
@@ -112,32 +131,38 @@ export default {
     }
   },
   computed: {
-    happi_item_related_records () {
-      if (!this.item_name || !this.happi_info_ready) {
-        return [];
-      }
-      let records = this.item_to_records[this.item_name] || [];
-      return records.sort();
-    },
-    item_to_records () {
-      if (!this.happi_info_ready) {
-        return {};
-      }
-      return this.happi_info.metadata.item_to_records;
-    },
     happi_item_info () {
       if (!this.item_name || !this.happi_items || !this.happi_info_ready) {
         return {
-          "error": "Unknown item name",
+          "error": "",
+          "_whatrecord": {"records": []},
         };
       }
-      return this.happi_info.metadata.item_to_metadata[this.item_name];
+      return this.happi_info.metadata_by_key[this.item_name];
+    },
+    kind_to_related_records() {
+      const info = this.happi_item_info;
+      if (!info) {
+        return {};
+      }
+      console.log("info", info);
+      let result = {
+        "Kind.hinted": [],
+        "Kind.normal": [],
+      };
+      for (const rec of info._whatrecord.records) {
+        if (rec.kind in result === false) {
+          result[rec.kind] = [];
+        }
+        result[rec.kind].push(rec);
+      }
+      return result;
     },
     happi_items () {
       if (Object.keys(this.happi_info).length == 0) {
         return [];
       }
-      return Object.values(this.happi_info.metadata.item_to_metadata);
+      return Object.values(this.happi_info.metadata_by_key);
     },
 
     global_filter_fields () {
@@ -147,7 +172,6 @@ export default {
       }
       return fields;
     },
-
     ...mapState({
       happi_info_ready (state) {
         return Object.keys(state.plugin_info).length > 0;
@@ -157,7 +181,7 @@ export default {
           return {};
         }
         const happi_info = state.plugin_info.happi || {
-            metadata: {item_to_metadata: [], item_name_to_records: []}
+            metadata_by_key: {},
           };
         return happi_info;
       },
@@ -219,5 +243,33 @@ export default {
 
 .tooltip:hover .tooltiptext {
   visibility: visible;
+}
+
+#related_records {
+  border-collapse: collapse;
+}
+
+#related_records td, #related_records th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#related_records tr:nth-child(even){
+  background-color: #f2f2f2;
+}
+
+#related_records tr:hover {
+  background-color: #ddd;
+}
+
+#related_records th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: center;
+  border: 1px solid;
+}
+
+#related_records td {
+  font-family: monospace;
 }
 </style>

@@ -6,7 +6,12 @@ import json
 import logging
 import re
 import tempfile
-import tracemalloc
+
+try:
+    import tracemalloc
+except ImportError:
+    # tracemalloc unavailable on pypy
+    tracemalloc = None
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import apischema
@@ -18,9 +23,9 @@ from ..common import LoadContext, RecordInstance, WhatRecord
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
-                     PVGetInfo, PVGetMatchesResponse, PVRelationshipResponse,
-                     PVShortRelationshipResponse, ServerPluginSpec,
-                     TooManyRecordsError)
+                     PluginResults, PVGetInfo, PVGetMatchesResponse,
+                     PVRelationshipResponse, PVShortRelationshipResponse,
+                     ServerPluginSpec, TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
@@ -61,7 +66,7 @@ class ServerState:
     archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
-    plugin_data: Dict[str, Any]
+    plugin_data: Dict[str, Optional[PluginResults]]
 
     def __init__(
         self,
@@ -152,7 +157,7 @@ class ServerState:
             logger.info("Updating plugin: %s", plugin.name)
             with common.time_context() as ctx:
                 try:
-                    info = await plugin.update()
+                    _ = await plugin.update()
                 except Exception:
                     logger.exception(
                         "Failed to update plugin %r [%.1f s]",
@@ -165,13 +170,12 @@ class ServerState:
                         plugin.name, ctx()
                     )
 
-            for record, md in info["record_to_metadata"].items():
-                ...
-                # TODO update to not require annotation?
+            # for record, md in info["record_to_metadata"].items():
+            #     ...
 
     def get_plugin_info(self) -> Dict[str, Any]:
         return {
-            plugin.name: plugin.results
+            plugin.name: plugin.results_json
             for plugin in self.plugins
             if plugin.results
         }
@@ -217,11 +221,12 @@ class ServerState:
                 if not plugin.results:
                     continue
 
-                instance_md = plugin.results["record_to_metadata"].get(
-                    instance.name, None
-                )
-                if instance_md is not None:
-                    instance.metadata[plugin.name] = instance_md
+                for md_key in plugin.results.record_to_metadata_keys.get(
+                    instance.name, []
+                ):
+                    plugin_md = plugin.results.metadata_by_key[md_key]
+                    plugin_matches = instance.metadata.setdefault(plugin.name, [])
+                    plugin_matches.append(plugin_md)
 
         return whatrec
 
@@ -464,7 +469,7 @@ class ServerHandler:
 
     @routes.get("/api/plugin/info")
     async def api_plugin_info(self, request: web.Request):
-        return web.json_response(self.state.get_plugin_info())
+        return serialized_response(self.state.get_plugin_info())
 
     @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):
@@ -599,7 +604,7 @@ def main(
     standin_directory: Optional[Union[List, Dict]] = None,
     use_tracemalloc: bool = False,
 ):
-    if use_tracemalloc:
+    if use_tracemalloc and tracemalloc is not None:
         tracemalloc.start()
 
     scripts = scripts or []
@@ -637,7 +642,7 @@ def main(
     except KeyboardInterrupt:
         ...
 
-    if use_tracemalloc:
+    if use_tracemalloc and tracemalloc is not None:
         global tracemalloc_snapshot
         tracemalloc_snapshot = tracemalloc.take_snapshot()
 

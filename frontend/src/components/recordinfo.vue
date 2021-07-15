@@ -1,3 +1,5 @@
+ /* eslint-disable */
+
 <template>
   <h3> {{ whatrec.name }} </h3>
   <!-- Available in {{ available_protocols }} -->
@@ -17,7 +19,7 @@
       />
 
       <template v-for="plugin_name in plugins" :key="plugin_name">
-        <template v-for="plugin_match in instance.metadata[plugin_name] || []" :key="plugin_match.name">
+        <template v-for="plugin_match in instance.metadata[plugin_name] || []" :key="plugin_match">
           <details>
             <summary>
               {{ plugin_name }} - {{ plugin_match.name }}
@@ -28,7 +30,7 @@
             <dictionary-table
               :dict="plugin_match"
               :cls="'metadata'"
-              :skip_keys="[]"
+              :skip_keys="['_whatrecord']"
               />
           </details>
           <br />

@@ -4,6 +4,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
+import apischema
+
 from .. import util
 from ..common import (IocMetadata, PVRelations, RecordInstance,
                       RecordInstanceSummary, ScriptPVRelations, WhatRecord)
@@ -11,6 +13,16 @@ from ..common import (IocMetadata, PVRelations, RecordInstance,
 
 class TooManyRecordsError(Exception):
     ...
+
+
+@dataclass
+class PluginResults:
+    files_to_monitor: Dict[str, str]
+    record_to_metadata_keys: Dict[str, List[str]]
+    metadata_by_key: Dict[str, Any]
+    metadata: Any
+    execution_info: Dict[str, Any]
+    # defines records? defines IOCs?
 
 
 @dataclass
@@ -23,9 +35,11 @@ class ServerPluginSpec:
     #: Can be a dataclass or a builtin type
     # result_class: type
     files_to_monitor: List[str] = field(default_factory=list)
-    results: Any = None
+    results: Optional[PluginResults] = None
+    results_json: Any = None
 
     async def update(self):
+        """Call the plugin and get new information, storing it in results."""
         if self.executable:
             script = " ".join(f'"{param}"' for param in self.executable)
         elif self.module:
@@ -33,16 +47,17 @@ class ServerPluginSpec:
         else:
             raise ValueError("module and executable both unset")
 
-        results = await util.run_script_with_json_output(script)
-        results = results or {}
-        files_to_monitor = results.get("files_to_monitor", None)
+        results_json = await util.run_script_with_json_output(script)
+        results_json = results_json or {}
+        files_to_monitor = results_json.get("files_to_monitor", None)
         if files_to_monitor:
             self.files_to_monitor = files_to_monitor
-        if "record_to_metadata" not in results:
-            raise ValueError(f"Invalid plugin output: {results}")
 
-        self.results = results
-        return results
+        self.results_json = results_json
+        self.results = apischema.deserialize(PluginResults, results_json)
+        if self.results:
+            self.files_to_monitor = self.results.files_to_monitor
+        return self.results
 
 
 @dataclass

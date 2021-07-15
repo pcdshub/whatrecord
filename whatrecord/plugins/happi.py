@@ -7,14 +7,20 @@ from __future__ import annotations
 
 import argparse
 import collections
-import dataclasses
+import contextlib
 import fnmatch
+import functools
 import json
 import logging
+import sys
 import typing
-from typing import Any, Dict, Generator, List, Tuple, TypeVar, Union
+from dataclasses import dataclass
+from typing import Dict, Generator, List, TypeVar, Union
 
 import apischema
+
+from ..server.common import PluginResults
+from ..util import get_file_sha256
 
 try:
     import happi
@@ -43,19 +49,17 @@ SIGNAL_CLASSES = (
 )
 
 
-@dataclasses.dataclass
-class PluginResults:
-    files_to_monitor: List[str]
-    metadata: Any
-    record_to_metadata: Dict[str, Any]
-    # defines records?
+@dataclass
+class HappiPluginResults(PluginResults):
+    # Could potentially further specify metadata_by_key or metadata
+    ...
 
 
-@dataclasses.dataclass
-class HappiPluginResults:
-    item_to_metadata: Dict[str, HappiItem]
-    record_to_item_name: Dict[str, List[str]]
-    item_to_records: Dict[str, List[str]]
+@dataclass
+class HappiRecordInfo:
+    name: str
+    kind: str
+    signal: str
 
 
 def get_all_devices(
@@ -238,7 +242,7 @@ def find_signals(
 
 def find_signal_metadata_pairs(
     criteria: CriteriaDict,
-) -> Generator[Tuple[str, EpicsSignalBase], None, None]:
+) -> Generator[tuple[str, EpicsSignalBase], None, None]:
     """
     Find all signal metadata that match the given criteria.
     """
@@ -311,20 +315,62 @@ def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):
     return parser
 
 
+@contextlib.contextmanager
+def suppress_output():
+    class OutputBuffer:
+        def __init__(self):
+            self.buffer = []
+
+        def write(self, buf):
+            self.buffer.append(buf)
+
+        def flush(self):
+            ...
+
+    replacement_stderr = OutputBuffer()
+    sys.stderr = replacement_stderr
+
+    replacement_stdout = OutputBuffer()
+    sys.stdout = replacement_stdout
+
+    try:
+        yield replacement_stdout, replacement_stderr
+    finally:
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+
+
+def suppress_output_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with suppress_output() as (buffered_stdout, buffered_stderr):
+            results = func(*args, **kwargs)
+            results.execution_info["stdout"] = "\n".join(buffered_stdout.buffer)
+            results.execution_info["stderr"] = "\n".join(buffered_stderr.buffer)
+            return results
+    return wrapper
+
+
+@suppress_output_decorator
 def main(search_criteria: str, pretty: bool = False):
     client = happi.Client.from_config()
 
-    results = PluginResults(
-        files_to_monitor=[],
-        record_to_metadata=collections.defaultdict(list),
-        metadata=HappiPluginResults(
-            item_to_metadata={
-                item["name"]: item
-                for item in dict(client).values()
-            },
-            record_to_item_name=collections.defaultdict(list),
-            item_to_records=collections.defaultdict(list),
+    files_to_monitor = {}
+
+    if isinstance(client.backend, happi.backends.json_db.JSONBackend):
+        files_to_monitor[client.backend.path] = get_file_sha256(
+            client.backend.path
         )
+
+    results = HappiPluginResults(
+        files_to_monitor=files_to_monitor,
+        record_to_metadata_keys=collections.defaultdict(list),
+        metadata_by_key={
+            item["name"]: dict(item)
+            for item in dict(client).values()
+        },
+        metadata=None,
+        execution_info={},
     )
 
     criteria = _parse_criteria(search_criteria)
@@ -333,10 +379,18 @@ def main(search_criteria: str, pretty: bool = False):
             record, *_ = record.split(".")
 
         happi_md = sig.root.md
-        if happi_md.name not in results.metadata.record_to_item_name[record]:
-            results.metadata.record_to_item_name[record].append(happi_md.name)
-            results.record_to_metadata[record].append(happi_md)
-            results.metadata.item_to_records[happi_md.name].append(record)
+        if happi_md.name not in results.record_to_metadata_keys[record]:
+            results.record_to_metadata_keys[record].append(happi_md.name)
+            md = results.metadata_by_key[happi_md.name]
+            if "_whatrecord" not in md:
+                md["_whatrecord"] = {"records": []}
+            md["_whatrecord"]["records"].append(
+                HappiRecordInfo(
+                    name=record,
+                    kind=str(sig.kind),
+                    signal=sig.dotted_name,
+                )
+            )
 
     return results
 
