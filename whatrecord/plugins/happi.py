@@ -15,7 +15,7 @@ import logging
 import sys
 import typing
 from dataclasses import dataclass
-from typing import Generator, TypeVar, Union
+from typing import Dict, Generator, List, TypeVar, Union
 
 import apischema
 
@@ -34,11 +34,11 @@ logger = logging.getLogger(__name__)
 
 # Stash the description for later usage by the CLI interface.
 DESCRIPTION = __doc__.strip()
-CriteriaDict = dict[str, Union[float, str]]
+CriteriaDict = Dict[str, Union[float, str]]
 T = TypeVar("T")
 
 
-HappiItem = dict[str, Union[str, list[str], dict[str, str]]]  # kinda...
+HappiItem = Dict[str, Union[str, List[str], Dict[str, str]]]  # kinda...
 
 # TODO: this can be improved
 SIGNAL_CLASSES = (

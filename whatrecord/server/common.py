@@ -17,11 +17,11 @@ class TooManyRecordsError(Exception):
 
 @dataclass
 class PluginResults:
-    files_to_monitor: dict[str, str]
-    record_to_metadata_keys: dict[str, list[str]]
-    metadata_by_key: dict[str, Any]
+    files_to_monitor: Dict[str, str]
+    record_to_metadata_keys: Dict[str, List[str]]
+    metadata_by_key: Dict[str, Any]
     metadata: Any
-    execution_info: dict[str, Any]
+    execution_info: Dict[str, Any]
     # defines records? defines IOCs?
 
 
