@@ -6,7 +6,12 @@ import json
 import logging
 import re
 import tempfile
-import tracemalloc
+
+try:
+    import tracemalloc
+except ImportError:
+    # tracemalloc unavailable on pypy
+    tracemalloc = None
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import apischema
@@ -599,7 +604,7 @@ def main(
     standin_directory: Optional[Union[List, Dict]] = None,
     use_tracemalloc: bool = False,
 ):
-    if use_tracemalloc:
+    if use_tracemalloc and tracemalloc is not None:
         tracemalloc.start()
 
     scripts = scripts or []
@@ -637,7 +642,7 @@ def main(
     except KeyboardInterrupt:
         ...
 
-    if use_tracemalloc:
+    if use_tracemalloc and tracemalloc is not None:
         global tracemalloc_snapshot
         tracemalloc_snapshot = tracemalloc.take_snapshot()
 
