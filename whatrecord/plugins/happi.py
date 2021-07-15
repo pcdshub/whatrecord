@@ -15,10 +15,11 @@ import logging
 import sys
 import typing
 from dataclasses import dataclass
-from typing import Any, Generator, TypeVar, Union
+from typing import Generator, TypeVar, Union
 
 import apischema
 
+from ..server.common import PluginResults
 from ..util import get_file_sha256
 
 try:
@@ -46,16 +47,6 @@ SIGNAL_CLASSES = (
     ophyd.EpicsScaler,
     ophyd.EpicsMCA
 )
-
-
-@dataclass
-class PluginResults:
-    files_to_monitor: dict[str, str]
-    record_to_metadata_keys: dict[str, list[str]]
-    metadata_by_key: dict[str, Any]
-    metadata: Any
-    execution_info: dict[str, Any]
-    # defines records? defines IOCs?
 
 
 @dataclass
