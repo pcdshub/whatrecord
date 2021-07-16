@@ -34,7 +34,7 @@ class ServerPluginSpec:
     executable: Optional[List[str]] = None
     #: Can be a dataclass or a builtin type
     # result_class: type
-    files_to_monitor: Dict[str, str] = field(default_factory=list)
+    files_to_monitor: Dict[str, str] = field(default_factory=dict)
     results: Optional[PluginResults] = None
     results_json: Any = None
 
