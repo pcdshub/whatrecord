@@ -1,5 +1,3 @@
- /* eslint-disable */
-
 <template>
   <h3> {{ whatrec.name }} </h3>
   <!-- Available in {{ available_protocols }} -->
@@ -54,12 +52,12 @@
       </a>
     </AccordionTab>
     <AccordionTab header="Archiver" :disabled="instance_v3 == null">
-      <template v-if="instance_v3 != null">
-        <a :href="appliance_viewer_url + instance_v3.name" target="_blank">
+      <template v-if="instance_v3 != null && appliance_viewer_url">
+        <a :href="appliance_viewer_url" target="_blank">
           Archive Viewer
         </a>
         <iframe
-          :src="appliance_viewer_url + instance_v3.name"
+          :src="appliance_viewer_url"
           title="Archive viewer"
           />
         </template>
@@ -112,7 +110,6 @@ export default {
   name: 'Recordinfo',
   props: {
     whatrec: Object,
-    appliance_viewer_url: String
   },
   components: {
     AsynPort,
@@ -125,6 +122,13 @@ export default {
     AccordionTab,
   },
   computed: {
+    appliance_viewer_url() {
+      const appliance_viewer_url = process.env.WHATRECORD_ARCHIVER_URL || "";
+      if (!appliance_viewer_url || !this.instance_v3) {
+          return null;
+      }
+      return appliance_viewer_url + this.instance_v3.name;
+    },
     graph_link() {
       return "/api/pv/" + this.whatrec.name + "/graph/svg";
     },

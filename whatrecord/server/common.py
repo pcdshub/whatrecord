@@ -34,27 +34,26 @@ class ServerPluginSpec:
     executable: Optional[List[str]] = None
     #: Can be a dataclass or a builtin type
     # result_class: type
-    files_to_monitor: List[str] = field(default_factory=list)
+    files_to_monitor: Dict[str, str] = field(default_factory=dict)
     results: Optional[PluginResults] = None
     results_json: Any = None
 
-    async def update(self):
-        """Call the plugin and get new information, storing it in results."""
+    @property
+    def script(self) -> str:
+        """The script and arguments to run for the plugin."""
         if self.executable:
-            script = " ".join(f'"{param}"' for param in self.executable)
+            return " ".join(f'"{param}"' for param in self.executable)
         elif self.module:
-            script = f'"{sys.executable}" -m {self.module}'
-        else:
-            raise ValueError("module and executable both unset")
+            return f'"{sys.executable}" -m {self.module}'
+        raise ValueError("module and executable both unset")
 
-        results_json = await util.run_script_with_json_output(script)
-        results_json = results_json or {}
-        files_to_monitor = results_json.get("files_to_monitor", None)
-        if files_to_monitor:
-            self.files_to_monitor = files_to_monitor
-
-        self.results_json = results_json
-        self.results = apischema.deserialize(PluginResults, results_json)
+    async def update(self) -> Optional[PluginResults]:
+        """Call the plugin and get new information, storing it in results."""
+        self.results_json = (
+            await util.run_script_with_json_output(self.script)
+        ) or {}
+        self.files_to_monitor = self.results_json.get("files_to_monitor", {})
+        self.results = apischema.deserialize(PluginResults, self.results_json)
         if self.results:
             self.files_to_monitor = self.results.files_to_monitor
         return self.results

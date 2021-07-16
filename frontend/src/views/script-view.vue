@@ -33,7 +33,7 @@
 </template>
 
 <script>
-const axios = require('axios').default;
+import { mapState } from 'vuex';
 
 import DictionaryTable from '../components/dictionary-table.vue';
 import ScriptLine from '../components/script-line.vue';
@@ -50,19 +50,27 @@ export default {
   },
   data() {
     return {
-      lines: [],
-      metadata: null,
     }
   },
+  computed: {
+    metadata () {
+      return this.file_info ? this.file_info.ioc : {};
+    },
+    lines () {
+      return this.file_info ? this.file_info.script.lines : [];
+    },
+    ...mapState({
+      file_info (state) {
+        return state.file_info[this.filename] || null;
+      },
+    })
+  },
   async mounted() {
-    try {
-      const response = await axios.get("/api/file/info", {params: { file: this.filename } })
-      this.metadata = response.data.ioc;
-      this.lines = response.data.script.lines;
-      document.title = "WhatRec? " + this.filename;
-    } catch (error) {
-      console.error(error)
-    }
+    this.$store.dispatch(
+      "get_file_info",
+      { filename: this.filename }
+    );
+    document.title = "WhatRecord? Script " + this.filename;
   },
   updated() {
     const lineno = this.line;

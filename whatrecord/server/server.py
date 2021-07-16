@@ -2,7 +2,6 @@ import asyncio
 import collections
 import fnmatch
 import functools
-import json
 import logging
 import re
 import tempfile
@@ -200,11 +199,6 @@ class ServerState:
             if pvlist.hash is not None:
                 logger.debug("New gateway file: %s (%s)", filename, pvlist.hash)
                 self.container.loaded_files[str(filename)] = pvlist.hash
-
-    def load_archived_pvs_from_file(self, filename):
-        # TODO: could retrieve it at startup/periodically from the appliance
-        with open(filename, "rt") as fp:
-            self.archived_pvs = set(json.load(fp))
 
     def annotate_whatrec(self, whatrec: WhatRecord) -> WhatRecord:
         """
@@ -596,7 +590,6 @@ def configure_logging(loggers=None):
 def main(
     scripts: Optional[List[str]] = None,
     script_loader: Optional[List[str]] = None,
-    archive_viewer_url: Optional[str] = None,
     archive_management_url: Optional[str] = None,
     archive_update_period: int = 60,
     gateway_config: Optional[str] = None,

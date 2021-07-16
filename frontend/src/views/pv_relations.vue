@@ -398,6 +398,7 @@ export default {
     }),
   },
   created() {
+    document.title = `WhatRecord? PV Map`;
     this.init_group_filters();
   },
   async mounted() {

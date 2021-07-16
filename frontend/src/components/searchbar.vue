@@ -6,7 +6,7 @@
   </form>
   <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
       @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
-    <Column field="pv" :header="`Results (${this.displayed_info.glob})`"></Column>
+    <Column field="pv" :header="`Results`"></Column>
   </DataTable>
 </template>
 
@@ -26,7 +26,7 @@ export default {
     DataTable,
     InputText,
   },
-  props: ["route_record_glob", "route_selected_records"],
+  props: [],
   data() {
     return {
       max_pvs: 100,
@@ -47,22 +47,23 @@ export default {
       return as_list;
     },
 
+    table_data () {
+      return this.displayed_info.list.map(value => ({"pv": value}));
+    },
+    record_glob () {
+      return this.$route.params.record_glob || "";
+    },
     ...mapState({
       searching: state => state.query_in_progress,
-      glob_to_pvs: state => state.glob_to_pvs,
-      record_glob: state => state.record_glob,
 
       displayed_info(state) {
-        if (this.input_record_glob in state.glob_to_pvs) {
+        if (this.record_glob in state.glob_to_pvs) {
           this.last_displayed = {
-            glob: this.input_record_glob,
-            list: state.glob_to_pvs[this.input_record_glob],
+            glob: this.record_glob,
+            list: state.glob_to_pvs[this.record_glob],
           }
         }
         return this.last_displayed;
-      },
-      table_data () {
-        return this.displayed_info.list.map(value => ({"pv": value}));
       },
     }),
   },
@@ -71,28 +72,45 @@ export default {
 
   created() {
     this.$watch(
-      () => this.$route.params, (to_params, previous_params) => {
-        console.debug("To", to_params, "From", previous_params);
-        this.input_record_glob = to_params.record_glob || "*";
+      () => this.$route.params, (to_params) => {
+        this.from_route_params(
+          to_params.record_glob,
+          to_params.selected_records,
+        );
       }
     )
   },
   mounted() {
-    this.input_record_glob = this.$store.state.record_glob || "*";
+    this.from_route_params(
+      this.$route.params.record_glob,
+      this.$route.params.selected_records,
+    );
   },
   methods: {
+    from_route_params (record_glob, selected_records) {
+      this.input_record_glob = record_glob || "*";
+      document.title = "WhatRecord? " + record_glob;
+      this.$store.dispatch(
+        "find_record_matches",
+        {"record_glob": record_glob, "max_pvs": this.max_pvs}
+      );
+      this.table_selection = [];
+      for (const rec of (selected_records || "").split("|")) {
+        if (rec.length > 0) {
+          this.$store.dispatch("get_record_info", { record_name: rec });
+          this.table_selection.push({pv: rec});
+        }
+      }
+    },
     do_search() {
-      document.title = "WhatRec? " + this.input_record_glob;
-      this.$store.dispatch("set_record_glob", {"record_glob": this.input_record_glob, "max_pvs": this.max_pvs});
       this.$router.push({
         params: {
-          "record_glob": this.input_record_glob,
+          "record_glob": this.record_glob,
         }
       });
     },
 
     on_table_selection() {
-      this.$store.dispatch("set_selected_records", {records: this.table_selection_list});
       this.$router.push({
         params: {
           "selected_records": this.table_selection_list.join("|"),

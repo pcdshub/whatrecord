@@ -62,12 +62,16 @@
           </span>
         </div>
       </template>
-      <Column field="name" header="Name">
+      <Column field="name" header="Name" :sortable="true">
         <template #body="{data}">
           <router-link :to="`/happi/${data.name}`">{{data.name}}</router-link>
         </template>
+        <template #filter="{filterModel,filterCallback}">
+          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
+            :placeholder="`Filter by name`" />
+        </template>
       </Column>
-      <Column field="device_class" header="Class">
+      <Column field="device_class" header="Class"> :sortable="true"
         <template #body="{data}">
           <div class="tooltip">
             {{ data.device_class.split(".").slice(-1)[0] }}
@@ -75,23 +79,45 @@
               {{ data.device_class }}
             </span>
           </div>
-
+        </template>
+        <template #filter="{filterModel,filterCallback}">
+          <Dropdown v-model="filterModel.value" :options="device_classes"
+            placeholder="Any" class="p-column-filter" :showClear="true"
+            @change="filterCallback()" >
+          </Dropdown>
         </template>
       </Column>
-      <Column field="prefix" header="Prefix">
+      <Column field="prefix" header="Prefix" :sortable="true">
         <template #body="{data}">
-          <router-link :to="`/whatrec/${data.prefix}*/${data.prefix}`">{{data.prefix}}</router-link>
+          <router-link :to="`/whatrec/${data.prefix}*/${data.prefix}`">
+            {{data.prefix}}
+          </router-link>
+        </template>
+        <template #filter="{filterModel,filterCallback}">
+          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
+            :placeholder="`Filter by prefix`" />
         </template>
       </Column>
-      <Column field="active" header="Active">
+      <Column field="active" header="Active" :sortable="true">
         <template #body="{data}">
           <i :class="['pi', data.active ? 'pi-check' : 'pi-times']" />
+        </template>
+        <template #filter="{filterModel,filterCallback}">
+          <Dropdown v-model="filterModel.value" :options="[false, true]"
+            placeholder="Any" class="p-column-filter" :showClear="true"
+            @change="filterCallback()" >
+          </Dropdown>
         </template>
       </Column>
       <Column v-for="(col, index) of selected_columns"
         :field="col.field" :header="col.header"
         :key="col.field + '_' + index"
+        :sortable="true"
         >
+          <template #filter="{filterModel,filterCallback}">
+            <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
+              :placeholder="`Filter`" />
+          </template>
       </Column>
     </DataTable>
   </template>
@@ -103,7 +129,7 @@ import { mapState } from 'vuex';
 import Button from 'primevue/button';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
-// import Dropdown from 'primevue/dropdown';
+import Dropdown from 'primevue/dropdown';
 import InputText from 'primevue/inputtext';
 import MultiSelect from 'primevue/multiselect';
 import {FilterMatchMode} from 'primevue/api';
@@ -117,7 +143,7 @@ export default {
     Column,
     DataTable,
     DictionaryTable,
-    // Dropdown,
+    Dropdown,
     InputText,
     MultiSelect,
   },
@@ -140,12 +166,18 @@ export default {
       }
       return this.happi_info.metadata_by_key[this.item_name];
     },
+    device_classes() {
+      let classes = new Set();
+      for (const happi_item of this.happi_items) {
+        classes.add(happi_item.device_class);
+      }
+      return Array.from(classes).sort();
+    },
     kind_to_related_records() {
       const info = this.happi_item_info;
       if (!info) {
         return {};
       }
-      console.log("info", info);
       let result = {
         "Kind.hinted": [],
         "Kind.normal": [],
@@ -188,6 +220,7 @@ export default {
     }),
   },
   created() {
+    document.title = `WhatRecord? happi plugin`;
     this.init_filters();
   },
   mounted() {
@@ -198,7 +231,17 @@ export default {
   methods: {
     init_filters() {
       this.filters = {
-        'global': {value: "", matchMode: FilterMatchMode.CONTAINS},
+        global: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        name: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        device_class: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        prefix: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        beamline: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        stand: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        active: {value: "", matchMode: FilterMatchMode.EQUALS},
+        z: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        last_edit: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        args: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        kwargs: {value: "", matchMode: FilterMatchMode.CONTAINS},
       };
       this.columns = [
         {field: 'beamline', header: 'Beamline'},
@@ -214,7 +257,7 @@ export default {
       this.init_filters();
     },
     onToggle(value) {
-      this.selected_columns = this.columns.filter(col => value.includes(col));
+      this.selected_columns = value;
     }
   },
 
