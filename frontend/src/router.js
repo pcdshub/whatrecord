@@ -19,12 +19,6 @@ let routes = [
       name: 'whatrec',
       path: '/whatrec/:record_glob?/:selected_records?',
       component: WhatRec,
-      props: route => (
-          {
-              record_glob: route.params.record_glob || "*",
-              selected_records: route.params.selected_records || "",
-          }
-      )
   },
   {
       name: 'file',

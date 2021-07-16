@@ -336,6 +336,12 @@ class IocMetadata:
         """Given at minimum a filename, guess the rest."""
         filename = pathlib.Path(filename).expanduser().resolve()
         name = name or filename.parts[-2]  # iocBoot/((ioc-something))/st.cmd
+        if "/" in name:
+            name = name.replace("/", "")
+            if not name:
+                # Sorry, we need something unique here (better ideas welcome)
+                name = util.get_bytes_sha256(bytes(str(filename), "utf-8"))[:10]
+
         return cls(
             name=name,
             host=host,

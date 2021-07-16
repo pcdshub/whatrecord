@@ -1,5 +1,7 @@
 <template>
-  <pre v-for="(line, idx) in log_lines" :key="idx">{{ line }}</pre>
+  <div id="script">
+    <pre v-for="(line, idx) in log_lines" :key="idx">{{ line }}</pre>
+  </div>
 </template>
 
 <script>
@@ -23,10 +25,13 @@ export default {
     try {
       const response = await axios.get("/api/logs/get", {params: {} })
       this.log_lines = response.data;
-      document.title = "WhatRec server logs";
+      document.title = "WhatRecord? Server logs";
     } catch (error) {
       console.error(error)
     }
+  },
+  updated() {
+    document.getElementById("script").scrollIntoView({block: "end"});
   },
 }
 </script>

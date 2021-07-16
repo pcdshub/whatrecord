@@ -138,46 +138,42 @@ export default {
     this.init_ioc_filters();
   },
   mounted() {
-    this.$store.dispatch("update_ioc_info");
-    this.check_route_selection(this.$route);
+    this.from_params(this.$route.params);
   },
 
-  async beforeRouteUpdate(to, from) {
-    // TODO: linter unused vars?
-    console.debug("Route from", from, "to", to);
-    this.check_route_selection(to);
+  async beforeRouteUpdate(to, from) {  // eslint-disable-line
+    this.from_params(to.params);
   },
 
   methods: {
-    check_route_selection(to) {
-      let new_selection = []
-      const iocs_from_route = to.params.selected_iocs_in ? to.params.selected_iocs_in.split("|") : [];
-      for (const ioc_name of iocs_from_route) {
-        new_selection.push({"name": ioc_name});
-      }
+    from_params(params) {
+      this.$store.dispatch("update_ioc_info");
+
+      const iocs_from_route = params.selected_iocs_in ? params.selected_iocs_in.split("|") : [];
       if (iocs_from_route != this.selected_iocs_list) {
-        console.debug("IOCs was:", this.selected_iocs_list, "now:", iocs_from_route);
-        this.selected_iocs = new_selection;
-        this.new_ioc_selection(null, false);
-      }
-    },
-    new_ioc_selection(event, push_route=true) {
-      for (const ioc_name of this.selected_ioc_list) {
-        if (ioc_name in this.$store.state.ioc_to_records === false) {
-          this.$store.dispatch("get_ioc_records", {ioc_name: ioc_name});
+        this.selected_iocs = [];
+        for (const ioc_name of iocs_from_route) {
+          if (ioc_name) {
+            this.selected_iocs.push({"name": ioc_name});
+            if (ioc_name in this.$store.state.ioc_to_records === false) {
+              this.$store.dispatch("get_ioc_records", {ioc_name: ioc_name});
+            }
+          }
         }
       }
-      if (push_route) {
-        this.$router.push({
-          params: {
-            "selected_iocs_in": this.selected_ioc_list.join("|"),
-          },
-          query: {
-            "ioc_filter": this.ioc_filters["global"].value,
-            "record_filter": this.record_filters["global"].value,
-          }
-        });
-      }
+      document.title = `WhatRecord? ${iocs_from_route}`;
+    },
+
+    new_ioc_selection() {
+      this.$router.push({
+        params: {
+          "selected_iocs_in": this.selected_ioc_list.join("|"),
+        },
+        query: {
+          "ioc_filter": this.ioc_filters["global"].value,
+          "record_filter": this.record_filters["global"].value,
+        }
+      });
     },
 
     clear_ioc_filters() {
