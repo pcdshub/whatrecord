@@ -38,11 +38,14 @@
     </div>
     <div id="graph" class="column">
     </div>
+    <div id="node_info" class="column hidden">
+    </div>
   </div>
 </template>
 
 <script>
 import { mapState } from 'vuex';
+const axios = require('axios').default;
 
 import Button from 'primevue/button';
 import InputSwitch from 'primevue/inputswitch';
@@ -375,7 +378,7 @@ export default {
       node_info: null,
       relations: [],
       selected_groups: null,
-      show_records: false,
+      show_records: true,
     }
   },
   computed: {
@@ -413,13 +416,13 @@ export default {
       if (!Object.keys(this.pv_relations).length) {
         return;
       }
-      /* console.debug("Update plot", this.include_unknown, this.selected_ioc_list); */
       this.groups = groups_from_relations(this.pv_relations, this.include_unknown);
       if (this.full_relations) {
         this.node_info = get_all_nodes(this.pv_relations, this.include_unknown);
       } else {
         this.node_info = get_simple_nodes(this.pv_relations, this.include_unknown, this.show_records);
       }
+
       this.cy = create_plot(this.node_info, this.selected_ioc_list, this.show_records);
       this.cy.on("click", "node", this.node_selected);
     },
@@ -439,20 +442,38 @@ export default {
         });
       } else if (node.hasClass("pv")) {
         const pv_name = node.data().id;
-        this.$router.push({
-          name: "whatrec",
-          params: {
-            "record_glob": pv_name,
-          },
-          query: {
-            "selected_records": pv_name,
-          },
-        });
+        if (node.hasClass("pv")) { // TODO toggle to take to whatrecord?
+          axios.get(
+            "/api/pv/" + pv_name + "/graph/svg", {})
+            .then(response => {
+              var parser = new DOMParser();
+              let svg_doc = parser.parseFromString(response.data, "image/svg+xml");
+
+              const node_info_div = document.getElementById("node_info");
+              node_info_div.replaceChildren(svg_doc.getElementsByTagName("svg")[0]);
+              node_info_div.classList = ["column", "shown"];
+            })
+            .catch(error => {
+              console.log(error)
+            });
+
+        } else {
+          this.$router.push({
+            name: "whatrec",
+            params: {
+              "record_glob": pv_name,
+            },
+            query: {
+              "selected_records": pv_name,
+            },
+          });
+        }
       }
     },
 
     new_group_selection(event, push_route=true) {
       this.cy = create_plot(this.node_info, this.selected_ioc_list, this.show_records);
+      this.cy.on("click", "node", this.node_selected);
       if (push_route) {
         this.$router.push({
           /* TODO
@@ -504,8 +525,7 @@ export default {
 
 #graph {
   height: calc(100vh - 100px);
-  min-width: 75vw;
+  min-width: 60vw;
   max-width: 85vw;
 }
-
 </style>
