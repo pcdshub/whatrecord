@@ -28,6 +28,29 @@
       </DataTable>
     </div>
     <div id="iocs-right" class="column">
+      <template v-for="ioc in selected_ioc_infos" :key="ioc.name">
+        <details>
+          <summary>{{ioc.name}} information</summary>
+          <dictionary-table
+            :dict="ioc"
+            :cls="'metadata'"
+            :skip_keys="['commands', 'variables', 'loaded_files']">
+          </dictionary-table>
+
+          Files loaded by {{ ioc.name }}:
+
+          <DataTable :value="file_list_by_ioc[ioc.name]" dataKey="name">
+            <Column field="name" header="File name">
+              <template #body="{data}">
+                <router-link :to="{ name: 'file', params: { filename: data.name, line: 0 } }">{{data.name}}</router-link>
+              </template>
+            </Column>
+            <Column field="hash" header="Hash">
+            </Column>
+          </DataTable>
+        </details>
+      </template>
+
       <DataTable :value="record_list" dataKey="record.name"
           :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
           :globalFilterFields="['record.name', 'record.record_type']">
@@ -76,12 +99,15 @@ import Dropdown from 'primevue/dropdown';
 import InputText from 'primevue/inputtext';
 import {FilterMatchMode} from 'primevue/api';
 
+import DictionaryTable from '../components/dictionary-table.vue'
+
 export default {
   name: 'WhatRec',
   components: {
     Button,
     Column,
     DataTable,
+    DictionaryTable,
     Dropdown,
     InputText,
   },
@@ -94,7 +120,7 @@ export default {
     }
   },
   computed: {
-    selected_ioc_list () {
+    selected_ioc_names () {
       let iocs = [];
       for (const ioc_info of this.selected_iocs) {
         iocs.push(ioc_info.name);
@@ -102,12 +128,48 @@ export default {
       return iocs;
     },
 
+    file_list_by_ioc () {
+      let files = {};
+      for (const ioc_name of this.selected_ioc_names) {
+        files[ioc_name] = [];
+        if (ioc_name in this.ioc_info_by_name) {
+          for (const [file, hash] of Object.entries(this.ioc_info_by_name[ioc_name].loaded_files)) {
+            files[ioc_name].push({
+              ioc: ioc_name,
+              name: file,
+              hash: hash,
+            });
+          }
+        }
+      }
+      return files;
+    },
+
+    selected_ioc_infos () {
+      let info = [];
+      for (const ioc_name of this.selected_ioc_names) {
+        if (ioc_name in this.ioc_info_by_name) {
+          info.push(this.ioc_info_by_name[ioc_name]);
+        }
+      }
+      return info;
+    },
+
     ...mapState({
       ioc_info: state => state.ioc_info,
       ioc_records: state => state.ioc_to_records,
+
+      ioc_info_by_name (state) {
+        let iocs = {};
+        for (const ioc of state.ioc_info) {
+          iocs[ioc.name] = ioc;
+        }
+        return iocs;
+      },
+
       record_list (state) {
         let records = [];
-        for (const ioc_name of this.selected_ioc_list) {
+        for (const ioc_name of this.selected_ioc_names) {
           if (ioc_name in state.ioc_to_records) {
             for (const record of state.ioc_to_records[ioc_name]) {
               records.push({
@@ -122,7 +184,7 @@ export default {
       },
       record_types (state) {
         let record_types = new Set();
-        for (const ioc_name of this.selected_ioc_list) {
+        for (const ioc_name of this.selected_ioc_names) {
           if (ioc_name in state.ioc_to_records) {
             for (const record of state.ioc_to_records[ioc_name]) {
               record_types.add(record.record_type);
@@ -167,7 +229,7 @@ export default {
     new_ioc_selection() {
       this.$router.push({
         params: {
-          "selected_iocs_in": this.selected_ioc_list.join("|"),
+          "selected_iocs_in": this.selected_ioc_names.join("|"),
         },
         query: {
           "ioc_filter": this.ioc_filters["global"].value,
