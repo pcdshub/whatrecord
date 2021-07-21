@@ -45,7 +45,7 @@ let routes = [
   },
   {
       name: 'pv-relations',
-      path: '/pv-relations/',
+      path: '/pv-relations',
       component: PVRelationsView,
   },
 ]

@@ -1,9 +1,18 @@
 <template>
-  <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
-    <InputText type="text" v-model.trim.lazy="input_record_glob" placeholder="*PV Glob*" />
-    &nbsp;
-    <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
-  </form>
+  <div class="p-grid">
+    <div class="p-col-10">
+      <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
+        <InputText type="text"
+          v-model.trim.lazy="input_record_glob"
+          placeholder="*PV Glob*"
+          class="input_search"
+        />
+      </form>
+    </div>
+    <div class="p-col-2">
+      <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
+    </div>
+  </div>
   <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
       @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
     <Column field="pv" :header="`Results`"></Column>
@@ -72,7 +81,7 @@ export default {
 
   created() {
     this.$watch(
-      () => this.$route.params, (to_params) => {
+      () => this.$route.params, to_params => {
         this.from_route_params(
           to_params.record_glob,
           to_params.selected_records,
@@ -89,7 +98,7 @@ export default {
   methods: {
     from_route_params (record_glob, selected_records) {
       this.input_record_glob = record_glob || "*";
-      document.title = "WhatRecord? " + record_glob;
+      document.title = `WhatRecord? ${record_glob} (${selected_records})`;
       this.$store.dispatch(
         "find_record_matches",
         {"record_glob": record_glob, "max_pvs": this.max_pvs}
@@ -102,10 +111,11 @@ export default {
         }
       }
     },
+
     do_search() {
       this.$router.push({
         params: {
-          "record_glob": this.record_glob,
+          "record_glob": this.input_record_glob,
         }
       });
     },
@@ -122,5 +132,12 @@ export default {
 }
 </script>
 
-<style>
+<style scoped>
+.p-grid {
+  padding: 0.5em;
+}
+
+.input_search {
+  width: 100%;
+}
 </style>

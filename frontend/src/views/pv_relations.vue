@@ -3,17 +3,17 @@
     <div id="left" class="column">
       <div>
         <h3>Include unknown</h3>
-        <InputSwitch v-model="include_unknown" :binary="true" @change="update_plot" />
+        <InputSwitch v-model="include_unknown" :binary="true" @change="push_route" />
       </div>
       <div>
         <h3>Show records</h3>
-        <InputSwitch v-model="show_records" :binary="true" @change="update_plot" />
+        <InputSwitch v-model="show_records" :binary="true" @change="push_route" />
       </div>
       <div>
         <h3>Groups</h3>
         <DataTable id="groups" :value="groups" dataKey="name"
             v-model:selection="selected_groups"
-            selectionMode="multiple" @rowSelect="new_group_selection"
+            selectionMode="multiple" @rowSelect="push_route"
             :paginator="true" :rows="300" v-model:filters="group_filters"
             filterDisplay="row" :globalFilterFields="['iocs']"
             >
@@ -38,11 +38,14 @@
     </div>
     <div id="graph" class="column">
     </div>
+    <div id="node_info" class="column hidden">
+    </div>
   </div>
 </template>
 
 <script>
 import { mapState } from 'vuex';
+const axios = require('axios').default;
 
 import Button from 'primevue/button';
 import InputSwitch from 'primevue/inputswitch';
@@ -226,7 +229,7 @@ function groups_from_relations(relations, include_unknown) {
   for (const [ioc1, ioc2s_dict] of Object.entries(relations.script_relations)) {
     if (ioc1 in saw === false) {
       const ioc2s = Object.keys(ioc2s_dict);
-      const name = `${ioc1}-${ioc2s.join(",")}`;
+      const name = `${ioc1},${ioc2s.join(",")}`;
       let group_iocs = [ioc1].concat(ioc2s);
       if (!include_unknown) {
         group_iocs = group_iocs.filter(item => item != "unknown");
@@ -276,6 +279,11 @@ function filter_elements(info, ioc_list, include_records) {
 
 function create_plot(info, ioc_list = null, include_records = false) {
   const filtered_elements = filter_elements(info, ioc_list, include_records);
+  if (filtered_elements.length == 0) {
+    console.debug("No IOCs after selection (or still loading)");
+    return null;
+  }
+
   let layout_options;
   if (include_records) {
     layout_options = {
@@ -367,6 +375,7 @@ export default {
   },
   data() {
     return {
+      last_query: null,
       full_relations: false,
       group_filters: null,
       groups: [],
@@ -375,10 +384,28 @@ export default {
       node_info: null,
       relations: [],
       selected_groups: null,
-      show_records: false,
+      show_records: true,
+      selected_record: null,
+      shown_record: null,
     }
   },
   computed: {
+    route_groups() {
+      if (!this.$route.query.groups) {
+        return [];
+      }
+      if (typeof this.$route.query.groups == "string") {
+        return [this.$route.query.groups];
+      }
+      return [this.$route.query.groups];
+    },
+    selected_groups_list() {
+      let groups = [];
+      for (const group of this.selected_groups) {
+        groups.push(group.name);
+      }
+      return groups;
+    },
     selected_ioc_list () {
       if (!this.selected_groups) {
         return [];
@@ -397,31 +424,93 @@ export default {
       },
     }),
   },
-  created() {
+  async created() {
     document.title = `WhatRecord? PV Map`;
     this.init_group_filters();
+    this.$watch(
+      () => this.$route.params, to_params => {
+        this.from_params(to_params);
+      }
+    )
+    await this.from_params();
   },
   async mounted() {
     if (!Object.keys(this.pv_relations).length) {
       await this.$store.dispatch("get_pv_relations");
     }
-    this.update_plot();
-
+    await this.from_params();
   },
   methods: {
-    update_plot() {
-      if (!Object.keys(this.pv_relations).length) {
-        return;
+    async from_params() {
+      const route_query = this.$route.query;
+      const query = {
+        groups: this.route_groups,
+        show_records: route_query.show_records === "true",
+        include_unknown: route_query.unknowns === "true",
+      };
+
+      if (this.last_query != query && Object.keys(this.pv_relations).length) {
+        this.last_query = query;
+
+        this.groups = groups_from_relations(this.pv_relations, query.include_unknown);
+        let group_by_name = {};
+        for (const group of this.groups) {
+          group_by_name[group.name] = group;
+        }
+        this.selected_groups = [];
+        for (const group of query.groups) {
+          this.selected_groups.push(group_by_name[group]);
+        }
+
+        if (this.full_relations) {
+          this.node_info = get_all_nodes(
+            this.pv_relations, query.include_unknown
+          );
+        } else {
+          this.node_info = get_simple_nodes(
+            this.pv_relations, query.include_unknown, query.show_records
+          );
+        }
+
+        try {
+          this.cy = create_plot(this.node_info, this.selected_ioc_list, query.show_records);
+        }  catch (error) {
+          console.error("Failed to update plot", error);
+          this.cy = null;
+        }
+        if (this.cy) {
+          this.cy.on("click", "node", this.node_selected);
+        }
       }
-      /* console.debug("Update plot", this.include_unknown, this.selected_ioc_list); */
-      this.groups = groups_from_relations(this.pv_relations, this.include_unknown);
-      if (this.full_relations) {
-        this.node_info = get_all_nodes(this.pv_relations, this.include_unknown);
-      } else {
-        this.node_info = get_simple_nodes(this.pv_relations, this.include_unknown, this.show_records);
+
+      const record = route_query.record;
+      if (record && this.shown_record != record) {
+        this.shown_record = record;
+        axios.get(
+          "/api/pv/" + record + "/graph/svg", {})
+          .then(response => {
+            var parser = new DOMParser();
+            let svg_doc = parser.parseFromString(response.data, "image/svg+xml");
+
+            const node_info_div = document.getElementById("node_info");
+            node_info_div.replaceChildren(svg_doc.getElementsByTagName("svg")[0]);
+            node_info_div.classList = ["column", "shown"];
+          })
+          .catch(error => {
+            console.log(error)
+          });
       }
-      this.cy = create_plot(this.node_info, this.selected_ioc_list, this.show_records);
-      this.cy.on("click", "node", this.node_selected);
+    },
+    push_route() {
+      this.$router.push({
+        query: {
+          "record": this.selected_record,
+          "show_records": this.show_records,
+          "unknowns": this.include_unknown,
+          "groups": this.selected_groups_list,
+          "global_filter": this.group_filters["global"].value,
+        },
+      });
     },
 
     node_selected (event) {
@@ -438,31 +527,8 @@ export default {
           },
         });
       } else if (node.hasClass("pv")) {
-        const pv_name = node.data().id;
-        this.$router.push({
-          name: "whatrec",
-          params: {
-            "record_glob": pv_name,
-          },
-          query: {
-            "selected_records": pv_name,
-          },
-        });
-      }
-    },
-
-    new_group_selection(event, push_route=true) {
-      this.cy = create_plot(this.node_info, this.selected_ioc_list, this.show_records);
-      if (push_route) {
-        this.$router.push({
-          /* TODO
-          params: {
-            "selected_iocs_in": this.selected_ioc_list.join("|"),
-          }, */
-          query: {
-            "global_filter": this.group_filters["global"].value,
-          }
-        });
+        this.selected_record = node.data().id;
+        this.push_route();
       }
     },
 
@@ -504,8 +570,7 @@ export default {
 
 #graph {
   height: calc(100vh - 100px);
-  min-width: 75vw;
+  min-width: 60vw;
   max-width: 85vw;
 }
-
 </style>
