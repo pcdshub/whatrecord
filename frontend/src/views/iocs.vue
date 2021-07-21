@@ -31,23 +31,7 @@
       <template v-for="ioc in selected_ioc_infos" :key="ioc.name">
         <details>
           <summary>{{ioc.name}} information</summary>
-          <dictionary-table
-            :dict="ioc"
-            :cls="'metadata'"
-            :skip_keys="['commands', 'variables', 'loaded_files']">
-          </dictionary-table>
-
-          Files loaded by {{ ioc.name }}:
-
-          <DataTable :value="file_list_by_ioc[ioc.name]" dataKey="name">
-            <Column field="name" header="File name">
-              <template #body="{data}">
-                <router-link :to="{ name: 'file', params: { filename: data.name, line: 0 } }">{{data.name}}</router-link>
-              </template>
-            </Column>
-            <Column field="hash" header="Hash">
-            </Column>
-          </DataTable>
+          <ioc-info :ioc_info="ioc" />
         </details>
       </template>
 
@@ -99,17 +83,17 @@ import Dropdown from 'primevue/dropdown';
 import InputText from 'primevue/inputtext';
 import {FilterMatchMode} from 'primevue/api';
 
-import DictionaryTable from '../components/dictionary-table.vue'
+import IocInfo from '../components/ioc-info.vue'
 
 export default {
-  name: 'WhatRec',
+  name: 'IOCs',
   components: {
     Button,
     Column,
     DataTable,
-    DictionaryTable,
     Dropdown,
     InputText,
+    IocInfo,
   },
   props: ["ioc_filter", "record_filter", "selected_iocs_in"],
   data() {

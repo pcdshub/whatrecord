@@ -38,13 +38,9 @@
 
   </template>
 
-  <Accordion :multiple="true">
+  <Accordion :multiple="true" class="accordion">
     <AccordionTab :header="`Part of ${whatrec.ioc.name}`">
-      <dictionary-table
-        :dict="whatrec.ioc"
-        :cls="'metadata'"
-        :skip_keys="['commands', 'variables']">
-      </dictionary-table>
+      <ioc-info :ioc_info="whatrec.ioc" />
     </AccordionTab>
     <AccordionTab header="Record links">
       <a :href="graph_link" target="_blank">
@@ -98,6 +94,7 @@ import AsynPort from './asyn-port.vue'
 import DictionaryTable from './dictionary-table.vue'
 import EpicsFormatRecord from './epics-format-record.vue'
 import GatewayMatches from './gateway-matches.vue'
+import IocInfo from './ioc-info.vue'
 import RecordFieldTable from './record-field-table.vue'
 import ScriptContextLink from './script-context-link.vue'
 import Accordion from 'primevue/accordion';
@@ -116,6 +113,7 @@ export default {
     DictionaryTable,
     EpicsFormatRecord,
     GatewayMatches,
+    IocInfo,
     RecordFieldTable,
     ScriptContextLink,
     Accordion,
@@ -186,5 +184,9 @@ export default {
 iframe {
   min-height: 450px;
   width: 100%;
+}
+
+.accordion {
+  max-width: 80vw;
 }
 </style>
