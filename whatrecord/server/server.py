@@ -170,7 +170,7 @@ class ServerState:
             if not md.is_up_to_date()
         ]
         for item in list(updated):
-            if not item.script or not item.script.exists():
+            if not item.script or not item.script.exists() or item.looks_like_sh:
                 if self._update_count == 0:
                     # Don't attempt another load unless the file exists
                     updated.remove(item)
