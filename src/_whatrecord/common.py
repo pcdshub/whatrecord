@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -12,5 +12,5 @@ class IocshRedirect:
 @dataclass
 class IocshSplit:
     argv: List[str]
-    redirects: List[IocshRedirect]
+    redirects: Dict[int, IocshRedirect]
     error: Optional[str]

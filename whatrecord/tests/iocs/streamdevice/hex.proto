@@ -1,0 +1,15 @@
+hexTest {
+    out 0x10;
+    in 0x10;
+}
+
+intTest {
+    out 10;
+    out +10;
+    in -10;
+}
+
+octalTest {
+    out 010;
+    in 0777;
+}

@@ -1,0 +1,54 @@
+# This is an example protocol file (from StreamDevice documentation)
+#
+# by Dirk Zimoch
+#
+# StreamDevice license:
+#
+# StreamDevice is free software: You can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+
+# StreamDevice is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+# details.
+
+Terminator = CR LF;
+
+# Frequency is a float
+# use ai and ao records
+
+f = "FREQ";     # sets f to "FREQ" (including the quotes)
+f1 = $f " %f";  # sets f1 to "FREQ %f"
+
+getFrequency {
+    out $f "?"; # same as: out "FREQ?";
+    in $f1;     # same as: in "FREQ %f";
+}
+
+setFrequency {
+    out $f1;    # same as: out "FREQ %f";
+    @init { getFrequency; }
+}
+
+# Switch is an enum, either OFF or ON
+# use bi and bo records
+
+getSwitch {
+    out "SW?"; in "SW %{OFF|ON}";
+}
+
+setSwitch {
+    out "SW %{OFF|ON}";
+    @init { getSwitch; }
+}
+
+# Connect a stringout record to this to get
+# a generic command interface.
+# After processing finishes, the record contains the reply.
+
+debug {
+    ExtraInput = Ignore;
+    out "%s"; in "%39c"
+}

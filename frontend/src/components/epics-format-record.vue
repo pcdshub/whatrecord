@@ -55,7 +55,7 @@ export default {
   },
   computed: {
     info_nodes() {
-      const skip_keys = ["gateway", "archived", "happi"];
+      const skip_keys = ["gateway", "archived", "happi", "streamdevice"];
       return Object.entries(this.metadata).filter(
         item => skip_keys.indexOf(item[0]) < 0
       );

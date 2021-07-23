@@ -70,7 +70,7 @@ cpdef split_words(
                 redirect.mode = "r"
 
             if b'1' <= c <= b'9' and line[idx] == b'>':
-                redirectFd = c - b'0'
+                redirectFd = c - ord(b'0')
                 c = b'>'
                 idx += 1
 
@@ -120,7 +120,7 @@ cpdef split_words(
             inword = 1
         backslash = 0
 
-    if inword and idx_out < len(line):
+    if inword and idx_out < len(input_line_bytes):
         line[idx_out] = 0
         idx_out += 1
 
