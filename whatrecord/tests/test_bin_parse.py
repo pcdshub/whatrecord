@@ -6,7 +6,7 @@ import apischema
 import pytest
 
 from ..bin.parse import main, parse
-from ..shell import LoadedIoc
+from ..shell import LoadedIoc, ShellState
 from . import conftest
 
 empty_db_iocs = {"fake_ad", }
@@ -29,6 +29,35 @@ def test_load_round_trip_smoke(startup_script):
 
     assert loaded_ioc.metadata.is_up_to_date()
     # assert loaded_ioc == round_tripped
+
+
+@conftest.startup_scripts
+def test_load_and_whatrec(startup_script):
+    os.environ["PWD"] = str(startup_script.resolve().parent)
+    loaded_ioc: LoadedIoc = parse(startup_script)
+    state: ShellState = loaded_ioc.shell_state
+
+    v3_db = state.database
+    if v3_db:
+        pvname = list(v3_db)[0]
+        whatrec = loaded_ioc.whatrec(pvname)
+        assert whatrec is not None
+
+        rec = whatrec.record.instance
+        dbd = whatrec.record.definition
+        assert whatrec.name == rec.name == pvname
+        assert rec == state.database[pvname]
+        assert dbd == state.database_definition.record_types[rec.record_type]
+
+    pva_db = state.pva_database
+    if pva_db:
+        pvname = list(pva_db)[0]
+        whatrec = loaded_ioc.whatrec(pvname)
+        assert whatrec is not None
+
+        rec = whatrec.pva_group
+        assert whatrec.name == rec.name == pvname
+        assert rec == state.pva_database[pvname]
 
 
 @conftest.startup_scripts

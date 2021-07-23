@@ -21,8 +21,8 @@ from . import motor as motor_mod
 from . import settings, streamdevice, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
-                     PVRelations, RecordInstance, ShortLinterResults,
-                     WhatRecord, time_context)
+                     PVRelations, RecordDefinitionAndInstance, RecordInstance,
+                     ShortLinterResults, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line, split_words
@@ -740,7 +740,7 @@ class ScriptContainer:
     pv_relations: PVRelations = field(default_factory=dict)
 
     def add_loaded_ioc(self, loaded: LoadedIoc):
-        self.scripts[str(loaded.metadata.script)] = loaded
+        self.scripts[loaded.metadata.name] = loaded
         # TODO: IOCs will have conflicting definitions of records
         self.aliases.update(loaded.shell_state.aliases)
         if loaded.shell_state.database_definition:
@@ -767,49 +767,19 @@ class ScriptContainer:
     ) -> List[WhatRecord]:
         fmt = FormatContext()
         result = []
-        for stcmd, loaded in self.scripts.items():
-            info = whatrec(loaded.shell_state, rec, field, include_pva=include_pva)
+        for name, loaded in self.scripts.items():
+            info: WhatRecord = loaded.whatrec(rec, field, include_pva=include_pva)
             if info is not None:
-                info.owner = loaded.metadata.name
                 info.ioc = loaded.metadata
-                for inst in info.instances:
-                    if file is not None:
-                        print(fmt.render_object(inst, format_option), file=file)
+                for match in [info.record, info.pva_group]:
+                    if file is not None and match is not None:
+                        print(fmt.render_object(match, format_option), file=file)
                         for asyn_port in info.asyn_ports:
                             print(
                                 fmt.render_object(asyn_port, format_option), file=file
                             )
                 result.append(info)
         return result
-
-
-def whatrec(
-    state: ShellState, rec: str, field: Optional[str] = None, include_pva: bool = True
-) -> Optional[WhatRecord]:
-    """Get record information."""
-    v3_inst = state.database.get(rec, None)
-    pva_inst = state.pva_database.get(rec, None) if include_pva else None
-    if not v3_inst and not pva_inst:
-        return
-
-    asyn_ports = []
-    instances = []
-    if v3_inst is not None:
-        instances.append(v3_inst)
-        asyn_port = state.get_asyn_port_from_record(v3_inst)
-        if asyn_port is not None:
-            asyn_ports.append(asyn_port)
-
-            parent_port = getattr(asyn_port, "parent", None)
-            if parent_port is not None:
-                asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
-
-    if pva_inst is not None:
-        instances.append(pva_inst)
-
-    return WhatRecord(
-        name=rec, owner=None, instances=instances, asyn_ports=asyn_ports, ioc=None
-    )
 
 
 @dataclass
@@ -889,6 +859,46 @@ class LoadedIoc:
             script=script,
             pv_relations=graph.build_database_relations(sh.database),
         )
+
+    def whatrec(
+        self, rec: str, field: Optional[str] = None, include_pva: bool = True
+    ) -> Optional[WhatRecord]:
+        """Get record information, optionally including PVAccess results."""
+        state = self.shell_state
+        v3_inst = state.database.get(rec, None)
+        pva_inst = state.pva_database.get(rec, None) if include_pva else None
+        if not v3_inst and not pva_inst:
+            return
+
+        asyn_ports = []
+        what = WhatRecord(
+            name=rec, asyn_ports=asyn_ports, ioc=self.metadata,
+            record=None, pva_group=None,
+        )
+        if v3_inst is not None:
+            if not state.database_definition:
+                defn = None
+            else:
+                defn = state.database_definition.record_types.get(
+                    v3_inst.record_type, None
+                )
+                what.menus = state.database_definition.menus
+                # but what about device types and such?
+
+            what.record = RecordDefinitionAndInstance(defn, v3_inst)
+
+            asyn_port = state.get_asyn_port_from_record(v3_inst)
+            if asyn_port is not None:
+                asyn_ports.append(asyn_port)
+
+                parent_port = getattr(asyn_port, "parent", None)
+                if parent_port is not None:
+                    asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
+
+        if pva_inst is not None:
+            what.pva_group = pva_inst
+
+        return what
 
 
 def load_cached_ioc(

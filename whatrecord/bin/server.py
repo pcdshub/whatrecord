@@ -42,13 +42,6 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        '--archive-update-period',
-        type=int,
-        default=60,
-        help='Archiver status update period in minutes'
-    )
-
-    parser.add_argument(
         '--gateway-config',
         type=str,
         help='Gateway configuration file or directory'

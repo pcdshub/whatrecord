@@ -565,6 +565,55 @@ AnyField = Union[RecordField, PVAFieldReference]
 
 
 @dataclass
+class DatabaseMenu:
+    context: FullLoadContext
+    name: str
+    choices: Dict[str, str]
+
+
+@dataclass
+class DatabaseDevice:
+    record_type: str
+    link_type: str
+    dset_name: str
+    choice_string: str
+
+
+@apischema.fields.with_fields_set
+@dataclass
+class RecordTypeField:
+    context: FullLoadContext
+    name: str
+    type: str
+    asl: Optional[str] = None
+    initial: Optional[str] = None
+    promptgroup: Optional[str] = None
+    prompt: Optional[str] = None
+    special: Optional[str] = None
+    pp: Optional[str] = None
+    interest: Optional[str] = None
+    base: Optional[str] = None
+    size: Optional[str] = None
+    extra: Optional[str] = None
+    menu: Optional[str] = None
+    prop: Optional[str] = None
+    # -> bundle the remainder in "body", even if unrecognized
+    body: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class RecordType:
+    context: FullLoadContext
+    name: str
+    cdefs: List[str]
+    fields: Dict[str, RecordTypeField]
+    devices: Dict[str, DatabaseDevice] = field(default_factory=dict)
+    aliases: List[str] = field(default_factory=list)
+    info: Dict[str, str] = field(default_factory=dict)
+    is_grecord: bool = False
+
+
+@dataclass
 class RecordInstance:
     context: FullLoadContext
     name: str
@@ -654,14 +703,55 @@ class AsynPortBase:
 
 
 @dataclass
+class RecordDefinitionAndInstance:
+    """A pair of V3 record definition and instance."""
+    definition: Optional[RecordType]
+    instance: RecordInstance
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": """\
+{% set instance_info = render_object(instance, "console") %}
+{{ instance_info }}
+""",
+    }
+
+
+@dataclass
 class WhatRecord:
+    """
+    WhatRecord - full set of information regarding a specific record.
+
+    This response is on a per-IOC basis, so at most it can return one V3 record
+    and one V4 record, as these exist in separate namespaces.
+
+
+    Attributes
+    ----------
+    name : str
+        The record name.
+
+    record : RecordDefinitionAndInstance, optional
+        The V3 record definition (if available) and record instance.
+
+    pva_group : RecordInstance, optional
+        The PVAccess group, if available.
+
+    asyn_ports : list of AsynPort
+        The relevant asyn ports, if available.
+
+    ioc : IocMetadata, optional
+        The associated IOC metadata, if available.
+    """
     name: str
-    owner: Optional[str]
-    instances: List[RecordInstance]
-    asyn_ports: List[AsynPortBase]
-    ioc: Optional[IocMetadata]
+    record: Optional[RecordDefinitionAndInstance] = None
+    menus: Optional[Dict[str, DatabaseMenu]] = None
+    pva_group: Optional[RecordInstance] = None
+    asyn_ports: List[AsynPortBase] = field(default_factory=list)
+    ioc: Optional[IocMetadata] = None
     # TODO:
     # - gateway rule matches?
+    # - maybe this in place of things like 'asyn_ports' above?
+    # metadata: Dict[str, Any] = field(default_factory=dict)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """\
@@ -669,10 +759,14 @@ class WhatRecord:
     Owner: {{ present }}
 {% set ioc_info = render_object(ioc, "console") %}
     IOC: {{ ioc_info }}
-{% for instance in instances %}
-{% set instance_info = render_object(instance, "console") %}
+{% if record %}
+{% set instance_info = render_object(record, "console") %}
     {{ instance_info | indent(4)}}
-{% endfor %}
+{% endif %}
+{% if pva_group %}
+{% set instance_info = render_object(pva_group, "console") %}
+    {{ instance_info | indent(4)}}
+{% endif %}
 {% for asyn_port in asyn_ports %}
 {% set asyn_info = render_object(asyn_port, "console") %}
     {{ asyn_info | indent(4)}}

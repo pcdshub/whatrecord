@@ -1,11 +1,14 @@
 <template>
   <div class="context">
-    <script-context-one-link
-      v-for:="ctx in context"
-      :name="ctx[0]"
-      :line="ctx[1]"
-      :short="short"
-    />
+    <template v-for="[name, line] in context" :key="name + line">
+      &gt;
+        <script-context-one-link
+          :name="name"
+          :line="line"
+          :short="short"
+        />
+        <br />
+    </template>
   </div>
 </template>
 

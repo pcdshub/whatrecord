@@ -1,7 +1,6 @@
 <template>
-  &gt;
   <router-link :to="link">
-    {{ display_name }}:{{ line }}<br/>
+    {{ displayed_link_text }}
   </router-link>
 </template>
 
@@ -12,8 +11,15 @@ export default {
     name: String,
     line: Number,
     short: Boolean,
+    link_text: String,
   },
   computed: {
+    displayed_link_text() {
+      if (this.link_text) {
+        return this.link_text;
+      }
+      return `${this.display_name }:${this.line}`;
+    },
     display_name() {
       return (this.short ? this.short_name : this.name);
     },

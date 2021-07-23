@@ -101,6 +101,9 @@ init_args_by_type = {
     str: "testing",
     typing.Any: 123,
     typing.Tuple[str, str]: ("a", "b"),
+    Optional[common.RecordDefinitionAndInstance]: None,
+    Optional[common.RecordInstance]: None,
+    Optional[common.RecordType]: None,
 }
 
 
