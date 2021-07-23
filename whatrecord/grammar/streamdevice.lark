@@ -1,0 +1,181 @@
+// Attempt at a StreamDevice protocol grammar
+//
+// StreamDevice itself does not use a grammar, but rather implements its own
+// parser.  This grammar was hand-written and is definitely not 100% correct.
+//
+// StreamDevice is pretty lax about semicolons, whitespace, and where many
+// things can exist.  I've seen some interesting use (=abuse) of this in SLAC's
+// corpus of protocol files. I'm up for suggestions to improve this, in any
+// case.
+
+?start: protocol
+
+COMMENT     : "#" /[^\n\r]/*
+%ignore COMMENT
+
+%import common.WS_INLINE
+%import common.WS
+%ignore WS_INLINE
+%ignore WS
+
+// From the source, unused:
+SPECIAL : /[ ,;{}=()$'\"+-*\/]/
+
+// End-of-line terminator:
+EOL     : ";"
+
+ASCII_SYM: "NUL"
+         | "SOH"
+         | "STX"
+         | "ETX"
+         | "EOT"
+         | "ENQ"
+         | "ACK"
+         | "BEL"
+         | "BS"
+         | "HT"
+         | "TAB"
+         | "LF"
+         | "NL"
+         | "VT"
+         | "FF"
+         | "NP"
+         | "CR"
+         | "SO"
+         | "SI"
+         | "DLE"
+         | "DC1"
+         | "DC2"
+         | "DC3"
+         | "DC4"
+         | "NAK"
+         | "SYN"
+         | "ETB"
+         | "CAN"
+         | "EM"
+         | "SUB"
+         | "ESC"
+         | "FS"
+         | "GS"
+         | "RS"
+         | "US"
+         | "DEL"
+         | "SKIP"
+         | "?"
+
+DIGIT: "0".."9"
+HEXDIGIT: "a".."f"|"A".."F"|DIGIT
+OCTALDIGIT: "0".."7"
+
+INT: DIGIT+
+SIGNED_INT: ["+"|"-"] INT
+
+// Note: Not as restrictive as it should be for numerical values:
+byte: SIGNED_INT       -> integer
+    | "0x"i HEXDIGIT+  -> hex_byte
+    | "0" OCTALDIGIT+  -> octal_byte
+
+// TODO: BYTE as a terminal may cause parsing failures, with only "0" of "0xab"
+// being picked up.  Not sure if this is a rule-vs-terminal priority thing or
+// a bug.
+
+// There may not be as many restrictions on variable names as I thought?
+VARIABLE : /[a-z0-9_][a-z0-9:_\-\.]*/i
+VARIABLE_REF : "$" VARIABLE
+HANDLER_NAME : "@" VARIABLE
+SINGLEQUOTE : "'"
+DOUBLEQUOTE : "\""
+BACKSLASH   : "\\"
+ESCAPE      : BACKSLASH /./
+SQ_CHAR  : /[^'\n\\]/
+DQ_CHAR  : /[^"\n\\]/
+
+QUOTED_STRING: DOUBLEQUOTE (DQ_CHAR | ESCAPE )* DOUBLEQUOTE
+             | SINGLEQUOTE (SQ_CHAR | ESCAPE )* SINGLEQUOTE
+
+protocol: _top_item*
+
+_top_item: assignment EOL
+         | config_set EOL
+         | protocol_def
+         | handler_def
+
+value:
+     | value_part+
+
+value_part: VARIABLE_REF
+          | ASCII_SYM
+          | QUOTED_STRING
+          | byte
+          | ","
+
+number: /\d+/
+
+assignment: VARIABLE "=" value
+
+protocol_def: protocol_name "{" protocol_body "}" EOL?
+protocol_name: VARIABLE
+
+// Last item can optionally have ';'
+protocol_body: protocol_body_item* protocol_body_last_item?
+
+protocol_body_item: handler_def
+                  | assignment EOL
+                  | config_set EOL
+                  | command EOL
+                  | VARIABLE_REF EOL?  -> standalone_variable_ref
+                  | EOL                -> empty  // Yes, I've seen this
+
+protocol_body_last_item: assignment
+                       | config_set
+                       | command
+
+config_set: extra_input
+          | separator
+          | max_input
+          | in_terminator
+          | out_terminator
+          | terminator
+          | poll_period
+          | read_timeout
+          | write_timeout
+          | lock_timeout
+          | reply_timeout
+
+extra_input: "ExtraInput"i "=" ( "ignore"i | "error"i )
+separator: "Separator"i "=" value
+max_input: "MaxInput"i "=" number
+in_terminator: "InTerminator"i "=" value
+out_terminator: "OutTerminator"i "=" value
+terminator: "Terminator"i "=" value
+poll_period: "PollPeriod"i "=" number
+read_timeout: "ReadTimeout"i "=" number
+reply_timeout: "ReplyTimeout"i "=" number
+write_timeout: "WriteTimeout"i "=" number
+lock_timeout: "LockTimeout"i "=" number
+
+command: out
+       | in
+       | wait
+       | event
+       | exec
+       | disconnect
+       | connect
+       | user_defined_command
+
+event_code: number
+
+// command: COMMAND value
+disconnect: "disconnect"i
+connect: "connect"i (number | VARIABLE_REF)
+out: "out"i value
+in: "in"i value
+wait: "wait"i (number | VARIABLE_REF)
+event: "event"i "(" event_code ")" value
+exec: "exec"i QUOTED_STRING
+
+user_defined_command: protocol_name ( "(" user_defined_command_args ")" )?
+user_defined_command_args: value
+
+handler_def: HANDLER_NAME "{" handler_body* "}" EOL?
+handler_body: (command EOL)* command? EOL?

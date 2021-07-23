@@ -18,14 +18,14 @@ import apischema
 
 from . import asyn, graph
 from . import motor as motor_mod
-from . import settings, util
+from . import settings, streamdevice, util
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      PVRelations, RecordInstance, ShortLinterResults,
                      WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
-from .iocsh import parse_iocsh_line
+from .iocsh import parse_iocsh_line, split_words
 from .macro import MacroContext
 
 logger = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ class ShellState:
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
+    streamdevice: Dict[str, streamdevice.Protocol] = field(default_factory=dict)
 
     _handlers: Dict[str, Callable] = field(
         default_factory=dict, metadata=apischema.metadata.skip
@@ -261,33 +262,47 @@ class ShellState:
         return self.working_directory / filename
 
     @property
-    def db_include_paths(self):
-        env_var = self.macro_context.get("EPICS_DB_INCLUDE_PATH", None) or ""
-        if not env_var:
+    def db_include_paths(self) -> List[pathlib.Path]:
+        """Database include paths (EPICS_DB_INCLUDE_PATH)."""
+        env_paths = self.paths_from_env_var("EPICS_DB_INCLUDE_PATH")
+        if not env_paths:
             return [self.working_directory] + self.db_add_paths
+        return env_paths + self.db_add_paths
 
+    def paths_from_env_var(
+        self,
+        env_var: str,
+        *,
+        default: Optional[str] = None
+    ) -> List[pathlib.Path]:
+        """Paths from an environment variable (or macro)."""
+        env_var = self.macro_context.get(env_var, default) or ""
         return [
             (self.working_directory / pathlib.Path(path)).resolve()
             # TODO: this is actually OS-dependent (: on linux, ; on Windows)
             for path in env_var.split(":")
-        ] + self.db_add_paths
+        ]
 
-    def _fix_database_path(self, filename: Union[str, pathlib.Path]):
+    def _fix_path_with_search_list(
+        self,
+        filename: Union[str, pathlib.Path],
+        include_paths: List[pathlib.Path],
+    ) -> pathlib.Path:
+        """Given a list of paths, find ``filename``."""
         filename = str(filename)
-        db_include_paths = self.db_include_paths
-        if not db_include_paths or "/" in filename or "\\" in filename:
+        if not include_paths or "/" in filename or "\\" in filename:
             # Inclue path unset or even something resembling a nested path
             # automatically is used as-is
             return self.working_directory / filename
 
-        for path in db_include_paths:
+        for path in include_paths:
             option = path / filename
             if option.exists() and option.is_file():
                 return option
 
-        paths = list(str(path) for path in self.db_include_paths)
+        paths = list(str(path) for path in include_paths)
         raise FileNotFoundError(
-            f"Database file not found in search path: {paths}"
+            f"File {filename!r} not found in search path: {paths}"
         )
 
     def unhandled(self, command, args):
@@ -372,7 +387,7 @@ class ShellState:
             # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
             return "whatrecord: TODO multiple dbLoadDatabase"
-        dbd = self._fix_database_path(dbd)
+        dbd = self._fix_path_with_search_list(dbd, self.db_include_paths)
         fn, contents = self.load_file(dbd)
         macro_context = MacroContext(use_environment=False)
         macro_context.define_from_string(substitutions or "")
@@ -397,7 +412,7 @@ class ShellState:
         if self.ioc_initialized:
             raise RuntimeError("Records cannot be loaded after iocInit")
 
-        filename = self._fix_database_path(filename)
+        filename = self._fix_path_with_search_list(filename, self.db_include_paths)
         filename, contents = self.load_file(filename)
 
         macro_context = MacroContext(use_environment=False)
@@ -441,6 +456,8 @@ class ShellState:
                 entry.fields.update(rec.fields)
                 # entry.owner = self.ioc_info.name ?
 
+            self.annotate_record(rec)
+
         for name, rec in linter_results.pva_groups.items():
             if name not in self.pva_database:
                 self.pva_database[name] = rec
@@ -452,12 +469,81 @@ class ShellState:
                 entry.fields.update(rec.fields)
                 # entry.owner = self.ioc_info.name ?
 
+            self.annotate_record(rec)
+
         self.aliases.update(db.aliases)
         for addpath in db.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((db.parent / path).resolve())
 
         return ShortLinterResults.from_full_results(linter_results, macros=macros)
+
+    def annotate_record(self, record: RecordInstance):
+        """Hook to annotate a record after being loaded."""
+        # rtype = record.record_type
+        dtype = record.fields.get("DTYP", None)
+        if not dtype:
+            return
+
+        if dtype.value == "stream":
+            self.annotate_streamdevice(record)
+
+    def annotate_streamdevice(self, record: RecordInstance):
+        """Hook for StreamDevice annotation of a given record."""
+        info_field = record.fields.get("INP", record.fields.get("OUT", None))
+        if not info_field:
+            return
+
+        info_field = info_field.value.strip()
+        results = {}
+        try:
+            proto_file, proto_name, *proto_args = split_words(info_field).argv
+            proto_file = proto_file.lstrip("@ ")
+        except Exception:
+            results["error"] = (
+                f"Invalid StreamDevice input/output field: {info_field!r}"
+            )
+            proto_file = None
+            proto_name = None
+            proto_args = []
+        else:
+            try:
+                protocol = self.load_streamdevice_protocol(proto_file)
+            except Exception as ex:
+                results["error"] = f"{ex.__class__.__name__}: {ex}"
+            else:
+                if proto_name in protocol.protocols:
+                    results["protocol"] = protocol.protocols[proto_name]
+                else:
+                    results["error"] = (
+                        f"Unknown protocol {proto_name!r} in {proto_file}; "
+                        f"options are: {list(protocol.protocols)}"
+                    )
+
+        record.metadata["streamdevice"] = {
+            "protocol_file": proto_file,
+            "protocol_name": proto_name,
+            "protocol_args": proto_args,
+            **results,
+        }
+
+    def load_streamdevice_protocol(
+        self,
+        filename: Union[str, pathlib.Path]
+    ) -> streamdevice.Protocol:
+        """Load a StreamDevice protocol file."""
+        filename = self._fix_path_with_search_list(
+            filename,
+            self.paths_from_env_var("STREAM_PROTOCOL_PATH", default=".")
+        )
+        key = str(filename)
+        if key not in self.streamdevice:
+            fn, contents = self.load_file(filename)
+            self.streamdevice[key] = streamdevice.Protocol.from_string(
+                contents,
+                filename=fn
+            )
+        return self.streamdevice[key]
 
     def handle_dbl(self, rtyp=None, fields=None, *_):
         return []  # list(self.database)

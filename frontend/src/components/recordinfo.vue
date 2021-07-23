@@ -38,6 +38,41 @@
 
   </template>
 
+  <template v-if="streamdevice_metadata">
+    <details>
+      <summary>
+        StreamDevice protocol (
+          <span class="monospace">
+            {{ streamdevice_metadata.protocol_file }}
+          </span>,
+          <span class="monospace">
+            "{{ streamdevice_metadata.protocol_name }}"
+          </span>
+          )
+      </summary>
+      <dictionary-table
+        :dict="streamdevice_metadata"
+        :cls="'metadata'"
+        :skip_keys="['protocol']"
+      />
+      <template v-if="'protocol' in streamdevice_metadata">
+        <br />Protocol:
+        <dictionary-table
+          :dict="streamdevice_metadata.protocol"
+          :cls="'metadata'"
+          :skip_keys="['commands']"
+        />
+        <br />Commands:
+        <br />
+        <span v-for="command in streamdevice_metadata.protocol.commands" :key="command.name"
+            class="code">
+          {{ command.name }} {{ command.arguments.join(" ") }}<br />
+         </span>
+      </template>
+    </details>
+    <br />
+  </template>
+
   <Accordion :multiple="true" class="accordion">
     <AccordionTab :header="`Part of ${whatrec.ioc.name}`">
       <ioc-info :ioc_info="whatrec.ioc" />
@@ -159,6 +194,12 @@ export default {
       }
       return null;
     },
+    streamdevice_metadata() {
+      if (this.instance_v3 == null) {
+        return null;
+      }
+      return this.instance_v3.metadata["streamdevice"];
+    },
     happi_metadata() {
       if (this.instance_v3 == null) {
         return [];
@@ -177,6 +218,10 @@ export default {
   max-width: 70%;
 }
 
+.monospace {
+  font-family: monospace;
+}
+
 .p-panel {
   padding-bottom: 1em;
 }
@@ -188,5 +233,21 @@ iframe {
 
 .accordion {
   max-width: 80vw;
+}
+
+.code {
+  background: #efefef;
+  border-left: 3px solid lightgreen;
+  color: black;
+  display: block;
+  font-family: monospace;
+  font-size: 15px;
+  line-height: 1.0;
+  margin-bottom: 1.6em;
+  max-width: 100%;
+  overflow: auto;
+  padding: 15px;
+  page-break-inside: avoid;
+  word-wrap: break-word;
 }
 </style>

@@ -1,11 +1,12 @@
 from typing import Optional
 
+from _whatrecord.common import IocshRedirect, IocshSplit
 from _whatrecord.iocsh import split_words
 
 from .common import IocshResult, LoadContext
 from .macro import MacroContext
 
-__all__ = ["split_words", "parse_iocsh_line"]
+__all__ = ["split_words", "parse_iocsh_line", "IocshRedirect", "IocshSplit"]
 
 
 def parse_iocsh_line(

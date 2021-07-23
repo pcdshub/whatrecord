@@ -23,7 +23,15 @@
         <td v-else-if="value instanceof Array" class="value">
           <ul>
             <li v-for="item of value" :key="item">
-              {{ item }}
+              <template v-if="item && Object.keys(item)[0] != 0">
+                <dictionary-table
+                  :dict="item"
+                  cls="metadata"
+                  :skip_keys="[]" />
+              </template>
+              <template v-else>
+                {{ item }}
+              </template>
             </li>
           </ul>
         </td>
