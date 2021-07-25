@@ -13,7 +13,11 @@
         <td>
           <script-context-link :context="match.context" :short="true" />
         </td>
-        <td>{{ match.expression }}</td>
+        <td>
+          <router-link :to='{ name: "whatrec", params: { record_glob: match.expression }, query: { regex: "true" } }'>
+              {{ match.expression }}
+          </router-link>
+        </td>
         <td>{{ match.details.join(" ") }}</td>
         <td>
           <!--
