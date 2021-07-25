@@ -13,14 +13,14 @@ def test_init_basic():
     ServerState()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def state():
     return _new_server_state(
         scripts=[str(script) for script in STARTUP_SCRIPTS],
     )
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def ready_state(state: ServerState, caplog):
     caplog.set_level("INFO")
     # asyncio.run(state.async_init(app=None), debug=True)

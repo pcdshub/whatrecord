@@ -50,7 +50,7 @@ export default {
           field_body.push(`${key}: "${value}"`);
         }
       }
-      for (const [key, value] of Object.entries(info.body)) {
+      for (const [key, value] of Object.entries(info.body || {})) {
         field_body.push(`? ${key}: "${value}"`);
       }
 

@@ -65,6 +65,7 @@ class IocshCmdArgs:
     command: str
 
 
+@apischema.fields.with_fields_set
 @dataclass
 class IocshResult:
     context: FullLoadContext
@@ -76,13 +77,6 @@ class IocshResult:
     # TODO: normalize this
     # result: Optional[Union[str, Dict[str, str], IocshCmdArgs, ShortLinterResults]]
     result: Any = None
-
-    @classmethod
-    def from_line(cls, line: str, context: Optional[FullLoadContext] = None) -> IocshResult:
-        return cls(
-            context=context or (),
-            line=line,
-        )
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """
@@ -154,8 +148,9 @@ class IocshScript:
         return cls(
             path=str(filename),
             lines=tuple(
-                IocshResult.from_line(
-                    line, context=(LoadContext(str(filename), lineno), )
+                IocshResult(
+                    line,
+                    context=(LoadContext(str(filename), lineno), )
                 )
                 for lineno, line in enumerate(lines, 1)
             ),

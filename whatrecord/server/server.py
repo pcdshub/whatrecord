@@ -54,9 +54,17 @@ class ServerLogHandler(logging.Handler):
         self.messages.append(self.format(record))
 
 
-def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
+def compile_pattern(pattern, flags=re.IGNORECASE, separator="|", use_regex=False):
+    """Compile a regular expression (or glob)."""
+    if use_regex:
+        return re.compile(
+            pattern,
+            flags=flags,
+        )
+
+    # Otherwise, glob
     return re.compile(
-        "|".join(fnmatch.translate(glob_str) for part in glob_str.split(separator)),
+        "|".join(fnmatch.translate(pattern) for part in pattern.split(separator)),
         flags=flags,
     )
 
@@ -395,11 +403,6 @@ class ServerState:
                 common.IocshResult(
                     context=(LoadContext(fn, lineno),),
                     line=line,
-                    outputs=[],
-                    argv=None,
-                    error=None,
-                    redirects={},
-                    result=None,
                 )
             )
         return common.IocshScript(path=fn, lines=tuple(result))
@@ -411,18 +414,23 @@ class ServerState:
         return self.gateway_config.get_matches(pvname)
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_pvs(self, glob_str: str) -> List[str]:
-        regex = _compile_glob(glob_str)
+    def get_matching_pvs(self, pattern: str, use_regex: bool = False) -> List[str]:
+        regex = compile_pattern(pattern, use_regex=use_regex)
         pv_names = set(self.database) | set(self.pva_database)
         return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_iocs(self, glob_str: str) -> List[LoadedIoc]:
-        regex = _compile_glob(glob_str)
+    def get_matching_iocs(self, pattern: str, use_regex: bool = False) -> List[LoadedIoc]:
+        regex = compile_pattern(pattern, use_regex=use_regex)
+
+        def by_name(ioc: LoadedIoc):
+            return ioc.name
+
         return [
             loaded_ioc
-            for script_path, loaded_ioc in sorted(self.container.scripts.items())
-            if regex.match(script_path) or regex.match(loaded_ioc.metadata.name)
+            for loaded_ioc in sorted(self.container.scripts.values(), key=by_name)
+            if regex.match(loaded_ioc.script.path)
+            or regex.match(loaded_ioc.metadata.name)
         ]
 
     async def get_graph_rendered(
@@ -464,42 +472,48 @@ class ServerHandler:
             }
         )
 
-    @routes.get("/api/pv/{glob_str}/matches")
+    @routes.get("/api/pv/{pattern}/matches")
     async def api_pv_get_matches(self, request: web.Request):
         max_matches = int(request.query.get("max", "200"))
-        glob_str = request.match_info.get("glob_str", "*")
-        matches = self.state.get_matching_pvs(glob_str)
+        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
+        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
+        matches = self.state.get_matching_pvs(pattern, use_regex=use_regex)
         if max_matches > 0:
             matches = matches[:max_matches]
 
         return serialized_response(
             PVGetMatchesResponse(
-                glob=glob_str,
+                pattern=pattern,
+                regex=use_regex,
                 matches=matches,
             )
         )
 
-    @routes.get("/api/iocs/{glob_str}/matches")
+    @routes.get("/api/iocs/{pattern}/matches")
     async def api_ioc_get_matches(self, request: web.Request):
         # Ignore max for now. This is not much in the way of information.
         # max_matches = int(request.query.get("max", "1000"))
-        glob_str = request.match_info.get("glob_str", "*")
+        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
+        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
         match_metadata = [
             loaded_ioc.metadata
-            for loaded_ioc in self.state.get_matching_iocs(glob_str)
+            for loaded_ioc in self.state.get_matching_iocs(pattern, use_regex=use_regex)
         ]
         return serialized_response(
             IocGetMatchesResponse(
-                glob=glob_str,
+                pattern=pattern,
+                regex=use_regex,
                 matches=match_metadata,
             )
         )
 
     @routes.get("/api/iocs/{ioc_glob}/pvs/{pv_glob}")
     async def api_ioc_get_pvs(self, request: web.Request):
+        regex = request.query.get("regex", "false") in TRUE_VALUES
         response = IocGetMatchingRecordsResponse(
-            ioc_glob=request.match_info.get("ioc_glob", "*"),
-            pv_glob=request.match_info.get("pv_glob", "*"),
+            ioc_pattern=request.match_info.get("ioc_glob", ".*" if regex else "*"),
+            record_pattern=request.match_info.get("pv_glob", ".*" if regex else "*"),
+            regex=regex,
             matches=[],
         )
 
@@ -507,8 +521,13 @@ class ServerHandler:
             yield from shell_state.database.items()
             yield from shell_state.pva_database.items()
 
-        pv_glob_re = _compile_glob(response.pv_glob)
-        for loaded_ioc in self.state.get_matching_iocs(response.ioc_glob):
+        pv_glob_re = compile_pattern(
+            response.record_pattern,
+            use_regex=response.regex,
+        )
+        for loaded_ioc in self.state.get_matching_iocs(
+            response.ioc_pattern, use_regex=response.regex,
+        ):
             record_matches = [
                 rec_info.to_summary()
                 for rec, rec_info in sorted(get_all_records(loaded_ioc.shell_state))
@@ -531,8 +550,9 @@ class ServerHandler:
     async def api_ioc_info(self, request: web.Request):
         # script_name = pathlib.Path(request.query["file"])
         filename = request.query["file"]
-        loaded_ioc = self.state.container.scripts.get(filename, None)
-        if loaded_ioc:
+        ioc_name = self.state.container.startup_script_to_ioc.get(filename, None)
+        if ioc_name:
+            loaded_ioc = self.state.container.scripts[ioc_name]
             script_info = loaded_ioc.script
             ioc_md = loaded_ioc.metadata
         else:
@@ -593,7 +613,11 @@ class ServerHandler:
     @routes.get("/api/logs/get")
     async def api_logs_get(self, request: web.Request):
         return web.json_response(
-            list(_log_handler.messages)
+            list(
+                _log_handler.messages
+                if _log_handler is not None
+                else ["Logger not initialized"]
+            )
         )
 
     @routes.get("/api/pv/{pv_names}/relations")

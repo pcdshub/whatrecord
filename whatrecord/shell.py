@@ -173,7 +173,10 @@ class ShellState:
                 )
         elif shresult.argv:
             try:
-                shresult.result = self.handle_command(*shresult.argv)
+                result = self.handle_command(*shresult.argv)
+                if result:
+                    # Only set if not-None to speed up serialization
+                    shresult.result = result
             except Exception as ex:
                 if raise_on_error:
                     raise
@@ -734,13 +737,17 @@ class ScriptContainer:
     aliases: Dict[str, str] = field(default_factory=dict)
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     scripts: Dict[str, LoadedIoc] = field(default_factory=dict)
+    startup_script_to_ioc: Dict[str, str] = field(default_factory=dict)
     #: absolute filename path to sha
     loaded_files: Dict[str, str] = field(default_factory=dict)
     record_types: Dict[str, RecordType] = field(default_factory=dict)
     pv_relations: PVRelations = field(default_factory=dict)
 
     def add_loaded_ioc(self, loaded: LoadedIoc):
-        self.scripts[loaded.metadata.name] = loaded
+        ioc_name = loaded.metadata.name
+        self.scripts[ioc_name] = loaded
+        self.startup_script_to_ioc[str(loaded.metadata.script)] = ioc_name
+
         # TODO: IOCs will have conflicting definitions of records
         self.aliases.update(loaded.shell_state.aliases)
         if loaded.shell_state.database_definition:
@@ -826,7 +833,7 @@ class LoadedIoc:
         script = IocshScript(
             path=str(md.script),
             lines=tuple(
-                IocshResult.from_line(line, context=(LoadContext("error", lineno),))
+                IocshResult(line=line, context=(LoadContext("error", lineno),))
                 for lineno, line in enumerate(error_lines, 1)
             ),
         )

@@ -310,10 +310,14 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             if key in body
         }
 
+        if body:
+            # Only add this in if necessary; otherwise we can skip serializing
+            # it.
+            kwargs["body"] = body
+
         return RecordTypeField(
             name=name,
             type=type_,
-            body=body,
             context=_context_from_token(self.fn, field_tok),
             **kwargs
         )

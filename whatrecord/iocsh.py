@@ -41,11 +41,6 @@ def parse_iocsh_line(
     result = IocshResult(
        context=context,
        line=line,
-       outputs=[],
-       argv=None,
-       error=None,
-       redirects=[],
-       result=None,
     )
     # Skip leading whitespace
     line = line.lstrip()
@@ -76,6 +71,13 @@ def parse_iocsh_line(
 
     split = split_words(line, string_encoding=string_encoding)
     result.argv = split.argv
-    result.redirects = list(split.redirects.values())
-    result.error = split.error
+
+    # Only set the following if necessary; apischema can skip serialization
+    # otherwise.
+    if split.redirects:
+        result.redirects = list(split.redirects.values())
+
+    if split.error:
+        result.error = split.error
+
     return result

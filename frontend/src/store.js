@@ -6,6 +6,7 @@ const axios = require('axios').default;
 export const store = createStore({
   state: () => (
     {
+      regex_to_pvs: {},
       glob_to_pvs: {},
       ioc_info: [],
       ioc_to_records: {},
@@ -14,7 +15,6 @@ export const store = createStore({
       pv_relations: {},
       queries_in_progress: 0,
       query_in_progress: false,
-      record_glob: "*",
       record_info: {},
     }
   ),
@@ -31,8 +31,12 @@ export const store = createStore({
         state.query_in_progress = false;
       }
     },
-    add_record_search_results (state, { pv_glob, pv_list }) {
-      state.glob_to_pvs[pv_glob] = pv_list;
+    add_record_search_results (state, { pattern, pv_list, regex }) {
+      if (regex) {
+        state.regex_to_pvs[pattern] = pv_list;
+      } else {
+        state.glob_to_pvs[pattern] = pv_list;
+      }
     },
     set_file_info (state, { filename, info }) {
       state.file_info[filename] = info;
@@ -56,8 +60,7 @@ export const store = createStore({
   actions: {
     async update_ioc_info ({state, commit}) {
       if (state.ioc_info.length > 0) {
-        console.log("using cached ioc info");
-        return;
+        return state.ioc_info;
       }
       try {
         await commit("start_query");
@@ -86,18 +89,17 @@ export const store = createStore({
 
     async get_record_info ({ state, commit }, { record_name }) {
       if (record_name in state.record_info) {
-        console.debug("Using cached record info for", record_name);
-        return;
+        return state.record_info[record_name];
       }
       try {
         await commit("start_query");
         const response = await axios.get(`/api/pv/${record_name}/info`, {})
-        for (const rec in response.data) {
+        for (const [rec, rec_info] of Object.entries(response.data)) {
           await commit(
             "add_record_info",
             {
               record: rec,
-              info: response.data[rec],
+              info: rec_info,
             },
           );
         }
@@ -160,29 +162,32 @@ export const store = createStore({
       }
     },
 
-    async find_record_matches ({ state, commit }, { record_glob, max_pvs }) {
-      if (record_glob == null) {
+    async find_record_matches ({ state, commit }, { pattern, max_pvs, regex }) {
+      if (pattern == null) {
         return;
       }
-      if (state.record_glob === record_glob && record_glob in state.glob_to_pvs) {
-        return;
+      if (!regex && pattern in state.glob_to_pvs) {
+        return state.glob_to_pvs[pattern];
+      } else if (regex && pattern in state.regex_to_pvs) {
+        return state.regex_to_pvs[pattern];
       }
       await commit("start_query");
-      const query_glob = record_glob == "" ? "*" : record_glob;
-      console.debug("Search for PV matches:", query_glob);
+      const query_pattern = pattern || (regex ? ".*" : "*");
+      console.debug("Search for PV matches:", query_pattern, regex ? "regex" : "glob");
 
       try {
         const response = await axios.get(
-          `/api/pv/${query_glob}/matches`,
-          {params: {max: max_pvs}}
+          `/api/pv/${query_pattern}/matches`,
+          {params: {max: max_pvs, regex: regex}}
         )
         const matches = response.data["matches"];
         await commit(
           "add_record_search_results",
           {
-            pv_glob: query_glob,
+            pattern: pattern,
             max_pvs: max_pvs,
             pv_list: matches,
+            regex: regex,
           },
         );
         return matches;
@@ -192,6 +197,5 @@ export const store = createStore({
           await commit("end_query");
       }
     },
-
   },
 })
