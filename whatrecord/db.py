@@ -7,9 +7,10 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import lark
 
-from .common import (FullLoadContext, LinterError, LinterWarning, LoadContext,
+from .common import (DatabaseDevice, DatabaseMenu, FullLoadContext,
+                     LinterError, LinterWarning, LoadContext,
                      PVAFieldReference, RecordField, RecordInstance,
-                     StringWithContext, dataclass)
+                     RecordType, RecordTypeField, StringWithContext, dataclass)
 from .macro import MacroContext
 
 
@@ -20,22 +21,8 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
 
 
 @dataclass
-class RecordTypeField:
-    name: str
-    type: str
-    body: List[Tuple[str, str]]
-    context: FullLoadContext
-
-
-@dataclass
 class RecordTypeCdef:
     text: str
-
-
-@dataclass
-class DatabaseMenu:
-    name: str
-    choices: Dict[str, str]
 
 
 @dataclass
@@ -81,14 +68,6 @@ class DatabaseVariable:
 
 
 @dataclass
-class DatabaseDevice:
-    record_type: str
-    link_type: str
-    dset_name: str
-    choice_string: str
-
-
-@dataclass
 class DatabaseBreakTable:
     name: str
     # values: Tuple[str, ...]
@@ -106,17 +85,6 @@ class DatabaseRecordFieldInfo:
     context: FullLoadContext
     name: str
     value: str
-
-
-@dataclass
-class RecordType:
-    name: str
-    cdefs: List[str]
-    fields: Dict[str, RecordTypeField]
-    devices: Dict[str, DatabaseDevice] = field(default_factory=dict)
-    aliases: List[str] = field(default_factory=list)
-    info: Dict[str, str] = field(default_factory=dict)
-    is_grecord: bool = False
 
 
 class DatabaseLoadFailure(Exception):
@@ -271,8 +239,12 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def addpath(self, path):
         return DatabaseAddPath(path)
 
-    def menu(self, _, name, choices):
-        return DatabaseMenu(name=name, choices=choices)
+    def menu(self, menu_token, name, choices):
+        return DatabaseMenu(
+            context=_context_from_token(self.fn, menu_token),
+            name=name,
+            choices=choices
+        )
 
     def menu_head(self, name):
         return name
@@ -318,23 +290,53 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
     def recordtype_field(self, field_tok, head, body):
         name, type_ = head
+        known_keys = (
+            "asl",
+            "base",
+            "extra",
+            "initial",
+            "interest",
+            "menu",
+            "pp",
+            "prompt",
+            "promptgroup",
+            "prop",
+            "size",
+            "special",
+        )
+        kwargs = {
+            key: body.pop(key)
+            for key in known_keys
+            if key in body
+        }
+
+        if body:
+            # Only add this in if necessary; otherwise we can skip serializing
+            # it.
+            kwargs["body"] = body
+
         return RecordTypeField(
-            name=name, type=type_, body=body,
-            context=_context_from_token(self.fn, field_tok)
+            name=name,
+            type=type_,
+            context=_context_from_token(self.fn, field_tok),
+            **kwargs
         )
 
     def recordtype_head(self, head):
         return head
 
-    # @lark.visitors.v_args(tree=True)
     def recordtype_field_body(self, *items):
-        return items
+        return dict(items)
 
     def recordtype_field_head(self, name, type_):
         return (name, type_)
 
     def recordtype_field_item(self, name, value):
         return (name, value)
+
+    def recordtype_field_item_menu(self, name, menu):
+        # Not sure why I separated this
+        return (name, menu)
 
     def alias(self, _, alias_name):
         return DatabaseRecordAlias(None, alias_name)
@@ -382,19 +384,17 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def hexint(self, sign, _, digits):
         return f"{sign}0x{digits}"
 
-    def recordtype_field_item_menu(self, _, menu):
-        return menu
-
     def cdef(self, cdef_text):
-        return RecordTypeCdef(str(cdef_text))
+        return RecordTypeCdef(str(cdef_text)[1:].strip())
 
-    def recordtype(self, _, name, body):
+    def recordtype(self, recordtype_token, name, body):
         info = {
             RecordTypeCdef: [],
             RecordTypeField: {},
         }
         _separate_by_class(body.children, info)
         record_type = RecordType(
+            context=_context_from_token(self.fn, recordtype_token),
             name=name,
             fields=info[RecordTypeField],
             cdefs=[cdef.text for cdef in info[RecordTypeCdef]],
@@ -541,7 +541,7 @@ class Database:
     functions: List[DatabaseFunction] = field(default_factory=list)
     includes: List[DatabaseInclude] = field(default_factory=list)
     links: List[DatabaseLink] = field(default_factory=list)
-    menus: List[DatabaseMenu] = field(default_factory=list)
+    menus: Dict[str, DatabaseMenu] = field(default_factory=dict)
     records: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_groups: Dict[str, RecordInstance] = field(default_factory=dict)
     record_types: Dict[str, RecordType] = field(default_factory=dict)

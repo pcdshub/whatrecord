@@ -1,5 +1,6 @@
 <template>
   <div class="p-grid">
+    Regular expression: <InputSwitch v-model="regex" :binary="true" @change="do_search" />
     <div class="p-col-10">
       <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
         <InputText type="text"
@@ -15,7 +16,8 @@
   </div>
   <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
       @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
-    <Column field="pv" :header="`Results`"></Column>
+    <Column field="pv" :header="`Results`">
+    </Column>
   </DataTable>
 </template>
 
@@ -24,6 +26,7 @@ import { mapState } from 'vuex'
 
 import Button from 'primevue/button';
 import Column from 'primevue/column';
+import InputSwitch from 'primevue/inputswitch';
 import DataTable from 'primevue/datatable';
 import InputText from 'primevue/inputtext';
 
@@ -33,18 +36,16 @@ export default {
     Button,
     Column,
     DataTable,
+    InputSwitch,
     InputText,
   },
   props: [],
   data() {
     return {
       max_pvs: 100,
+      regex: false,
       table_selection: [],
       input_record_glob: "*",
-      last_displayed: {
-        glob: "",
-        list: [],
-      },
     }
   },
   computed: {
@@ -56,76 +57,79 @@ export default {
       return as_list;
     },
 
-    table_data () {
-      return this.displayed_info.list.map(value => ({"pv": value}));
-    },
-    record_glob () {
+    pattern () {
       return this.$route.params.record_glob || "";
     },
     ...mapState({
       searching: state => state.query_in_progress,
 
-      displayed_info(state) {
-        if (this.record_glob in state.glob_to_pvs) {
-          this.last_displayed = {
-            glob: this.record_glob,
-            list: state.glob_to_pvs[this.record_glob],
-          }
+      table_data (state) {
+        const pattern_to_pvs = this.regex ? state.regex_to_pvs : state.glob_to_pvs;
+        if (this.pattern in pattern_to_pvs) {
+          const pvs = pattern_to_pvs[this.pattern];
+          return pvs.map(value => ({"pv": value}));
         }
-        return this.last_displayed;
+        return [];
       },
     }),
   },
 
   emits: [],
 
-  created() {
+  async created() {
     this.$watch(
       () => this.$route.params, to_params => {
-        this.from_route_params(
-          to_params.record_glob,
-          to_params.selected_records,
-        );
+        this.from_route(to_params, this.$route.query);
       }
     )
+    await this.from_route(this.$route.params, this.$route.query);
   },
-  mounted() {
-    this.from_route_params(
-      this.$route.params.record_glob,
-      this.$route.params.selected_records,
-    );
-  },
+
   methods: {
-    from_route_params (record_glob, selected_records) {
-      this.input_record_glob = record_glob || "*";
-      document.title = `WhatRecord? ${record_glob} (${selected_records})`;
-      this.$store.dispatch(
-        "find_record_matches",
-        {"record_glob": record_glob, "max_pvs": this.max_pvs}
-      );
-      this.table_selection = [];
+    async from_route (params, query) {
+      const regex = (query.regex || "false") == "true";
+      const pattern = params.record_glob;
+      const selected_records = params.selected_records;
+
+      this.regex = regex;
+      this.input_record_glob = pattern || (regex ? ".*" : "*");
+
+      // Get all the record info we need in the background
+      let table_selection = [];
       for (const rec of (selected_records || "").split("|")) {
         if (rec.length > 0) {
           this.$store.dispatch("get_record_info", { record_name: rec });
-          this.table_selection.push({pv: rec});
+          table_selection.push({pv: rec});
         }
       }
+
+      document.title = `WhatRecord? ${pattern} (${selected_records})`;
+      await this.$store.dispatch(
+        "find_record_matches",
+        {
+          "pattern": pattern,
+          "max_pvs": this.max_pvs,
+          "regex": regex,
+        }
+      );
+      // Only after we have populated the table, set the selection
+      this.table_selection = table_selection;
     },
 
     do_search() {
       this.$router.push({
         params: {
           "record_glob": this.input_record_glob,
-        }
+          "selected_records": this.table_selection_list.join("|"),
+        },
+        query: {
+          "regex": this.regex,
+        },
       });
     },
 
     on_table_selection() {
-      this.$router.push({
-        params: {
-          "selected_records": this.table_selection_list.join("|"),
-        }
-      });
+      this.do_search();
     },
 
   },

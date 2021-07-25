@@ -8,14 +8,12 @@
         &nbsp;alias("{{ alias }}")<br/>
       </span>
       <!-- fields -->
-      <span
-        class="recordfield"
-        v-for="field in fields"
-        :key="field.name"
-        :title="field.dtype + ':' + field.context.join(', ')"
-        >
-        &nbsp;field({{ field.name }}, "{{ field.value }}")<br/>
-      </span>
+      <template v-for="field in fields" :key="field.name">
+        <epics-format-field :field="field"
+            :field_info="record_defn.fields[field.name]"
+            :menus="menus"
+            />
+      </template>
       <!-- info nodes -->
       <span v-for="[key, value] in info_nodes" :key="key">
         &nbsp;info({{ key }}, "{{ value }}")<br/>
@@ -41,6 +39,8 @@
 </template>
 
 <script>
+import EpicsFormatField from './epics-format-field.vue'
+
 export default {
   name: 'EpicsFormatRecord',
   props: {
@@ -52,6 +52,12 @@ export default {
     metadata: Object,
     name: String,
     record_type: String,
+    record_type_info: Object,
+    record_defn: Object,
+    menus: Object,
+  },
+  components: {
+    EpicsFormatField,
   },
   computed: {
     info_nodes() {

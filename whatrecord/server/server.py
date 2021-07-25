@@ -11,7 +11,7 @@ try:
 except ImportError:
     # tracemalloc unavailable on pypy
     tracemalloc = None
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import apischema
 import graphviz
@@ -22,9 +22,10 @@ from ..common import LoadContext, RecordInstance, WhatRecord
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
-                     PluginResults, PVGetInfo, PVGetMatchesResponse,
-                     PVRelationshipResponse, PVShortRelationshipResponse,
-                     ServerPluginSpec, TooManyRecordsError)
+                     IocMetadata, PluginResults, PVGetInfo,
+                     PVGetMatchesResponse, PVRelationshipResponse,
+                     PVShortRelationshipResponse, ServerPluginSpec,
+                     TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
@@ -53,70 +54,89 @@ class ServerLogHandler(logging.Handler):
         self.messages.append(self.format(record))
 
 
-def _compile_glob(glob_str, flags=re.IGNORECASE, separator="|"):
+def compile_pattern(pattern, flags=re.IGNORECASE, separator="|", use_regex=False):
+    """Compile a regular expression (or glob)."""
+    if use_regex:
+        return re.compile(
+            pattern,
+            flags=flags,
+        )
+
+    # Otherwise, glob
     return re.compile(
-        "|".join(fnmatch.translate(glob_str) for part in glob_str.split(separator)),
+        "|".join(fnmatch.translate(pattern) for part in pattern.split(separator)),
         flags=flags,
     )
 
 
 class ServerState:
+    running: bool
     container: ScriptContainer
-    archived_pvs: Set[str]
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
     plugin_data: Dict[str, Optional[PluginResults]]
+    ioc_metadata: List[IocMetadata]
+    _update_count: int
 
     def __init__(
         self,
-        startup_scripts: List[str],
-        script_loaders: List[str],
-        standin_directories: Dict[str, str],
+        startup_scripts: Optional[List[str]] = None,
+        script_loaders: Optional[List[str]] = None,
+        standin_directories: Optional[Dict[str, str]] = None,
         gateway_config: Optional[str] = None,
         plugins: Optional[List[ServerPluginSpec]] = None,
     ):
-        self.archived_pvs = set()
+        self.running = False
         self.container = ScriptContainer()
         self.gateway_config = None
         self.gateway_config_path = gateway_config
+        self.ioc_metadata = []
         self.plugin_data = {}
         self.plugins = plugins or []
         self.script_relations = {}
-        self.standin_directories = standin_directories
+        self.standin_directories = standin_directories or {}
         self.tasks = TaskHandler()
         self.script_loaders = [
-            ioc_finder.IocScriptStaticList(startup_scripts)
+            ioc_finder.IocScriptStaticList(startup_scripts or [])
         ] + [
             ioc_finder.IocScriptExternalLoader(loader)
-            for loader in script_loaders
+            for loader in script_loaders or []
         ]
+        self._update_count = 0
+
+    async def stop(self):
+        """Stop any background updates."""
+        self.running = False
+        await self.tasks.cancel_all(wait=True)
 
     async def async_init(self, app):
-        self.tasks.create(self.update_from_script_loaders())
-        self.tasks.create(self.update_plugins())
+        self.running = True
+        self.tasks.create(self._update_loop())
+        self.tasks.create(self._update_plugin_loop())
 
-    async def update_from_script_loaders(self):
-        startup_md = []
-        for loader in self.script_loaders:
-            await loader.update()
-            for _, md in loader.scripts.items():
-                startup_md.append(md)
+    async def _update_plugin_loop(self):
+        while self.running:
+            with common.time_context() as ctx:
+                await self.update_plugins()
+                logger.info(
+                    "Updated plugins in %.1f seconds", ctx()
+                )
 
-        first_load = True
+            await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
 
-        while True:
+        logger.info("Server state plugin updates finished.")
+
+    async def _update_loop(self):
+        """Update scripts from the script loader and watch for updates."""
+        # TODO: script loaders need to be called periodically, but we need
+        # to determine which IOCs are new, which were removed, etc.
+        await self.update_script_loaders()
+
+        while self.running:
             logger.info("Checking for changed scripts and database files...")
             self._load_gateway_config()
-            updated = [
-                md for md in startup_md
-                if not md.is_up_to_date()
-            ]
-            for item in list(updated):
-                if not item.script or not item.script.exists():
-                    if not first_load:
-                        # Don't attempt another load unless the file exists
-                        updated.remove(item)
 
+            updated = self.get_updated_iocs()
             if not updated:
                 logger.info("No changes found.")
                 await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
@@ -131,27 +151,70 @@ class ServerState:
             if len(updated) > 10:
                 logger.info("... and %d more", len(updated) - 10)
 
-            async for md, loaded in load_startup_scripts_with_metadata(
-                *updated, standin_directories=self.standin_directories
-            ):
-                self.container.add_loaded_ioc(loaded)
-                # Swap out the new loaded metadata
-                idx = startup_md.index(md)
-                startup_md.remove(md)
-                startup_md.insert(idx, loaded.metadata)
-
             with common.time_context() as ctx:
-                self.script_relations = graph.build_script_relations(
-                    self.container.database,
-                    self.container.pv_relations
+                await self.update_iocs(updated)
+                logger.info(
+                    "Updated %d IOCs in %.1f seconds", len(updated), ctx()
                 )
-                logger.info("Updated script relations in %.1f s", ctx())
-
             self.clear_cache()
+
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
-            first_load = False
+
+        logger.info("Server state updates finished.")
+
+    async def update_script_loaders(self):
+        """Update scripts from the script loader and watch for updates."""
+        # TODO: script loaders need to be called periodically, but we need
+        # to determine which IOCs are new, which were removed, etc.
+        for loader in self.script_loaders:
+            await loader.update()
+            for _, md in loader.scripts.items():
+                self.ioc_metadata.append(md)
+
+    def get_updated_iocs(self) -> List[IocMetadata]:
+        """Check loaded IOCs for any changes."""
+        updated = [
+            md for md in self.ioc_metadata
+            if not md.is_up_to_date()
+        ]
+        for item in list(updated):
+            if not item.script or not item.script.exists() or item.looks_like_sh:
+                if self._update_count == 0:
+                    # Don't attempt another load unless the file exists
+                    updated.remove(item)
+
+        return updated
+
+    def _replace_metadata(
+        self,
+        old_md: IocMetadata,
+        new_md: IocMetadata
+    ) -> int:
+        """Replace the provided metadata information with a new one."""
+        idx = self.ioc_metadata.index(old_md)
+        self.ioc_metadata.remove(old_md)
+        self.ioc_metadata.insert(idx, new_md)
+        return idx
+
+    async def update_iocs(self, iocs: List[IocMetadata]):
+        """Reload the provided IOCs."""
+        async for md, loaded in load_startup_scripts_with_metadata(
+            *iocs, standin_directories=self.standin_directories
+        ):
+            self.container.add_loaded_ioc(loaded)
+            self._replace_metadata(md, loaded.metadata)
+
+        with common.time_context() as ctx:
+            self.script_relations = graph.build_script_relations(
+                self.container.database,
+                self.container.pv_relations,
+            )
+
+        logger.info("Updated script relations in %.1f s", ctx())
+        self._update_count += 1
 
     async def update_plugins(self):
+        """Update all plugins."""
         for plugin in self.plugins:
             logger.info("Updating plugin: %s", plugin.name)
             with common.time_context() as ctx:
@@ -165,7 +228,7 @@ class ServerState:
                     continue
                 else:
                     logger.info(
-                        "Update plugin %r [%.1f s]",
+                        "Successfully updated plugin %r [%.1f s]",
                         plugin.name, ctx()
                     )
 
@@ -173,6 +236,7 @@ class ServerState:
             #     ...
 
     def get_plugin_info(self) -> Dict[str, Any]:
+        """Get all plugin information as a dictionary."""
         return {
             plugin.name: plugin.results_json
             for plugin in self.plugins
@@ -200,14 +264,20 @@ class ServerState:
                 logger.debug("New gateway file: %s (%s)", filename, pvlist.hash)
                 self.container.loaded_files[str(filename)] = pvlist.hash
 
-    def annotate_whatrec(self, whatrec: WhatRecord) -> WhatRecord:
+    def annotate_whatrec(self, what: WhatRecord) -> WhatRecord:
         """
         Annotate WhatRecord instances with things ServerState knows about.
         """
-        for instance in whatrec.instances:
+        matches = [
+            (what.record.instance if what.record else None),
+            what.pva_group
+        ]
+        for instance in matches:
+            if instance is None:
+                continue
+
             if not instance.is_pva:
                 # For now, V3 only
-                instance.metadata["archived"] = instance.name in self.archived_pvs
                 instance.metadata["gateway"] = apischema.serialize(
                     self.get_gateway_info(instance.name)
                 )
@@ -222,7 +292,7 @@ class ServerState:
                     plugin_matches = instance.metadata.setdefault(plugin.name, [])
                     plugin_matches.append(plugin_md)
 
-        return whatrec
+        return what
 
     def whatrec(self, pvname) -> List[WhatRecord]:
         """Find WhatRecord matches."""
@@ -333,11 +403,6 @@ class ServerState:
                 common.IocshResult(
                     context=(LoadContext(fn, lineno),),
                     line=line,
-                    outputs=[],
-                    argv=None,
-                    error=None,
-                    redirects={},
-                    result=None,
                 )
             )
         return common.IocshScript(path=fn, lines=tuple(result))
@@ -349,18 +414,23 @@ class ServerState:
         return self.gateway_config.get_matches(pvname)
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_pvs(self, glob_str: str) -> List[str]:
-        regex = _compile_glob(glob_str)
+    def get_matching_pvs(self, pattern: str, use_regex: bool = False) -> List[str]:
+        regex = compile_pattern(pattern, use_regex=use_regex)
         pv_names = set(self.database) | set(self.pva_database)
         return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_iocs(self, glob_str: str) -> List[LoadedIoc]:
-        regex = _compile_glob(glob_str)
+    def get_matching_iocs(self, pattern: str, use_regex: bool = False) -> List[LoadedIoc]:
+        regex = compile_pattern(pattern, use_regex=use_regex)
+
+        def by_name(ioc: LoadedIoc):
+            return ioc.name
+
         return [
             loaded_ioc
-            for script_path, loaded_ioc in sorted(self.container.scripts.items())
-            if regex.match(script_path) or regex.match(loaded_ioc.metadata.name)
+            for loaded_ioc in sorted(self.container.scripts.values(), key=by_name)
+            if regex.match(loaded_ioc.script.path)
+            or regex.match(loaded_ioc.metadata.name)
         ]
 
     async def get_graph_rendered(
@@ -402,42 +472,48 @@ class ServerHandler:
             }
         )
 
-    @routes.get("/api/pv/{glob_str}/matches")
+    @routes.get("/api/pv/{pattern}/matches")
     async def api_pv_get_matches(self, request: web.Request):
         max_matches = int(request.query.get("max", "200"))
-        glob_str = request.match_info.get("glob_str", "*")
-        matches = self.state.get_matching_pvs(glob_str)
+        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
+        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
+        matches = self.state.get_matching_pvs(pattern, use_regex=use_regex)
         if max_matches > 0:
             matches = matches[:max_matches]
 
         return serialized_response(
             PVGetMatchesResponse(
-                glob=glob_str,
+                pattern=pattern,
+                regex=use_regex,
                 matches=matches,
             )
         )
 
-    @routes.get("/api/iocs/{glob_str}/matches")
+    @routes.get("/api/iocs/{pattern}/matches")
     async def api_ioc_get_matches(self, request: web.Request):
         # Ignore max for now. This is not much in the way of information.
         # max_matches = int(request.query.get("max", "1000"))
-        glob_str = request.match_info.get("glob_str", "*")
+        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
+        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
         match_metadata = [
             loaded_ioc.metadata
-            for loaded_ioc in self.state.get_matching_iocs(glob_str)
+            for loaded_ioc in self.state.get_matching_iocs(pattern, use_regex=use_regex)
         ]
         return serialized_response(
             IocGetMatchesResponse(
-                glob=glob_str,
+                pattern=pattern,
+                regex=use_regex,
                 matches=match_metadata,
             )
         )
 
     @routes.get("/api/iocs/{ioc_glob}/pvs/{pv_glob}")
     async def api_ioc_get_pvs(self, request: web.Request):
+        regex = request.query.get("regex", "false") in TRUE_VALUES
         response = IocGetMatchingRecordsResponse(
-            ioc_glob=request.match_info.get("ioc_glob", "*"),
-            pv_glob=request.match_info.get("pv_glob", "*"),
+            ioc_pattern=request.match_info.get("ioc_glob", ".*" if regex else "*"),
+            record_pattern=request.match_info.get("pv_glob", ".*" if regex else "*"),
+            regex=regex,
             matches=[],
         )
 
@@ -445,8 +521,13 @@ class ServerHandler:
             yield from shell_state.database.items()
             yield from shell_state.pva_database.items()
 
-        pv_glob_re = _compile_glob(response.pv_glob)
-        for loaded_ioc in self.state.get_matching_iocs(response.ioc_glob):
+        pv_glob_re = compile_pattern(
+            response.record_pattern,
+            use_regex=response.regex,
+        )
+        for loaded_ioc in self.state.get_matching_iocs(
+            response.ioc_pattern, use_regex=response.regex,
+        ):
             record_matches = [
                 rec_info.to_summary()
                 for rec, rec_info in sorted(get_all_records(loaded_ioc.shell_state))
@@ -469,8 +550,9 @@ class ServerHandler:
     async def api_ioc_info(self, request: web.Request):
         # script_name = pathlib.Path(request.query["file"])
         filename = request.query["file"]
-        loaded_ioc = self.state.container.scripts.get(filename, None)
-        if loaded_ioc:
+        ioc_name = self.state.container.startup_script_to_ioc.get(filename, None)
+        if ioc_name:
+            loaded_ioc = self.state.container.scripts[ioc_name]
             script_info = loaded_ioc.script
             ioc_md = loaded_ioc.metadata
         else:
@@ -531,7 +613,11 @@ class ServerHandler:
     @routes.get("/api/logs/get")
     async def api_logs_get(self, request: web.Request):
         return web.json_response(
-            list(_log_handler.messages)
+            list(
+                _log_handler.messages
+                if _log_handler is not None
+                else ["Logger not initialized"]
+            )
         )
 
     @routes.get("/api/pv/{pv_names}/relations")
@@ -587,29 +673,22 @@ def configure_logging(loggers=None):
         logging.getLogger(logger_name).addHandler(_log_handler)
 
 
-def main(
+def _new_server_state(
     scripts: Optional[List[str]] = None,
     script_loader: Optional[List[str]] = None,
     archive_management_url: Optional[str] = None,
-    archive_update_period: int = 60,
     gateway_config: Optional[str] = None,
-    port: int = 8898,
     standin_directory: Optional[Union[List, Dict]] = None,
-    use_tracemalloc: bool = False,
-):
-    if use_tracemalloc and tracemalloc is not None:
-        tracemalloc.start()
-
+) -> ServerState:
+    """New ServerState from command-line arguments."""
     scripts = scripts or []
     script_loader = script_loader or []
-
-    app = web.Application()
 
     standin_directory = standin_directory or {}
     if not isinstance(standin_directory, dict):
         standin_directory = dict(path.split("=", 1) for path in standin_directory)
 
-    state = ServerState(
+    return ServerState(
         startup_scripts=scripts,
         script_loaders=script_loader,
         standin_directories=standin_directory,
@@ -624,16 +703,49 @@ def main(
         ],
     )
 
-    handler = ServerHandler(state)
 
+def _new_server(
+    handler: ServerHandler,
+    port: int,
+    run: bool = False,
+) -> web.Application:
+    """Create a new aiohttp Application for the given ServerHandler."""
+    app = web.Application()
     add_routes(app, handler)
 
-    configure_logging()
     app.on_startup.append(handler.async_init)
-    try:
-        web.run_app(app, port=port)
-    except KeyboardInterrupt:
-        ...
+    if run:
+        try:
+            web.run_app(app, port=port)
+        except KeyboardInterrupt:
+            ...
+    return app
+
+
+def main(
+    scripts: Optional[List[str]] = None,
+    script_loader: Optional[List[str]] = None,
+    archive_management_url: Optional[str] = None,
+    gateway_config: Optional[str] = None,
+    standin_directory: Optional[Union[List, Dict]] = None,
+    port: int = 8898,
+    use_tracemalloc: bool = False,
+    start: bool = True,
+):
+    if use_tracemalloc and tracemalloc is not None:
+        tracemalloc.start()
+
+    configure_logging()
+
+    state: ServerState = _new_server_state(
+        scripts=scripts,
+        script_loader=script_loader,
+        archive_management_url=archive_management_url,
+        gateway_config=gateway_config,
+        standin_directory=standin_directory,
+    )
+    handler = ServerHandler(state)
+    app = _new_server(handler, port=port, run=True)
 
     if use_tracemalloc and tracemalloc is not None:
         global tracemalloc_snapshot

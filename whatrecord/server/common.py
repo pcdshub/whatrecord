@@ -80,13 +80,15 @@ class PVGetInfo:
 
 @dataclass
 class PVGetMatchesResponse:
-    glob: str
+    pattern: str
+    regex: bool
     matches: List[str]
 
 
 @dataclass
 class IocGetMatchesResponse:
-    glob: str
+    pattern: str
+    regex: bool
     matches: List[IocMetadata]
 
 
@@ -95,8 +97,9 @@ AnyRecordInstance = Union[RecordInstanceSummary, RecordInstance]
 
 @dataclass
 class IocGetMatchingRecordsResponse:
-    ioc_glob: str
-    pv_glob: str
+    ioc_pattern: str
+    record_pattern: str
+    regex: bool
     # TODO: ew, redo this
     matches: List[Tuple[IocMetadata, List[AnyRecordInstance]]]
 

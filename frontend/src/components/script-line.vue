@@ -5,49 +5,46 @@
     </td>
     <td :class="script_line_class">
       <template v-if="!has_details">
-        <pre class="script-line" :id="line_id">{{ line.replace("\t", "    ") }}</pre>
+        <pre class="script-line" :id="line_id">{{ line.line.replace("\t", "    ") }}</pre>
       </template>
       <template v-else>
         <details :id="line_id" class="script-line">
           <summary class="script-line">
-            <span v-if="error != null" class="script-error-line">
-              {{line}}
+            <span :class='is_error_line ? "script-error-line" : "script-line"'>
+              {{line.line}}
             </span>
-            <span v-else-if="is_db_load_error" class="script-error-line">
-              {{line}}
-            </span>
-            <span v-else class="script-line">{{line}}</span>
           </summary>
 
-          <template v-if="result != null && result.hasOwnProperty('load_count')">
+          <template v-if="is_linter_results">
             <LinterResults
-              :load_count="result.load_count"
-              :errors="result.errors"
-              :warnings="result.warnings"
-              :macros="result.macros"
+              :load_count="line.result.load_count"
+              :errors="line.result.errors"
+              :warnings="line.result.warnings"
+              :macros="line.result.macros"
               />
           </template>
           <template v-else>
-            <span v-if="error != null" class="error-block">
-              <template v-if="typeof error == 'string'">
-                <pre>{{ error }}</pre>
+            <span v-if="line.error != null" class="error-block">
+              <template v-if="typeof line.error == 'string'">
+                <pre>{{ line.error }}</pre>
               </template>
               <template v-else>
                 <dictionary-table
-                  :dict="error"
+                  :dict="line.error"
                   cls="error"
                   :skip_keys="[]" />
               </template>
             </span>
-            <span v-if="result != null" class="result-block">
-              <template v-if="typeof result == 'string'">
-                <pre>{{ result }}</pre>
+            <span v-if="line.result != null" class="result-block">
+              <template v-if="typeof line.result == 'string'">
+                <pre>{{ line.result }}</pre>
               </template>
               <template v-else>
                 <dictionary-table
-                  :dict="result"
+                  :dict="line.result"
                   cls="result"
-                  :skip_keys="[]" />
+                  :skip_keys="[]"
+                />
               </template>
             </span>
           </template>
@@ -77,8 +74,26 @@ export default {
     DictionaryTable,
     LinterResults,
   ],
-  props: ["context", "line", "outputs", "argv", "error", "redirects", "result", "command_info"],
+  props: [
+    "line",
+    "all_commands"
+  ],
   computed: {
+    command() {
+      if (this.line.argv != null && this.line.argv.length > 0) {
+        return this.line.argv[0];
+      }
+      return null;
+    },
+
+    command_info() {
+      const command = this.command;
+      if (command && command in this.all_commands) {
+        return this.all_commands[command];
+      }
+      return null;
+    },
+
     command_info_table() {
       if (this.command_info == null || this.command_info.length == 0) {
         return null;
@@ -94,9 +109,11 @@ export default {
       }
       return info_table;
     },
+
     line_id() {
-      return this.context.map(ctx => ctx[1]).join(':');
+      return this.line.context.map(ctx => ctx[1]).join(':');
     },
+
     line_id_class() {
       let classes = ["line-id"];
       if (this.is_error_line) {
@@ -107,26 +124,34 @@ export default {
       }
       return classes;
     },
+
     has_details() {
-      return !(this.result == null && this.error == null && this.command_info == null);
+      return !(this.line.result == null && this.line.error == null && this.command_info == null);
     },
+
     is_error_line() {
-      return (this.is_db_load_error || this.error != null);
+      return (this.is_db_load_error || this.line.error != null);
     },
+
     script_line_class() {
-      return ((this.context.length > 0 && this.context[0][1] == this.$route.params.line) ? ["script-line-selected", "script-line"] : "script-line");
+      if (this.line.context.length > 0 && this.line.context[0][1] == this.$route.params.line) {
+        return ["script-line-selected", "script-line"];
+      }
+      return "script-line";
     },
+
     is_db_load_error() {
       return (
-        this.result instanceof Object &&
-        "load_count" in this.result &&
-        (this.result.errors.length > 0 || this.result.warnings.length > 0)
+        this.line.result instanceof Object &&
+        "load_count" in this.line.result &&
+        (this.line.result.errors.length > 0 || this.line.result.warnings.length > 0)
       );
     },
+
     is_linter_results() {
       return (
-        this.result instanceof Object &&
-        "load_count" in this.result
+        this.line.result instanceof Object &&
+        "load_count" in this.line.result
       );
     },
   },
@@ -148,6 +173,7 @@ td {
 td.line-id {
   font-family: monospace;
   user-select: none;
+  width: 0;
 }
 
 td.line-id-details {

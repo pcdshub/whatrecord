@@ -1,19 +1,21 @@
 <template>
   <h3> {{ whatrec.name }} </h3>
   <!-- Available in {{ available_protocols }} -->
-  <template v-for="(instance, idx) in [instance_v3, instance_pva]" :key="idx">
+  <template v-for="([defn, instance], idx) in [[record_defn, record], [null, pva_group]]" :key="idx">
     <template v-if="instance != null">
       <script-context-link :context="instance.context" :short=false></script-context-link>
       <br/>
       <epics-format-record
-        :name=instance.name
-        :aliases=instance.aliases
-        :context=instance.context
-        :fields=instance.fields
-        :record_type=instance.record_type
-        :is_grecord=instance.is_grecord
-        :is_pva=instance.is_pva
-        :metadata=instance.metadata
+        :name="instance.name"
+        :aliases="instance.aliases"
+        :context="instance.context"
+        :fields="instance.fields"
+        :record_type="instance.record_type"
+        :is_grecord="instance.is_grecord"
+        :is_pva="instance.is_pva"
+        :metadata="instance.metadata"
+        :record_defn="defn"
+        :menus="whatrec.menus"
       />
 
       <template v-for="plugin_name in plugins" :key="plugin_name">
@@ -64,9 +66,10 @@
         />
         <br />Commands:
         <br />
-        <span v-for="command in streamdevice_metadata.protocol.commands" :key="command.name"
-            class="code">
-          {{ command.name }} {{ command.arguments.join(" ") }}<br />
+        <span class="code">
+          <template v-for="command in streamdevice_metadata.protocol.commands" :key="command.name">
+            {{ command.name }} {{ command.arguments.join(" ") }}<br />
+          </template>
          </span>
       </template>
     </details>
@@ -82,8 +85,8 @@
         <img class="svg-graph" :src="graph_link" />
       </a>
     </AccordionTab>
-    <AccordionTab header="Archiver" :disabled="instance_v3 == null">
-      <template v-if="instance_v3 != null && appliance_viewer_url">
+    <AccordionTab header="Archiver" :disabled="record == null">
+      <template v-if="record != null && appliance_viewer_url">
         <a :href="appliance_viewer_url" target="_blank">
           Archive Viewer
         </a>
@@ -93,10 +96,10 @@
           />
         </template>
     </AccordionTab>
-    <AccordionTab header="Gateway" :disabled="instance_v3 == null">
-      <template v-if="instance_v3 != null && instance_v3.metadata.gateway != null && instance_v3.metadata.gateway.matches.length > 0">
+    <AccordionTab header="Gateway" :disabled="record == null">
+      <template v-if="record != null && record.metadata.gateway != null && record.metadata.gateway.matches.length > 0">
         Matching gateway rules:
-        <gateway-matches :matches="instance_v3.metadata.gateway.matches"/>
+        <gateway-matches :matches="record.metadata.gateway.matches"/>
       </template>
       <template v-else>
         No matches with gateway rules.
@@ -109,13 +112,13 @@
         :key="asyn_port.name"/>
     </AccordionTab>
     <AccordionTab header="Field table">
-      <template v-if="instance_v3 != null">
-        <b v-if="instance_pva != null">Channel Access (V3)</b>
-        <record-field-table :fields="instance_v3.fields" :pva="false" />
+      <template v-if="record != null">
+        <b v-if="pva_group != null">Channel Access (V3)</b>
+        <record-field-table :fields="record.fields" :pva="false" />
       </template>
-      <template v-if="instance_pva != null">
-        <b v-if="instance_v3 != null">PVAccess</b>
-        <record-field-table :fields="instance_pva.fields" :pva="true" />
+      <template v-if="pva_group != null">
+        <b v-if="record != null">PVAccess</b>
+        <record-field-table :fields="pva_group.fields" :pva="true" />
       </template>
     </AccordionTab>
     <AccordionTab header="Raw information">
@@ -157,10 +160,10 @@ export default {
   computed: {
     appliance_viewer_url() {
       const appliance_viewer_url = process.env.WHATRECORD_ARCHIVER_URL || "";
-      if (!appliance_viewer_url || !this.instance_v3) {
+      if (!appliance_viewer_url || !this.record) {
           return null;
       }
-      return appliance_viewer_url + this.instance_v3.name;
+      return appliance_viewer_url + this.record.name;
     },
     graph_link() {
       return "/api/pv/" + this.whatrec.name + "/graph/svg";
@@ -170,41 +173,34 @@ export default {
     },
     available_protocols() {
       let protocols = [];
-      if (this.instance_v3 != null) {
+      if (this.record != null) {
         protocols.push("Channel Access (CA)");
       }
-      if (this.instance_pva != null) {
+      if (this.pva_group != null) {
         protocols.push("PVAccess");
       }
       return protocols.join(", ");
     },
-    instance_pva() {
-      for (const instance of this.whatrec.instances) {
-        if (instance.is_pva === true) {
-          return instance;
-        }
-      }
-      return null;
+    pva_group() {
+      return this.whatrec.pva_group;
     },
-    instance_v3() {
-      for (const instance of this.whatrec.instances) {
-        if (instance.is_pva === false) {
-          return instance;
-        }
-      }
-      return null;
+    record() {
+      return this.whatrec.record ? this.whatrec.record.instance : null;
+    },
+    record_defn() {
+      return this.whatrec.record ? this.whatrec.record.definition : null;
     },
     streamdevice_metadata() {
-      if (this.instance_v3 == null) {
+      if (this.record == null) {
         return null;
       }
-      return this.instance_v3.metadata["streamdevice"];
+      return this.record.metadata["streamdevice"];
     },
     happi_metadata() {
-      if (this.instance_v3 == null) {
+      if (this.record == null) {
         return [];
       }
-      return this.instance_v3.metadata["happi"] || [];
+      return this.record.metadata["happi"] || [];
     },
     plugins() {
       return plugins;

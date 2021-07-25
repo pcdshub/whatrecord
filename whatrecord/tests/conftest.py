@@ -8,7 +8,7 @@ MODULE_PATH = pathlib.Path(__file__).resolve().parent
 
 STARTUP_SCRIPTS = list((MODULE_PATH / "iocs").glob("**/st.cmd"))
 
-# Disable caching
+# Disable caching for _all_ tests
 settings.CACHE_PATH = ""
 
 startup_scripts = pytest.mark.parametrize(

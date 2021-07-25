@@ -4,7 +4,8 @@ import apischema
 import pytest
 
 from .. import Database
-from ..db import DatabaseBreakTable, LoadContext, RecordField, RecordInstance
+from ..db import (DatabaseBreakTable, DatabaseMenu, LoadContext, RecordField,
+                  RecordInstance, RecordType, RecordTypeField)
 
 v3_or_v4 = pytest.mark.parametrize("version", [3, 4])
 
@@ -86,5 +87,130 @@ def test_breaktable(version):
         name='typeAttenLength',
         values=('0.8', '0.18', '0.9', '0.25', '8.0', '150.13', '8.5', '174.81',
                 '9.0', '204.32')
+    )
+    apischema.deserialize(Database, apischema.serialize(db))
+
+
+@v3_or_v4
+def test_dbd_recordtype(version):
+    db = Database.from_string(
+        """\
+recordtype(stringin) {
+    field(NAME, DBF_STRING) {
+        size(61)
+        special(SPC_NOMOD)
+        prompt("Record Name")
+    }
+    field(PINI, DBF_MENU) {
+        menu(menuPini)
+        interest(1)
+        promptgroup("20 - Scan")
+        prompt("Process at iocInit")
+    }
+}
+""",
+        version=version
+    )
+    assert db.record_types["stringin"] == RecordType(
+        context=(LoadContext("None", 1), ),
+        name="stringin",
+        cdefs=[],
+        fields={
+            "NAME": RecordTypeField(
+                context=(LoadContext("None", 2), ),
+                name="NAME",
+                type="DBF_STRING",
+                special="SPC_NOMOD",
+                prompt="Record Name",
+                size="61",
+                body={},
+            ),
+            "PINI": RecordTypeField(
+                context=(LoadContext("None", 7), ),
+                name="PINI",
+                type="DBF_MENU",
+                menu="menuPini",
+                interest="1",
+                promptgroup="20 - Scan",
+                prompt="Process at iocInit",
+                body={},
+            ),
+        }
+    )
+    apischema.deserialize(Database, apischema.serialize(db))
+
+
+@v3_or_v4
+def test_dbd_menus(version):
+    db = Database.from_string(
+        """\
+menu(stringoutPOST) {
+    choice(stringoutPOST_OnChange, "On Change")
+    choice(stringoutPOST_Always, "Always")
+}
+menu(menuScan) {
+    choice(menuScanPassive, "Passive")
+    choice(menuScanEvent, "Event")
+    choice(menuScanI_O_Intr, "I/O Intr")
+    choice(menuScan10_second, "10 second")
+    choice(menuScan5_second, "5 second")
+    choice(menuScan2_second, "2 second")
+    choice(menuScan1_second, "1 second")
+    choice(menuScan_5_second, ".5 second")
+    choice(menuScan_2_second, ".2 second")
+    choice(menuScan_1_second, ".1 second")
+}
+""",
+        version=version
+    )
+    assert db.menus["stringoutPOST"] == DatabaseMenu(
+        context=(LoadContext("None", 1), ),
+        name="stringoutPOST",
+        choices={
+            "stringoutPOST_OnChange": "On Change",
+            "stringoutPOST_Always": "Always",
+        },
+    )
+
+    assert db.menus["menuScan"] == DatabaseMenu(
+        context=(LoadContext("None", 5), ),
+        name="menuScan",
+        choices={
+            "menuScanPassive": "Passive",
+            "menuScanEvent": "Event",
+            "menuScanI_O_Intr": "I/O Intr",
+            "menuScan10_second": "10 second",
+            "menuScan5_second": "5 second",
+            "menuScan2_second": "2 second",
+            "menuScan1_second": "1 second",
+            "menuScan_5_second": ".5 second",
+            "menuScan_2_second": ".2 second",
+            "menuScan_1_second": ".1 second",
+        },
+    )
+    apischema.deserialize(Database, apischema.serialize(db))
+
+
+@v3_or_v4
+def test_dbd_cdef(version):
+    db = Database.from_string(
+        """\
+recordtype(stringin) {
+    %#include "test.h"
+    %#include "test1.h"
+    %#include "test2.h"
+}
+""",
+        version=version
+    )
+    assert db.record_types["stringin"] == RecordType(
+        context=(LoadContext("None", 1), ),
+        name="stringin",
+        cdefs=[
+            '#include "test.h"',
+            '#include "test1.h"',
+            '#include "test2.h"',
+        ],
+        fields={},
     )
     apischema.deserialize(Database, apischema.serialize(db))

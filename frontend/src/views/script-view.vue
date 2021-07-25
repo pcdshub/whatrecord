@@ -15,16 +15,10 @@
       </template>
       <table>
         <tbody>
-          <script-line v-for="line in lines"
-             :argv="line.argv"
-             :context="line.context"
-             :error="line.error"
-             :line="line.line"
-             :outputs="line.outputs"
-             :redirects="line.redirects"
-             :result="line.result"
-             :command_info="(line.argv != null && line.argv.length > 0) ? metadata.commands[line.argv[0]] : null"
-             :key="line.context.map(ctx => ctx[0] + ':' + ctx[1]).join(',')"
+          <script-line v-for="(line, idx) in lines"
+             :line="line"
+             :all_commands="commands"
+             :key="idx"
              />
         </tbody>
       </table>
@@ -53,6 +47,9 @@ export default {
     }
   },
   computed: {
+    commands () {
+      return this.metadata ? this.metadata.commands : {};
+    },
     metadata () {
       return this.file_info ? this.file_info.ioc : {};
     },

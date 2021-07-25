@@ -79,9 +79,11 @@ export default {
     },
     filtered_dict() {
       let filtered = {};
-      for (const key in this.dict) {
-        if (this.skip_keys.indexOf(key) < 0 && this.dict[key]) {
-          filtered[key] = this.dict[key];
+      for (const [key, value] of Object.entries(this.dict)) {
+        if (this.skip_keys.indexOf(key) < 0) {
+          if (value && Object.entries(value).length > 0) {
+            filtered[key] = value;
+          }
         }
       }
       return filtered;
@@ -143,15 +145,15 @@ thead th {
   background: white;
   border: solid black 1px;
   font-size: 1.2em;
+  background: var(--indigo-50);
 }
 
 thead th:nth-child(odd) {
   color: black;
-  background: white;
 }
 
 tr:nth-child(even) {
-  background: #F8F8F8;
+  background: var(--bluegray-50);
 }
 
 ul {
