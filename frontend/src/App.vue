@@ -23,6 +23,9 @@ export default {
         {label: plugin, icon: 'pi pi-fw pi-info-circle', to: '/' + plugin},
       );
       tab_menu_items.push(
+        {label: 'Gateway', icon: 'pi pi-fw pi-shield', to: '/gateway'},
+      );
+      tab_menu_items.push(
         {label: 'Logs', icon: 'pi pi-fw pi-list', to: '/logs'},
       );
     }

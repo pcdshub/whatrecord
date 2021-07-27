@@ -1,5 +1,5 @@
 recursive-include whatrecord/_whatrecord *.pyx
 recursive-include whatrecord/grammar *.lark
-recursive-include whatrecord/tests *.db *.cmd *.dbd *.proto
+recursive-include whatrecord/tests *.db *.cmd *.dbd *.proto *.pvlist
 include versioneer.py
 include whatrecord/_version.py

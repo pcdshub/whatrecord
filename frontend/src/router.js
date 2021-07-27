@@ -6,6 +6,7 @@ import IocView from './views/iocs.vue';
 import HappiView from './views/happi.vue';
 import ServerLogView from './views/logs.vue';
 import PVRelationsView from './views/pv_relations.vue';
+import GatewayView from './views/gateway.vue';
 
 import { happi_enabled } from './settings.js';
 
@@ -70,6 +71,14 @@ routes.push(
         name: 'logs',
         path: '/logs',
         component: ServerLogView,
+    },
+)
+
+routes.push(
+    {
+        name: 'gateway',
+        path: '/gateway',
+        component: GatewayView,
     },
 )
 

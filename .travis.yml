@@ -61,9 +61,9 @@ jobs:
 
     - &testpythonconda
       stage: test
-      name: "Python 3.7 - conda"
+      name: "Python 3.9 - conda"
       env:
-        - PYTHON_VERSION: 3.7
+        - PYTHON_VERSION: 3.9
       install:
         - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
         - bash miniconda.sh -b -p $HOME/miniconda
@@ -96,13 +96,3 @@ jobs:
           set -e
           coverage run --concurrency=thread --parallel-mode -m pytest -vv
           (coverage combine && coverage report | grep -v -e ' 0%') || true
-
-    - <<: *testpythonconda
-      name: "Python 3.8 - conda"
-      env:
-        - PYTHON_VERSION: 3.8
-
-    - <<: *testpythonconda
-      name: "Python 3.9 - conda"
-      env:
-        - PYTHON_VERSION: 3.9

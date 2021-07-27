@@ -1,0 +1,49 @@
+// Handwritten EPICS gateway pvlist configuration grammar
+
+?start: pvlist
+
+pvlist: evaluation? _pvlist_item*
+
+!evaluation: "evaluation"i "order"i evaluation_order NEWLINE
+_pvlist_item: _rule
+
+!evaluation_order: "deny"i "," "allow"i
+                 | "allow"i "," "deny"i
+
+pattern: /\S+/
+
+_rule: deny
+     | alias
+     | allow
+
+TOK_ALLOW: "ALLOW"i
+TOK_ALIAS: "ALIAS"i
+TOK_DENY: "DENY"i
+
+deny: pattern TOK_DENY ("FROM"i hosts)? NEWLINE
+alias: pattern TOK_ALIAS pvname asg_asl? NEWLINE
+allow: pattern TOK_ALLOW asg_asl? NEWLINE
+
+asg_asl: asg asl?
+hosts: host+
+
+host: /\S+/
+pvname: /\S+/
+asg: /\S+/
+
+ASL0: "0"
+ASL1: "1"
+
+asl: ASL0
+   | ASL1
+
+%import common.WS_INLINE
+%import common.WS
+%import common.CR
+%import common.LF
+%import common.NEWLINE
+%ignore WS_INLINE
+%ignore WS
+
+COMMENT     : "#" /[^\n\r]/*
+%ignore COMMENT

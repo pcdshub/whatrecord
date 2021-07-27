@@ -11,21 +11,28 @@
     <tbody>
       <tr v-for="(match, idx) in matches" :key="idx">
         <td>
-          <script-context-link :context="match.context" :short="true" />
+          <script-context-link :context="match.rule.context" :short="true" />
         </td>
         <td>
-          <router-link :to='{ name: "whatrec", params: { record_glob: match.expression }, query: { regex: "true" } }'>
-              {{ match.expression }}
+          <router-link :to='{ name: "whatrec", params: { record_glob: match.rule.pattern }, query: { regex: "true" } }'>
+              {{ match.rule.pattern }}
           </router-link>
         </td>
-        <td>{{ match.details.join(" ") }}</td>
         <td>
-          <!--
-          <template v-if="match.comment_context">
-            <script-context-link :context="match.comment_context" :short="true" />
+          {{ match.rule.command }}
+          <template v-if='match.rule.command == "ALLOW"'>
+            {{ match.rule.access ? match.rule.access : "(DEFAULT)" }}
           </template>
-          -->
-          {{ match.comment }}
+          <template v-else-if='match.rule.command == "DENY"'>
+            Hosts: {{ match.rule.hosts.join(" ") }}
+          </template>
+          <template v-else-if='match.rule.command == "ALIAS"'>
+            {{ match.rule.access ? match.rule.access : "(DEFAULT)" }}
+            {{ match.groups }}
+          </template>
+        </td>
+        <td>
+          <pre>{{ match.rule.header }}</pre>
         </td>
       </tr>
     </tbody>

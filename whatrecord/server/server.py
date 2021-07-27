@@ -279,7 +279,7 @@ class ServerState:
             if not instance.is_pva:
                 # For now, V3 only
                 instance.metadata["gateway"] = apischema.serialize(
-                    self.get_gateway_info(instance.name)
+                    self.get_gateway_matches(instance.name)
                 )
             for plugin in self.plugins:
                 if not plugin.results:
@@ -383,7 +383,7 @@ class ServerState:
         for method in [
             # self.get_graph,
             # self.get_graph_rendered,
-            self.get_gateway_info,
+            self.get_gateway_matches,
             self.get_matching_pvs,
             self.get_matching_iocs,
             self.script_info_from_loaded_file,
@@ -408,20 +408,28 @@ class ServerState:
         return common.IocshScript(path=fn, lines=tuple(result))
 
     @functools.lru_cache(maxsize=2048)
-    def get_gateway_info(self, pvname: str) -> Optional[gateway.PVListMatches]:
+    def get_gateway_matches(self, pvname: str) -> Optional[gateway.PVListMatches]:
+        """Get gateway matches for the given pvname."""
         if self.gateway_config is None:
             return None
         return self.gateway_config.get_matches(pvname)
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, pattern: str, use_regex: bool = False) -> List[str]:
-        regex = compile_pattern(pattern, use_regex=use_regex)
+        try:
+            regex = compile_pattern(pattern, use_regex=use_regex)
+        except re.error:
+            return []
+
         pv_names = set(self.database) | set(self.pva_database)
         return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
     def get_matching_iocs(self, pattern: str, use_regex: bool = False) -> List[LoadedIoc]:
-        regex = compile_pattern(pattern, use_regex=use_regex)
+        try:
+            regex = compile_pattern(pattern, use_regex=use_regex)
+        except re.error:
+            return []
 
         def by_name(ioc: LoadedIoc):
             return ioc.name
@@ -521,10 +529,14 @@ class ServerHandler:
             yield from shell_state.database.items()
             yield from shell_state.pva_database.items()
 
-        pv_glob_re = compile_pattern(
-            response.record_pattern,
-            use_regex=response.regex,
-        )
+        try:
+            pv_glob_re = compile_pattern(
+                response.record_pattern,
+                use_regex=response.regex,
+            )
+        except re.error:
+            raise web.HTTPBadRequest()
+
         for loaded_ioc in self.state.get_matching_iocs(
             response.ioc_pattern, use_regex=response.regex,
         ):
@@ -545,6 +557,10 @@ class ServerHandler:
     @routes.get("/api/plugin/info")
     async def api_plugin_info(self, request: web.Request):
         return serialized_response(self.state.get_plugin_info())
+
+    @routes.get("/api/gateway/info")
+    async def api_gateway_info(self, request: web.Request):
+        return serialized_response(self.state.gateway_config.pvlists or {})
 
     @routes.get("/api/file/info")
     async def api_ioc_info(self, request: web.Request):

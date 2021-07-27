@@ -1,7 +1,7 @@
 """Requires pytest-aiohttp"""
 import json
 import logging
-from typing import Dict, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar
 
 import aiohttp
 import aiohttp.test_utils
@@ -9,10 +9,11 @@ import aiohttp.web
 import apischema
 import pytest
 
-from ..server.server import (IocGetMatchingRecordsResponse,
+from ..common import RecordInstance, WhatRecord
+from ..server.server import (IocGetMatchingRecordsResponse, PVGetInfo,
                              PVGetMatchesResponse, ServerHandler, ServerState,
                              _new_server)
-from .conftest import STARTUP_SCRIPTS
+from .conftest import MODULE_PATH, STARTUP_SCRIPTS
 
 logger = logging.getLogger(__name__)
 
@@ -220,3 +221,56 @@ async def test_graph_smoke(
     data = await response.text()
     assert "digraph" in data
     assert len(data)
+
+
+@pytest.mark.parametrize(
+    "pvname, key, value",
+    [
+        pytest.param(
+            pvname,
+            "gateway",
+            {
+                "name": "IOC:KFE:A:One",
+                "matches": [
+                    {
+                        "filename": str(MODULE_PATH / "kfe.pvlist"),
+                        "rule": {
+                            "context": [
+                                [
+                                    str(MODULE_PATH / "kfe.pvlist"),
+                                    10,
+                                ]
+                            ],
+                            "pattern": "[A-Z][A-Z][A-Z]:KFE:.*",
+                            "command": "ALLOW",
+                            "header": "",
+                            "metadata": {},
+                        },
+                        "groups": [],
+                    }
+                ],
+            },
+            id="gateway"
+        ),
+    ],
+)
+async def test_record_metadata(
+    client, server: aiohttp.web.Application,
+    pvname: str,
+    key: str,
+    value: Any
+):
+    response = await get_and_deserialize(
+        client,
+        url=f"/api/pv/{pvname}/info",
+        cls=Dict[str, PVGetInfo],
+    )
+    pv_get_info = response[pvname]
+    assert pv_get_info.pv_name == pvname
+    assert pv_get_info.present
+    assert len(pv_get_info.info) == 1
+
+    # Wow, does this really need to be so nested?!
+    whatrec: WhatRecord = pv_get_info.info[0]
+    instance: RecordInstance = whatrec.record.instance
+    assert instance.metadata[key] == value
