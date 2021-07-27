@@ -12,6 +12,7 @@ export const store = createStore({
       ioc_to_records: {},
       file_info: {},
       plugin_info: {},
+      gateway_info: null,
       pv_relations: {},
       queries_in_progress: 0,
       query_in_progress: false,
@@ -44,6 +45,9 @@ export const store = createStore({
     set_ioc_info (state, { ioc_info }) {
       state.ioc_info = ioc_info;
     },
+    set_gateway_info (state, { gateway_info }) {
+      state.gateway_info = gateway_info;
+    },
     set_plugin_info (state, { plugin_info }) {
       state.plugin_info = plugin_info;
     },
@@ -67,6 +71,19 @@ export const store = createStore({
         const response = await axios.get(`/api/iocs/*/matches`, {})
         await commit("set_ioc_info", {ioc_info: response.data.matches});
         return response.data.matches;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
+    },
+
+    async update_gateway_info ({commit}) {
+      try {
+        await commit("start_query");
+        const response = await axios.get(`/api/gateway/info`, {})
+        await commit("set_gateway_info", {gateway_info: response.data});
+        return response.data;
       } catch (error) {
         console.error(error);
       } finally {

@@ -1,0 +1,136 @@
+EVALUATION ORDER ALLOW, DENY
+
+###########################################################
+# LCLS-II Naming convention patterns
+
+# Allow K beamline devices w/ naming conventions
+# starting w/ 2 char device code and device number,
+# followed by K0, K1, K2, ...
+[A-Z][A-Z][0-9]K[01234]:.* ALLOW
+[A-Z][A-Z][A-Z]:KFE:.*     ALLOW
+
+# Some RIX devices temporarily on KFE subnet
+[A-Z][A-Z][A-Z]:RIX:.*     ALLOW
+
+# Deny KFE camera images
+[A-Z][A-Z][0-9]K[01234]:.*:ArrayData   DENY
+[A-Z][A-Z][A-Z]:KFE:.*:ArrayData       DENY
+
+# Allow devices w/ stand naming convention
+# starting w/ line code K0, K1, K2, ...
+# followed by stand number, S0, S3, S3A, S10, ...
+K[01234]S[0-9]+:.*         ALLOW
+
+# Special case names
+RTDSK0:.*                  ALLOW
+PCPM3B:.*                  ALLOW
+PMPS.*                     ALLOW
+
+# Special case - ioc-archstats runs here
+ARCH:.*                    ALLOW
+
+# Special case - vacuum system overrides, etc
+PLC:KFE:VAC:.*		ALLOW RWINSTRMCC 1
+RIX:FEE:VAC:.*		ALLOW RWINSTRMCC 1
+RIX:HUT:VAC:.*		ALLOW RWINSTRMCC 1
+
+# PMPS FFO/Arbiter Permissions
+PLC:KFE:.*		ALLOW RWINSTRMCC 1
+PLC:RIX:.*		ALLOW RWINSTRMCC 1
+
+# Allow read only access to KFE:.*
+KFE:.*	        ALLOW
+# Allow R/W access for INSTR to KFE:.*
+KFE:.*	        ALLOW RWINSTR 1
+
+PCPM3B:.*		ALLOW RWINSTRMCC 1
+
+AT1K0:.*		ALLOW RWINSTRMCC 1
+EM1K0:.*		ALLOW RWINSTRMCC 1
+EM2K0:.*		ALLOW RWINSTRMCC 1
+IM1K0:.*		ALLOW RWINSTRMCC 1
+IM2K0:.*		ALLOW RWINSTRMCC 1
+PA1K0:.*		ALLOW RWINSTRMCC 1
+PC1K0:.*		ALLOW RWINSTRMCC 1
+PF1K0:.*		ALLOW RWINSTRMCC 1
+RTDSK0:.*		ALLOW RWINSTRMCC 1
+SL1K0:.*		ALLOW RWINSTRMCC 1
+SL2K0:.*		ALLOW RWINSTRMCC 1
+ST1K1:.*		ALLOW RWINSTRMCC 1
+TV2K0:.*		ALLOW RWINSTRMCC 1
+TV3K0:.*		ALLOW RWINSTRMCC 1
+
+IM1K1:.*		ALLOW RWINSTRMCC 1
+IM2K1:.*		ALLOW RWINSTRMCC 1
+MR1K1:.*		ALLOW RWINSTRMCC 1
+MR2K1:.*		ALLOW RWINSTRMCC 1
+PC1K1:.*		ALLOW RWINSTRMCC 1
+SP1K1:.*		ALLOW RWINSTRMCC 1
+TV1K1:.*		ALLOW RWINSTRMCC 1
+
+AL1K2:.*		ALLOW RWINSTRMCC 1
+IM1K2:.*		ALLOW RWINSTRMCC 1
+IM2K2:.*		ALLOW RWINSTRMCC 1
+IM3K2:.*		ALLOW RWINSTRMCC 1
+IM4K2:.*		ALLOW RWINSTRMCC 1
+IM5K2:.*		ALLOW RWINSTRMCC 1
+LI2K2:.*		ALLOW RWINSTRMCC 1
+PF1K2:.*		ALLOW RWINSTRMCC 1
+MR1K2:.*		ALLOW RWINSTRMCC 1
+SL1K2:.*		ALLOW RWINSTRMCC 1
+ST1K2:.*		ALLOW RWINSTRMCC 1
+TV1K2:.*		ALLOW RWINSTRMCC 1
+TM1K2:.*		ALLOW RWINSTRMCC 1
+TM2K2:.*		ALLOW RWINSTRMCC 1
+
+MR1K3:.*		ALLOW RWINSTRMCC 1
+MR2K3:.*		ALLOW RWINSTRMCC 1
+
+AT1K4:.*		ALLOW RWINSTRMCC 1
+AL1K4:.*		ALLOW RWINSTRMCC 1
+IM1K4:.*		ALLOW RWINSTRMCC 1
+IM2K4:.*		ALLOW RWINSTRMCC 1
+MR1K4:.*		ALLOW RWINSTRMCC 1
+MR2K4:.*		ALLOW RWINSTRMCC 1
+MR3K4:.*		ALLOW RWINSTRMCC 1
+ST1K4:.*		ALLOW RWINSTRMCC 1
+
+.*FFO.*		ALLOW RWINSTRMCC 1
+
+# Deny RIX PVs w/ same naming convention as kfe
+SL1K2:EXIT:CAM:.*   DENY
+
+# Allow write access to PMPS Configuration Params from SX control rooms:
+PMPS:KFE:BeamParamCntl.*	ALLOW RWSXR 1
+
+# Allow write access to XGMD HV control from soft xray control rooms and ACR
+EM2K0:XGMD:SHV:.*          ALLOW RWSXRMCC
+
+###########################################################
+# LCLS-I Naming convention patterns
+# Are we ready to drop these since SXR hutch is no more?
+
+SXR.*	ALLOW
+.*LJE.*	ALLOW
+HX2:SB1:IPM.* ALLOW
+SXR:YAG:EVR:01.* ALLOW RWINSTRMCC 1
+SXR:YAG:IOC:01.* ALLOW RWINSTRMCC 1
+SXR:YAG:CVV:01.* ALLOW RWINSTRMCC 1
+HX2:SB1:IPM.* ALLOW RWINSTRMCC 1
+
+# GMD pv's handled by sxr-gmd gateway
+SXR:GMD:BLD:.*		DENY
+
+# camera images handled by sxr-cam gateway
+SXR:.*IMAGE.*		DENY
+SXR:.*Image.*		DENY
+SXR:.*PROJ.*		DENY
+SXR:.*HPrj.*		DENY
+
+# Keep this as the last pattern please
+
+# Keep this as the last pattern please
+# Add write permission for gateway diagnostic pvs
+# To reread config file:
+#	caput NET:CAG:KFE:newAsFlag 1
+NET:CAG:KFE.*      ALLOW RWALL 1

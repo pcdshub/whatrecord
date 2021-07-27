@@ -34,7 +34,8 @@ export default {
       return this.$route.params.record_glob || "";
     },
     selected_records () {
-      return this.$route.params.selected_records.split("|") || [];
+      const records = this.$route.params.selected_records;
+      return (records || "").split("|");
     },
     ...mapState({
       record_info (state) {

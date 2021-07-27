@@ -10,6 +10,7 @@ from time import perf_counter
 from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import apischema
+import lark
 
 from _whatrecord.common import IocshRedirect
 
@@ -780,3 +781,8 @@ def time_context():
         return perf_counter() - start_count
 
     yield inner
+
+
+def context_from_lark_token(fn: str, token: lark.Token) -> FullLoadContext:
+    """Get a full load context from a given lark Token."""
+    return (LoadContext(name=fn, line=token.line), )

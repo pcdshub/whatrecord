@@ -4,7 +4,7 @@ import logging
 import pytest
 
 from ..server.server import ServerState, _new_server_state
-from .conftest import STARTUP_SCRIPTS
+from .conftest import MODULE_PATH, STARTUP_SCRIPTS
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ def test_init_basic():
 def state():
     return _new_server_state(
         scripts=[str(script) for script in STARTUP_SCRIPTS],
+        gateway_config=str(MODULE_PATH),
     )
 
 
@@ -27,6 +28,7 @@ def ready_state(state: ServerState, caplog):
     logger.info("Updating script loaders")
     asyncio.run(state.update_script_loaders())
     asyncio.run(state.update_iocs(state.get_updated_iocs()))
+    state._load_gateway_config()
     # asyncio.run(state.update_plugins())
     return state
 

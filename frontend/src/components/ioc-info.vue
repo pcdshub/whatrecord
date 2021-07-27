@@ -44,6 +44,9 @@ export default {
   computed: {
     file_list () {
       let files = [];
+      if (!this.ioc_info) {
+        return files;
+      }
       for (const [file, hash] of Object.entries(this.ioc_info.loaded_files)) {
         files.push({
           name: file,

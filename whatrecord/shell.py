@@ -228,9 +228,14 @@ class ShellState:
         finally:
             self.load_context.remove(load_ctx)
 
-    def get_asyn_port_from_record(self, inst: RecordInstance):
+    def get_asyn_port_from_record(self, inst: RecordInstance) -> Optional[asyn.AsynPort]:
+        """Given a record, return its related asyn port."""
         rec_field = inst.fields.get("INP", inst.fields.get("OUT", None))
         if rec_field is None:
+            return
+
+        if not isinstance(rec_field.value, str):
+            # No PVAccess links just yet
             return
 
         value = rec_field.value.strip()
