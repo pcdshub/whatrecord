@@ -304,7 +304,7 @@ class AccessSecurityConfig:
     )
 
     @classmethod
-    def from_string(cls, contents: str, filename: Optional[str] = None):
+    def from_string(cls, contents: str, filename: Optional[str] = None) -> AccessSecurityConfig:
         contents_hash = get_bytes_sha256(contents.encode("utf-8"))
         comments = []
 

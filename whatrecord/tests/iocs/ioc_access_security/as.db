@@ -1,0 +1,6 @@
+record(longin, "IOC:ACF:LI:OPSTATE") {
+}
+record(longin, "IOC:ACF:LI:lev1permit") {
+}
+record(ai, "IOC:ACF:Test") {
+}
