@@ -30,7 +30,14 @@
         :key="field.name"
         :title="field.dtype + ':' + field.context.join(', ')"
         >
-      &nbsp;"{{ field.name }}" from "{{ field.record_name }}.{{ field.field_name }}"
+      &nbsp;
+      <script-context-one-link
+        :name="field.context[0][0]"
+        :line="field.context[0][1]"
+        :link_text="field.name"
+        class="unassuming_link"
+        /> from
+      from "{{ field.record_name }}.{{ field.field_name }}"
       <template v-if="Object.keys(field.metadata).length > 0">#  {{ field.metadata }}</template>
       <br/>
       </span>
@@ -40,6 +47,7 @@
 
 <script>
 import EpicsFormatField from './epics-format-field.vue'
+import ScriptContextOneLink from './script-context-one-link.vue'
 
 export default {
   name: 'EpicsFormatRecord',
@@ -58,6 +66,7 @@ export default {
   },
   components: {
     EpicsFormatField,
+    ScriptContextOneLink,
   },
   computed: {
     info_nodes() {
@@ -85,5 +94,9 @@ export default {
   padding: 15px;
   page-break-inside: avoid;
   word-wrap: break-word;
+}
+.unassuming_link {
+  color: black;
+  text-decoration:none;
 }
 </style>
