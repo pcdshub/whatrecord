@@ -1,0 +1,230 @@
+HAG(mfxhosts) {mfx-control,mfx-console,mfx-daq,mfx-monitor,mfx-hutch01,ioc-mfx-misc01,ioc-mfx-vacuum,ioc-mfx-table,ioc-mfx-tfs,daq-mfx-mon01,daq-mfx-mon02,daq-mfx-mon03,daq-mfx-mon04,daq-mfx-mon05,daq-mfx-mon06,daq-mfx-pgp01}
+# HAG(sxrhosts) {sxr-daq,sxr-control,sxr-monitor,sxr-console,sxr-laptop,sxr-laptop02}
+
+HAG(drphosts) {drp-neh-cmp001,drp-neh-cmp002,drp-neh-cmp003,drp-neh-cmp005,drp-neh-cmp007,drp-neh-cmp010,drp-neh-cmp011,drp-neh-cmp012,drp-neh-cmp013,drp-neh-cmp014,drp-neh-cmp015,drp-neh-cmp016,drp-neh-cmp017,drp-neh-cmp018,drp-neh-cmp019,drp-neh-cmp020,drp-neh-cmp021,drp-neh-cmp022,drp-neh-cmp023,drp-neh-cmp024,drp-neh-ctl001,drp-neh-ctl002}
+HAG(tmohosts) {tmo-daq,tmo-control,tmo-monitor,tmo-console,ctl-tmo-misc-01,tmo-hutch01}
+HAG(rixhosts) {rix-daq,rix-control,rix-monitor,rix-console}
+HAG(xpphosts) {xpp-daq,xpp-control,xpp-hutch01,xpp-laptop01,xpp-laptop03,xpp-laptop04,daq-xpp-pgp01,ioc-xpp-usr01}
+HAG(xcshosts) {xcs-daq,xcs-control,xcs-console,xcs-hutch01,xcs-laptop01,xcs-laptop02,xcs-laptop03,xcs-laptop04,daq-xcs-pgp01}
+HAG(cxihosts) {cxi-daq,cxi-control,cxi-monitor,cxi-console,cxi-ana,cxi-hutch01,daq-cxi-mon01,daq-cxi-mon02,daq-cxi-mon03,daq-cxi-mon04,daq-cxi-mon05,daq-cxi-mon06,daq-cxi-mon07,daq-cxi-mon08,daq-cxi-mon09,daq-cxi-mon10,daq-cxi-mon11,daq-cxi-mon12,daq-cxi-mon13,cxi-laptop1,ioc-cxi-usr1,daq-cxi-usrcam01,daq-cxi-usrcam02}
+HAG(mechosts) {mec-daq,mec-control,mec-control-2,mec-monitor,mec-console,mec-console-2,mec-laser,mec-laptop01,mec-laptop02,mec-laptop03,mec-laptop04,mec-laptop05,mec-laptop06,ioc-mec-misc01,ioc-mec-ipimb01}
+HAG(seqhosts) {ioc-xpp-osc01,ioc-xcs-user2,ioc-cxi-misc1,ctl-tmo-misc-01}
+HAG(lashosts) {las-console,ioc-las-fstiming,ioc-las-srv01,ioc-las-srv02,ioc-las-srv03,ioc-las-cxi-srv05,ioc-las-mec-srv06,ioc-las-xcs-srv04}
+HAG(kfehosts) {kfe-console}
+HAG(lfehosts) {lfe-console}
+HAG(tsthosts) {ioc-tst-rec02,ioc-tst-rec03}
+HAG(pcdshosts) {pscron}
+HAG(dethosts) {ioc-det-pnccd01,daq-det-pnccd01,ioc-det-pnccd02,daq-det-pnccd02,ioc-det-portable2,det-console}
+HAG(archhosts) {pscaa01,pscaa02}
+
+HAG(matlabhosts) {psdev105}
+HAG(xppicshosts) {xpp-control,blctl00.slac.stanford.edu}
+HAG(mfxsmbhosts) {smbmfxctl.slac.stanford.edu,mfx-control,blctl00.slac.stanford.edu,cfel-ftsc02}
+HAG(mfxftschosts) {cfel-ftsc02}
+HAG(mfxicshosts) {mfx-hutch01,cfel-ftsc02}
+HAG(cxiicshosts) {mfx-hutch01,cfel-ftsc02}
+HAG(xcsicshosts) {xcs-control,xcs-daq}
+
+HAG(mcchosts) {xtod-console,lcls-dev2,lcls-dev3,lcls-daemon0,lcls-daemon1,lcls-daemon2,lcls-daemon3,lcls-daemon4,lcls-daemon5,lcls-daemon6,lcls-daemon7,lcls-daemon8,lcls-daemon9,lcls-daemon10,lcls-srv01,lcls-srv02,lcls-srv03,lcls-srv04,lcls-srv05,lcls-opi01,lcls-opi02,lcls-opi03,lcls-opi04,lcls-opi05,lcls-opi06,lcls-opi07,lcls-opi08,lcls-opi09,lcls-opi12,lcls-opi13,lcls-opi30,opi10,opi11,opi12,opi13,opi14,opi15,opi16,opi17,opi20,opi21,opi22,opi23,opi24,opi25,opi26,opi30,opi31,opi32,opi33,opi34,opi35,opi40,opi41,opi42,opi43,opi44,opi45,opi46,opi47,cpu-fees-sp01}
+
+ASG(DEFAULT) {
+    RULE(1,READ)
+}
+
+ASG(RWALL) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE)
+}
+
+ASG(RWMCC) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mcchosts)
+    }
+}
+
+ASG(RWMFX) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mfxhosts)
+    }
+}
+
+ASG(RWDRP) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(drphosts)
+    }
+}
+
+ASG(RWTMO) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(tmohosts)
+    }
+}
+
+ASG(RWSXR) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(drphosts,kfehosts,tmohosts,rixhosts)
+    }
+}
+
+ASG(RWSXRMCC) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(drphosts,kfehosts,tmohosts,rixhosts,mcchosts)
+    }
+}
+
+ASG(RWXPP) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(xpphosts)
+    }
+}
+
+ASG(RWXCS) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(xcshosts)
+    }
+}
+
+ASG(RWCXI) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(cxihosts)
+    }
+}
+
+ASG(RWMEC) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mechosts)
+    }
+}
+
+ASG(RWLAS) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(lashosts)
+    }
+}
+
+ASG(RWKFE) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(kfehosts)
+    }
+}
+
+ASG(RWLFE) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(lfehosts)
+    }
+}
+
+ASG(RWINSTR) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(drphosts,xpphosts,xcshosts,mfxhosts,cxihosts,mechosts,lashosts,kfehosts,lfehosts,tmohosts,rixhosts)
+    }
+}
+
+ASG(RWINSTRMCC) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(drphosts,xpphosts,xcshosts,mfxhosts,cxihosts,mechosts,mcchosts,seqhosts,lashosts,kfehosts,lfehosts,tmohosts,rixhosts,pcdshosts)
+    }
+}
+
+ASG(RWHXR) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(xpphosts,xcshosts,mfxhosts,cxihosts,mechosts)
+    }
+}
+
+ASG(RWHXRMCC) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(xpphosts,xcshosts,mfxhosts,cxihosts,mechosts,mcchosts)
+    }
+}
+
+ASG(RWMATLAB) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(matlabhosts,mcchosts,lashosts)
+    }
+}
+
+ASG(RWMEC_MATLAB) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mechosts,matlabhosts,mcchosts)
+    }
+}
+
+ASG(RWXPPICS) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(xppicshosts)
+    }
+}
+
+ASG(RWXCSICS) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(xcsicshosts)
+    }
+}
+
+ASG(RWMFXFTSC) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mfxftschosts)
+    }
+}
+
+ASG(RWMFXSMB) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mfxsmbhosts)
+    }
+}
+
+ASG(RWMFXICS) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(mfxicshosts)
+    }
+}
+
+ASG(RWCXIICS) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(cxiicshosts)
+    }
+}
+
+ASG(RWDET) {
+    RULE(1,READ)
+    RULE(1,WRITE,TRAPWRITE){
+      HAG(dethosts)
+    }
+}
+
+ASG(NOACCESS) {
+    RULE(1,NONE)
+}
+
+
+ASG(RDARCH) {
+    RULE(1,READ){
+      HAG(archhosts)
+    }
+}

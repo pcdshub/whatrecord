@@ -601,8 +601,8 @@ class RecordTypeField:
 class RecordType:
     context: FullLoadContext
     name: str
-    cdefs: List[str]
-    fields: Dict[str, RecordTypeField]
+    cdefs: List[str] = field(default_factory=list)
+    fields: Dict[str, RecordTypeField] = field(default_factory=dict)
     devices: Dict[str, DatabaseDevice] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     info: Dict[str, str] = field(default_factory=dict)

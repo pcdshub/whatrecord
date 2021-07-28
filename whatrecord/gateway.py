@@ -10,6 +10,7 @@ from typing import Dict, Generator, List, Optional, Tuple, Union
 import apischema
 import lark
 
+from . import transformer
 from .common import FullLoadContext, StringWithContext, context_from_lark_token
 from .util import get_bytes_sha256, get_file_sha256
 
@@ -137,17 +138,10 @@ class _PVListTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def evaluation(self, _evaluation, _order, order, *_):
         return order
 
-    def pattern(self, pattern: lark.Token) -> str:
-        return str(pattern)
-
-    def pvname(self, pvname: lark.Token) -> str:
-        return str(pvname)
-
-    def hosts(self, *hosts) -> str:
-        return list(hosts)
-
-    def host(self, hostname: lark.Token) -> str:
-        return str(hostname)
+    pattern = transformer.stringify
+    pvname = transformer.stringify
+    hosts = transformer.listify
+    host = transformer.stringify
 
     def allow(
         self,
@@ -203,11 +197,8 @@ class _PVListTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def asg_asl(self, group: str, level: Optional[str] = None) -> AccessSecurity:
         return AccessSecurity(group=group, level=level)
 
-    def asg(self, group: lark.Token) -> str:
-        return str(group)
-
-    def asl(self, level: lark.Token) -> str:
-        return str(level)
+    asg = transformer.stringify
+    asl = transformer.stringify
 
 
 @dataclass

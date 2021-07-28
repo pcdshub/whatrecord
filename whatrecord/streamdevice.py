@@ -6,6 +6,7 @@ from typing import Dict, List, Union
 
 import lark
 
+from . import transformer
 from .common import FullLoadContext, LoadContext, StringWithContext, dataclass
 
 
@@ -15,6 +16,7 @@ def _context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
 
 def _separate_by_class(items, mapping):
     """Separate ``items`` by type into ``mapping`` of collections."""
+    # TODO: should remove this entirely and rewrite the transformer
     for item in items:
         if item == ";":
             continue
@@ -49,9 +51,9 @@ class ProtocolDefinition:
     context: FullLoadContext
     name: str
     handlers: Dict[str, HandlerDefinition] = field(default_factory=dict)
-    variables: Dict[str, VariableAssignment] = field(default_factory=dict)
+    variables: Dict[str, str] = field(default_factory=dict)
     commands: List[Command] = field(default_factory=list)
-    config: Dict[str, ConfigurationSetting] = field(default_factory=dict)
+    config: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -63,10 +65,10 @@ class HandlerDefinition:
 @dataclass
 class Protocol:
     """Representation of a StreamDevice protocol."""
-    variables: Dict[str, VariableAssignment] = field(default_factory=dict)
+    variables: Dict[str, str] = field(default_factory=dict)
     protocols: Dict[str, ProtocolDefinition] = field(default_factory=dict)
     comments: List[str] = field(default_factory=list)
-    config: Dict[str, ConfigurationSetting] = field(default_factory=dict)
+    config: Dict[str, str] = field(default_factory=dict)
     handlers: Dict[str, HandlerDefinition] = field(default_factory=dict)
 
     @classmethod
@@ -114,15 +116,25 @@ class _ProtocolTransformer(lark.visitors.Transformer):
     @lark.visitors.v_args(tree=True)
     def protocol(self, body):
         proto = self.cls()
+        variables = []
+        config_settings = []
         _separate_by_class(
             body.children,
             {
-                VariableAssignment: proto.variables,
+                VariableAssignment: variables,
                 ProtocolDefinition: proto.protocols,
-                ConfigurationSetting: proto.config,
+                ConfigurationSetting: config_settings,
                 HandlerDefinition: proto.handlers,
             }
         )
+        proto.config = {
+            config.name: config.value
+            for config in config_settings
+        }
+        proto.variables = {
+            var.name: var.value
+            for var in variables
+        }
         return proto
 
     def assignment(self, variable, value):
@@ -143,10 +155,7 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             value=" ".join(command.children),
         )
 
-    def value_part(self, item=None):
-        if item:
-            return item
-        # else -> ","
+    value_part = transformer.pass_through
 
     def value(self, *items):
         return [
@@ -193,11 +202,8 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             arguments=list(args) if args else [],
         )
 
-    def user_defined_command_args(self, value):
-        return value
-
-    def command(self, command):
-        return command
+    user_defined_command_args = transformer.pass_through
+    command = transformer.pass_through
 
     def protocol_name(self, name):
         return StringWithContext(
@@ -210,15 +216,25 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             name=name,
             context=name.context,
         )
+        variables = []
+        config_settings = []
         _separate_by_class(
             children,
             {
-                VariableAssignment: defn.variables,
+                VariableAssignment: variables,
                 HandlerDefinition: defn.handlers,
                 Command: defn.commands,
-                ConfigurationSetting: defn.config,
+                ConfigurationSetting: config_settings,
             }
         )
+        defn.config = {
+            config.name: config.value
+            for config in config_settings
+        }
+        defn.variables = {
+            var.name: var.value
+            for var in variables
+        }
         return defn
 
     def handler_body(self, *items):
