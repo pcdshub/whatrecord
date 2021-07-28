@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import pathlib
 from dataclasses import field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import lark
 
@@ -21,26 +21,6 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
     return record, field[0] if field else ""
 
 
-@dataclass
-class DatabaseBreakTable:
-    name: str
-    # values: Tuple[str, ...]
-    values: List[str]
-
-
-@dataclass
-class DatabaseRecordAlias:
-    name: Optional[str]
-    alias: str
-
-
-@dataclass
-class DatabaseRecordFieldInfo:
-    context: FullLoadContext
-    name: str
-    value: str
-
-
 class DatabaseLoadFailure(Exception):
     ...
 
@@ -53,93 +33,24 @@ class UnquotedString(lark.lexer.Token):
     ...
 
 
-def _separate_by_class(items, mapping):
-    """Separate ``items`` by type into ``mapping`` of collections."""
-    for item in items:
-        container = mapping[type(item)]
-        if isinstance(container, list):
-            container.append(item)
-        else:
-            container[item.name] = item
-
-
 def _context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
     return (LoadContext(name=fn, line=token.line), )
-
-
-def _pva_q_group_handler(rec, group, md):
-    """Handler for Q:group."""
-
-    # record(...) {
-    #     info(Q:group, {      # <--- this thing
-    #         "<group_name>":{
-    #             +id:"some/NT:1.0",
-    #             +meta:"FLD",
-    #             +atomic:true,
-    #             "<field.name>":{
-    #                 +type:"scalar",
-    #                 +channel:"VAL",
-    #                 +id:"some/NT:1.0",
-    #                 +trigger:"*",
-    #                 +putorder:0,
-    #             }
-    #         }
-    #     })
-    # }
-    for field_name, field_info in md.items():
-        try:
-            fieldref = group.fields[field_name]
-        except KeyError:
-            fieldref = group.fields[field_name] = PVAFieldReference(
-                name=str(field_name),
-                context=tuple(field_name.context),
-            )
-
-        if isinstance(field_info, dict):
-            # There, uh, is still some work left to do here.
-            channel = field_info.pop("+channel", None)
-            if channel is not None:
-                fieldref.record_name = rec.name
-                fieldref.field_name = channel
-                # Linter TODO: checks that this field exists and
-                # whatnot
-
-            fieldref.metadata.update(field_info)
-        else:
-            fieldref.metadata[field_name] = field_info
-
-
-def _extract_pva_groups(
-    records: List[RecordInstance]
-) -> Dict[str, RecordInstance]:
-    """
-    Take a list of ``RecordInstance``, aggregate qsrv "Q:" info nodes, and
-    assemble new pseudo-``RecordInstance`` "PVA" out of them.
-    """
-    pva_groups = {}
-    for rec in records:
-        group_md = rec.metadata.pop("Q:group", None)
-        if group_md is not None:
-            for group_name, group_info_to_add in group_md.items():
-                try:
-                    group = pva_groups[group_name]
-                except KeyError:
-                    pva_groups[group_name] = group = RecordInstance(
-                        context=group_name.context,
-                        name=str(group_name),
-                        record_type="PVA",
-                        is_pva=True,
-                    )
-
-                _pva_q_group_handler(rec, group, group_info_to_add)
-
-    return pva_groups
 
 
 @dataclass
 class _TransformerState:
     _record: Optional[RecordInstance] = None
     _record_type: Optional[RecordType] = None
+    standalone_aliases: Dict[str, str] = field(default_factory=dict)
+    aliases_to_update: List[Tuple[RecordInstance, str]] = field(
+        default_factory=list
+    )
+    pva_references_to_update: List[Tuple[RecordInstance, PVAFieldReference]] = field(
+        default_factory=list
+    )
+    # Record names aren't known until after all their fields are processed,
+    # so use a magic token here for now.  If this leaks out, that's a bug!
+    unset_name: str = "_whatrecord_processing_"
 
     def reset_record(self):
         """Reset the current record instance."""
@@ -151,7 +62,7 @@ class _TransformerState:
         if self._record is None:
             self._record = RecordInstance(
                 context=(),
-                name="",
+                name=self.unset_name,
                 record_type="",
             )
         return self._record
@@ -190,18 +101,23 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
     @lark.visitors.v_args(tree=True)
     def database(self, body):
-        standalone_aliases = []
+        # Update all references that were set before we know the record name
+        # Update record() { alias("") }
+        for record, alias in self._state.aliases_to_update:
+            self.db.aliases[alias] = record.name
 
-        # Aggregate the aliases for convenience
-        for alias in standalone_aliases:
-            self.db.standalone_aliases.append(alias.alias)
-            self.db.aliases[alias.alias] = alias.name
+        # Update pva Q:group field references
+        for record, reference in self._state.pva_references_to_update:
+            reference.record_name = record.name
 
-        for record in self.db.records.values():
-            for alias in record.aliases:
-                self.db.aliases[alias] = record.name
+        # Update top-level standalone aliases
+        for alias_name, record_name in self._state.standalone_aliases.items():
+            self.db.standalone_aliases[alias_name] = record_name
+            self.db.aliases[alias_name] = record_name
+            if record_name in self.db.records:
+                self.db.records[record_name].aliases.append(alias_name)
+            # else:  linter error
 
-        self.db.pva_groups = _extract_pva_groups(self.db.records.values())
         return self.db
 
     dbitem = transformer.tuple_args
@@ -247,7 +163,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         self.db.variables[name] = value
 
     def breaktable(self, _, name, values):
-        self.db.breaktables[name] = DatabaseBreakTable(name, values)
+        self.db.breaktables[name] = values
 
     break_head = transformer.pass_through
     break_body = transformer.pass_through
@@ -298,9 +214,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     recordtype_field_item_menu = transformer.tuple_args
 
     def standalone_alias(self, _, record_name, alias_name):
-        self.db.standalone_aliases.append(
-            DatabaseRecordAlias(record_name, alias_name)
-        )
+        self._state.standalone_aliases[alias_name] = record_name
 
     def json_string(self, value):
         if value and value[0] in "'\"":
@@ -387,19 +301,89 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     json_key_value = transformer.tuple_args
     record_head = transformer.tuple_args
 
-    def record_field(self, field_token, name, value):
+    def record_field(self, field_token: lark.Token, name: str, value: Any):
         self._state.record.fields[name] = RecordField(
             dtype='', name=name, value=value,
             context=_context_from_token(self.fn, field_token)
         )
 
-    def record_field_info(self, info_token, name, value):
+    def _pva_q_group_handler(self, group: RecordInstance, md: Mapping):
+        """Handler for Q:group."""
+
+        # record(...) {
+        #     info(Q:group, {      # <--- this thing
+        #         "<group_name>":{
+        #             +id:"some/NT:1.0",
+        #             +meta:"FLD",
+        #             +atomic:true,
+        #             "<field.name>":{
+        #                 +type:"scalar",
+        #                 +channel:"VAL",
+        #                 +id:"some/NT:1.0",
+        #                 +trigger:"*",
+        #                 +putorder:0,
+        #             }
+        #         }
+        #     })
+        # }
+        for field_name, field_info in md.items():
+            try:
+                fieldref = group.fields[field_name]
+            except KeyError:
+                fieldref = group.fields[field_name] = PVAFieldReference(
+                    name=str(field_name),
+                    context=tuple(field_name.context),
+                )
+
+            if isinstance(field_info, dict):
+                # There, uh, is still some work left to do here.
+                channel = field_info.pop("+channel", None)
+                if channel is not None:
+                    # The current record doesn't have its name yet due to how
+                    # the parser goes depth first; update it later.
+                    self._state.pva_references_to_update.append(
+                        (self._state.record, fieldref)
+                    )
+                    fieldref.field_name = channel
+                    # Linter TODO: checks that this field exists and
+                    # whatnot
+
+                fieldref.metadata.update(field_info)
+            else:
+                fieldref.metadata[field_name] = field_info
+
+    def _add_q_group(self, group_md: Mapping):
+        """
+        Handle qsrv "Q:" info nodes, and assemble new pseudo-record
+        PVA ``RecordInstance`` out of them.
+        """
+        for group_name, group_info_to_add in group_md.items():
+            if group_name not in self.db.pva_groups:
+                self.db.pva_groups[group_name] = RecordInstance(
+                    context=group_name.context,
+                    name=str(group_name),
+                    record_type="PVA",
+                    is_pva=True,
+                )
+
+            self._pva_q_group_handler(
+                self.db.pva_groups[group_name],
+                group_info_to_add
+            )
+
+    def record_field_info(self, info_token: lark.Token, name: str, value: Any):
+        record: RecordInstance = self._state.record
         context = _context_from_token(self.fn, info_token)
         key = StringWithContext(name, context)
-        self._state.record.metadata[key] = value
+        record.metadata[key] = value
+
+        if name == "Q:group" and isinstance(value, Mapping):
+            self._add_q_group(value)
 
     def record_field_alias(self, _, name):
-        self._state.record.aliases.append(name)
+        record = self._state.record
+        record.aliases.append(name)
+        self._state.aliases_to_update.append((record, name))
 
     record_body = transformer.tuple_args
 
@@ -414,7 +398,7 @@ class Database:
     standalone_aliases
         Standalone aliases are those defined outside of the record body; this
         may only be useful for faithfully reconstructing the Database according
-        to its original source code.
+        to its original source code.  Keyed on alias to actual record name.
 
     aliases
         Alias name to record name.
@@ -463,11 +447,11 @@ class Database:
         IOC shell variables.
     """
 
-    standalone_aliases: List[str] = field(default_factory=list)
+    standalone_aliases: Dict[str, str] = field(default_factory=dict)
     aliases: Dict[str, str] = field(default_factory=dict)
     paths: List[str] = field(default_factory=list)
     addpaths: List[str] = field(default_factory=list)
-    breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
+    breaktables: Dict[str, Tuple[str]] = field(default_factory=dict)
     comments: List[str] = field(default_factory=list)
     devices: List[DatabaseDevice] = field(default_factory=list)
     drivers: List[str] = field(default_factory=list)

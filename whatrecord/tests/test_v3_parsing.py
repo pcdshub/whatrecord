@@ -1,11 +1,11 @@
-"""Placeholder for V3 database parsing tests, for the most part..."""
+"""V3 database parsing tests."""
 
 import apischema
 import pytest
 
 from .. import Database
-from ..db import (DatabaseBreakTable, DatabaseMenu, LoadContext, RecordField,
-                  RecordInstance, RecordType, RecordTypeField)
+from ..db import (DatabaseMenu, LoadContext, RecordField, RecordInstance,
+                  RecordType, RecordTypeField)
 
 v3_or_v4 = pytest.mark.parametrize("version", [3, 4])
 
@@ -83,10 +83,9 @@ def test_breaktable(version):
 """,
         version=version
     )
-    assert db.breaktables["typeAttenLength"] == DatabaseBreakTable(
-        name='typeAttenLength',
-        values=('0.8', '0.18', '0.9', '0.25', '8.0', '150.13', '8.5', '174.81',
-                '9.0', '204.32')
+    assert db.breaktables["typeAttenLength"] == (
+        '0.8', '0.18', '0.9', '0.25', '8.0', '150.13', '8.5', '174.81', '9.0',
+        '204.32'
     )
     apischema.deserialize(Database, apischema.serialize(db))
 
@@ -212,5 +211,79 @@ recordtype(stringin) {
             '#include "test2.h"',
         ],
         fields={},
+    )
+    apischema.deserialize(Database, apischema.serialize(db))
+
+
+def test_alias_and_standalone_alias():
+    db = Database.from_string(
+        """\
+record(ai, "rec:X") {
+    alias("rec:Y")
+    field(A, "test")
+    field(B, test)
+}
+alias("rec:X", "rec:Z")
+""",
+        version=3
+    )
+    assert db.aliases["rec:Y"] == "rec:X"
+    assert db.aliases["rec:Z"] == "rec:X"
+    assert db.standalone_aliases["rec:Z"] == "rec:X"
+    assert db.records["rec:X"] == RecordInstance(
+        context=(LoadContext("None", 1), ),
+        record_type="ai",
+        name="rec:X",
+        is_pva=False,
+        aliases=["rec:Y", "rec:Z"],
+        fields={
+            "A": RecordField(
+                context=(LoadContext("None", 3), ),
+                name="A",
+                dtype="",
+                value="test",
+            ),
+            "B": RecordField(
+                context=(LoadContext("None", 4), ),
+                name="B",
+                dtype="",
+                value="test",
+            ),
+        }
+    )
+    apischema.deserialize(Database, apischema.serialize(db))
+
+
+def test_standalone_alias():
+    db = Database.from_string(
+        """\
+record(ai, "rec:X") {
+    field(A, "test")
+    field(B, test)
+}
+alias("rec:X", "rec:Y")
+""",
+        version=3
+    )
+    assert db.records["rec:X"] == RecordInstance(
+        context=(LoadContext("None", 1), ),
+        record_type="ai",
+        name="rec:X",
+        is_pva=False,
+        aliases=["rec:Y"],
+        fields={
+            "A": RecordField(
+                context=(LoadContext("None", 2), ),
+                name="A",
+                dtype="",
+                value="test",
+            ),
+            "B": RecordField(
+                context=(LoadContext("None", 3), ),
+                name="B",
+                dtype="",
+                value="test",
+            ),
+        }
     )
     apischema.deserialize(Database, apischema.serialize(db))
