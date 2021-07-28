@@ -1,57 +1,51 @@
 // Lark grammar for ACF - access security
 // Based on epics-base specified grammar in libcom (asLib)
-
 ?start: asconfig
 
 %import common.WS_INLINE
+
 %import common.WS
+
+
 %ignore WS_INLINE
 %ignore WS
+COMMENT: "#" /[^\n\r]/*
 
-COMMENT     : "#" /[^\n\r]/*
 %ignore COMMENT
-
-NEWLINE     : "\n"
-BACKSLASH   : "\\"
-DOUBLEQUOTE : "\""
-WHITESPACE  : /[ \t\r]/
-ESCAPE      : BACKSLASH /./
-STRINGCHAR  : /[^"\n\\]/
-
-NAME        : /[a-zA-Z0-9_\-+:.\[\]<>;]/
-DIGIT       : /[0-9]/
-PUNCTUATION : /[(){},]/
-LINK        : /[A-L]/
-
-UAG         : "UAG"
-HAG         : "HAG"
-ASG         : "ASG"
-RULE        : "RULE"
-CALC        : "CALC"
-
-INP_LINK : /INP[A-L]/
-INTEGER  : DIGIT+
-
-UNQUOTED_STRING: NAME+
-QUOTED_STRING: DOUBLEQUOTE (STRINGCHAR | ESCAPE)* DOUBLEQUOTE
-
+NEWLINE: "\n"
+BACKSLASH: "\\"
+DOUBLEQUOTE: "\""
+WHITESPACE: /[ \t\r]/
+ESCAPE: BACKSLASH /./
+STRINGCHAR: /[^"\n\\]/
+NAME: /[a-zA-Z0-9_\-+:.\[\]<>;]/
+DIGIT: /[0-9]/
+PUNCTUATION: /[(){},]/
+LINK: /[A-L]/
+UAG: "UAG"
+HAG: "HAG"
+ASG: "ASG"
+RULE: "RULE"
+CALC: "CALC"
+INP_LINK: /INP[A-L]/
+INTEGER: DIGIT +
+UNQUOTED_STRING: NAME +
+QUOTED_STRING: DOUBLEQUOTE ( STRINGCHAR | ESCAPE )* DOUBLEQUOTE
 STRING: UNQUOTED_STRING
       | QUOTED_STRING
 
 // bad_string   : DOUBLEQUOTE (STRINGCHAR | ESCAPE)* NEWLINE
-
 asconfig: asconfig_item*
 
-asconfig_item: UAG uag_head uag_body?
-             | HAG hag_head hag_body?
-             | ASG asg_head asg_body?
+asconfig_item: UAG uag_head uag_body?  -> uag
+             | HAG hag_head hag_body?  -> hag
+             | ASG asg_head asg_body?  -> asg
 
-uag_head:   "(" STRING ")"
+uag_head: "(" STRING ")"
 
-uag_body:   "{" uag_user_list "}"
+uag_body: "{" uag_user_list "}"
 
-uag_user_list: uag_user_list "," uag_user_list_name
-             | uag_user_list_name
+uag_user_list: _comma_separated{uag_user_list_name}
 
 uag_user_list_name: STRING
 
@@ -63,41 +57,40 @@ hag_host_list: _comma_separated{hag_host_list_name}
 
 hag_host_list_name: STRING
 
-asg_head:   "(" STRING ")"
+asg_head: "(" STRING ")"
 
-asg_body:   "{" asg_body_list "}"
+asg_body: "{" asg_body_list "}"
 
-asg_body_list: asg_body_list asg_body_item
-             | asg_body_item
+asg_body_list: asg_body_item*
 
-asg_body_item: inp_config | rule_config
+asg_body_item: inp_config
+             | rule_config
 
 inp_config: INP_LINK "(" STRING ")"
 
-rule_config: RULE rule_head rule_body
-           | RULE rule_head
+rule_config: RULE rule_head rule_body?
 
-rule_head: rule_head_manditory rule_head_options
+rule_head: rule_head_mandatory rule_head_options
 
-rule_head_manditory: "(" INTEGER "," STRING
+rule_head_mandatory: "(" INTEGER "," STRING
 
 rule_head_options: ")"
                  | rule_log_options
 
-rule_log_options:  "," STRING ")"
+rule_log_options: "," STRING ")"
 
 rule_body: "{" rule_list "}"
 
 rule_list: rule_list_item+
 
-rule_list_item: UAG "(" rule_uag_list ")"
-              | HAG  "(" _comma_separated{RULE_HAG_LIST_NAME} ")"
-              | CALC "(" STRING ")"
+rule_list_item: UAG "(" rule_uag_list ")"  -> rule_uag
+              | HAG "(" rule_hag_list ")"  -> rule_hag
+              | CALC "(" STRING ")"        -> rule_calc
 
-rule_uag_list: rule_uag_list "," RULE_UAG_LIST_NAME
-             | RULE_UAG_LIST_NAME
+rule_uag_list: _comma_separated{RULE_UAG_LIST_NAME}
+rule_hag_list: _comma_separated{RULE_HAG_LIST_NAME}
 
 RULE_UAG_LIST_NAME: STRING
 RULE_HAG_LIST_NAME: STRING
 
-_comma_separated{x}: (x ",")* x
+_comma_separated{x}: ( x "," )* x
