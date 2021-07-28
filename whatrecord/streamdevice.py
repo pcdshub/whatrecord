@@ -6,6 +6,7 @@ from typing import Dict, List, Union
 
 import lark
 
+from . import transformer
 from .common import FullLoadContext, LoadContext, StringWithContext, dataclass
 
 
@@ -143,10 +144,7 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             value=" ".join(command.children),
         )
 
-    def value_part(self, item=None):
-        if item:
-            return item
-        # else -> ","
+    value_part = transformer.pass_through
 
     def value(self, *items):
         return [
@@ -193,11 +191,8 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             arguments=list(args) if args else [],
         )
 
-    def user_defined_command_args(self, value):
-        return value
-
-    def command(self, command):
-        return command
+    user_defined_command_args = transformer.pass_through
+    command = transformer.pass_through
 
     def protocol_name(self, name):
         return StringWithContext(
