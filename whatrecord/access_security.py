@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import apischema
 import lark
 
+from . import transformer
 from .common import FullLoadContext, StringWithContext, context_from_lark_token
 from .util import get_bytes_sha256
 
@@ -121,38 +122,6 @@ class AccessSecurityGroup:
     rules: List[AccessSecurityRule] = field(default_factory=list)
 
 
-def _listify():
-    """Transformer helper to listify *args."""
-    @staticmethod
-    def inner(*objects):
-        return list(objects)
-    return inner
-
-
-def _listify_strings():
-    """Transformer helper to listify *args and stringify each arg."""
-    @staticmethod
-    def inner(*objects):
-        return list(str(obj) for obj in objects)
-    return inner
-
-
-def _stringify():
-    """Transformer helper to stringify a single argument."""
-    @staticmethod
-    def inner(obj: lark.Token) -> str:
-        return str(obj)
-    return inner
-
-
-def _pass_through():
-    """Transformer helper to pass through an optional single argument."""
-    @staticmethod
-    def inner(obj: Optional[lark.Token] = None):
-        return obj
-    return inner
-
-
 @lark.visitors.v_args(inline=True)
 class _AcfTransformer(lark.visitors.Transformer):
     fn: str
@@ -206,12 +175,12 @@ class _AcfTransformer(lark.visitors.Transformer):
 
         return "\n".join(reversed(results))
 
-    uag_head = _stringify()
-    uag_body = _pass_through()
-    uag_user_list = _listify()
-    uag_user_list_name = _stringify()
+    uag_head = transformer.stringify
+    uag_body = transformer.pass_through
+    uag_user_list = transformer.listify
+    uag_user_list_name = transformer.stringify
 
-    def uag(self, uag_token, name, users=None):
+    def uag(self, uag_token: lark.Token, name, users=None):
         user_group = UserAccessGroup(
             context=context_from_lark_token(self.fn, uag_token),
             name=name,
@@ -220,12 +189,12 @@ class _AcfTransformer(lark.visitors.Transformer):
         )
         self.users[user_group.name] = user_group
 
-    hag_head = _stringify()
-    hag_body = _pass_through()
-    hag_host_list = _listify()
-    hag_host_list_name = _stringify()
+    hag_head = transformer.stringify
+    hag_body = transformer.pass_through
+    hag_host_list = transformer.listify
+    hag_host_list_name = transformer.stringify
 
-    def hag(self, hag_token, name, hosts=None):
+    def hag(self, hag_token: lark.Token, name, hosts=None):
         host_group = HostAccessGroup(
             context=context_from_lark_token(self.fn, hag_token),
             name=name,
@@ -234,7 +203,7 @@ class _AcfTransformer(lark.visitors.Transformer):
         )
         self.hosts[host_group.name] = host_group
 
-    def asg(self, asg_token, name, body=None):
+    def asg(self, asg_token: lark.Token, name, body=None):
         rules, self.rules = self.rules, []
         inputs, self.inputs = self.inputs, {}
         self.groups[str(name)] = AccessSecurityGroup(
@@ -245,12 +214,12 @@ class _AcfTransformer(lark.visitors.Transformer):
             inputs=inputs,
         )
 
-    asg_head = _stringify()
-    asg_body = _stringify()
-    asg_body_list = _listify()
-    asg_body_item = _pass_through()
+    asg_head = transformer.stringify
+    asg_body = transformer.stringify
+    asg_body_list = transformer.listify
+    asg_body_item = transformer.pass_through
 
-    def rule_config(self, rule_token, head, body=None):
+    def rule_config(self, rule_token: lark.Token, head, body=None):
         rule_info, self.rule_info = self.rule_info, {}
         token_to_kwarg = {
             "UAG": "users",
@@ -278,8 +247,8 @@ class _AcfTransformer(lark.visitors.Transformer):
         )
         self.rules.append(rule)
 
-    rule_body = _pass_through()
-    rule_list = _listify()
+    rule_body = transformer.pass_through
+    rule_list = transformer.listify
 
     @staticmethod
     def rule_head(mandatory, options):
@@ -290,22 +259,22 @@ class _AcfTransformer(lark.visitors.Transformer):
     def rule_head_mandatory(level, options):
         return (int(level), str(options))
 
-    rule_head_options = _pass_through()
-    rule_log_options = _stringify()
+    rule_head_options = transformer.pass_through
+    rule_log_options = transformer.stringify
 
-    rule_uag_list = _listify_strings()
-    rule_hag_list = _listify_strings()
+    rule_uag_list = transformer.listify_strings
+    rule_hag_list = transformer.listify_strings
 
-    def rule_uag(self, uag_token, users):
+    def rule_uag(self, uag_token: lark.Token, users):
         self.rule_info[uag_token] = users
 
-    def rule_hag(self, hag_token, hosts):
+    def rule_hag(self, hag_token: lark.Token, hosts):
         self.rule_info[hag_token] = hosts
 
-    def rule_calc(self, calc_token, calc_str):
+    def rule_calc(self, calc_token: lark.Token, calc_str):
         self.calc = (calc_token, str(calc_str).strip('" '))
 
-    def inp_config(self, inp_token, link):
+    def inp_config(self, inp_token: lark.Token, link):
         self.inputs[inp_token] = str(link)
 
     @lark.visitors.v_args(tree=True)

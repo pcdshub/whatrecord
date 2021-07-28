@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import lark
 
+from . import transformer
 from .common import (DatabaseDevice, DatabaseMenu, FullLoadContext,
                      LinterError, LinterWarning, LoadContext,
                      PVAFieldReference, RecordField, RecordInstance,
@@ -18,53 +19,6 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
     """Split REC.FLD into REC and FLD."""
     record, *field = pvname.split(".", 1)
     return record, field[0] if field else ""
-
-
-@dataclass
-class RecordTypeCdef:
-    text: str
-
-
-@dataclass
-class DatabaseInclude:
-    path: str
-
-
-@dataclass
-class DatabasePath:
-    path: str
-
-
-@dataclass
-class DatabaseAddPath:
-    path: str
-
-
-@dataclass
-class DatabaseDriver:
-    drvet_name: str
-
-
-@dataclass
-class DatabaseLink:
-    name: str
-    identifier: str
-
-
-@dataclass
-class DatabaseRegistrar:
-    function_name: str
-
-
-@dataclass
-class DatabaseFunction:
-    function_name: str
-
-
-@dataclass
-class DatabaseVariable:
-    name: str
-    data_type: Optional[str]
 
 
 @dataclass
@@ -182,108 +136,123 @@ def _extract_pva_groups(
     return pva_groups
 
 
+@dataclass
+class _TransformerState:
+    _record: Optional[RecordInstance] = None
+    _record_type: Optional[RecordType] = None
+
+    def reset_record(self):
+        """Reset the current record instance."""
+        self._record = None
+
+    @property
+    def record(self) -> RecordInstance:
+        """The current record instance."""
+        if self._record is None:
+            self._record = RecordInstance(
+                context=(),
+                name="",
+                record_type="",
+            )
+        return self._record
+
+    def reset_record_type(self):
+        """Reset the current record type."""
+        self._record_type = None
+
+    @property
+    def record_type(self) -> RecordType:
+        """The current record type."""
+        if self._record_type is None:
+            self._record_type = RecordType(
+                context=(),
+                name="",
+            )
+        return self._record_type
+
+
 @lark.visitors.v_args(inline=True)
 class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
+    record: Optional[RecordInstance]
+    record_type: Optional[RecordType]
+
     def __init__(self, fn, dbd=None):
         self.fn = str(fn)
         self.dbd = dbd
-        self.record_types = dbd.record_types if dbd is not None else {}
+        self.db = Database()
+        self._state = _TransformerState()
+
+    @property
+    def record_types(self) -> Dict[str, RecordType]:
+        if self.dbd is not None:
+            return self.dbd.record_types
+        return self.db.record_types
 
     @lark.visitors.v_args(tree=True)
     def database(self, body):
-        db = Database()
         standalone_aliases = []
-        _separate_by_class(
-            body.children,
-            {
-                DatabaseMenu: db.menus,
-                DatabaseInclude: db.includes,
-                DatabasePath: db.paths,
-                DatabaseAddPath: db.addpaths,
-                DatabaseDriver: db.drivers,
-                DatabaseLink: db.links,
-                DatabaseRegistrar: db.registrars,
-                DatabaseFunction: db.functions,
-                DatabaseVariable: db.variables,
-                DatabaseRecordAlias: standalone_aliases,
-
-                RecordType: db.record_types,
-                DatabaseBreakTable: db.breaktables,
-                RecordInstance: db.records,
-                DatabaseDevice: db.devices,
-            }
-        )
 
         # Aggregate the aliases for convenience
         for alias in standalone_aliases:
-            db.standalone_aliases.append(alias.alias)
-            db.aliases[alias.alias] = alias.name
+            self.db.standalone_aliases.append(alias.alias)
+            self.db.aliases[alias.alias] = alias.name
 
-        for record in db.records.values():
+        for record in self.db.records.values():
             for alias in record.aliases:
-                db.aliases[alias] = record.name
+                self.db.aliases[alias] = record.name
 
-        db.pva_groups = _extract_pva_groups(db.records.values())
-        return db
+        self.db.pva_groups = _extract_pva_groups(self.db.records.values())
+        return self.db
 
-    def dbitem(self, *items):
-        return items
+    dbitem = transformer.tuple_args
 
     def include(self, path):
         # raise RuntimeError("Incomplete dbd files are a TODO :(")
-        return DatabaseInclude(path)
+        self.db.includes.append(str(path))
 
     def path(self, path):
-        return DatabasePath(path)
+        self.db.paths.append(path)
 
     def addpath(self, path):
-        return DatabaseAddPath(path)
+        self.db.addpaths.append(path)
 
-    def menu(self, menu_token, name, choices):
-        return DatabaseMenu(
+    def menu(self, menu_token: lark.Token, name, choices):
+        self.db.menus[name] = DatabaseMenu(
             context=_context_from_token(self.fn, menu_token),
             name=name,
             choices=choices
         )
 
-    def menu_head(self, name):
-        return name
-
-    def menu_body(self, *choices):
-        return dict(choices)
+    menu_head = transformer.pass_through
+    menu_body = transformer.dictify
 
     def device(self, _, record_type, link_type, dset_name, choice_string):
-        return DatabaseDevice(record_type, link_type, dset_name, choice_string)
+        self.db.devices.append(
+            DatabaseDevice(record_type, link_type, dset_name, choice_string)
+        )
 
     def driver(self, _, drvet_name):
-        return DatabaseDriver(drvet_name)
+        self.db.drivers.append(drvet_name)
 
     def link(self, _, name, identifier):
-        return DatabaseLink(name, identifier)
+        self.db.links[name] = identifier
 
     def registrar(self, _, name):
-        return DatabaseRegistrar(name)
+        self.db.registrars.append(name)
 
     def function(self, _, name):
-        return DatabaseFunction(name)
+        self.db.functions.append(name)
 
     def variable(self, _, name, value=None):
-        return DatabaseVariable(name, value)
+        self.db.variables[name] = value
 
     def breaktable(self, _, name, values):
-        return DatabaseBreakTable(name, values)
+        self.db.breaktables[name] = DatabaseBreakTable(name, values)
 
-    def break_head(self, name):
-        return name
-
-    def break_body(self, items):
-        return items
-
-    def break_list(self, *items):
-        return items
-
-    def break_item(self, value):
-        return value
+    break_head = transformer.pass_through
+    break_body = transformer.pass_through
+    break_list = transformer.tuple_args
+    break_item = transformer.pass_through
 
     def choice(self, _, identifier, string):
         return (identifier, string)
@@ -315,34 +284,23 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             # it.
             kwargs["body"] = body
 
-        return RecordTypeField(
+        self._state.record_type.fields[name] = RecordTypeField(
             name=name,
             type=type_,
             context=_context_from_token(self.fn, field_tok),
             **kwargs
         )
 
-    def recordtype_head(self, head):
-        return head
-
-    def recordtype_field_body(self, *items):
-        return dict(items)
-
-    def recordtype_field_head(self, name, type_):
-        return (name, type_)
-
-    def recordtype_field_item(self, name, value):
-        return (name, value)
-
-    def recordtype_field_item_menu(self, name, menu):
-        # Not sure why I separated this
-        return (name, menu)
-
-    def alias(self, _, alias_name):
-        return DatabaseRecordAlias(None, alias_name)
+    recordtype_head = transformer.pass_through
+    recordtype_field_body = transformer.dictify
+    recordtype_field_head = transformer.tuple_args
+    recordtype_field_item = transformer.tuple_args
+    recordtype_field_item_menu = transformer.tuple_args
 
     def standalone_alias(self, _, record_name, alias_name):
-        return DatabaseRecordAlias(record_name, alias_name)
+        self.db.standalone_aliases.append(
+            DatabaseRecordAlias(record_name, alias_name)
+        )
 
     def json_string(self, value):
         if value and value[0] in "'\"":
@@ -385,38 +343,33 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         return f"{sign}0x{digits}"
 
     def cdef(self, cdef_text):
-        return RecordTypeCdef(str(cdef_text)[1:].strip())
+        self._state.record_type.cdefs.append(str(cdef_text)[1:].strip())
 
     def recordtype(self, recordtype_token, name, body):
-        info = {
-            RecordTypeCdef: [],
-            RecordTypeField: {},
-        }
-        _separate_by_class(body.children, info)
-        record_type = RecordType(
-            context=_context_from_token(self.fn, recordtype_token),
-            name=name,
-            fields=info[RecordTypeField],
-            cdefs=[cdef.text for cdef in info[RecordTypeCdef]],
-        )
-        self.record_types[name] = record_type
-        return record_type
+        record_type = self._state.record_type
+        record_type.context = _context_from_token(self.fn, recordtype_token)
+        record_type.name = name
+        self.db.record_types[name] = self._state.record_type
+        self._state.reset_record_type()
 
     def record(self, rec_token, head, body):
         record_type, name = head
-        info = {
-            RecordField: {},
-            DatabaseRecordFieldInfo: {},
-            DatabaseRecordAlias: [],
-        }
-        _separate_by_class(body, info)
+        record = self._state.record
+        record.name = name
+        record.context = _context_from_token(self.fn, rec_token)
+        record.is_grecord = rec_token == "grecord"
+        record.is_pva = False
+        record.record_type = record_type
+        self.db.records[name] = self._state.record
 
-        record_type_info = self.record_types.get(record_type, None)
+        record_type_info = self.record_types.get(
+            record.record_type, None
+        )
         if record_type_info is None:
             # TODO lint error, if dbd loaded
             ...
         else:
-            for fld in info[RecordField].values():
+            for fld in record.fields.values():
                 field_info = record_type_info.fields.get(fld.name, None)
                 if field_info is None:
                     # TODO lint error, if dbd loaded
@@ -428,47 +381,27 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     # know for certain it's a waste of memory and repetetive
                     # data being sent over the wire at the very least
                     # fld.context = field_info.context[:1] + fld.context
+        self._state.reset_record()
 
-        return RecordInstance(
-            aliases=[alias.alias for alias in info[DatabaseRecordAlias]],
-            context=_context_from_token(self.fn, rec_token),
-            fields=info[RecordField],
-            is_grecord=(rec_token == "grecord"),
-            is_pva=False,
-            metadata={
-                StringWithContext(item.name, item.context): item.value
-                for item in info[DatabaseRecordFieldInfo].values()
-            },
-            name=name,
-            record_type=record_type,
-        )
-
-    def json_dict(self, *members):
-        return dict(members)
-
-    def json_key_value(self, key, value):
-        return (key, value)
-
-    def record_head(self, record_type, name):
-        return (record_type, name)
+    json_dict = transformer.dictify
+    json_key_value = transformer.tuple_args
+    record_head = transformer.tuple_args
 
     def record_field(self, field_token, name, value):
-        return RecordField(
+        self._state.record.fields[name] = RecordField(
             dtype='', name=name, value=value,
             context=_context_from_token(self.fn, field_token)
         )
 
     def record_field_info(self, info_token, name, value):
-        return DatabaseRecordFieldInfo(
-            context=_context_from_token(self.fn, info_token),
-            name=name, value=value,
-        )
+        context = _context_from_token(self.fn, info_token)
+        key = StringWithContext(name, context)
+        self._state.record.metadata[key] = value
 
     def record_field_alias(self, _, name):
-        return DatabaseRecordAlias(None, name)
+        self._state.record.aliases.append(name)
 
-    def record_body(self, *body_items):
-        return body_items
+    record_body = transformer.tuple_args
 
 
 @dataclass
@@ -532,21 +465,21 @@ class Database:
 
     standalone_aliases: List[str] = field(default_factory=list)
     aliases: Dict[str, str] = field(default_factory=dict)
-    paths: List[DatabasePath] = field(default_factory=list)
-    addpaths: List[DatabaseAddPath] = field(default_factory=list)
+    paths: List[str] = field(default_factory=list)
+    addpaths: List[str] = field(default_factory=list)
     breaktables: Dict[str, DatabaseBreakTable] = field(default_factory=dict)
     comments: List[str] = field(default_factory=list)
     devices: List[DatabaseDevice] = field(default_factory=list)
-    drivers: List[DatabaseDriver] = field(default_factory=list)
-    functions: List[DatabaseFunction] = field(default_factory=list)
-    includes: List[DatabaseInclude] = field(default_factory=list)
-    links: List[DatabaseLink] = field(default_factory=list)
+    drivers: List[str] = field(default_factory=list)
+    functions: List[str] = field(default_factory=list)
+    includes: List[str] = field(default_factory=list)
+    links: Dict[str, str] = field(default_factory=dict)
     menus: Dict[str, DatabaseMenu] = field(default_factory=dict)
     records: Dict[str, RecordInstance] = field(default_factory=dict)
     pva_groups: Dict[str, RecordInstance] = field(default_factory=dict)
     record_types: Dict[str, RecordType] = field(default_factory=dict)
-    registrars: List[DatabaseRegistrar] = field(default_factory=list)
-    variables: List[DatabaseVariable] = field(default_factory=list)
+    registrars: List[str] = field(default_factory=list)
+    variables: Dict[str, Optional[str]] = field(default_factory=dict)
 
     @classmethod
     def from_string(cls, contents, dbd=None, filename=None,
