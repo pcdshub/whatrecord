@@ -80,8 +80,13 @@ export default {
     filtered_dict() {
       let filtered = {};
       for (const [key, value] of Object.entries(this.dict)) {
-        if (this.skip_keys.indexOf(key) < 0) {
-          if (value && Object.entries(value).length > 0) {
+        if (this.skip_keys.indexOf(key) < 0 && value != null) {
+          const looks_worth_displaying = (
+            typeof value == "boolean" ||
+            typeof value == "number" ||
+            Object.entries(value).length > 0
+          );
+          if (looks_worth_displaying) {
             filtered[key] = value;
           }
         }

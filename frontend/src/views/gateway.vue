@@ -9,11 +9,16 @@
     >
       <template #header>
         <div class="p-d-flex p-jc-between">
-          <Button type="button" icon="pi pi-filter-slash" label="Clear"
-            class="p-button-outlined" @click="clear_filters()"/>
           <span class="p-input-icon-left">
             <i class="pi pi-search" />
-            <InputText v-model="filters['global'].value" placeholder="Search" />
+            <InputText v-model="filters['name_match'].value" placeholder="PV Name match" />
+          </span>
+          <Button type="button" icon="pi pi-filter-slash" label="Clear"
+            class="p-button-outlined" @click="clear_filters()"
+          />
+          <span class="p-input-icon-left">
+            <i class="pi pi-search" />
+            <InputText v-model="filters['global'].value" placeholder="Search All" />
           </span>
         </div>
       </template>
@@ -71,7 +76,9 @@ import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
 import Dropdown from 'primevue/dropdown';
 import InputText from 'primevue/inputtext';
-import {FilterMatchMode} from 'primevue/api';
+import {FilterMatchMode,FilterService} from 'primevue/api';
+
+const RegexFilter = 'REGEX_FILTER';
 
 export default {
   name: 'GatewayView',
@@ -113,6 +120,7 @@ export default {
             {
               short_fn: short_fn,
               pattern: rule.pattern,
+              name_match: rule.pattern,  // For the other filter (TODO?)
               full_command: rule.command + " " + details,
               comments: rule.header,
               filename: fn,
@@ -141,6 +149,23 @@ export default {
     this.init_filters();
   },
   mounted() {
+    FilterService.register(RegexFilter, (value, filter) => {
+      if (filter === undefined || filter === null || filter.trim() === '') {
+        return true;
+      } else if (value === undefined || value === null || value.toString() == ".*") {
+        return false;
+      }
+
+      const pattern = value.toString();
+      try {
+        const regex = new RegExp(`^${pattern}$$`, '');
+        const match = filter.toString().match(regex);
+        return match !== null;
+      } catch (error) {
+        return false;
+      }
+    });
+
     if (Object.keys(this.file_to_info).length == 0) {
       this.$store.dispatch("update_gateway_info");
     }
@@ -163,6 +188,7 @@ export default {
         error: {value: null, matchMode: FilterMatchMode.CONTAINS},
         comments: {value: null, matchMode: FilterMatchMode.CONTAINS},
         short_fn: {value: null, matchMode: FilterMatchMode.CONTAINS},
+        name_match: {value: null, matchMode: RegexFilter},
       };
     }
   }
