@@ -19,10 +19,11 @@ import apischema
 from . import asyn, graph
 from . import motor as motor_mod
 from . import settings, streamdevice, util
+from .access_security import AccessSecurityConfig
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      PVRelations, RecordDefinitionAndInstance, RecordInstance,
-                     ShortLinterResults, WhatRecord, time_context)
+                     WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line, split_words
@@ -85,6 +86,9 @@ class ShellState:
     aliases: Dict[str, str] = field(default_factory=dict)
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
+    access_security: Optional[AccessSecurityConfig] = None
+    access_security_filename: Optional[pathlib.Path] = None
+    access_security_macros: Optional[Dict[str, str]] = None
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[MutableLoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
@@ -96,7 +100,9 @@ class ShellState:
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
-    streamdevice: Dict[str, streamdevice.Protocol] = field(default_factory=dict)
+    streamdevice: Dict[str, streamdevice.StreamProtocol] = field(
+        default_factory=dict
+    )
 
     _handlers: Dict[str, Callable] = field(
         default_factory=dict, metadata=apischema.metadata.skip
@@ -386,7 +392,62 @@ class ShellState:
     handle_chdir = handle_cd
 
     def handle_iocInit(self, *_):
+        if self.ioc_initialized:
+            return {
+                "success": False,
+                "error": "Already initialized",
+            }
+
+        result = {
+            "success": True,
+        }
         self.ioc_initialized = True
+
+        if self.access_security_filename is not None:
+            try:
+                result["access_security"] = self._load_access_security()
+            except Exception as ex:
+                result["access_security"] = {
+                    "exception_class": type(ex).__name__,
+                    "error": str(ex),
+                }
+
+        return result
+
+    def handle_asSetSubstitutions(self, macros, *_):
+        self.access_security_macros = self.macro_context.definitions_to_dict(
+            macros
+        )
+        return {
+            "macros": self.access_security_macros,
+            "note": "See iocInit results for details.",
+        }
+
+    def handle_asSetFilename(self, filename, *_):
+        self.access_security_filename = self._fix_path(filename).resolve()
+        return {
+            "filename": str(self.access_security_filename),
+            "note": "See iocInit results for details.",
+        }
+
+    def _load_access_security(self):
+        """Load access security settings at iocInit time."""
+        filename, contents = self.load_file(self.access_security_filename)
+        if self.access_security_macros:
+            macro_context = MacroContext(use_environment=False)
+            macro_context.define(**self.access_security_macros)
+            contents = "\n".join(
+                macro_context.expand(line)
+                for line in contents.splitlines()
+            )
+
+        self.access_security = AccessSecurityConfig.from_string(
+            contents, filename=str(filename)
+        )
+        return {
+            "filename": filename,
+            "macros": self.access_security_macros,
+        }
 
     def handle_dbLoadDatabase(self, dbd, path=None, substitutions=None, *_):
         if self.ioc_initialized:
@@ -414,7 +475,7 @@ class ShellState:
 
         return {"result": f"Loaded database: {fn}"}
 
-    def handle_dbLoadRecords(self, filename, macros, *_):
+    def handle_dbLoadRecords(self, filename, macros="", *_):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
         if self.ioc_initialized:
@@ -426,11 +487,11 @@ class ShellState:
         macro_context = MacroContext(use_environment=False)
         macros = macro_context.define_from_string(macros or "")
 
-        # TODO: refactor as this was pulled out of load_database_file
         try:
-            db = Database.from_file(
-                filename,
+            lint = LinterResults.from_database_string(
+                db=contents,
                 dbd=self.database_definition,
+                db_filename=filename,
                 macro_context=macro_context,
                 version=self.ioc_info.database_version_spec,
             )
@@ -440,20 +501,9 @@ class ShellState:
                 f"Failed to load {filename}: {type(ex).__name__} {ex}"
             ) from ex
 
-        linter_results = LinterResults(
-            record_types=self.database_definition.record_types,
-            # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
-            # recdsets=dbd.devices,  # TODO
-            # {'inst:name':'ao', ...}
-            records=db.records,
-            pva_groups=db.pva_groups,
-            extinst=[],
-            errors=[],
-            warnings=[],
-        )
-
         context = self.get_load_context()
-        for name, rec in linter_results.records.items():
+        db: Database = lint.db
+        for name, rec in db.records.items():
             if name not in self.database:
                 self.database[name] = rec
                 rec.context = context + rec.context
@@ -466,7 +516,7 @@ class ShellState:
 
             self.annotate_record(rec)
 
-        for name, rec in linter_results.pva_groups.items():
+        for name, rec in db.pva_groups.items():
             if name not in self.pva_database:
                 self.pva_database[name] = rec
                 rec.context = context + rec.context
@@ -484,7 +534,11 @@ class ShellState:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((db.parent / path).resolve())
 
-        return ShortLinterResults.from_full_results(linter_results, macros=macros)
+        return {
+            "loaded_records": len(db.records),
+            "loaded_groups": len(db.pva_groups),
+            "linter": lint,
+        }
 
     def annotate_record(self, record: RecordInstance):
         """Hook to annotate a record after being loaded."""
@@ -547,7 +601,7 @@ class ShellState:
         key = str(filename)
         if key not in self.streamdevice:
             fn, contents = self.load_file(filename)
-            self.streamdevice[key] = streamdevice.Protocol.from_string(
+            self.streamdevice[key] = streamdevice.StreamProtocol.from_string(
                 contents,
                 filename=fn
             )

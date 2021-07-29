@@ -15,7 +15,6 @@ import lark
 from _whatrecord.common import IocshRedirect
 
 if typing.TYPE_CHECKING:
-    from .db import LinterResults
     from .shell import ShellState
 
 from . import settings, util
@@ -386,7 +385,6 @@ class IocMetadata:
 @dataclass
 class LinterMessage:
     name: str
-    file: str
     line: int
     message: str
 
@@ -399,23 +397,6 @@ class LinterWarning(LinterMessage):
 @dataclass
 class LinterError(LinterMessage):
     ...
-
-
-@dataclass
-class ShortLinterResults:
-    load_count: int
-    errors: List[LinterError]
-    warnings: List[LinterWarning]
-    macros: Dict[str, str]
-
-    @classmethod
-    def from_full_results(cls, results: LinterResults, macros: Dict[str, str]):
-        return cls(
-            load_count=len(results.records),
-            errors=results.errors,
-            warnings=results.warnings,
-            macros=macros,
-        )
 
 
 PVAJsonField = Dict[str, str]

@@ -7,20 +7,20 @@ HAG(icr) {silver,phebos,gaea}
 HAG(cr) {mars,hera,gold}
 HAG(ioc) {ioclic1,ioclic2,ioclid1,ioclid2,ioclid3,ioclid4,ioclid5}
 ASG(DEFAULT) {
-    INPA(LI:OPSTATE)
-    INPB(LI:lev1permit)
+    INPA(IOC:ACF:LI:OPSTATE)
+    INPB(IOC:ACF:LI:lev1permit)
     RULE(0,WRITE) {
         UAG(op)
         HAG(icr,cr)
         CALC("A=1")
     }
     RULE(0,WRITE) {
-        UAG(op,linac,appdev)
+        UAG(op,linac,appDev)
         HAG(icr,cr)
         CALC("A=0")
     }
     RULE(1,WRITE) {
-        UAG(opSup,linacSup,appdev)
+        UAG(opSup,linacSup,appDev)
         CALC("B=1")
     }
     RULE(1,READ)
@@ -38,9 +38,9 @@ ASG(permit) {
     }
 }
 ASG(critical) {
-    INPB(LI:lev1permit)
+    INPB(IOC:ACF:LI:lev1permit)
     RULE(1,WRITE) {
-        UAG(opSup,linacSup,appdev)
+        UAG(opSup,linacSup,appDev)
         CALC("B=1")
     }
     RULE(1,READ)

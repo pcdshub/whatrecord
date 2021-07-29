@@ -1,10 +1,19 @@
-from ._version import get_versions
+from . import _version
 
-__version__ = get_versions()['version']
-del get_versions
+__version__ = _version.get_versions()['version']
 
-from .macro import MacroContext  # isort: skip  # noqa
-from .iocsh import parse_iocsh_line  # isort: skip  # noqa
-from .db import Database, load_database_file  # isort: skip  # noqa
+from .access_security import AccessSecurityConfig
+from .db import Database
+from .gateway import GatewayConfig
+from .iocsh import parse_iocsh_line
+from .macro import MacroContext
+from .streamdevice import StreamProtocol
 
-__all__ = ["MacroContext", "parse_iocsh_line", "Database", "load_database_file"]
+__all__ = [
+    "AccessSecurityConfig",
+    "Database",
+    "GatewayConfig",
+    "MacroContext",
+    "StreamProtocol",
+    "parse_iocsh_line",
+]

@@ -15,39 +15,30 @@
             </span>
           </summary>
 
-          <template v-if="is_linter_results">
-            <LinterResults
-              :load_count="line.result.load_count"
-              :errors="line.result.errors"
-              :warnings="line.result.warnings"
-              :macros="line.result.macros"
+          <span v-if="line.error != null" class="error-block">
+            <template v-if="typeof line.error == 'string'">
+              <pre>{{ line.error }}</pre>
+            </template>
+            <template v-else>
+              <dictionary-table
+                :dict="line.error"
+                cls="error"
+                :skip_keys="[]" />
+            </template>
+          </span>
+          <span v-if="line.result != null" class="result-block">
+            <template v-if="typeof line.result == 'string'">
+              <pre>{{ line.result }}</pre>
+            </template>
+            <template v-else>
+              <dictionary-table
+                :dict="line.result"
+                cls="result"
+                :skip_keys="[]"
               />
-          </template>
-          <template v-else>
-            <span v-if="line.error != null" class="error-block">
-              <template v-if="typeof line.error == 'string'">
-                <pre>{{ line.error }}</pre>
-              </template>
-              <template v-else>
-                <dictionary-table
-                  :dict="line.error"
-                  cls="error"
-                  :skip_keys="[]" />
-              </template>
-            </span>
-            <span v-if="line.result != null" class="result-block">
-              <template v-if="typeof line.result == 'string'">
-                <pre>{{ line.result }}</pre>
-              </template>
-              <template v-else>
-                <dictionary-table
-                  :dict="line.result"
-                  cls="result"
-                  :skip_keys="[]"
-                />
-              </template>
-            </span>
-          </template>
+            </template>
+          </span>
+
           <template v-if="command_info_table != null">
             <br />
             <dictionary-table
@@ -148,12 +139,6 @@ export default {
       );
     },
 
-    is_linter_results() {
-      return (
-        this.line.result instanceof Object &&
-        "load_count" in this.line.result
-      );
-    },
   },
   beforeCreate() {
     // TODO: I don't think this is circular; why am I running into this?

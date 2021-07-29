@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Union
 import apischema
 
 from ..common import IocMetadata
-from ..db import Database, load_database_file
+from ..db import Database, LinterResults
 from ..format import FormatContext
 from ..macro import MacroContext
 from ..shell import LoadedIoc
@@ -96,7 +96,12 @@ def parse(
     if filename.suffix in {".db", ".template", ".dbd"}:
         if filename.suffix == ".dbd" or not dbd:
             return Database.from_file(filename, macro_context=macro_context)
-        return load_database_file(dbd=dbd, db=filename, macro_context=macro_context)
+        return LinterResults.from_database_file(
+            db=filename,
+            dbd=Database.from_file(dbd),
+            macro_context=macro_context
+        )
+
     md = IocMetadata.from_filename(
         filename,
         standin_directories=standin_directories,
