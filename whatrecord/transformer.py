@@ -3,6 +3,14 @@ from typing import Any, Optional, Tuple, TypeVar, Union
 
 import lark
 
+from .common import FullLoadContext, LoadContext
+
+
+def context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
+    """Get a LoadContext from a lark Token."""
+    return (LoadContext(name=fn, line=token.line), )
+
+
 T = TypeVar("T")
 
 

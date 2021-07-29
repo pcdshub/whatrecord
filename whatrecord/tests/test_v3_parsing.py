@@ -4,8 +4,9 @@ import apischema
 import pytest
 
 from .. import Database
-from ..db import (DatabaseMenu, LoadContext, RecordField, RecordInstance,
-                  RecordType, RecordTypeField)
+from ..common import LoadContext
+from ..db import (DatabaseMenu, LinterResults, LinterWarning, RecordField,
+                  RecordInstance, RecordType, RecordTypeField)
 
 v3_or_v4 = pytest.mark.parametrize("version", [3, 4])
 
@@ -287,3 +288,22 @@ alias("rec:X", "rec:Y")
         }
     )
     apischema.deserialize(Database, apischema.serialize(db))
+
+
+def test_unquoted_warning():
+    lint = LinterResults.from_database_string(
+        """\
+record(ai, "rec:X") {
+    field(A, "test")
+    field(B, test)
+}
+""",
+        version=3
+    )
+    assert lint.warnings == [
+        LinterWarning(
+            name="unquoted_field",
+            line=3,
+            message="Unquoted field value 'B'"
+        )
+    ]

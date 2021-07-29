@@ -5,14 +5,15 @@ import pathlib
 from dataclasses import field
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
+import apischema
 import lark
 
 from . import transformer
-from .common import (DatabaseDevice, DatabaseMenu, FullLoadContext,
-                     LinterError, LinterWarning, LoadContext,
+from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterWarning,
                      PVAFieldReference, RecordField, RecordInstance,
                      RecordType, RecordTypeField, StringWithContext, dataclass)
 from .macro import MacroContext
+from .transformer import context_from_token
 
 
 def split_record_and_field(pvname) -> Tuple[str, str]:
@@ -25,7 +26,7 @@ class DatabaseLoadFailure(Exception):
     ...
 
 
-class UnquotedString(lark.lexer.Token):
+class UnquotedString(str):
     """
     An unquoted string token found when loading a database file.
     May be a linter warning.
@@ -33,12 +34,175 @@ class UnquotedString(lark.lexer.Token):
     ...
 
 
-def _context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
-    return (LoadContext(name=fn, line=token.line), )
+@dataclass(repr=False)
+class LinterResults:
+    """
+    Container for dbdlint results, with easier-to-access attributes.
+
+    Reimplementation of ``pyPDB.dbdlint.Results``.
+
+    Each error or warning has dictionary keys::
+
+        {name, message, file, line, raw_message, format_args}
+
+    Attributes
+    ----------
+    errors : list
+        List of errors found
+    warnings : list
+        List of warnings found
+    """
+
+    errors: List[LinterError] = field(default_factory=list)
+    warnings: List[LinterWarning] = field(default_factory=list)
+    db: Optional[Database] = field(
+        default=None, metadata=apischema.metadata.skip
+    )
+    dbd: Optional[Database] = field(
+        default=None, metadata=apischema.metadata.skip
+    )
+
+    @classmethod
+    def from_database_string(
+        cls,
+        db: str,
+        dbd: Optional[Database] = None,
+        macro_context: Optional[MacroContext] = None,
+        *,
+        db_filename: Optional[Union[str, pathlib.Path]] = None,
+        version: int = 3,
+        full: bool = True,
+        warn_ext_links: bool = False,
+        warn_bad_fields: bool = True,
+        warn_rec_append: bool = False,
+        warn_quoted: bool = False,
+        warn_varint: bool = True,
+        warn_spec_comm: bool = True,
+    ) -> LinterResults:
+        """
+        Lint a db (database) file using its database definition file (dbd).
+
+        Parameters
+        ----------
+        db : str
+            The database source.
+        dbd : Database
+            The pre-loaded database definition.
+
+        Returns
+        -------
+        results : LinterResults
+        """
+        lint = cls()
+        if dbd and not isinstance(dbd, Database):
+            raise ValueError("dbd should be a Database instance")
+
+        db = Database.from_string(
+            db, dbd=dbd, macro_context=macro_context, version=version,
+            lint=lint, filename=db_filename
+        )
+        return lint
+
+    @classmethod
+    def from_database_file(
+        cls,
+        db_filename: Union[str, pathlib.Path],
+        dbd: Optional[Database] = None,
+        macro_context: Optional[MacroContext] = None,
+        *,
+        version: int = 3,
+        full: bool = True,
+        warn_ext_links: bool = False,
+        warn_bad_fields: bool = True,
+        warn_rec_append: bool = False,
+        warn_quoted: bool = False,
+        warn_varint: bool = True,
+        warn_spec_comm: bool = True,
+    ) -> LinterResults:
+        """
+        Lint a db (database) file using its database definition file (dbd).
+
+        Parameters
+        ----------
+        db : str
+            The database filename.
+        dbd : Database
+            The database definition.
+        version : int, optional
+            Use the old V3 style or new V3 style database grammar by specifying
+            3 or 4, respectively.  Defaults to 3.
+        full : bool, optional
+            Validate as a complete database
+        warn_quoted : bool, optional
+            A node argument isn't quoted
+        warn_varint : bool, optional
+            A variable(varname) node which doesn't specify a type, which defaults
+            to 'int'
+        warn_spec_comm : bool, optional
+            Syntax error in special #: comment line
+        warn_ext_link : bool, optional
+            A DB/CA link to a PV which is not defined.  Add '#: external("pv.FLD")
+        warn_bad_field : bool, optional
+            Unable to validate record instance field due to a previous error
+            (missing recordtype).
+        warn_rec_append : bool, optional
+            Not using Base >=3.15 style recordtype "*" when appending/overwriting
+            record instances
+
+        Returns
+        -------
+        results : LinterResults
+        db : Database
+        """
+        with open(db_filename, "rt") as fp:
+            db = fp.read()
+
+        return cls.from_database_string(
+            db=db,
+            dbd=dbd,
+            db_filename=db_filename,
+            macro_context=macro_context,
+            version=version,
+            full=full,
+            warn_ext_links=warn_ext_links,
+            warn_bad_fields=warn_bad_fields,
+            warn_rec_append=warn_rec_append,
+            warn_quoted=warn_quoted,
+            warn_varint=warn_varint,
+            warn_spec_comm=warn_spec_comm,
+        )
+
+    @property
+    def record_types(self) -> Optional[Dict[str, RecordType]]:
+        """Defined record types."""
+        if self.dbd is not None:
+            return self.dbd.record_types
+        return self.db.record_types if self.db is not None else {}
+
+    @property
+    def records(self) -> Optional[Dict[str, RecordInstance]]:
+        """Defined V3 records."""
+        return self.db.records if self.db is not None else {}
+
+    @property
+    def pva_groups(self) -> Optional[Dict[str, RecordInstance]]:
+        """Defined PVAccess groups."""
+        return self.db.pva_groups if self.db is not None else {}
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__} "
+            f"records={len(self.records)} "
+            f"pva_groups={len(self.pva_groups)} "
+            f"errors={len(self.errors)} "
+            f"warnings={len(self.warnings)} "
+            f">"
+        )
 
 
 @dataclass
 class _TransformerState:
+    lint: Optional[LinterResults] = field(default_factory=LinterResults)
     _record: Optional[RecordInstance] = None
     _record_type: Optional[RecordType] = None
     standalone_aliases: Dict[str, str] = field(default_factory=dict)
@@ -86,12 +250,17 @@ class _TransformerState:
 class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     record: Optional[RecordInstance]
     record_type: Optional[RecordType]
+    lint: Optional[LinterResults]
 
-    def __init__(self, fn, dbd=None):
+    def __init__(self, fn, dbd=None, lint=None):
         self.fn = str(fn)
         self.dbd = dbd
         self.db = Database()
-        self._state = _TransformerState()
+        self._state = _TransformerState(lint=lint or LinterResults())
+
+        self.lint = self._state.lint
+        self.lint.db = self.db
+        self.lint.dbd = self.dbd
 
     @property
     def record_types(self) -> Dict[str, RecordType]:
@@ -100,7 +269,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         return self.db.record_types
 
     @lark.visitors.v_args(tree=True)
-    def database(self, body):
+    def database(self, body) -> Tuple[Database, LinterResults]:
         # Update all references that were set before we know the record name
         # Update record() { alias("") }
         for record, alias in self._state.aliases_to_update:
@@ -118,7 +287,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 self.db.records[record_name].aliases.append(alias_name)
             # else:  linter error
 
-        return self.db
+        return self.db, self.lint
 
     dbitem = transformer.tuple_args
 
@@ -134,7 +303,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
     def menu(self, menu_token: lark.Token, name, choices):
         self.db.menus[name] = DatabaseMenu(
-            context=_context_from_token(self.fn, menu_token),
+            context=context_from_token(self.fn, menu_token),
             name=name,
             choices=choices
         )
@@ -203,7 +372,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         self._state.record_type.fields[name] = RecordTypeField(
             name=name,
             type=type_,
-            context=_context_from_token(self.fn, field_tok),
+            context=context_from_token(self.fn, field_tok),
             **kwargs
         )
 
@@ -216,10 +385,13 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def standalone_alias(self, _, record_name, alias_name):
         self._state.standalone_aliases[alias_name] = record_name
 
+    def unquoted_string(self, value):
+        return UnquotedString(value)
+
     def json_string(self, value):
         if value and value[0] in "'\"":
             return value[1:-1]
-        # return UnquotedString('UnquotedString', str(value))
+        return UnquotedString(value)
 
         # This works okay in practice, I just don't like the repr we get.
         # Not sure if there's a better way to do the same linting functionality
@@ -232,7 +404,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         # Add context information for keys, especially for Q:group info nodes
         return StringWithContext(
             self.json_string(value),
-            context=_context_from_token(self.fn, value),
+            context=context_from_token(self.fn, value),
         )
 
     def json_array(self, elements=None):
@@ -261,7 +433,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
     def recordtype(self, recordtype_token, name, body):
         record_type = self._state.record_type
-        record_type.context = _context_from_token(self.fn, recordtype_token)
+        record_type.context = context_from_token(self.fn, recordtype_token)
         record_type.name = name
         self.db.record_types[name] = self._state.record_type
         self._state.reset_record_type()
@@ -270,7 +442,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         record_type, name = head
         record = self._state.record
         record.name = name
-        record.context = _context_from_token(self.fn, rec_token)
+        record.context = context_from_token(self.fn, rec_token)
         record.is_grecord = rec_token == "grecord"
         record.is_pva = False
         record.record_type = record_type
@@ -302,9 +474,18 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     record_head = transformer.tuple_args
 
     def record_field(self, field_token: lark.Token, name: str, value: Any):
+        if isinstance(value, UnquotedString):
+            self.lint.warnings.append(
+                LinterWarning(
+                    name="unquoted_field",
+                    line=field_token.line,
+                    message=f"Unquoted field value {name!r}"
+                ),
+            )
+
         self._state.record.fields[name] = RecordField(
             dtype='', name=name, value=value,
-            context=_context_from_token(self.fn, field_token)
+            context=context_from_token(self.fn, field_token)
         )
 
     def _pva_q_group_handler(self, group: RecordInstance, md: Mapping):
@@ -373,7 +554,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
     def record_field_info(self, info_token: lark.Token, name: str, value: Any):
         record: RecordInstance = self._state.record
-        context = _context_from_token(self.fn, info_token)
+        context = context_from_token(self.fn, info_token)
         key = StringWithContext(name, context)
         record.metadata[key] = value
 
@@ -466,8 +647,20 @@ class Database:
     variables: Dict[str, Optional[str]] = field(default_factory=dict)
 
     @classmethod
-    def from_string(cls, contents, dbd=None, filename=None,
-                    macro_context=None, version: int = 4, include_aliases=True) -> Database:
+    def from_string(
+        cls,
+        contents: str,
+        dbd: Optional[Union[Database, str, pathlib.Path]] = None,
+        filename: Union[str, pathlib.Path] = None,
+        macro_context: Optional[MacroContext] = None,
+        version: int = 4,
+        include_aliases: bool = True,
+        lint: Optional[LinterResults] = None,
+    ) -> Database:
+        """Load a database [definition] from a string."""
+        if dbd is not None and not isinstance(dbd, Database):
+            dbd = Database.from_file(dbd, version=version)
+
         comments = []
         grammar = lark.Lark.open_from_package(
             "whatrecord",
@@ -475,7 +668,7 @@ class Database:
             search_paths=("grammar", ),
             parser="lalr",
             lexer_callbacks={"COMMENT": comments.append},
-            transformer=_DatabaseTransformer(filename, dbd=dbd),
+            transformer=_DatabaseTransformer(filename, dbd=dbd, lint=lint),
             # Per-user `gettempdir` caching of the LALR grammar analysis way of
             # passing ``True`` here:
             cache=True,
@@ -486,7 +679,7 @@ class Database:
             )
             contents = contents.rstrip() + "\n"
 
-        db = grammar.parse(contents)
+        db, linter_results = grammar.parse(contents)
         db.comments = comments
 
         if include_aliases:
@@ -497,181 +690,41 @@ class Database:
         return db
 
     @classmethod
-    def from_file_obj(cls, fp, dbd=None, macro_context=None, version: int = 4) -> Database:
+    def from_file_obj(
+        cls, fp,
+        dbd: Optional[Union[Database, str, pathlib.Path]] = None,
+        filename: Union[str, pathlib.Path] = None,
+        macro_context: Optional[MacroContext] = None,
+        version: int = 4,
+        lint: Optional[LinterResults] = None,
+    ) -> Database:
+        """Load a database [definition] from a file object."""
         return cls.from_string(
             fp.read(),
-            filename=getattr(fp, "name", None),
+            filename=filename or getattr(fp, "name", None),
             dbd=dbd,
             macro_context=macro_context,
             version=version,
+            lint=lint,
         )
 
     @classmethod
-    def from_file(cls, fn, dbd=None, macro_context=None, version: int = 4) -> Database:
+    def from_file(
+        cls,
+        fn: Union[str, pathlib.Path],
+        dbd: Optional[Union[Database, str, pathlib.Path]] = None,
+        filename: Union[str, pathlib.Path] = None,
+        macro_context: Optional[MacroContext] = None,
+        version: int = 4,
+        lint: Optional[LinterResults] = None,
+    ) -> Database:
+        """Load a database [definition] from a filename."""
         with open(fn, "rt") as fp:
-            return cls.from_string(fp.read(), filename=fn, dbd=dbd,
-                                   macro_context=macro_context, version=version)
-
-
-@dataclass(repr=False)
-class LinterResults:
-    """
-    Container for dbdlint results, with easier-to-access attributes.
-
-    Reimplementation of ``pyPDB.dbdlint.Results``.
-
-    Each error or warning has dictionary keys::
-
-        {name, message, file, line, raw_message, format_args}
-
-    Attributes
-    ----------
-    errors : list
-        List of errors found
-    warnings : list
-        List of warnings found
-    """
-
-    # Validate as complete database
-    whole: bool = False
-
-    # Set if some syntax/sematic error is encountered
-    error: bool = False
-    warning: bool = False
-
-    # {'ao':{'OUT':'DBF_OUTLINK', ...}, ...}
-    record_types: Dict[str, RecordType] = field(default_factory=dict)
-
-    # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
-    # recdsets: Dict[str, Dict[str, str]] = field(default_factory=dict)
-
-    # {'inst:name':'ao', ...}
-    records: Dict[str, RecordInstance] = field(default_factory=dict)
-    pva_groups: Dict[str, RecordInstance] = field(default_factory=dict)
-
-    extinst: List[str] = field(default_factory=list)
-    errors: List[LinterError] = field(default_factory=list)
-    warnings: List[LinterWarning] = field(default_factory=list)
-
-    # Records with context and field information:
-    records: Dict[str, RecordInstance] = field(default_factory=dict)
-
-    def __repr__(self):
-        return (
-            f"<{self.__class__.__name__} "
-            f"records={len(self.records)} "
-            f"errors={len(self.errors)} "
-            f"warnings={len(self.warnings)} "
-            f">"
-        )
-
-    def _record_warning_or_error(self, category, name, msg, args):
-        target_list, cls = {
-            "warning": (self.warnings, LinterWarning),
-            "error": (self.errors, LinterError),
-        }[category]
-        target_list.append(
-            cls(
-                name=name,
-                file=str(self.node.fname),
-                line=self.node.lineno,
-                message=msg % args,
+            return cls.from_string(
+                fp.read(),
+                filename=fn,
+                dbd=dbd,
+                macro_context=macro_context,
+                version=version,
+                lint=lint,
             )
-        )
-
-    def err(self, name, msg, *args):
-        self._error = True
-        self._record_warning_or_error("error", name, msg, args)
-
-    def warn(self, name, msg, *args):
-        if name in self.warn_options:
-            self._warning = True
-        self._record_warning_or_error("warning", name, msg, args)
-
-    @property
-    def success(self):
-        """
-        Returns
-        -------
-        success : bool
-            True if the linting process succeeded without errors
-        """
-        return not len(self.errors)
-
-
-def load_database_file(
-    dbd: Union[Database, str, pathlib.Path],
-    db: Union[str, pathlib.Path],
-    macro_context: Optional[MacroContext] = None,
-    *,
-    version: int = 3,
-    full: bool = True,
-    warn_ext_links: bool = False,
-    warn_bad_fields: bool = True,
-    warn_rec_append: bool = False,
-    warn_quoted: bool = False,
-    warn_varint: bool = True,
-    warn_spec_comm: bool = True,
-):
-    """
-    Lint a db (database) file using its database definition file (dbd) using
-    pyPDB.
-
-    Parameters
-    ----------
-    dbd : Database or str
-        The database definition file; filename or pre-loaded Database
-    db : str
-        The database filename.
-    version : int, optional
-        Use the old V3 style or new V3 style database grammar by specifying
-        3 or 4, respectively.  Defaults to 3.
-    full : bool, optional
-        Validate as a complete database
-    warn_quoted : bool, optional
-        A node argument isn't quoted
-    warn_varint : bool, optional
-        A variable(varname) node which doesn't specify a type, which defaults
-        to 'int'
-    warn_spec_comm : bool, optional
-        Syntax error in special #: comment line
-    warn_ext_link : bool, optional
-        A DB/CA link to a PV which is not defined.  Add '#: external("pv.FLD")
-    warn_bad_field : bool, optional
-        Unable to validate record instance field due to a previous error
-        (missing recordtype).
-    warn_rec_append : bool, optional
-        Not using Base >=3.15 style recordtype "*" when appending/overwriting
-        record instances
-
-    Raises
-    ------
-    DBSyntaxError
-        When a syntax issue is discovered. Note that this exception contains
-        file and line number information (attributes: fname, lineno, results)
-
-    Returns
-    -------
-    results : LinterResults
-    """
-    if isinstance(dbd, Database):
-        dbd = dbd
-    else:
-        dbd = Database.from_file(dbd, version=version)
-
-    db = Database.from_file(
-        db, dbd=dbd, macro_context=macro_context, version=version
-    )
-
-    # all TODO
-    return LinterResults(
-        record_types=dbd.record_types,
-        # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
-        # recdsets=dbd.devices,  # TODO
-        # {'inst:name':'ao', ...}
-        records=db.records,
-        pva_groups=db.pva_groups,
-        extinst=[],
-        errors=[],
-        warnings=[],
-    )

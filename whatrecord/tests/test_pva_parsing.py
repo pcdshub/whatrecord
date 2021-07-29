@@ -5,7 +5,8 @@ import math
 import lark
 import pytest
 
-from ..db import Database, LoadContext, PVAFieldReference, RecordInstance
+from ..common import LoadContext
+from ..db import Database, PVAFieldReference, RecordInstance
 
 
 def test_simple():

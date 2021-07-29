@@ -100,7 +100,9 @@ class ShellState:
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
-    streamdevice: Dict[str, streamdevice.Protocol] = field(default_factory=dict)
+    streamdevice: Dict[str, streamdevice.StreamProtocol] = field(
+        default_factory=dict
+    )
 
     _handlers: Dict[str, Callable] = field(
         default_factory=dict, metadata=apischema.metadata.skip
@@ -485,11 +487,11 @@ class ShellState:
         macro_context = MacroContext(use_environment=False)
         macros = macro_context.define_from_string(macros or "")
 
-        # TODO: refactor as this was pulled out of load_database_file
         try:
-            db = Database.from_file(
-                filename,
+            lint = LinterResults.from_database_string(
+                db=contents,
                 dbd=self.database_definition,
+                db_filename=filename,
                 macro_context=macro_context,
                 version=self.ioc_info.database_version_spec,
             )
@@ -499,20 +501,9 @@ class ShellState:
                 f"Failed to load {filename}: {type(ex).__name__} {ex}"
             ) from ex
 
-        linter_results = LinterResults(
-            record_types=self.database_definition.record_types,
-            # {'ao':{'Soft Channel':'CONSTANT', ...}, ...}
-            # recdsets=dbd.devices,  # TODO
-            # {'inst:name':'ao', ...}
-            records=db.records,
-            pva_groups=db.pva_groups,
-            extinst=[],
-            errors=[],
-            warnings=[],
-        )
-
         context = self.get_load_context()
-        for name, rec in linter_results.records.items():
+        db: Database = lint.db
+        for name, rec in db.records.items():
             if name not in self.database:
                 self.database[name] = rec
                 rec.context = context + rec.context
@@ -525,7 +516,7 @@ class ShellState:
 
             self.annotate_record(rec)
 
-        for name, rec in linter_results.pva_groups.items():
+        for name, rec in db.pva_groups.items():
             if name not in self.pva_database:
                 self.pva_database[name] = rec
                 rec.context = context + rec.context
@@ -543,7 +534,11 @@ class ShellState:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((db.parent / path).resolve())
 
-        return ShortLinterResults.from_full_results(linter_results, macros=macros)
+        return {
+            "loaded_records": len(db.records),
+            "loaded_groups": len(db.pva_groups),
+            "linter": lint,
+        }
 
     def annotate_record(self, record: RecordInstance):
         """Hook to annotate a record after being loaded."""
@@ -606,7 +601,7 @@ class ShellState:
         key = str(filename)
         if key not in self.streamdevice:
             fn, contents = self.load_file(filename)
-            self.streamdevice[key] = streamdevice.Protocol.from_string(
+            self.streamdevice[key] = streamdevice.StreamProtocol.from_string(
                 contents,
                 filename=fn
             )
