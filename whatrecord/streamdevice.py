@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import pathlib
 from dataclasses import field
-from typing import Dict, List, Union
+from typing import Dict, List
 
 import lark
 
@@ -63,7 +62,7 @@ class HandlerDefinition:
 
 
 @dataclass
-class Protocol:
+class StreamProtocol:
     """Representation of a StreamDevice protocol."""
     variables: Dict[str, str] = field(default_factory=dict)
     protocols: Dict[str, ProtocolDefinition] = field(default_factory=dict)
@@ -74,7 +73,7 @@ class Protocol:
     @classmethod
     def from_string(
         cls, contents, filename=None,
-    ) -> Protocol:
+    ) -> StreamProtocol:
         """Load a protocol file given its string contents."""
         comments = []
         grammar = lark.Lark.open_from_package(
@@ -92,7 +91,7 @@ class Protocol:
         return proto
 
     @classmethod
-    def from_file_obj(cls, fp, filename=None) -> Protocol:
+    def from_file_obj(cls, fp, filename=None) -> StreamProtocol:
         """Load a protocol file given a file object."""
         return cls.from_string(
             fp.read(),
@@ -100,8 +99,20 @@ class Protocol:
         )
 
     @classmethod
-    def from_file(cls, fn) -> Protocol:
-        """Load a protocol file given its filename."""
+    def from_file(cls, fn) -> StreamProtocol:
+        """
+        Load a StreamDevice protocol file.
+
+        Parameters
+        ----------
+        filename : pathlib.Path or str
+            The filename.
+
+        Returns
+        -------
+        protocol : StreamProtocol
+            The StreamDevice protocol.
+        """
         with open(fn, "rt") as fp:
             return cls.from_string(fp.read(), filename=fn)
 
@@ -259,20 +270,4 @@ class _ProtocolTransformer(lark.visitors.Transformer):
         return defn
 
 
-def load_streamdevice_protocol(
-    filename: Union[str, pathlib.Path],
-):
-    """
-    Load a StreamDevice protocol file.
-
-    Parameters
-    ----------
-    filename : pathlib.Path or str
-        The filename.
-
-    Returns
-    -------
-    protocol : Protocol
-        The StreamDevice protocol.
-    """
-    return Protocol.from_file(filename)
+load_streamdevice_protocol = StreamProtocol.from_file
