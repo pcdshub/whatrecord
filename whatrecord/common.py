@@ -149,7 +149,7 @@ class IocshScript:
             path=str(filename),
             lines=tuple(
                 IocshResult(
-                    line,
+                    line=line,
                     context=(LoadContext(str(filename), lineno), )
                 )
                 for lineno, line in enumerate(lines, 1)
