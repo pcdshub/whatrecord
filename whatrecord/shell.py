@@ -1041,14 +1041,18 @@ async def async_load_ioc(
                         result="use_cache"
                     )
 
+            loaded = LoadedIoc.from_metadata(md)
             if use_gdb:
                 await md.get_binary_information()
 
-            loaded = LoadedIoc.from_metadata(md)
-            serialized = apischema.serialize(loaded)
             if use_cache:
                 loaded.metadata.save_to_cache()
                 loaded.save_to_cache()
+                # Avoid pickling massive JSON blob; instruct server to load
+                # from cache with token 'use_cache'
+                serialized = "use_cache"
+            else:
+                serialized = apischema.serialize(loaded)
         except Exception as ex:
             return IocLoadResult(
                 identifier=identifier,
@@ -1065,9 +1069,7 @@ async def async_load_ioc(
             identifier=identifier,
             load_time=ctx(),
             cache_hit=False,
-            # Avoid pickling massive JSON blob; instruct server to load from
-            # cache with token 'use_cache'
-            result="use_cache" if use_cache else serialized,
+            result=serialized,
         )
 
 
