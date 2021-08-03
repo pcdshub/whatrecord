@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pathlib
+import signal
 import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor
@@ -968,7 +969,8 @@ class LoadedIoc:
 
 
 def load_cached_ioc(
-    md: IocMetadata, allow_failed_load: bool = False
+    md: IocMetadata,
+    allow_failed_load: bool = False,
 ) -> Optional[LoadedIoc]:
     cached_md = md.from_cache()
     if cached_md is None:
@@ -1029,8 +1031,6 @@ async def async_load_ioc(
     with time_context() as ctx:
         try:
             md.standin_directories.update(standin_directories)
-            if use_gdb:
-                await md.get_binary_information()
             if use_cache:
                 cached_ioc = load_cached_ioc(md)
                 if cached_ioc:
@@ -1040,6 +1040,9 @@ async def async_load_ioc(
                         cache_hit=True,
                         result="use_cache"
                     )
+
+            if use_gdb:
+                await md.get_binary_information()
 
             loaded = LoadedIoc.from_metadata(md)
             serialized = apischema.serialize(loaded)
@@ -1078,6 +1081,15 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True)
     )
 
 
+def _sigint_handler(signum, frame):
+    logger.error("Subprocess killed with SIGINT; exiting.")
+    sys.exit(1)
+
+
+def _process_init():
+    signal.signal(signal.SIGINT, _sigint_handler)
+
+
 async def load_startup_scripts_with_metadata(
     *md_items,
     standin_directories=None,
@@ -1100,7 +1112,7 @@ async def load_startup_scripts_with_metadata(
     total_child_load_time = 0.0
 
     with time_context() as total_time, ProcessPoolExecutor(
-        max_workers=processes
+        max_workers=processes, initializer=_process_init
     ) as executor:
         coros = [
             asyncio.wrap_future(
