@@ -316,7 +316,7 @@ class IocMetadata:
                 try:
                     self.add_loaded_file(context.name)
                 except FileNotFoundError:
-                    logger.warning(
+                    logger.debug(
                         "GDB source file does not exist for command %s (%s)",
                         command.name, context
                     )
