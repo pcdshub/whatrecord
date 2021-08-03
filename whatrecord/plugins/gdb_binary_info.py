@@ -11,6 +11,7 @@ if __name__ != "__main__":
     raise RuntimeError(__doc__)
 
 import json  # noqa
+import os  # noqa
 import sys  # noqa
 import tempfile  # noqa
 
@@ -98,7 +99,7 @@ if not OLD_GDB:
                 # optimized out; skip this one entirely
                 continue
 
-            yield name, val
+            yield name, sym, val
 
 else:
     def get_variables():
@@ -125,14 +126,29 @@ else:
                 # optimized out; skip this one entirely
                 continue
 
-            yield symbol_name, val
+            yield symbol_name, sym, val
+
+
+def get_symbol_context(sym):
+    """Get the whatrecord-format context for the given gdb symbol."""
+    return (os.path.abspath(sym.symtab.fullname()), sym.line)
 
 
 def get_commands():
-    for name, funcdef in sorted(find_funcdefs()):
+    def by_name(item):
+        name, _, _, = item
+        return name
+
+    for name, funcdef_sym, funcdef in sorted(find_funcdefs(), key=by_name):
+        try:
+            context = get_symbol_context(funcdef_sym)
+        except gdb.error:
+            context = None
+
         command = {
             "name": name,
             "usage": None,
+            "context": (context, ) if context else None,
             "args": [],
         }
         try:

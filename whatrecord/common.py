@@ -168,6 +168,7 @@ class IocshCommand:
     name: str
     args: List[IocshArgument] = field(default_factory=list)
     usage: Optional[str] = None
+    context: Optional[FullLoadContext] = None
 
 
 @dataclass
@@ -266,6 +267,21 @@ class IocMetadata:
             return False
         return util.check_files_up_to_date(self.loaded_files)
 
+    def add_loaded_file(
+        self,
+        filename: Union[pathlib.Path, str],
+        update: bool = False,
+    ) -> bool:
+        """
+        Add filename to the loaded file dictionary, optionally updating an
+        existing hash.
+        """
+        filename = pathlib.Path(self.startup_directory) / filename
+        if str(filename) not in self.loaded_files or update:
+            self.loaded_files[str(filename)] = util.get_file_sha256(filename)
+            return True
+        return False
+
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
         if not self.binary or not pathlib.Path(self.binary).exists():
             return
@@ -294,6 +310,16 @@ class IocMetadata:
         self.base_version = info.base_version or self.base_version
         self.commands.update(info.commands)
         self.variables.update(info.variables)
+
+        for command in self.commands.values():
+            for context in command.context or []:
+                try:
+                    self.add_loaded_file(context.name)
+                except FileNotFoundError:
+                    logger.debug(
+                        "GDB source file does not exist for command %s (%s)",
+                        command.name, context
+                    )
         return info
 
     @property

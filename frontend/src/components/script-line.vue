@@ -86,7 +86,7 @@ export default {
     },
 
     command_info_table() {
-      if (this.command_info == null || this.command_info.length == 0) {
+      if (this.command_info == null || this.command_info.length == 0 || !this.argv) {
         return null;
       }
       var info_table = {};
