@@ -20,6 +20,7 @@ ESCAPE      : BACKSLASH /./
 DSTRINGCHAR : /[^"\n\\]/
 SSTRINGCHAR : /[^'\n\\]/
 BAREWORD    : /[a-zA-Z0-9_\-+:.\/\\\[\]<>;]/
+_COMMA      : ","
 
 PATTERN: "pattern"
 DBFILE : "file"
@@ -30,43 +31,41 @@ QUOTED_STRING: DOUBLEQUOTE (DSTRINGCHAR | ESCAPE )* DOUBLEQUOTE
              | SINGLEQUOTE (SSTRINGCHAR | ESCAPE )* SINGLEQUOTE
 ANY_STRING : QUOTED_STRING | UNQUOTED_STRING
 
-substitution_file: (global_definitions | template_substitutions)+
+substitution_file: (global_definitions | dbfile)+
 
-global_definitions: GLOBAL "{" "}"
-                  | GLOBAL "{" variable_definitions "}"
+global_definitions: GLOBAL "{" variable_definitions? "}"
 
-template_substitutions: DBFILE TEMPLATE_FILENAME "{" substitutions? "}"
+dbfile: DBFILE template_filename "{" substitutions? "}"
 
-TEMPLATE_FILENAME: ANY_STRING
+template_filename: ANY_STRING
 
 substitutions: pattern_substitutions
              | variable_substitutions
 
-pattern_substitutions: PATTERN "{" pattern_names? "}" pattern_definition*
+pattern_substitutions: pattern_header pattern_definition*
 
-pattern_names: _comma_separated{pattern_name}
+pattern_names: _maybe_comma_separated{pattern_name}
+pattern_header: PATTERN "{" (pattern_name _COMMA?)* "}"
 
 pattern_name: UNQUOTED_STRING
 
 pattern_definition: global_definitions
-                  | "{" "}"
-                  | "{" pattern_values "}"
-                  | UNQUOTED_STRING "{" pattern_values "}" // deprecated
-
-pattern_values: _comma_separated{pattern_value}
+                  | "{" "}"                                           -> empty
+                  | "{" (pattern_value _COMMA?)+ "}"                  -> pattern_values
+                  | UNQUOTED_STRING "{" (pattern_value _COMMA?)+ "}"  -> pattern_values_deprecated
 
 pattern_value: ANY_STRING
 
 variable_substitutions: variable_substitution+
 
 variable_substitution: global_definitions
-                     | "{" "}"
-                     | "{" variable_definitions "}"
-                     | UNQUOTED_STRING "{" variable_definitions "}"  // deprecated
+                     | "{" "}"                                      -> empty
+                     | "{" variable_definitions+ "}"                -> variable_subs
+                     | UNQUOTED_STRING "{" variable_definitions "}" -> variable_deprecated
 
-variable_definitions: _comma_separated{variable_definition}
+variable_definitions: (variable_definition _COMMA?)* variable_definition _COMMA?
 
 variable_definition: UNQUOTED_STRING "=" UNQUOTED_STRING
                    | UNQUOTED_STRING "=" QUOTED_STRING
 
-_comma_separated{x}: (x ",")* x ","?
+_maybe_comma_separated{x}: (x _COMMA?)* x _COMMA?
