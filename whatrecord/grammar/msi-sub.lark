@@ -1,0 +1,51 @@
+// Lark grammar for msi's substitution format
+// Based on epics-base dbtemplate as part of the msi tool (dbLoadTemplate_lex.l)
+
+?start: msi_substitutions
+
+%import common.WS_INLINE
+%import common.NEWLINE
+%import common.WS
+%ignore WS_INLINE
+%ignore WS
+
+COMMENT     : "#" /[^\n\r]/*
+%ignore COMMENT
+
+BACKSLASH   : "\\"
+SINGLEQUOTE : "'"
+DOUBLEQUOTE : "\""
+WHITESPACE  : /[ \t\r\n]/
+ESCAPE      : BACKSLASH /./
+DSTRINGCHAR : /[^"\n\\]/
+SSTRINGCHAR : /[^'\n\\]/
+BAREWORD    : /[a-zA-Z0-9_\-+:.\/\\\[\]<>;]/
+_COMMA      : ","
+
+PATTERN: "pattern"
+DBFILE : "file"
+GLOBAL : "global"
+
+UNQUOTED_STRING: BAREWORD+
+QUOTED_STRING: DOUBLEQUOTE (DSTRINGCHAR | ESCAPE )* DOUBLEQUOTE
+             | SINGLEQUOTE (SSTRINGCHAR | ESCAPE )* SINGLEQUOTE
+ANY_STRING : QUOTED_STRING | UNQUOTED_STRING
+
+msi_substitutions: substitutions*
+
+substitutions: GLOBAL "{" variable_definitions? "}"              -> global_definitions
+             | PATTERN "{" (pattern_name _COMMA?)* "}"           -> pattern_header
+             | DBFILE template_filename "{" substitutions* "}"   -> dbfile
+             | "{" "}"                                           -> empty
+             | "{" variable_definitions+ "}"                     -> variable_subs
+             | "{" (pattern_value _COMMA?)+ "}"                  -> pattern_values
+             | UNQUOTED_STRING "{" variable_definitions "}"      -> variable_deprecated
+
+template_filename: ANY_STRING
+pattern_name: ANY_STRING
+pattern_value: ANY_STRING
+
+variable_definitions: (variable_definition _COMMA?)* variable_definition _COMMA?
+
+variable_definition: UNQUOTED_STRING "=" UNQUOTED_STRING
+                   | UNQUOTED_STRING "=" QUOTED_STRING

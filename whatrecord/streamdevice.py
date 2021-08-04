@@ -6,11 +6,8 @@ from typing import Dict, List
 import lark
 
 from . import transformer
-from .common import FullLoadContext, LoadContext, StringWithContext, dataclass
-
-
-def _context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
-    return (LoadContext(name=fn, line=token.line), )
+from .common import FullLoadContext, StringWithContext, dataclass
+from .transformer import context_from_token
 
 
 def _separate_by_class(items, mapping):
@@ -219,7 +216,7 @@ class _ProtocolTransformer(lark.visitors.Transformer):
     def protocol_name(self, name):
         return StringWithContext(
             name,
-            context=_context_from_token(self.fn, name),
+            context=context_from_token(self.fn, name),
         )
 
     def protocol_def(self, name, children):

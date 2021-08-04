@@ -1,0 +1,15 @@
+file "basic_asyn_motor.db"
+{
+pattern
+{P,     N,  M,      DTYP,            PORT, ADDR,  DESC,          EGU,      DIR,  VELO,  VBAS,  ACCL,  BDST,  BVEL,  BACC,  MRES,  PREC,  DHLM,  DLLM,  INIT}
+{camsim:CM,  1,  "$(N)MOTOR",  "asynMotor",  motorSim1,  0,  "Delta",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+{camsim:CM,  2,  "$(N)MOTOR",  "asynMotor",  motorSim1,  1,  "Gamma",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+{camsim:CM,  3,  "$(N)MOTOR",  "asynMotor",  motorSim1,  2,  "Omega",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+{camsim:CM,  4,  "$(N)MOTOR",  "asynMotor",  motorSim1,  3,  "Phi",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+{camsim:CM,  5,  "$(N)MOTOR",  "asynMotor",  motorSim1,  4,  "Mu",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+{camsim:CM,  6,  "$(N)MOTOR",  "asynMotor",  motorSim1,  5,  "Theta",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+# {sim:,  1,  "mtr$(N)",  "asynMotor",  motorSim1,  6,  "Theta",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+# {sim:,  2,  "mtr$(N)",  "asynMotor",  motorSim1,  7,  "Theta",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01,  3,     100,   -100,  ""}
+#{XF:31IDA-OP,  7,  "{Tbl-Ax:X$(N)}Mtr",  "asynMotor",  motorSim1,  6,  "Motor X$(N)",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01, 3,     100,   -100,  ""}
+#{XF:31IDA-OP,  8,  "{Tbl-Ax:X$(N)}Mtr",  "asynMotor",  motorSim1,  7,  "Motor X$(N)",  deg,  Pos,  1,     .1,    .2,    0,     1,     .2,    0.01, 3,     100,   -100,  ""}
+}

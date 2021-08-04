@@ -71,13 +71,6 @@ class LinterResults:
         *,
         db_filename: Optional[Union[str, pathlib.Path]] = None,
         version: int = 3,
-        full: bool = True,
-        warn_ext_links: bool = False,
-        warn_bad_fields: bool = True,
-        warn_rec_append: bool = False,
-        warn_quoted: bool = False,
-        warn_varint: bool = True,
-        warn_spec_comm: bool = True,
     ) -> LinterResults:
         """
         Lint a db (database) file using its database definition file (dbd).
@@ -111,13 +104,6 @@ class LinterResults:
         macro_context: Optional[MacroContext] = None,
         *,
         version: int = 3,
-        full: bool = True,
-        warn_ext_links: bool = False,
-        warn_bad_fields: bool = True,
-        warn_rec_append: bool = False,
-        warn_quoted: bool = False,
-        warn_varint: bool = True,
-        warn_spec_comm: bool = True,
     ) -> LinterResults:
         """
         Lint a db (database) file using its database definition file (dbd).
@@ -131,23 +117,6 @@ class LinterResults:
         version : int, optional
             Use the old V3 style or new V3 style database grammar by specifying
             3 or 4, respectively.  Defaults to 3.
-        full : bool, optional
-            Validate as a complete database
-        warn_quoted : bool, optional
-            A node argument isn't quoted
-        warn_varint : bool, optional
-            A variable(varname) node which doesn't specify a type, which defaults
-            to 'int'
-        warn_spec_comm : bool, optional
-            Syntax error in special #: comment line
-        warn_ext_link : bool, optional
-            A DB/CA link to a PV which is not defined.  Add '#: external("pv.FLD")
-        warn_bad_field : bool, optional
-            Unable to validate record instance field due to a previous error
-            (missing recordtype).
-        warn_rec_append : bool, optional
-            Not using Base >=3.15 style recordtype "*" when appending/overwriting
-            record instances
 
         Returns
         -------
@@ -163,13 +132,6 @@ class LinterResults:
             db_filename=db_filename,
             macro_context=macro_context,
             version=version,
-            full=full,
-            warn_ext_links=warn_ext_links,
-            warn_bad_fields=warn_bad_fields,
-            warn_rec_append=warn_rec_append,
-            warn_quoted=warn_quoted,
-            warn_varint=warn_varint,
-            warn_spec_comm=warn_spec_comm,
         )
 
     @property
