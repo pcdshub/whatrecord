@@ -1,0 +1,402 @@
+record(motor,"camsim:CM1MOTOR")
+{
+	field(DESC,"Delta")
+	field(DTYP,"asynMotor")
+	field(DIR,"Pos")
+	field(VELO,"1")
+	field(VBAS,".1")
+	field(ACCL,".2")
+	field(BDST,"0")
+	field(BVEL,"1")
+	field(BACC,".2")
+	field(OUT,"@asyn(motorSim1,0)")
+	field(MRES,"0.01")
+	field(PREC,"3")
+	field(EGU,"deg")
+	field(DHLM,"100")
+	field(DLLM,"-100")
+	field(INIT,"")
+	field(TWV,"1")
+
+    info(autosaveFields_pass0, "DVAL DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+
+    info(autosaveFields, "DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+}
+
+record(transform, "camsim:CM1MOTOR_ableput") {
+  field(CLCB, "a")
+  field(CLCC, "a")
+  field(OUTA, "camsim:CM1MOTOR.DISA NPP NMS")
+  field(OUTB, "camsim:CM1MOTOR.DISP NPP NMS")
+  field(OUTC, "camsim:CM1MOTOR.DISA NPP NMS")
+}
+
+record(bo, "camsim:CM1MOTOR_able") {
+  field(DESC, "motor enable")
+  field(PINI, "YES")
+  field(OUT, "camsim:CM1MOTOR_ableput.A PP MS")
+  field(ZNAM, "Enable")
+  field(ONAM, "Disable")
+}
+
+# allow users to change the velocity (or speed)
+# by sending a multipler to the
+#    camsim:CM1MOTOR_vCh.A field
+# Range check output; SBAS <= S <= SMAX.
+record(scalcout, "camsim:CM1MOTOR_vCh") {
+  field(DESC, "change velocity")
+  field(INPB, "camsim:CM1MOTOR.S")
+  field(INPC, "camsim:CM1MOTOR.SBAS")
+  field(INPD, "camsim:CM1MOTOR.SMAX")
+  field(CALC, "min(max(a*b,c),d)")
+  field(OUT, "camsim:CM1MOTOR.S")
+}
+
+# allow users to change the tweak value
+# by sending a multipler to the
+#    camsim:CM1MOTOR_twCh.A field
+# Range check output; TWV <= HLM - LLM.
+record(scalcout, "camsim:CM1MOTOR_twCh") {
+  field(DESC, "change TWV")
+  field(INPB, "camsim:CM1MOTOR.TWV")
+  field(INPC, "camsim:CM1MOTOR.MRES")
+  field(INPD, "camsim:CM1MOTOR.HLM")
+  field(INPE, "camsim:CM1MOTOR.LLM")
+  field(CALC, "min(max(a*b,c),d-e)")
+  field(OUT, "camsim:CM1MOTOR.TWV")
+}
+record(motor,"camsim:CM2MOTOR")
+{
+	field(DESC,"Gamma")
+	field(DTYP,"asynMotor")
+	field(DIR,"Pos")
+	field(VELO,"1")
+	field(VBAS,".1")
+	field(ACCL,".2")
+	field(BDST,"0")
+	field(BVEL,"1")
+	field(BACC,".2")
+	field(OUT,"@asyn(motorSim1,1)")
+	field(MRES,"0.01")
+	field(PREC,"3")
+	field(EGU,"deg")
+	field(DHLM,"100")
+	field(DLLM,"-100")
+	field(INIT,"")
+	field(TWV,"1")
+
+    info(autosaveFields_pass0, "DVAL DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+
+    info(autosaveFields, "DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+}
+
+record(transform, "camsim:CM2MOTOR_ableput") {
+  field(CLCB, "a")
+  field(CLCC, "a")
+  field(OUTA, "camsim:CM2MOTOR.DISA NPP NMS")
+  field(OUTB, "camsim:CM2MOTOR.DISP NPP NMS")
+  field(OUTC, "camsim:CM2MOTOR.DISA NPP NMS")
+}
+
+record(bo, "camsim:CM2MOTOR_able") {
+  field(DESC, "motor enable")
+  field(PINI, "YES")
+  field(OUT, "camsim:CM2MOTOR_ableput.A PP MS")
+  field(ZNAM, "Enable")
+  field(ONAM, "Disable")
+}
+
+# allow users to change the velocity (or speed)
+# by sending a multipler to the
+#    camsim:CM2MOTOR_vCh.A field
+# Range check output; SBAS <= S <= SMAX.
+record(scalcout, "camsim:CM2MOTOR_vCh") {
+  field(DESC, "change velocity")
+  field(INPB, "camsim:CM2MOTOR.S")
+  field(INPC, "camsim:CM2MOTOR.SBAS")
+  field(INPD, "camsim:CM2MOTOR.SMAX")
+  field(CALC, "min(max(a*b,c),d)")
+  field(OUT, "camsim:CM2MOTOR.S")
+}
+
+# allow users to change the tweak value
+# by sending a multipler to the
+#    camsim:CM2MOTOR_twCh.A field
+# Range check output; TWV <= HLM - LLM.
+record(scalcout, "camsim:CM2MOTOR_twCh") {
+  field(DESC, "change TWV")
+  field(INPB, "camsim:CM2MOTOR.TWV")
+  field(INPC, "camsim:CM2MOTOR.MRES")
+  field(INPD, "camsim:CM2MOTOR.HLM")
+  field(INPE, "camsim:CM2MOTOR.LLM")
+  field(CALC, "min(max(a*b,c),d-e)")
+  field(OUT, "camsim:CM2MOTOR.TWV")
+}
+record(motor,"camsim:CM3MOTOR")
+{
+	field(DESC,"Omega")
+	field(DTYP,"asynMotor")
+	field(DIR,"Pos")
+	field(VELO,"1")
+	field(VBAS,".1")
+	field(ACCL,".2")
+	field(BDST,"0")
+	field(BVEL,"1")
+	field(BACC,".2")
+	field(OUT,"@asyn(motorSim1,2)")
+	field(MRES,"0.01")
+	field(PREC,"3")
+	field(EGU,"deg")
+	field(DHLM,"100")
+	field(DLLM,"-100")
+	field(INIT,"")
+	field(TWV,"1")
+
+    info(autosaveFields_pass0, "DVAL DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+
+    info(autosaveFields, "DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+}
+
+record(transform, "camsim:CM3MOTOR_ableput") {
+  field(CLCB, "a")
+  field(CLCC, "a")
+  field(OUTA, "camsim:CM3MOTOR.DISA NPP NMS")
+  field(OUTB, "camsim:CM3MOTOR.DISP NPP NMS")
+  field(OUTC, "camsim:CM3MOTOR.DISA NPP NMS")
+}
+
+record(bo, "camsim:CM3MOTOR_able") {
+  field(DESC, "motor enable")
+  field(PINI, "YES")
+  field(OUT, "camsim:CM3MOTOR_ableput.A PP MS")
+  field(ZNAM, "Enable")
+  field(ONAM, "Disable")
+}
+
+# allow users to change the velocity (or speed)
+# by sending a multipler to the
+#    camsim:CM3MOTOR_vCh.A field
+# Range check output; SBAS <= S <= SMAX.
+record(scalcout, "camsim:CM3MOTOR_vCh") {
+  field(DESC, "change velocity")
+  field(INPB, "camsim:CM3MOTOR.S")
+  field(INPC, "camsim:CM3MOTOR.SBAS")
+  field(INPD, "camsim:CM3MOTOR.SMAX")
+  field(CALC, "min(max(a*b,c),d)")
+  field(OUT, "camsim:CM3MOTOR.S")
+}
+
+# allow users to change the tweak value
+# by sending a multipler to the
+#    camsim:CM3MOTOR_twCh.A field
+# Range check output; TWV <= HLM - LLM.
+record(scalcout, "camsim:CM3MOTOR_twCh") {
+  field(DESC, "change TWV")
+  field(INPB, "camsim:CM3MOTOR.TWV")
+  field(INPC, "camsim:CM3MOTOR.MRES")
+  field(INPD, "camsim:CM3MOTOR.HLM")
+  field(INPE, "camsim:CM3MOTOR.LLM")
+  field(CALC, "min(max(a*b,c),d-e)")
+  field(OUT, "camsim:CM3MOTOR.TWV")
+}
+record(motor,"camsim:CM4MOTOR")
+{
+	field(DESC,"Phi")
+	field(DTYP,"asynMotor")
+	field(DIR,"Pos")
+	field(VELO,"1")
+	field(VBAS,".1")
+	field(ACCL,".2")
+	field(BDST,"0")
+	field(BVEL,"1")
+	field(BACC,".2")
+	field(OUT,"@asyn(motorSim1,3)")
+	field(MRES,"0.01")
+	field(PREC,"3")
+	field(EGU,"deg")
+	field(DHLM,"100")
+	field(DLLM,"-100")
+	field(INIT,"")
+	field(TWV,"1")
+
+    info(autosaveFields_pass0, "DVAL DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+
+    info(autosaveFields, "DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+}
+
+record(transform, "camsim:CM4MOTOR_ableput") {
+  field(CLCB, "a")
+  field(CLCC, "a")
+  field(OUTA, "camsim:CM4MOTOR.DISA NPP NMS")
+  field(OUTB, "camsim:CM4MOTOR.DISP NPP NMS")
+  field(OUTC, "camsim:CM4MOTOR.DISA NPP NMS")
+}
+
+record(bo, "camsim:CM4MOTOR_able") {
+  field(DESC, "motor enable")
+  field(PINI, "YES")
+  field(OUT, "camsim:CM4MOTOR_ableput.A PP MS")
+  field(ZNAM, "Enable")
+  field(ONAM, "Disable")
+}
+
+# allow users to change the velocity (or speed)
+# by sending a multipler to the
+#    camsim:CM4MOTOR_vCh.A field
+# Range check output; SBAS <= S <= SMAX.
+record(scalcout, "camsim:CM4MOTOR_vCh") {
+  field(DESC, "change velocity")
+  field(INPB, "camsim:CM4MOTOR.S")
+  field(INPC, "camsim:CM4MOTOR.SBAS")
+  field(INPD, "camsim:CM4MOTOR.SMAX")
+  field(CALC, "min(max(a*b,c),d)")
+  field(OUT, "camsim:CM4MOTOR.S")
+}
+
+# allow users to change the tweak value
+# by sending a multipler to the
+#    camsim:CM4MOTOR_twCh.A field
+# Range check output; TWV <= HLM - LLM.
+record(scalcout, "camsim:CM4MOTOR_twCh") {
+  field(DESC, "change TWV")
+  field(INPB, "camsim:CM4MOTOR.TWV")
+  field(INPC, "camsim:CM4MOTOR.MRES")
+  field(INPD, "camsim:CM4MOTOR.HLM")
+  field(INPE, "camsim:CM4MOTOR.LLM")
+  field(CALC, "min(max(a*b,c),d-e)")
+  field(OUT, "camsim:CM4MOTOR.TWV")
+}
+record(motor,"camsim:CM5MOTOR")
+{
+	field(DESC,"Mu")
+	field(DTYP,"asynMotor")
+	field(DIR,"Pos")
+	field(VELO,"1")
+	field(VBAS,".1")
+	field(ACCL,".2")
+	field(BDST,"0")
+	field(BVEL,"1")
+	field(BACC,".2")
+	field(OUT,"@asyn(motorSim1,4)")
+	field(MRES,"0.01")
+	field(PREC,"3")
+	field(EGU,"deg")
+	field(DHLM,"100")
+	field(DLLM,"-100")
+	field(INIT,"")
+	field(TWV,"1")
+
+    info(autosaveFields_pass0, "DVAL DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+
+    info(autosaveFields, "DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+}
+
+record(transform, "camsim:CM5MOTOR_ableput") {
+  field(CLCB, "a")
+  field(CLCC, "a")
+  field(OUTA, "camsim:CM5MOTOR.DISA NPP NMS")
+  field(OUTB, "camsim:CM5MOTOR.DISP NPP NMS")
+  field(OUTC, "camsim:CM5MOTOR.DISA NPP NMS")
+}
+
+record(bo, "camsim:CM5MOTOR_able") {
+  field(DESC, "motor enable")
+  field(PINI, "YES")
+  field(OUT, "camsim:CM5MOTOR_ableput.A PP MS")
+  field(ZNAM, "Enable")
+  field(ONAM, "Disable")
+}
+
+# allow users to change the velocity (or speed)
+# by sending a multipler to the
+#    camsim:CM5MOTOR_vCh.A field
+# Range check output; SBAS <= S <= SMAX.
+record(scalcout, "camsim:CM5MOTOR_vCh") {
+  field(DESC, "change velocity")
+  field(INPB, "camsim:CM5MOTOR.S")
+  field(INPC, "camsim:CM5MOTOR.SBAS")
+  field(INPD, "camsim:CM5MOTOR.SMAX")
+  field(CALC, "min(max(a*b,c),d)")
+  field(OUT, "camsim:CM5MOTOR.S")
+}
+
+# allow users to change the tweak value
+# by sending a multipler to the
+#    camsim:CM5MOTOR_twCh.A field
+# Range check output; TWV <= HLM - LLM.
+record(scalcout, "camsim:CM5MOTOR_twCh") {
+  field(DESC, "change TWV")
+  field(INPB, "camsim:CM5MOTOR.TWV")
+  field(INPC, "camsim:CM5MOTOR.MRES")
+  field(INPD, "camsim:CM5MOTOR.HLM")
+  field(INPE, "camsim:CM5MOTOR.LLM")
+  field(CALC, "min(max(a*b,c),d-e)")
+  field(OUT, "camsim:CM5MOTOR.TWV")
+}
+record(motor,"camsim:CM6MOTOR")
+{
+	field(DESC,"Theta")
+	field(DTYP,"asynMotor")
+	field(DIR,"Pos")
+	field(VELO,"1")
+	field(VBAS,".1")
+	field(ACCL,".2")
+	field(BDST,"0")
+	field(BVEL,"1")
+	field(BACC,".2")
+	field(OUT,"@asyn(motorSim1,5)")
+	field(MRES,"0.01")
+	field(PREC,"3")
+	field(EGU,"deg")
+	field(DHLM,"100")
+	field(DLLM,"-100")
+	field(INIT,"")
+	field(TWV,"1")
+
+    info(autosaveFields_pass0, "DVAL DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+
+    info(autosaveFields, "DIR DHLM DLLM TWV SREV MRES ERES RRES VBAS VELO VMAX ACCL BDST BVEL BACC RDBD DESC EGU RTRY UEIP URIP DLY RDBL PREC DISA DISP FOFF OFF FRAC OMSL JVEL JAR PCOF ICOF DCOF HVEL NTM NTMF")
+}
+
+record(transform, "camsim:CM6MOTOR_ableput") {
+  field(CLCB, "a")
+  field(CLCC, "a")
+  field(OUTA, "camsim:CM6MOTOR.DISA NPP NMS")
+  field(OUTB, "camsim:CM6MOTOR.DISP NPP NMS")
+  field(OUTC, "camsim:CM6MOTOR.DISA NPP NMS")
+}
+
+record(bo, "camsim:CM6MOTOR_able") {
+  field(DESC, "motor enable")
+  field(PINI, "YES")
+  field(OUT, "camsim:CM6MOTOR_ableput.A PP MS")
+  field(ZNAM, "Enable")
+  field(ONAM, "Disable")
+}
+
+# allow users to change the velocity (or speed)
+# by sending a multipler to the
+#    camsim:CM6MOTOR_vCh.A field
+# Range check output; SBAS <= S <= SMAX.
+record(scalcout, "camsim:CM6MOTOR_vCh") {
+  field(DESC, "change velocity")
+  field(INPB, "camsim:CM6MOTOR.S")
+  field(INPC, "camsim:CM6MOTOR.SBAS")
+  field(INPD, "camsim:CM6MOTOR.SMAX")
+  field(CALC, "min(max(a*b,c),d)")
+  field(OUT, "camsim:CM6MOTOR.S")
+}
+
+# allow users to change the tweak value
+# by sending a multipler to the
+#    camsim:CM6MOTOR_twCh.A field
+# Range check output; TWV <= HLM - LLM.
+record(scalcout, "camsim:CM6MOTOR_twCh") {
+  field(DESC, "change TWV")
+  field(INPB, "camsim:CM6MOTOR.TWV")
+  field(INPC, "camsim:CM6MOTOR.MRES")
+  field(INPD, "camsim:CM6MOTOR.HLM")
+  field(INPE, "camsim:CM6MOTOR.LLM")
+  field(CALC, "min(max(a*b,c),d-e)")
+  field(OUT, "camsim:CM6MOTOR.TWV")
+}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import collections
 import logging
 import pathlib
+import re
 import shlex
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
@@ -31,30 +32,80 @@ def _strip_double_quote(value: str) -> str:
     return value
 
 
+RE_REMOVE_ESCAPE = re.compile(r"\\(.)")
+
+
+def _fix_value(value: str) -> str:
+    """Remove quotes, and fix up escaping."""
+    value = _strip_double_quote(value)
+    return RE_REMOVE_ESCAPE.sub(r"\1", value)
+
+
 @dataclass
 class Substitution:
-    """Single database template file in a full template."""
+    """
+    Single database template file from a full template.
+
+    Represents approximately one line of a .substitutions file. For example,
+    in this substitution file,
+
+    ```
+        file template.txt {
+            pattern {a, b, c}
+            {A, B, C}
+        }
+    ```
+
+    The resulting Substitution would be
+
+    ``Substitution(macros={"a": "A", "b": "B", "c": "C"}, filename="template.txt")``.
+
+    Global macro values will be aggregated into this dictionary.
+
+    Inside of the template file - ``template.txt`` above:
+    * "include" is a supported command for the template file.
+    * "substitute" is optionally supported (set ``allow_substitute``)
+    """
 
     context: FullLoadContext
     filename: Optional[str] = None
     macros: Dict[str, str] = field(default_factory=dict)
     use_environment: bool = False
+    allow_substitute: bool = True
     _items: Optional[List[Any]] = field(
         default_factory=list,
         metadata=apischema.metadata.skip,
     )
 
-    def expand_file(self, search_paths: Optional[List[AnyPath]] = None):
-        if self.filename is None:
+    def expand_file(
+        self,
+        *,
+        filename: Optional[str] = None,
+        search_paths: Optional[List[AnyPath]] = None
+    ) -> str:
+        """
+        Expand the given file, looking in ``search_paths`` for template files.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Expand this file or fall back to the instance-defined filename.
+
+        search_paths : list of str or pathlib.Path, optional
+            List of paths to search for template files.
+        """
+        filename = filename or self.filename
+        if filename is None:
             raise ValueError("This substitution does not have a file defined")
 
-        filename = pathlib.Path(self.filename)
+        filename = pathlib.Path(filename)
         search_paths = search_paths or [filename.resolve().parent]
         with open(self.filename, "rt") as fp:
             return self.expand(fp.read(), search_paths=search_paths)
 
     @property
     def macro_context(self) -> MacroContext:
+        """The macro context to be used when expanding the template."""
         ctx = MacroContext(use_environment=self.use_environment)
         ctx.define(**self.macros)
         return ctx
@@ -72,13 +123,25 @@ class Substitution:
         raise FileNotFoundError(f"{filename} not found in {friendly_paths}")
 
     def expand(self, source: str, search_paths: Optional[List[AnyPath]] = None):
+        """
+        Expand the provided substitution template, using the macro environment.
+
+        Parameters
+        ----------
+        source : str
+            The source substitution template.  May contain "include" or
+            "substitute" lines.
+
+        search_paths : list of str or pathlib.Path, optional
+            List of paths to search for template files.
+        """
         ctx = self.macro_context
         search_paths = search_paths or [pathlib.Path(".")]
         results = []
         source_stack = collections.deque(source.splitlines())
         while source_stack:
             line = source_stack.popleft()
-            logger.warning("line %r", line)
+            logger.debug("line %r", line)
             line = ctx.expand(line)
             command, *command_args = line.strip().split(" ", 1)
             if command == "include":  # case sensitive
@@ -89,16 +152,17 @@ class Substitution:
                         f"where line={line!r}"
                     )
                 include_file = args[0]
-                logger.warning("Including file from %s", include_file)
+                logger.debug("Including file from %s", include_file)
                 include_source = self.handle_include(include_file, search_paths)
                 source_stack.extendleft(reversed(include_source.splitlines()))
-                logger.warning("stack %r", source_stack)
-            elif command == "substitute":
+                logger.debug("stack %r", source_stack)
+            elif command == "substitute" and self.allow_substitute:
+                # Note that dbLoadTemplate does not support substitute, but msi
+                # does.
                 macro_string = command_args[0].strip()
                 # Strip only single beginning and end quotes
                 macro_string = _strip_double_quote(macro_string).strip()
-                macro_string = macro_string.replace('"', '\\"')
-                logger.warning("Substituting additional macros %s", macro_string)
+                logger.debug("Substituting additional macros %s", macro_string)
                 ctx.define_from_string(macro_string)
             else:
                 results.append(line)
@@ -141,6 +205,52 @@ class TemplateSubstitution:
 
     substitutions: List[Substitution] = field(default_factory=list)
 
+    def expand_template(
+        self,
+        template: str,
+        search_paths: Optional[List[AnyPath]] = None,
+        delimiter: str = "\n",
+    ) -> str:
+        """
+        Expands all substitutions for the given string.
+
+        Parameters
+        ----------
+        template : str
+            The template text.
+
+        delimiter : str, optional
+            Delimiter to join individual substitutions.
+
+        search_paths : list of str or pathlib.Path, optional
+            List of paths to search for template files.
+        """
+        return delimiter.join(
+            sub.expand(template, search_paths=search_paths)
+            for sub in self.substitutions
+        )
+
+    def expand_files(
+        self,
+        search_paths: Optional[List[AnyPath]] = None,
+        delimiter: str = "\n"
+    ) -> str:
+        """
+        Expands and combines all contained substitution files.
+
+        Parameters
+        ----------
+        delimiter : str, optional
+            Delimiter to join individual substitutions.
+
+        search_paths : list of str or pathlib.Path, optional
+            List of paths to search for template files.
+        """
+        return delimiter.join(
+            sub.expand_file(search_paths=search_paths)
+            for sub in self.substitutions
+        )
+
     @classmethod
     def from_string(
         cls,
@@ -149,7 +259,7 @@ class TemplateSubstitution:
         msi_format=False,
         all_global_scope=False,
     ) -> TemplateSubstitution:
-        """Load a template file given its string contents."""
+        """Load a template substitutions file given its string contents."""
         comments = []
         grammar_filename = "msi-sub.lark" if msi_format else "dbtemplate.lark"
 
@@ -202,6 +312,8 @@ class TemplateSubstitution:
 
 @lark.visitors.v_args(inline=True)
 class _TemplateMsiTransformer(lark.visitors.Transformer):
+    _allow_substitute = True
+
     def __init__(self, cls, fn, visit_tokens=False, all_global_scope=False):
         super().__init__(visit_tokens=visit_tokens)
         self.fn = str(fn)
@@ -239,7 +351,7 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
         definitions = VariableDefinitions(
             context=context_from_token(self.fn, token),
             definitions=dict(
-                (str(key), str(_strip_double_quote(value)))
+                (str(key), _fix_value(value))
                 for key, value in (variable_definitions or {}).items()
             ),
         )
@@ -249,7 +361,7 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
     def pattern_header(self, pattern_token: lark.Token, *values):
         header = PatternHeader(
             context=context_from_token(self.fn, pattern_token),
-            patterns=list(str(value) for value in values),
+            patterns=list(_fix_value(value) for value in values),
         )
         self._stack.append(header)
         return header
@@ -257,7 +369,7 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
     def pattern_values(self, *values):
         pattern_values = PatternValues(
             context=context_from_token(self.fn, values[0]),
-            values=list(str(_strip_double_quote(value)) for value in values),
+            values=list(_fix_value(value) for value in values),
         )
         self._stack.append(pattern_values)
         return pattern_values
@@ -271,12 +383,12 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
         self._stack.append(empty)
         return empty
 
-    def dbfile(self, file_token: lark.Token, filename, *fields):
+    def dbfile(self, file_token: lark.Token, filename: str, *fields):
         stack = self._stack
         file = Substitution(
             context=context_from_token(self.fn, file_token),
-            filename=str(filename),
-            # fields=list(str(field) for field in fields),
+            filename=str(pathlib.Path(self.fn).parent / _strip_double_quote(filename)),
+            allow_substitute=self._allow_substitute,
             _items=stack,
         )
         self._stack = [file]
@@ -304,6 +416,7 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
                         context=item.context,
                         filename=None,
                         macros=values,
+                        allow_substitute=self._allow_substitute,
                         # fields=patterns,
                         # instances=values,
                     )
@@ -320,6 +433,7 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
                         context=item.context,
                         filename=None,
                         macros=values,
+                        allow_substitute=self._allow_substitute,
                         # fields=patterns,
                         # instances=values,
                     )
@@ -330,6 +444,8 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
 
 @lark.visitors.v_args(inline=True)
 class _TemplateTransformer(_TemplateMsiTransformer):
+    _allow_substitute = False
+
     @lark.visitors.v_args(tree=True)
     def substitution_file(self, *_):
         self._template.substitutions = self._squash_stack(self._stack)

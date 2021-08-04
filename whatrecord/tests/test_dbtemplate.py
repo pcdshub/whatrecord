@@ -1,3 +1,4 @@
+import pathlib
 import pprint
 
 import apischema
@@ -11,20 +12,236 @@ from . import conftest
 SUBSTITUTION_FILES = list((conftest.MODULE_PATH / "iocs").glob("**/*.substitutions"))
 
 substitution_files = pytest.mark.parametrize(
-    "substitution_file",
+    "substitution_file, expanded_file",
     [
-        pytest.param(filename, id="/".join(filename.parts[-2:]))
+        pytest.param(
+            filename.resolve(),
+            pathlib.Path(f"{filename}.expanded"),
+            id="/".join(filename.parts[-2:])
+        )
         for filename in SUBSTITUTION_FILES
     ],
 )
 
 
+def test_simple_pattern():
+    sub = TemplateSubstitution.from_string(
+        """
+global {gbl_var1=gbl_val1, gbl_var2=gbl_val2}
+pattern {var1, var2}
+{set1_val1, set1_val2}
+{set2_val1, set2_val2}
+pattern {var2, var1}
+global {gbl_var1=gbl_val3, gbl_var2=gbl_val4}
+{set3_val2, set3_val1}
+{set4_val2, set4_val2}
+        """,
+        msi_format=True
+    )
+
+    assert sub.substitutions == [
+        Substitution(
+            context=(LoadContext("None", 4),),
+            macros={
+                "gbl_var1": "gbl_val1",
+                "gbl_var2": "gbl_val2",
+                "var1": "set1_val1",
+                "var2": "set1_val2",
+            },
+            allow_substitute=True,
+        ),
+        Substitution(
+            context=(LoadContext("None", 5),),
+            macros={
+                "gbl_var1": "gbl_val1",
+                "gbl_var2": "gbl_val2",
+                "var1": "set2_val1",
+                "var2": "set2_val2",
+            },
+            allow_substitute=True,
+        ),
+        Substitution(
+            context=(LoadContext("None", 8),),
+            macros={
+                "gbl_var1": "gbl_val3",
+                "gbl_var2": "gbl_val4",
+                "var2": "set3_val2",
+                "var1": "set3_val1",
+            },
+            allow_substitute=True,
+        ),
+        Substitution(
+            context=(LoadContext("None", 9),),
+            macros={
+                "gbl_var1": "gbl_val3",
+                "gbl_var2": "gbl_val4",
+                "var2": "set4_val2",
+                "var1": "set4_val2",
+            },
+            allow_substitute=True,
+        ),
+    ]
+
+
+def test_simple_regular():
+    sub = TemplateSubstitution.from_string(
+        """
+global {gbl_var1=gbl_val1, gbl_var2=gbl_val2}
+{var1=set1_val1, var2=set1_val2}
+{var2=set2_val2, var1=set2_val1}
+global {gbl_var1=gbl_val3, gbl_var2=gbl_val4}
+{var1=set3_val1, var2=set3_val2}
+{var2=set4_val2, var1=set4_val1}
+        """,
+        msi_format=True
+    )
+
+    assert sub.substitutions == [
+        Substitution(
+            context=(LoadContext("None", 3),),
+            filename=None,
+            macros={
+                "gbl_var1": "gbl_val1",
+                "gbl_var2": "gbl_val2",
+                "var1": "set1_val1",
+                "var2": "set1_val2",
+            },
+            use_environment=False,
+            allow_substitute=True,
+        ),
+        Substitution(
+            context=(LoadContext("None", 4),),
+            filename=None,
+            macros={
+                "gbl_var1": "gbl_val1",
+                "gbl_var2": "gbl_val2",
+                "var2": "set2_val2",
+                "var1": "set2_val1",
+            },
+            use_environment=False,
+            allow_substitute=True,
+        ),
+        Substitution(
+            context=(LoadContext("None", 6),),
+            filename=None,
+            macros={
+                "gbl_var1": "gbl_val3",
+                "gbl_var2": "gbl_val4",
+                "var1": "set3_val1",
+                "var2": "set3_val2",
+            },
+            use_environment=False,
+            allow_substitute=True,
+        ),
+        Substitution(
+            context=(LoadContext("None", 7),),
+            filename=None,
+            macros={
+                "gbl_var1": "gbl_val3",
+                "gbl_var2": "gbl_val4",
+                "var2": "set4_val2",
+                "var1": "set4_val1",
+            },
+            use_environment=False,
+            allow_substitute=True,
+        ),
+    ]
+
+
+def test_escaping():
+    template = TemplateSubstitution.from_string(
+        r"""
+        {a=aa b=bb c="\"cc\""}
+        {b="bb",a=aa,c="\"cc\""}
+        {
+            c="\"cc\""
+            b=bb
+            a="aa"
+        }
+        """,
+        msi_format=True
+    )
+    assert len(template.substitutions) == 3
+    print(template.substitutions)
+    for sub in template.substitutions:
+        assert sub.macros == {
+            "a": "aa",
+            "b": "bb",
+            "c": '"cc"',
+        }
+
+
+def test_doc_example_regular():
+    template = TemplateSubstitution.from_string(
+        """
+global {family=Kraimer}
+{first=Marty}
+{first=Irma}
+        """,
+        msi_format=True
+    )
+    assert (
+        template.expand_template(
+            """\
+first name is ${first}
+family name is ${family}\
+"""
+        )
+        == """\
+first name is Marty
+family name is Kraimer
+first name is Irma
+family name is Kraimer\
+"""
+    )
+
+
+def test_doc_example_pattern():
+    template = TemplateSubstitution.from_string(
+        """
+pattern {first,last}
+{Marty,Kraimer}
+{Irma,Kraimer}
+        """,
+        msi_format=True
+    )
+    assert (
+        template.expand_template(
+            """\
+first name is ${first}
+family name is ${last}\
+"""
+        )  # actually an age-old typo: ${family} should be ${last}
+        == """\
+first name is Marty
+family name is Kraimer
+first name is Irma
+family name is Kraimer\
+"""
+    )
+
+
 @substitution_files
-def test_parse(substitution_file):
+def test_parse(substitution_file, expanded_file):
     sub = TemplateSubstitution.from_file(substitution_file)
     serialized = apischema.serialize(sub)
     pprint.pprint(serialized)
     apischema.deserialize(TemplateSubstitution, serialized)
+
+    result = sub.expand_files()
+
+    if expanded_file.exists():
+        with open(expanded_file, "rt") as fp:
+            expected = fp.read()
+        print("result")
+        print("------")
+        print(result)
+        print("------")
+        print("expected")
+        print("------")
+        print(expected)
+        print("------")
+        assert result.rstrip() == expected.rstrip()
 
 
 epics_base_tests = [
@@ -62,7 +279,7 @@ This is t1-include.txt $(include-file-again=)
 substitute "include-file-again=again"
 End of t1-include.txt
 """,
-        "template": """\
+        "template": r"""
 This is t1-template.txt
 
 With $(a) & ${b}:
