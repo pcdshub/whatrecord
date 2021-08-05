@@ -117,7 +117,7 @@ export default {
         }
       }
 
-      if (selected_records && selected_records.length > 0) {
+      if ((selected_records?.length ?? 0) > 0) {
         document.title = `WhatRecord? ${selected_records}`;
       } else {
         document.title = "WhatRecord?";

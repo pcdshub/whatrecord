@@ -1,0 +1,76 @@
+// Autosave save file - used for restoring values to PVs
+// Lark grammar (Earley)
+
+?start: restore
+
+%import common.WS_INLINE
+%import common.WS
+%import common.INT
+%import common.NEWLINE
+
+COMMENT     : "#" /[^\n\r]/*
+%ignore COMMENT
+%ignore WS_INLINE
+%ignore WS
+
+EXCLAMATION     : "!"
+BAREWORD        : /[a-zA-Z0-9_\-+:.\[\]<>;]+/
+RECORD_NAME     : /[^. \t]+/
+FIELD_NAME      : BAREWORD
+BACKSLASH       : "\\"
+ARRAY_BEGIN     : "{"
+ARRAY_END       : "}"
+ELEMENT_BEGIN   : "\""
+ELEMENT_END     : "\""
+ESCAPED_ELEMENT : BACKSLASH "{"
+                | BACKSLASH "}"
+ARRAY_MARKER    : "@array@"
+
+ELEMENT_CHAR    : /[^{}"]/
+                | ESCAPED_ELEMENT
+ELEMENT_STRING  : ELEMENT_CHAR+
+
+END_MARKER      : "<END>"
+
+pvname          : RECORD_NAME "." FIELD_NAME -> record_and_field
+                | RECORD_NAME                -> record_name
+
+//     [<error string>]
+//     which is "! <number> <optional descriptive text>"
+// OR
+//     [<ignore>]<PV name><white>...<value>
+//     where
+//        <ignore> is the character '#'
+//        <PV name> is any legal EPICS PV name
+//        <white> is whitespace
+//        <value> is
+//           <printable>[<printable>...][<white>...][<anything>]
+//        e.g., "1.2"
+//        OR
+//           @array@ { "<val>" "<val>" }
+
+// examples:
+//   xxx:interp.E 100
+//   xxx:interp.C @array@ { "1" "0.99" }
+
+restore: (restore_item NEWLINE)* END_MARKER?
+
+restore_item: error
+            | scalar_restore
+            | array_restore
+
+error: EXCLAMATION error_number error_description?
+error_number: INT
+error_description: /.+/
+
+array_restore: pvname ARRAY_MARKER ARRAY_BEGIN array_elements ARRAY_END
+scalar_restore: pvname scalar_value
+
+scalar_value: /.+/ NEWLINE?
+
+array_elements: array_element*
+array_element: ELEMENT_BEGIN ELEMENT_STRING? ELEMENT_END
+
+// Examples:
+// { "1.23" " 2.34" " 3.45" }
+// { "abc" "de\"f" "g{hi\"" "jkl mno} pqr" }
