@@ -658,6 +658,9 @@ record("{{record_type}}", "{{name}}") {
 
     def get_fields_of_type(self, *types) -> Generator[RecordField, None, None]:
         """Get all fields of the matching type(s)."""
+        if self.is_pva:
+            return
+
         for fld in self.fields.values():
             if fld.dtype in types:
                 yield fld
