@@ -32,7 +32,8 @@ import apischema
 import lark
 
 from . import transformer
-from .common import FullLoadContext, StringWithContext, context_from_lark_token
+from .common import (FullLoadContext, RecordInstance, StringWithContext,
+                     context_from_lark_token)
 from .util import get_bytes_sha256
 
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
@@ -115,6 +116,7 @@ class AccessSecurityRule:
 
 @dataclass
 class AccessSecurityGroup:
+    """An access security group."""
     context: FullLoadContext
     comments: str
     name: str
@@ -303,8 +305,26 @@ class AccessSecurityConfig:
         metadata=apischema.metadata.skip,
     )
 
+    def get_group_from_record(self, record: RecordInstance) -> Optional[AccessSecurityGroup]:
+        """Get the appropriate access security group for the given record."""
+        if record.is_pva:
+            return
+
+        return self.groups.get(record.access_security_group, None)
+
     @classmethod
     def from_string(cls, contents: str, filename: Optional[str] = None) -> AccessSecurityConfig:
+        """
+        Load access security configuration from a string.
+
+        Parameters
+        ----------
+        contents : str
+            The access security file contents.
+
+        filename : str, optional
+            The access security filename to use for LoadContext.
+        """
         contents_hash = get_bytes_sha256(contents.encode("utf-8"))
         comments = []
 
@@ -328,13 +348,13 @@ class AccessSecurityConfig:
         return grammar.parse(contents)
 
     @classmethod
-    def from_file_obj(cls, fp, filename: Optional[str] = None):
-        """Load a PVList from a file object."""
+    def from_file_obj(cls, fp, filename: Optional[str] = None) -> AccessSecurityConfig:
+        """Load an ACF file from a file object."""
         filename = filename or getattr(fp, "name", str(id(fp)))
         return cls.from_string(fp.read(), filename=filename)
 
     @classmethod
-    def from_file(cls, fn: Union[str, pathlib.Path]):
+    def from_file(cls, fn: Union[str, pathlib.Path]) -> AccessSecurityConfig:
         """Load an ACF file from a filename."""
         with open(fn, "rt") as fp:
             return cls.from_file_obj(fp, filename=str(fn))

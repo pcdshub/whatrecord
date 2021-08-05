@@ -649,6 +649,13 @@ record("{{record_type}}", "{{name}}") {
 """,
     }
 
+    @property
+    def access_security_group(self) -> str:
+        """The access security group name for the record."""
+        if "ASG" in self.fields and not self.is_pva:
+            return str(self.fields["ASG"].value)
+        return "DEFAULT"
+
     def get_fields_of_type(self, *types) -> Generator[RecordField, None, None]:
         """Get all fields of the matching type(s)."""
         for fld in self.fields.values():

@@ -63,14 +63,28 @@ class ShellState:
         Rewrite hard-coded directory prefixes by setting::
 
             standin_directories = {"/replace_this/": "/with/this"}
+    access_security : AccessSecurityConfig
+        The loaded access security configuration (post iocInit).
+    access_security_filename : pathlib.Path
+        The access security filename.
+    access_security_macros : Dict[str, str]
+        Macros used when expanding the access security file.
+    asyn_ports : Dict[str, asyn.AsynPortBase]
+        Asyn ports defined by name.
+    loaded_files : Dict[str, str]
+        Files loaded, mapped to a hash of their contents.
     working_directory : pathlib.Path
         Current working directory.
     database_definition : Database
         Loaded database definition (dbd).
     database : Dict[str, RecordInstance]
         The IOC database of records.
+    pva_database : Dict[str, RecordInstance]
+        The IOC database of PVAccess groups.
     aliases : Dict[str, str]
         Alias name to record name.
+    streamdevice : Dict[str, StreamProtocol]
+        Loadd StreamDevice protocols by name.
     load_context : List[MutableLoadContext]
         Current loading context stack (e.g., ``st.cmd`` then
         ``common_startup.cmd``).  Modified in place as scripts are evaluated.
