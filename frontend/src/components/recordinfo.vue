@@ -85,7 +85,7 @@
         <img class="svg-graph" :src="graph_link" />
       </a>
     </AccordionTab>
-    <AccordionTab header="Archiver" :disabled="record == null">
+    <AccordionTab header="Archiver" v-if="record != null">
       <template v-if="record != null && appliance_viewer_url">
         <a :href="appliance_viewer_url" target="_blank">
           Archive Viewer
@@ -96,7 +96,7 @@
           />
         </template>
     </AccordionTab>
-    <AccordionTab header="Gateway" :disabled="record == null">
+    <AccordionTab header="Gateway" v-if="record != null">
       <template v-if="record != null && record.metadata.gateway != null && record.metadata.gateway.matches.length > 0">
         Matching gateway rules:
         <gateway-matches :matches="record.metadata.gateway.matches"/>
@@ -105,7 +105,14 @@
         No matches with gateway rules.
       </template>
     </AccordionTab>
-    <AccordionTab header="Asyn" :disabled="whatrec.asyn_ports.length == 0">
+    <AccordionTab header="Access Security Group" v-if="asg != null">
+      <dictionary-table
+        :dict="asg"
+        :cls="'metadata'"
+        :skip_keys="[]"
+      />
+    </AccordionTab>
+    <AccordionTab header="Asyn" v-if="whatrec.asyn_ports.length > 0">
       <asyn-port
         v-for:="(asyn_port, idx) in whatrec.asyn_ports"
         :asyn_port="asyn_port"
@@ -189,6 +196,12 @@ export default {
     },
     record_defn() {
       return this.whatrec.record ? this.whatrec.record.definition : null;
+    },
+    asg() {
+      if (this.record == null) {
+        return null;
+      }
+      return this.record.metadata["asg"];
     },
     streamdevice_metadata() {
       if (this.record == null) {

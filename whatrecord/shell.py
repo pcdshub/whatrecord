@@ -17,7 +17,7 @@ from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
 
 import apischema
 
-from . import asyn, graph
+from . import asyn, dbtemplate, graph
 from . import motor as motor_mod
 from . import settings, streamdevice, util
 from .access_security import AccessSecurityConfig
@@ -63,14 +63,28 @@ class ShellState:
         Rewrite hard-coded directory prefixes by setting::
 
             standin_directories = {"/replace_this/": "/with/this"}
+    access_security : AccessSecurityConfig
+        The loaded access security configuration (post iocInit).
+    access_security_filename : pathlib.Path
+        The access security filename.
+    access_security_macros : Dict[str, str]
+        Macros used when expanding the access security file.
+    asyn_ports : Dict[str, asyn.AsynPortBase]
+        Asyn ports defined by name.
+    loaded_files : Dict[str, str]
+        Files loaded, mapped to a hash of their contents.
     working_directory : pathlib.Path
         Current working directory.
     database_definition : Database
         Loaded database definition (dbd).
     database : Dict[str, RecordInstance]
         The IOC database of records.
+    pva_database : Dict[str, RecordInstance]
+        The IOC database of PVAccess groups.
     aliases : Dict[str, str]
         Alias name to record name.
+    streamdevice : Dict[str, StreamProtocol]
+        Loadd StreamDevice protocols by name.
     load_context : List[MutableLoadContext]
         Current loading context stack (e.g., ``st.cmd`` then
         ``common_startup.cmd``).  Modified in place as scripts are evaluated.
@@ -476,15 +490,48 @@ class ShellState:
 
         return {"result": f"Loaded database: {fn}"}
 
-    def handle_dbLoadRecords(self, filename, macros="", *_):
-        if not self.database_definition:
-            raise RuntimeError("dbd not yet loaded")
-        if self.ioc_initialized:
-            raise RuntimeError("Records cannot be loaded after iocInit")
-
+    def handle_dbLoadTemplate(self, filename, macros="", *_):
         filename = self._fix_path_with_search_list(filename, self.db_include_paths)
         filename, contents = self.load_file(filename)
 
+        # TODO this should be multiple load calls for the purposes of context
+        result = {
+            "total_records": 0,
+            "total_groups": 0,
+            "loaded_files": [],
+        }
+
+        template = dbtemplate.TemplateSubstitution.from_string(contents, filename=filename)
+        for sub in template.substitutions:
+            database_contents = sub.expand_file(search_paths=self.db_include_paths)
+            # TODO loading file twice (ensure it gets added to the loaded_files list)
+            self.load_file(sub.filename)
+            lint = self._load_database(
+                filename=str(sub.filename),
+                contents=database_contents,
+                macros=macros,
+                context=self.get_load_context() + sub.context,
+            )
+            info = {
+                "filename": sub.filename,
+                "macros": sub.macros,
+                "records": len(lint.records),
+                "groups": len(lint.pva_groups),
+                "lint": lint,
+            }
+            result["total_records"] += len(lint.records)
+            result["total_groups"] += len(lint.pva_groups)
+            result["loaded_files"].append(info)
+
+        return result
+
+    def _load_database(
+        self,
+        filename: str,
+        contents: str,
+        macros: str,
+        context: FullLoadContext
+    ) -> LinterResults:
         macro_context = MacroContext(use_environment=False)
         macros = macro_context.define_from_string(macros or "")
 
@@ -502,7 +549,6 @@ class ShellState:
                 f"Failed to load {filename}: {type(ex).__name__} {ex}"
             ) from ex
 
-        context = self.get_load_context()
         db: Database = lint.db
         for name, rec in db.records.items():
             if name not in self.database:
@@ -535,10 +581,26 @@ class ShellState:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((db.parent / path).resolve())
 
+        return lint
+
+    def handle_dbLoadRecords(self, filename, macros="", *_):
+        if not self.database_definition:
+            raise RuntimeError("dbd not yet loaded")
+        if self.ioc_initialized:
+            raise RuntimeError("Records cannot be loaded after iocInit")
+
+        filename = self._fix_path_with_search_list(filename, self.db_include_paths)
+        filename, contents = self.load_file(filename)
+        lint = self._load_database(
+            filename=filename,
+            contents=contents,
+            macros=macros or "",
+            context=self.get_load_context()
+        )
         return {
-            "loaded_records": len(db.records),
-            "loaded_groups": len(db.pva_groups),
-            "linter": lint,
+            "loaded_records": len(lint.records),
+            "loaded_groups": len(lint.pva_groups),
+            "lint": lint,
         }
 
     def annotate_record(self, record: RecordInstance):
@@ -932,7 +994,7 @@ class LoadedIoc:
     ) -> Optional[WhatRecord]:
         """Get record information, optionally including PVAccess results."""
         state = self.shell_state
-        v3_inst = state.database.get(rec, None)
+        v3_inst = state.database.get(state.aliases.get(rec, rec), None)
         pva_inst = state.pva_database.get(rec, None) if include_pva else None
         if not v3_inst and not pva_inst:
             return

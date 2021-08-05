@@ -47,7 +47,8 @@ def test_load_and_whatrec(startup_script):
         dbd = whatrec.record.definition
         assert whatrec.name == rec.name == pvname
         assert rec == state.database[pvname]
-        assert dbd == state.database_definition.record_types[rec.record_type]
+        if rec.record_type != "motor":  # sorry, dbd doesn't have it
+            assert dbd == state.database_definition.record_types[rec.record_type]
 
     pva_db = state.pva_database
     if pva_db:

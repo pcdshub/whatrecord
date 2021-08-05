@@ -10,7 +10,7 @@
       <!-- fields -->
       <template v-for="field in fields" :key="field.name">
         <epics-format-field :field="field"
-            :field_info="record_defn.fields[field.name]"
+            :field_info="record_defn ? record_defn.fields[field.name] : null"
             :menus="menus"
             />
       </template>
@@ -70,7 +70,7 @@ export default {
   },
   computed: {
     info_nodes() {
-      const skip_keys = ["gateway", "archived", "happi", "streamdevice"];
+      const skip_keys = ["asg", "gateway", "archived", "happi", "streamdevice"];
       return Object.entries(this.metadata).filter(
         item => skip_keys.indexOf(item[0]) < 0
       );

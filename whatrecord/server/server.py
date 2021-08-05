@@ -264,7 +264,7 @@ class ServerState:
                 logger.debug("New gateway file: %s (%s)", filename, pvlist.hash)
                 self.container.loaded_files[str(filename)] = pvlist.hash
 
-    def annotate_whatrec(self, what: WhatRecord) -> WhatRecord:
+    def annotate_whatrec(self, ioc: LoadedIoc, what: WhatRecord) -> WhatRecord:
         """
         Annotate WhatRecord instances with things ServerState knows about.
         """
@@ -281,6 +281,16 @@ class ServerState:
                 instance.metadata["gateway"] = apischema.serialize(
                     self.get_gateway_matches(instance.name)
                 )
+
+                if ioc.shell_state.access_security is not None:
+                    asg = ioc.shell_state.access_security.get_group_from_record(
+                        instance
+                    )
+                    if asg is not None:
+                        instance.metadata["asg"] = apischema.serialize(
+                            asg
+                        )
+
             for plugin in self.plugins:
                 if not plugin.results:
                     continue
@@ -294,12 +304,20 @@ class ServerState:
 
         return what
 
-    def whatrec(self, pvname) -> List[WhatRecord]:
+    def whatrec(self, pvname: str) -> List[WhatRecord]:
         """Find WhatRecord matches."""
-        return list(
-            self.annotate_whatrec(rec)
-            for rec in self.container.whatrec(pvname) or []
-        )
+        results = []
+        for loaded_ioc in self.container.scripts.values():
+            what = loaded_ioc.whatrec(pvname)
+            if what is not None:
+                self.annotate_whatrec(loaded_ioc, what)
+                results.append(what)
+        return results
+
+    @property
+    def aliases(self) -> Dict[str, str]:
+        """The CA/V3 aliases."""
+        return self.container.aliases
 
     @property
     def database(self) -> Dict[str, RecordInstance]:
@@ -421,7 +439,7 @@ class ServerState:
         except re.error:
             return []
 
-        pv_names = set(self.database) | set(self.pva_database)
+        pv_names = set(self.database) | set(self.pva_database) | set(self.aliases)
         return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)

@@ -79,6 +79,9 @@ export default {
     },
     filtered_dict() {
       let filtered = {};
+      if (this.dict === null || this.dict === undefined) {
+          return filtered;
+      }
       for (const [key, value] of Object.entries(this.dict)) {
         if (this.skip_keys.indexOf(key) < 0 && value != null) {
           const looks_worth_displaying = (
