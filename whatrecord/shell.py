@@ -17,7 +17,7 @@ from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
 
 import apischema
 
-from . import asyn, graph
+from . import asyn, dbtemplate, graph
 from . import motor as motor_mod
 from . import settings, streamdevice, util
 from .access_security import AccessSecurityConfig
@@ -490,15 +490,28 @@ class ShellState:
 
         return {"result": f"Loaded database: {fn}"}
 
-    def handle_dbLoadRecords(self, filename, macros="", *_):
-        if not self.database_definition:
-            raise RuntimeError("dbd not yet loaded")
-        if self.ioc_initialized:
-            raise RuntimeError("Records cannot be loaded after iocInit")
-
+    def handle_dbLoadTemplate(self, filename, macros="", *_):
         filename = self._fix_path_with_search_list(filename, self.db_include_paths)
         filename, contents = self.load_file(filename)
+        sub = dbtemplate.TemplateSubstitution.from_string(contents, filename=filename)
+        database_contents = sub.expand_files()
 
+        context = self.get_load_context()
+        # TODO this should be multiple load calls for the purposes of context
+        return self._load_database(
+            filename=str(filename),
+            contents=database_contents,
+            macros=macros,
+            context=context,
+        )
+
+    def _load_database(
+        self,
+        filename: str,
+        contents: str,
+        macros: str,
+        context: FullLoadContext
+    ):
         macro_context = MacroContext(use_environment=False)
         macros = macro_context.define_from_string(macros or "")
 
@@ -516,7 +529,6 @@ class ShellState:
                 f"Failed to load {filename}: {type(ex).__name__} {ex}"
             ) from ex
 
-        context = self.get_load_context()
         db: Database = lint.db
         for name, rec in db.records.items():
             if name not in self.database:
@@ -554,6 +566,21 @@ class ShellState:
             "loaded_groups": len(db.pva_groups),
             "linter": lint,
         }
+
+    def handle_dbLoadRecords(self, filename, macros="", *_):
+        if not self.database_definition:
+            raise RuntimeError("dbd not yet loaded")
+        if self.ioc_initialized:
+            raise RuntimeError("Records cannot be loaded after iocInit")
+
+        filename = self._fix_path_with_search_list(filename, self.db_include_paths)
+        filename, contents = self.load_file(filename)
+        return self._load_database(
+            filename=filename,
+            contents=contents,
+            macros=macros or "",
+            context=self.get_load_context()
+        )
 
     def annotate_record(self, record: RecordInstance):
         """Hook to annotate a record after being loaded."""
