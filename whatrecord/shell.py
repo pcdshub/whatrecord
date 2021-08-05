@@ -493,17 +493,37 @@ class ShellState:
     def handle_dbLoadTemplate(self, filename, macros="", *_):
         filename = self._fix_path_with_search_list(filename, self.db_include_paths)
         filename, contents = self.load_file(filename)
-        sub = dbtemplate.TemplateSubstitution.from_string(contents, filename=filename)
-        database_contents = sub.expand_files()
 
-        context = self.get_load_context()
         # TODO this should be multiple load calls for the purposes of context
-        return self._load_database(
-            filename=str(filename),
-            contents=database_contents,
-            macros=macros,
-            context=context,
-        )
+        result = {
+            "total_records": 0,
+            "total_groups": 0,
+            "loaded_files": [],
+        }
+
+        template = dbtemplate.TemplateSubstitution.from_string(contents, filename=filename)
+        for sub in template.substitutions:
+            database_contents = sub.expand_file(search_paths=self.db_include_paths)
+            # TODO loading file twice (ensure it gets added to the loaded_files list)
+            self.load_file(sub.filename)
+            lint = self._load_database(
+                filename=str(sub.filename),
+                contents=database_contents,
+                macros=macros,
+                context=self.get_load_context() + sub.context,
+            )
+            info = {
+                "filename": sub.filename,
+                "macros": sub.macros,
+                "records": len(lint.records),
+                "groups": len(lint.pva_groups),
+                "lint": lint,
+            }
+            result["total_records"] += len(lint.records)
+            result["total_groups"] += len(lint.pva_groups)
+            result["loaded_files"].append(info)
+
+        return result
 
     def _load_database(
         self,
@@ -511,7 +531,7 @@ class ShellState:
         contents: str,
         macros: str,
         context: FullLoadContext
-    ):
+    ) -> LinterResults:
         macro_context = MacroContext(use_environment=False)
         macros = macro_context.define_from_string(macros or "")
 
@@ -561,11 +581,7 @@ class ShellState:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((db.parent / path).resolve())
 
-        return {
-            "loaded_records": len(db.records),
-            "loaded_groups": len(db.pva_groups),
-            "linter": lint,
-        }
+        return lint
 
     def handle_dbLoadRecords(self, filename, macros="", *_):
         if not self.database_definition:
@@ -575,12 +591,17 @@ class ShellState:
 
         filename = self._fix_path_with_search_list(filename, self.db_include_paths)
         filename, contents = self.load_file(filename)
-        return self._load_database(
+        lint = self._load_database(
             filename=filename,
             contents=contents,
             macros=macros or "",
             context=self.get_load_context()
         )
+        return {
+            "loaded_records": len(lint.records),
+            "loaded_groups": len(lint.pva_groups),
+            "lint": lint,
+        }
 
     def annotate_record(self, record: RecordInstance):
         """Hook to annotate a record after being loaded."""
