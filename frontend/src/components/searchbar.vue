@@ -103,7 +103,12 @@ export default {
         }
       }
 
-      document.title = `WhatRecord? ${pattern} (${selected_records})`;
+      if (selected_records.length > 0) {
+          document.title = `WhatRecord? ${selected_records}`;
+      } else {
+          document.title = "WhatRecord?";
+      }
+
       await this.$store.dispatch(
         "find_record_matches",
         {
