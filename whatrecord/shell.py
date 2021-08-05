@@ -932,7 +932,7 @@ class LoadedIoc:
     ) -> Optional[WhatRecord]:
         """Get record information, optionally including PVAccess results."""
         state = self.shell_state
-        v3_inst = state.database.get(rec, None)
+        v3_inst = state.database.get(state.aliases.get(rec, rec), None)
         pva_inst = state.pva_database.get(rec, None) if include_pva else None
         if not v3_inst and not pva_inst:
             return
