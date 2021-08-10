@@ -28,10 +28,12 @@ import blark
 import blark.parse
 import lark
 import pytmc
+import pytmc.bin.db
 import pytmc.code
 
 from .. import client, settings, transformer
-from ..common import AnyPath, FullLoadContext, IocMetadata, LoadContext
+from ..common import (AnyPath, FullLoadContext, IocMetadata, LoadContext,
+                      remove_redundant_context)
 from ..server.common import PluginResults
 
 # from ..util import get_file_sha256
@@ -702,17 +704,6 @@ def get_dependency_store() -> DependencyStore:
     return _dependency_store
 
 
-def _get_records_from_pytmc_symbol(symbol: pytmc.parser.Symbol) -> List[str]:
-    """Get record names from a given pytmc symbol."""
-    return [
-        record.pvname
-        for pkg in pytmc.pragmas.record_packages_from_symbol(
-            symbol, yield_exceptions=False, allow_no_pragma=False
-        )
-        for record in pkg.records
-    ]
-
-
 @dataclass
 class PlcMetadata:
     name: str
@@ -755,46 +746,61 @@ class PlcMetadata:
 
     def get_symbol_context(
         self,
-        symbol: pytmc.parser.Symbol,
+        type_name: str,
+        symbol_name: str,
     ) -> FullLoadContext:
         """Get context information for a given pytmc Symbol."""
         context = []
         try:
-            symbol_context = self.code[symbol.data_type.name].context
+            type_context = self.code[type_name].context
         except KeyError:
             ...
         else:
-            context.extend(symbol_context)
+            context.extend(type_context)
 
-        decl = self.find_declaration_from_symbol(symbol.name)
+        try:
+            code, first_symbol, *_ = symbol_name.split(".")
+            first_context = self.code[code].declarations[first_symbol].context
+        except Exception:
+            ...
+        else:
+            context.extend(first_context)
+
+        decl = self.find_declaration_from_symbol(symbol_name)
         if decl is not None:
             context.extend(decl.context)
-        return tuple(context)
+
+        return tuple(remove_redundant_context(context))
 
     def get_symbol_metadata(
         self,
         symbol: pytmc.parser.Symbol,
         require_records: bool = True
-    ) -> Optional[PlcSymbolMetadata]:
+    ) -> Generator[PlcSymbolMetadata, None, None]:
         """Get symbol metadata given a pytmc Symbol."""
-        context = self.get_symbol_context(symbol)
-        if not context:
-            # If the declaration had no context somehow, then this isn't a
-            # useful entry
-            return
+        for pkg in pytmc.pragmas.record_packages_from_symbol(
+            symbol, yield_exceptions=True, allow_no_pragma=False
+        ):
+            if isinstance(pkg, Exception):
+                # Eat these up rather than raising
+                continue
+            context = self.get_symbol_context(symbol.data_type.name, pkg.tcname)
+            if not context:
+                # If the declaration had no context somehow, then this isn't a
+                # useful entry
+                continue
 
-        records = _get_records_from_pytmc_symbol(symbol)
+            records = [record.pvname for record in pkg.records]
+            if records or not require_records:
+                annotated_name = f"{self.name}:{pkg.tcname}"
+                for record in records:
+                    self.record_to_symbol[record] = annotated_name
 
-        if records or not require_records:
-            annotated_name = f"{self.name}:{symbol.name}"
-            for record in records:
-                self.record_to_symbol[record] = annotated_name
-
-            return PlcSymbolMetadata(
-                context=tuple(context),
-                name=annotated_name,
-                type=symbol.data_type.name,
-            )
+                yield PlcSymbolMetadata(
+                    context=tuple(context),
+                    name=annotated_name,
+                    type=symbol.data_type.name,
+                )
 
     @classmethod
     def from_pytmc(
@@ -835,14 +841,13 @@ class PlcMetadata:
         if not include_symbols:
             return md
 
-        all_symbols = [symbol for symbol in tmc.find(pytmc.parser.Symbol)]
+        all_symbols = list(pytmc.bin.db.find_pytmc_symbols(tmc))
 
         def by_name(symbol):
             return symbol.name
 
         for symbol in sorted(all_symbols, key=by_name):
-            symbol_md = md.get_symbol_metadata(symbol)
-            if symbol_md is not None:
+            for symbol_md in md.get_symbol_metadata(symbol):
                 symbols[symbol_md.name] = symbol_md
 
         logger.debug(

@@ -19,14 +19,13 @@ import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph, ioc_finder, settings
-from ..common import LoadContext, RecordInstance, WhatRecord
+from ..common import LoadContext, RecordInstance, StringWithContext, WhatRecord
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
-                     IocMetadata, PluginResults, PVGetInfo,
-                     PVGetMatchesResponse, PVRelationshipResponse,
-                     PVShortRelationshipResponse, ServerPluginSpec,
-                     TooManyRecordsError)
+                     IocMetadata, PVGetInfo, PVGetMatchesResponse,
+                     PVRelationshipResponse, PVShortRelationshipResponse,
+                     ServerPluginSpec, TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
@@ -75,7 +74,6 @@ class ServerState:
     container: ScriptContainer
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
-    plugin_data: Dict[str, Optional[PluginResults]]
     ioc_metadata: List[IocMetadata]
     _update_count: int
 
@@ -92,7 +90,6 @@ class ServerState:
         self.gateway_config = None
         self.gateway_config_path = gateway_config
         self.ioc_metadata = []
-        self.plugin_data = {}
         self.plugins = plugins or []
         self.script_relations = {}
         self.standin_directories = standin_directories or {}
@@ -299,12 +296,22 @@ class ServerState:
                 if not plugin.results:
                     continue
 
-                for md_key in plugin.results.record_to_metadata_keys.get(
-                    instance.name, []
-                ):
-                    plugin_md = plugin.results.metadata_by_key[md_key]
-                    plugin_matches = instance.metadata.setdefault(plugin.name, [])
-                    plugin_matches.append(plugin_md)
+                keys = plugin.results.record_to_metadata_keys.get(instance.name)
+                if not keys:
+                    continue
+
+                plugin_key = StringWithContext(plugin.name, context=())
+                try:
+                    instance.metadata[plugin_key] = [
+                        plugin.results.metadata_by_key[md_key]
+                        for md_key in keys
+                    ]
+                except KeyError:
+                    logger.exception(
+                        "Consistency error in plugin %s: missing metadata key(s) %r "
+                        "for record %s",
+                        plugin.name, keys, instance.name
+                    )
 
         return what
 
