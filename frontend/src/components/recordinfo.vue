@@ -3,7 +3,7 @@
   <!-- Available in {{ available_protocols }} -->
   <template v-for="([defn, instance], idx) in [[record_defn, record], [null, pva_group]]" :key="idx">
     <template v-if="instance != null">
-      <script-context-link :context="instance.context" :short="2"></script-context-link>
+      <script-context-link :context="instance.context" :short="0"></script-context-link>
       <br/>
       <epics-format-record
         :name="instance.name"
@@ -18,12 +18,12 @@
         :menus="whatrec.menus"
       />
 
-      <template v-for="plugin_name in plugins" :key="plugin_name">
-        <template v-for="plugin_match in instance.metadata[plugin_name] || []" :key="plugin_match">
+      <template v-for="plugin in plugins" :key="plugin.name">
+        <template v-for="plugin_match in instance.metadata[plugin.name] || []" :key="plugin_match">
           <details>
             <summary>
-              {{ plugin_name }} - {{ plugin_match.name }}
-              <router-link :to="`/${plugin_name}/${plugin_match.name}`">
+              {{ plugin.name }} - {{ plugin_match.name }}
+              <router-link :to="`/${plugin.name}/${plugin_match.name}`">
                 (Details)
               </router-link>
             </summary>

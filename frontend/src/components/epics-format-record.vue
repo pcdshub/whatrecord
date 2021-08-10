@@ -48,6 +48,11 @@
 <script>
 import EpicsFormatField from './epics-format-field.vue'
 import ScriptContextOneLink from './script-context-one-link.vue'
+import { plugins } from '../settings.js';
+
+const skip_keys = [
+  "asg", "gateway", "archived", "streamdevice"
+] + plugins.map(plugin => plugin.name);
 
 export default {
   name: 'EpicsFormatRecord',
@@ -70,7 +75,6 @@ export default {
   },
   computed: {
     info_nodes() {
-      const skip_keys = ["asg", "gateway", "archived", "happi", "streamdevice"];
       return Object.entries(this.metadata).filter(
         item => skip_keys.indexOf(item[0]) < 0
       );

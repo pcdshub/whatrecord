@@ -1,6 +1,20 @@
 <template>
   <template v-if="item_name">
     <h2>{{ item_name }} - Metadata</h2>
+    <dictionary-table
+      :dict="pytmc_item_info"
+      :cls="'metadata'"
+      :skip_keys="['_whatrecord']"
+      />
+
+    <h3>Related Records</h3>
+    <ul>
+      <li v-for="rec of related_records" :key="rec">
+        <router-link :to="`/whatrec/${rec}/${rec}`">
+          {{rec}}
+        </router-link>
+      </li>
+    </ul>
   </template>
   <template v-else>
     <DataTable
@@ -10,6 +24,8 @@
       filterDisplay="row"
       v-model:filters="filters"
       :globalFilterFields="['name', 'type', 'context']"
+      :paginator="true"
+      :rows="400"
     >
       <template #header>
         <div class="p-d-flex p-jc-between">
@@ -21,13 +37,13 @@
           </span>
         </div>
       </template>
-      <Column field="plc" header="PLC" :sortable="true">
+      <Column field="plc" header="PLC" :sortable="true" style="width: 10vw">
         <template #filter="{filterModel,filterCallback}">
           <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
             :placeholder="`Filter by PLC`" />
         </template>
       </Column>
-      <Column field="name" header="Name" :sortable="true">
+      <Column field="name" header="Name" :sortable="true" style="width: 40vw">
         <template #body="{data}">
           <router-link :to="`/twincat_pytmc/${data.full_name}`">{{data.name}}</router-link>
         </template>
@@ -36,7 +52,7 @@
             :placeholder="`Filter by name`" />
         </template>
       </Column>
-      <Column field="type" header="Type" :sortable="true">
+      <Column field="type" header="Type" :sortable="true" style="width: 15vw">
         <template #filter="{filterModel,filterCallback}">
           <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
             :placeholder="`Filter by type`" />
@@ -65,6 +81,7 @@ import InputText from 'primevue/inputtext';
 import {FilterMatchMode} from 'primevue/api';
 
 import ScriptContextLink from '../components/script-context-link.vue'
+import DictionaryTable from '../components/dictionary-table.vue'
 
 export default {
   name: 'TwincatPytmcView',
@@ -72,6 +89,7 @@ export default {
     Button,
     Column,
     DataTable,
+    DictionaryTable,
     InputText,
     ScriptContextLink,
   },
@@ -93,6 +111,26 @@ export default {
         };
       }
       return this.twincat_info.metadata_by_key[this.item_name];
+    },
+    record_to_metadata_keys() {
+      if (!this.info_ready) {
+        return {};
+      }
+      return this.twincat_info.record_to_metadata_keys || {};
+    },
+    related_records() {
+      if (!this.item_name) {
+        return [];
+      }
+      let records = [];
+      for (const [record, symbols] of Object.entries(this.record_to_metadata_keys)) {
+        for (const symbol of symbols) {
+          if (symbol == this.item_name) {
+            records.push(record);
+          }
+        }
+      }
+      return records;
     },
     symbols () {
       if (Object.keys(this.twincat_info).length == 0) {

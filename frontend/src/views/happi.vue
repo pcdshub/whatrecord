@@ -63,7 +63,7 @@
           </span>
         </div>
       </template>
-      <Column field="name" header="Name" :sortable="true">
+      <Column field="name" header="Name" :sortable="true" style="width: 12vw">
         <template #body="{data}">
           <router-link :to="`/happi/${data.name}`">{{data.name}}</router-link>
         </template>
@@ -72,7 +72,7 @@
             :placeholder="`Filter by name`" />
         </template>
       </Column>
-      <Column field="device_class" header="Class"> :sortable="true"
+      <Column field="device_class" header="Class" :sortable="true" style="width: 25vw">
         <template #body="{data}">
           <div class="tooltip">
             {{ data.device_class.split(".").slice(-1)[0] }}
@@ -99,7 +99,7 @@
             :placeholder="`Filter by prefix`" />
         </template>
       </Column>
-      <Column field="active" header="Active" :sortable="true">
+      <Column field="active" header="Active" :sortable="true" style="width: 10vw">
         <template #body="{data}">
           <i :class="['pi', data.active ? 'pi-check' : 'pi-times']" />
         </template>
@@ -114,6 +114,7 @@
         :field="col.field" :header="col.header"
         :key="col.field + '_' + index"
         :sortable="true"
+        :style="col.style"
         >
           <template #filter="{filterModel,filterCallback}">
             <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
@@ -245,12 +246,12 @@ export default {
         kwargs: {value: "", matchMode: FilterMatchMode.CONTAINS},
       };
       this.columns = [
-        {field: 'beamline', header: 'Beamline'},
-        {field: 'stand', header: 'Stand'},
-        {field: 'z', header: 'Z Location (m)'},
-        {field: 'last_edit', header: 'Last Edit'},
-        {field: 'args', header: 'Arguments'},
-        {field: 'kwargs', header: 'Keyword Arguments'},
+        {field: 'beamline', header: 'Beamline', style: 'width: 10vw' },
+        {field: 'stand', header: 'Stand', style: 'width: 10vw' },
+        {field: 'z', header: 'Z Location (m)', style: 'width: 10vw' },
+        {field: 'last_edit', header: 'Last Edit', style: 'width: 10vw' },
+        {field: 'args', header: 'Arguments', style: 'width: 15vw' },
+        {field: 'kwargs', header: 'Keyword Arguments', style: 'width: 15vw' },
       ]
       this.selected_columns = this.columns.slice(0, 2);
     },

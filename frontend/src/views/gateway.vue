@@ -3,6 +3,7 @@
     <DataTable
       :value="gateway_rows"
       dataKey="name"
+      class="p-datatable-sm"
       filterDisplay="row"
       v-model:filters="filters"
       :globalFilterFields="['pattern', 'full_command', 'error', 'file']"
