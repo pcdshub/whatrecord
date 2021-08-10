@@ -804,3 +804,29 @@ def time_context():
 def context_from_lark_token(fn: str, token: lark.Token) -> FullLoadContext:
     """Get a full load context from a given lark Token."""
     return (LoadContext(name=fn, line=token.line), )
+
+
+def remove_redundant_context(full_context: FullLoadContext) -> FullLoadContext:
+    """Remove redundant context information if it does not add anything."""
+    if not full_context:
+        return full_context
+
+    # Inefficient, but the data set is small here, so meh
+    zero_line_files = set(
+        item.name
+        for item in full_context
+        if item.line == 0
+    )
+
+    for file in set(zero_line_files):
+        for ctx in full_context:
+            if ctx.name == file and ctx.line > 0:
+                break
+        else:
+            zero_line_files.remove(file)
+
+    return tuple(
+        ctx
+        for ctx in full_context
+        if ctx.name not in zero_line_files or ctx.line > 0
+    )
