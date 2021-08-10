@@ -11,7 +11,7 @@
         <td class="key">{{ key }}</td>
 
         <td v-if="key == 'context'" class="value">
-          <script-context-link :context=value :short=true></script-context-link>
+          <script-context-link :context="value" :short="2"></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'" class="value">
           <dictionary-table

@@ -14,8 +14,11 @@
       <Button @click="do_search()" label="" icon="pi pi-search" :loading="searching" />
     </div>
   </div>
-  <DataTable :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
-      @rowSelect="on_table_selection" @rowUnselect="on_table_selection">
+  <DataTable
+    :value="table_data" v-model:selection="table_selection" selectionMode="multiple" dataKey="pv"
+    class="p-datatable-sm"
+    @rowSelect="on_table_selection" @rowUnselect="on_table_selection"
+  >
     <Column field="pv" :header="`Results`">
     </Column>
   </DataTable>
@@ -103,7 +106,7 @@ export default {
         }
       }
 
-      if (selected_records.length > 0) {
+      if (selected_records && selected_records.length > 0) {
           document.title = `WhatRecord? ${selected_records}`;
       } else {
           document.title = "WhatRecord?";

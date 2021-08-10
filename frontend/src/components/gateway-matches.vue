@@ -11,7 +11,7 @@
     <tbody>
       <tr v-for="(match, idx) in matches" :key="idx">
         <td>
-          <script-context-link :context="match.rule.context" :short="true" />
+          <script-context-link :context="match.rule.context" :short="2" />
         </td>
         <td>
           <router-link :to='{ name: "whatrec", params: { record_glob: match.rule.pattern }, query: { regex: "true" } }'>

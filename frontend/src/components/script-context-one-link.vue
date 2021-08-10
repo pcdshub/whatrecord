@@ -10,7 +10,7 @@ export default {
   props: {
     name: String,
     line: Number,
-    short: Boolean,
+    short: Number,
     link_text: String,
   },
   computed: {
@@ -21,10 +21,11 @@ export default {
       return `${this.display_name }:${this.line}`;
     },
     display_name() {
-      return (this.short ? this.short_name : this.name);
+      return (this.short > 0 ? this.short_name : this.name);
     },
     short_name() {
-      return this.name.replace(/^.*[\\/]/, '');
+      let parts = this.name.split("/");
+      return parts.slice(-this.short).join("/");
     },
     link() {
       return { name: 'file', params: { filename: this.name, line: this.line }};

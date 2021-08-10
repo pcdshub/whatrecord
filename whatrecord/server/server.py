@@ -236,12 +236,15 @@ class ServerState:
             # for record, md in info["record_to_metadata"].items():
             #     ...
 
-    def get_plugin_info(self) -> Dict[str, Any]:
-        """Get all plugin information as a dictionary."""
+    def get_plugin_info(self, allow_list: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Get plugin information as a dictionary."""
+        if allow_list is None:
+            allow_list = [plugin.name for plugin in self.plugins]
+
         return {
             plugin.name: plugin.results_json
             for plugin in self.plugins
-            if plugin.results
+            if plugin.name in allow_list and plugin.results
         }
 
     def _load_gateway_config(self):
@@ -575,7 +578,9 @@ class ServerHandler:
 
     @routes.get("/api/plugin/info")
     async def api_plugin_info(self, request: web.Request):
-        return serialized_response(self.state.get_plugin_info())
+        plugins = request.query.get("plugin", "all")
+        allow_list = None if plugins == "all" else plugins.split(" ")
+        return serialized_response(self.state.get_plugin_info(allow_list))
 
     @routes.get("/api/gateway/info")
     async def api_gateway_info(self, request: web.Request):
@@ -723,19 +728,31 @@ def _new_server_state(
     if not isinstance(standin_directory, dict):
         standin_directory = dict(path.split("=", 1) for path in standin_directory)
 
+    plugins = []
+    if "happi" in settings.PLUGINS:
+        plugins.append(
+            ServerPluginSpec(
+                name="happi",
+                module="whatrecord.plugins.happi",
+                executable=None,
+            )
+        )
+
+    if "twincat_pytmc" in settings.PLUGINS:
+        plugins.append(
+            ServerPluginSpec(
+                name="twincat_pytmc",
+                module="whatrecord.plugins.twincat_pytmc",
+                executable=None,
+            )
+        )
+
     return ServerState(
         startup_scripts=scripts,
         script_loaders=script_loader,
         standin_directories=standin_directory,
         gateway_config=gateway_config,
-        plugins=[
-            ServerPluginSpec(
-                name="happi",
-                module="whatrecord.plugins.happi",
-                executable=None,
-                # result_class=dict,
-            ),
-        ],
+        plugins=plugins,
     )
 
 

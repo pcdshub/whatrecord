@@ -192,7 +192,17 @@ class PytmcPluginResults(PluginResults):
                 results = single
             else:
                 results.merge(single)
-        return results
+
+        if results is not None:
+            return results
+
+        return PytmcPluginResults(
+            files_to_monitor={},
+            record_to_metadata_keys={},
+            metadata_by_key={},
+            metadata=None,
+            execution_info={"result": "No PLCs found."},
+        )
 
 
 @dataclass
@@ -782,7 +792,7 @@ class PlcMetadata:
 
             return PlcSymbolMetadata(
                 context=tuple(context),
-                name=symbol.name,
+                name=annotated_name,
                 type=symbol.data_type.name,
             )
 
@@ -833,7 +843,7 @@ class PlcMetadata:
         for symbol in sorted(all_symbols, key=by_name):
             symbol_md = md.get_symbol_metadata(symbol)
             if symbol_md is not None:
-                symbols[symbol.name] = symbol_md
+                symbols[symbol_md.name] = symbol_md
 
         logger.debug(
             "%s: Found %d symbols (%d generated metadata)",
@@ -930,7 +940,6 @@ async def _cli_main():
     json_results = apischema.serialize(whatrecord_results)
     dump_args = {"indent": 4} if args.pretty else {}
     print(json.dumps(json_results, sort_keys=True, **dump_args))
-    return results
 
 
 def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):

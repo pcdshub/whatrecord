@@ -4,11 +4,12 @@ import WhatRec from './views/whatrec.vue';
 import ScriptView from './views/script-view.vue';
 import IocView from './views/iocs.vue';
 import HappiView from './views/happi.vue';
+import TwincatPytmcView from './views/twincat_pytmc.vue';
 import ServerLogView from './views/logs.vue';
 import PVRelationsView from './views/pv_relations.vue';
 import GatewayView from './views/gateway.vue';
 
-import { happi_enabled } from './settings.js';
+import { happi_enabled, twincat_pytmc_enabled } from './settings.js';
 
 
 let routes = [
@@ -57,6 +58,21 @@ if (happi_enabled) {
             name: 'happi',
             path: '/happi/:item_name?',
             component: HappiView,
+            props: route => (
+                {
+                    item_name: route.params.item_name || null,
+                }
+            )
+        },
+    )
+}
+
+if (twincat_pytmc_enabled) {
+    routes.push(
+        {
+            name: 'twincat_pytmc',
+            path: '/twincat_pytmc/:item_name?',
+            component: TwincatPytmcView,
             props: route => (
                 {
                     item_name: route.params.item_name || null,

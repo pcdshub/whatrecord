@@ -19,7 +19,7 @@ export default {
   name: 'ScriptContextLink',
   props: {
     context: Array,
-    short: Boolean
+    short: Number
   },
   components: {
     ScriptContextOneLink

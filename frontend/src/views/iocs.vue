@@ -1,11 +1,13 @@
 <template>
   <div id="iocs-contents">
     <div id="iocs-left" class="column">
-      <DataTable id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
-          selectionMode="multiple" @rowSelect="new_ioc_selection"
-          :paginator="true" :rows="300" v-model:filters="ioc_filters"
-          filterDisplay="row" :globalFilterFields="['name', 'host', 'port', 'description', 'base_version']"
-          >
+      <DataTable
+        id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
+        class="p-datatable-sm"
+        selectionMode="multiple" @rowSelect="new_ioc_selection"
+        :paginator="true" :rows="300" v-model:filters="ioc_filters"
+        filterDisplay="row" :globalFilterFields="['name', 'host', 'port', 'description', 'base_version']"
+      >
         <template #header>
           <div class="p-d-flex p-jc-between">
             <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_ioc_filters()"/>
@@ -35,9 +37,12 @@
         </details>
       </template>
 
-      <DataTable :value="record_list" dataKey="record.name"
-          :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
-          :globalFilterFields="['record.name', 'record.record_type']">
+      <DataTable
+        :value="record_list" dataKey="record.name"
+        class="p-datatable-sm"
+        :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
+        :globalFilterFields="['record.name', 'record.record_type']"
+      >
         <template #header>
           <div class="p-d-flex p-jc-between">
             <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_record_filters()"/>

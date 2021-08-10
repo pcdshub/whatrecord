@@ -48,8 +48,8 @@ export const store = createStore({
     set_gateway_info (state, { gateway_info }) {
       state.gateway_info = gateway_info;
     },
-    set_plugin_info (state, { plugin_info }) {
-      state.plugin_info = plugin_info;
+    set_plugin_info (state, { plugin_name, plugin_info }) {
+      state.plugin_info[plugin_name] = plugin_info;
     },
     add_record_info (state, { record, info }) {
       state.record_info[record] = info;
@@ -91,11 +91,18 @@ export const store = createStore({
       }
     },
 
-    async update_plugin_info ({commit}) {
+    async update_plugin_info ({ commit }, { plugin }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/plugin/info`, {})
-        await commit("set_plugin_info", {plugin_info: response.data});
+        const response = await axios.get(
+            `/api/plugin/info`,
+            {
+                params: {
+                    plugin: plugin
+                }
+            }
+        )
+        await commit("set_plugin_info", {plugin_info: response.data[plugin], plugin_name: plugin });
         return response.data;
       } catch (error) {
         console.error(error);

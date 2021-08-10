@@ -3,7 +3,7 @@
   <!-- Available in {{ available_protocols }} -->
   <template v-for="([defn, instance], idx) in [[record_defn, record], [null, pva_group]]" :key="idx">
     <template v-if="instance != null">
-      <script-context-link :context="instance.context" :short=false></script-context-link>
+      <script-context-link :context="instance.context" :short="2"></script-context-link>
       <br/>
       <epics-format-record
         :name="instance.name"

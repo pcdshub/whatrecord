@@ -37,12 +37,13 @@
   </template>
   <template v-else>
     <DataTable
-        id="happi_table"
-        :value="happi_items"
-        dataKey="name"
-        filterDisplay="row"
-        v-model:filters="filters"
-        :globalFilterFields="global_filter_fields"
+      id="happi_table"
+      class="p-datatable-sm"
+      :value="happi_items"
+      dataKey="name"
+      filterDisplay="row"
+      v-model:filters="filters"
+      :globalFilterFields="global_filter_fields"
     >
       <template #header>
         <div class="p-d-flex p-jc-between">
@@ -206,7 +207,7 @@ export default {
     },
     ...mapState({
       happi_info_ready (state) {
-        return Object.keys(state.plugin_info).length > 0;
+        return Object.keys(state.plugin_info.happi || {}).length > 0;
       },
       happi_info (state) {
         if (!state.plugin_info) {
@@ -225,7 +226,7 @@ export default {
   },
   mounted() {
     if (!this.happi_info_ready) {
-        this.$store.dispatch("update_plugin_info");
+        this.$store.dispatch("update_plugin_info", { plugin: "happi" });
     }
   },
   methods: {
