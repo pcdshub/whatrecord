@@ -2,10 +2,16 @@
 TwinCAT / pytmc whatrecord plugin
 
 Match your TwinCAT project symbols to EPICS records.
+
+Set ``project`` to generate metadata for one particular PLC project.
+
+Alternatively, the plugin will query WHATRECORD_SERVER for all IOCs and attempt
+to find ads-ioc-based IOCs with associated TwinCAT projects.
 """
 from __future__ import annotations
 
 import argparse
+import asyncio
 import collections
 import distutils.version
 import functools
@@ -24,8 +30,8 @@ import lark
 import pytmc
 import pytmc.code
 
-from .. import settings, transformer
-from ..common import FullLoadContext, LoadContext
+from .. import client, settings, transformer
+from ..common import AnyPath, FullLoadContext, IocMetadata, LoadContext
 from ..server.common import PluginResults
 
 # from ..util import get_file_sha256
@@ -37,7 +43,9 @@ logger = logging.getLogger(__name__)
 DESCRIPTION = __doc__.strip()
 
 
-def get_tsprojects_from_filename(filename):
+def get_tsprojects_from_filename(
+    filename: AnyPath,
+) -> Tuple[pathlib.Path, List[pytmc.parser.TwincatItem]]:
     """
     From a TwinCAT solution (.sln) or .tsproj, return all tsproj projects.
 
@@ -836,16 +844,21 @@ class PlcMetadata:
     @classmethod
     def from_project_filename(
         cls,
-        project: str,
+        project: AnyPath,
         include_dependencies: bool = True,
-        include_symbols: bool = True
+        include_symbols: bool = True,
+        plc_whitelist: Optional[List[str]] = None,
     ) -> Generator[PlcMetadata, None, None]:
+        """Given a project/solution filename, get all PlcMetadata."""
         solution_path, projects = get_tsprojects_from_filename(project)
         logger.debug("Solution path %s projects %s", solution_path, projects)
         for tsproj_project in projects:
             logger.debug("Found tsproj %s", tsproj_project.name)
             parsed_tsproj = pytmc.parser.parse(tsproj_project)
             for plc_name, plc in parsed_tsproj.plcs_by_name.items():
+                if plc_whitelist and plc_name not in plc_whitelist:
+                    continue
+
                 logger.debug("Found plc project %s", plc_name)
                 plc_md = cls.from_pytmc(
                     plc, include_dependencies=include_dependencies,
@@ -855,24 +868,68 @@ class PlcMetadata:
                     yield plc_md
 
 
+MAKEFILE_VAR_RE = re.compile(r"^([A-Z_][A-Z0-9_]+)\s*:?=\s*(.*)$", re.IGNORECASE | re.MULTILINE)
+
+
+def get_project_from_ioc(md: IocMetadata) -> Optional[Tuple[pathlib.Path, str]]:
+    """Get the TwinCAT Project from a provided ads-ioc IocMetadata."""
+    makefile_path = md.script.parent / "Makefile"
+
+    try:
+        with open(makefile_path, "rt") as fp:
+            contents = fp.read()
+    except FileNotFoundError:
+        return
+
+    variables = dict(MAKEFILE_VAR_RE.findall(contents))
+    logger.debug("IOC: %s Makefile variables: %s", md.name, variables)
+    try:
+        plc_name = variables["PLC"]
+        project_path = variables["PROJECT_PATH"]
+    except KeyError:
+        return None
+
+    project_path = (md.script.parent / project_path).resolve()
+    if not project_path.exists():
+        logger.debug("Project path doesn't exist: %s", project_path)
+        return
+
+    return project_path, plc_name
+
+
 # @suppress_output_decorator
-def main(project: str, pretty: bool = False, verbose: bool = False):
+async def main(
+    project: str,
+    server: Optional[str] = None,
+    pretty: bool = False,
+    verbose: bool = False,
+) -> List[PlcMetadata]:
     if verbose:
         logging.basicConfig(level="DEBUG")
         logging.getLogger("parso").setLevel("WARNING")
-    return list(PlcMetadata.from_project_filename(project))
+
+    if project is not None:
+        return list(PlcMetadata.from_project_filename(project))
+
+    results = []
+    ioc_info = await client.get_iocs(server=server)
+    for md in ioc_info.matches:
+        project_info = get_project_from_ioc(md)
+        if project_info is not None:
+            project, plc_name = project_info
+            plc_md = list(PlcMetadata.from_project_filename(project, plc_whitelist=[plc_name]))
+            results.extend(plc_md)
+    return results
 
 
-def _cli_main():
+async def _cli_main():
     parser = _get_argparser()
     args = parser.parse_args()
-    results = main(**vars(args))
-
+    results = await main(**vars(args))
     whatrecord_results = PytmcPluginResults.from_metadata_items(results)
     json_results = apischema.serialize(whatrecord_results)
-    if False:
-        dump_args = {"indent": 4} if args.pretty else {}
-        print(json.dumps(json_results, sort_keys=True, **dump_args))
+    dump_args = {"indent": 4} if args.pretty else {}
+    print(json.dumps(json_results, sort_keys=True, **dump_args))
     return results
 
 
@@ -881,11 +938,13 @@ def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):
         parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        "project", help="TwinCAT Project to parse"
+        "project",
+        nargs="?",
+        help="TwinCAT Project to parse"
     )
-    # parser.add_argument(
-    #     "--server", help="WhatRecord API server URL"
-    # )
+    parser.add_argument(
+        "--server", help="WhatRecord API server URL"
+    )
     parser.add_argument(
         "-p", "--pretty", action="store_true", help="Pretty JSON output"
     )
@@ -896,4 +955,4 @@ def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):
 
 
 if __name__ == "__main__":
-    results = _cli_main()
+    results = asyncio.run(_cli_main())

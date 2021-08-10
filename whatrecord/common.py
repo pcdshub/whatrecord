@@ -44,6 +44,7 @@ def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
 # FullLoadContext = Tuple[LoadContext, ...]
 FullLoadContext = List[LoadContext]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
+AnyPath = Union[str, pathlib.Path]
 
 
 @dataclass(repr=False)

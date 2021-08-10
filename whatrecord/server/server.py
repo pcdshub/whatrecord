@@ -3,6 +3,7 @@ import collections
 import fnmatch
 import functools
 import logging
+import os
 import re
 import tempfile
 
@@ -746,6 +747,10 @@ def _new_server(
     """Create a new aiohttp Application for the given ServerHandler."""
     app = web.Application()
     add_routes(app, handler)
+
+    # Set the environment variable for plugins or subprocesses to be able to
+    # query the server.
+    os.environ["WHATRECORD_SERVER"] = f"http://localhost:{port}"
 
     app.on_startup.append(handler.async_init)
     if run:
