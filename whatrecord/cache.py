@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 import pathlib
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from typing import Any, ClassVar, Mapping, Optional, Sequence, Type, TypeVar
 
 import apischema
@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 class CacheKey:
     def _to_cache_key_part(self, obj: Any) -> str:
         """Take an arbitrary value from the CacheKey and make a string out of it."""
+        if is_dataclass(obj):
+            obj = asdict(obj)
         if isinstance(obj, Mapping):
             return "_".join(self._to_cache_key_part(part) for part in sorted(obj.items()))
         if isinstance(obj, Sequence) and not isinstance(obj, (bytes, str)):
@@ -47,33 +49,10 @@ class CacheKey:
 _CacheKeyType = Type[CacheKey]
 
 
-@dataclass
-class Cached:
-    """
-    A generic dataclass that can be cached in ``WHATRECORD_CACHE_PATH``.
-
-    Expects to be subclassed and configured with a CacheKey subclass.
-    """
-    key: CacheKey
+class _Cached:
     _cache_path_: ClassVar[pathlib.Path]
     _cache_version_: ClassVar[int]
     CacheKey: ClassVar[_CacheKeyType]
-
-    def __init_subclass__(
-        cls,
-        key: Optional[_CacheKeyType] = None,
-        version: int = 1,
-        cache_path: Optional[AnyPath] = None,
-    ):
-        if key is None or not inspect.isclass(key) or not is_dataclass(key):
-            raise RuntimeError(
-                f"{cls.__name__} should be defined with a keyword argument 'key'; "
-                f"such as `class {cls.__name__}(Cached, key=CacheKeyClass):"
-            )
-
-        cls._cache_version_ = version
-        cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
-        cls.__annotations__["key"] = key
 
     @classmethod
     def _get_cache_filename(cls, key: CacheKey):
@@ -125,3 +104,66 @@ class Cached:
             return False
 
         return True
+
+
+@dataclass
+class Cached(_Cached):
+    """
+    A generic dataclass that can be cached in ``WHATRECORD_CACHE_PATH``.
+
+    Expects to be subclassed and configured with a CacheKey subclass.
+    """
+
+    key: CacheKey = field(metadata=apischema.metadata.skip)
+
+    def __init_subclass__(
+        cls,
+        key: Optional[_CacheKeyType] = None,
+        version: int = 1,
+        cache_path: Optional[AnyPath] = None,
+    ):
+        if key is None or not inspect.isclass(key) or not is_dataclass(key):
+            raise RuntimeError(
+                f"{cls.__name__} should be defined with a keyword argument 'key'; "
+                f"such as `class {cls.__name__}(Cached, key=CacheKeyClass):"
+            )
+
+        cls._cache_version_ = version
+        cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
+        cls.__annotations__["key"] = key
+        cls.CacheKey = key
+
+
+@dataclass
+class InlineCached(_Cached):
+    """
+    A generic dataclass that can be cached in ``WHATRECORD_CACHE_PATH``.
+
+    Expects to be subclassed and mixed in with a CacheKey subclass.
+    """
+
+    def __init_subclass__(
+        cls,
+        version: int = 1,
+        cache_path: Optional[AnyPath] = None,
+    ):
+        for supercls in cls.mro():
+            if issubclass(supercls, CacheKey) and supercls is not CacheKey:
+                cls.CacheKey = supercls
+                break
+        else:
+            raise RuntimeError(
+                f"{cls.__name__} should be defined as a subclass of a CacheKey"
+            )
+
+        cls._cache_version_ = version
+        cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
+
+    @property
+    def key(self) -> CacheKey:
+        """An auto-generated CacheKey based on this dataclass's attributes."""
+        kwargs = {
+            field.name: getattr(self, field.name)
+            for field in fields(self.CacheKey)
+        }
+        return self.CacheKey(**kwargs)
