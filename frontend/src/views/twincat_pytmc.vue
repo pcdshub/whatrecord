@@ -27,7 +27,7 @@
           v-model:selection="selected_plc"
           @rowSelect="push_route"
           selectionMode="single"
-          :globalFilterFields="['name']"
+          :globalFilterFields="['plc']"
         >
           <Column field="plc" header="PLC" :sortable="true" />
         </DataTable>
@@ -37,7 +37,6 @@
           :value="plc_dependencies"
           class="p-datatable-sm"
           dataKey="name"
-          filterDisplay="row"
         >
           <Column field="name" header="Name" />
           <Column field="vendor" header="Vendor" />
@@ -209,7 +208,7 @@ export default {
     },
 
     plc_dependencies() {
-      return this.plc_info?.metadata?.dependencies ?? [];
+      return Object.values(this.plc_info?.metadata?.dependencies || {});
     },
 
     ...mapState({
@@ -259,15 +258,19 @@ export default {
   },
   methods: {
     async from_params() {
+      const route_params = this.$route.params;
       const route_query = this.$route.query;
-      const plc = route_query.plc || "";
-      // const item_name = route_query.item_name || "";
+      const item_plc = route_params.item_name?.split(":")[0];
+      const plc = item_plc || route_query.plc;
+
       if (plc) {
         await this.$store.dispatch("get_plugin_nested_info", {
           plugin: "twincat_pytmc",
           key: plc,
         });
-        this.selected_plc = { plc: plc };
+        if (this.selected_plc_name != plc) {
+          this.selected_plc = { plc: plc };
+        }
       }
     },
 
@@ -285,9 +288,11 @@ export default {
     },
     push_route() {
       this.$router.push({
+        params: {
+          item_name: this.item_name ?? "",
+        },
         query: {
           plc: this.selected_plc_name,
-          item_name: this.item_name,
         },
       });
     },
