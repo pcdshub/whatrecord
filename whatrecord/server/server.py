@@ -91,6 +91,10 @@ class ServerState:
         self.gateway_config_path = gateway_config
         self.ioc_metadata = []
         self.plugins = plugins or []
+        self.plugins_by_name = {
+            plugin.name: plugin
+            for plugin in plugins
+        }
         self.script_relations = {}
         self.standin_directories = standin_directories or {}
         self.tasks = TaskHandler()
@@ -244,6 +248,16 @@ class ServerState:
             if plugin.name in allow_list and plugin.results
         }
 
+    def get_plugin_nested_keys(self, plugin_name: str) -> List[str]:
+        """Get plugin custom nested metadata keys."""
+        plugin = self.plugins_by_name[plugin_name]
+        return list(plugin.results.nested) if plugin.results else []
+
+    def get_plugin_nested_info(self, plugin_name: str, key: str) -> Any:
+        """Get plugin custom nested metadata info."""
+        results = self.plugins_by_name[plugin_name].results
+        return results.nested[key] if results else {}
+
     def _load_gateway_config(self):
         if not self.gateway_config_path:
             logger.warning(
@@ -296,22 +310,10 @@ class ServerState:
                 if not plugin.results:
                     continue
 
-                keys = plugin.results.record_to_metadata_keys.get(instance.name)
-                if not keys:
-                    continue
-
-                plugin_key = StringWithContext(plugin.name, context=())
-                try:
-                    instance.metadata[plugin_key] = [
-                        plugin.results.metadata_by_key[md_key]
-                        for md_key in keys
-                    ]
-                except KeyError:
-                    logger.exception(
-                        "Consistency error in plugin %s: missing metadata key(s) %r "
-                        "for record %s",
-                        plugin.name, keys, instance.name
-                    )
+                info = list(plugin.results.find_record_metadata(instance.name))
+                if info:
+                    plugin_key = StringWithContext(plugin.name, context=())
+                    instance.metadata[plugin_key] = info
 
         return what
 
@@ -588,6 +590,25 @@ class ServerHandler:
         plugins = request.query.get("plugin", "all")
         allow_list = None if plugins == "all" else plugins.split(" ")
         return serialized_response(self.state.get_plugin_info(allow_list))
+
+    @routes.get("/api/plugin/nested/keys")
+    async def api_plugin_nested_keys(self, request: web.Request):
+        try:
+            plugin = request.query["plugin"]
+            keys = self.state.get_plugin_nested_keys(plugin)
+        except KeyError:
+            raise web.HTTPBadRequest()
+        return serialized_response(keys)
+
+    @routes.get("/api/plugin/nested/info")
+    async def api_plugin_nested_info(self, request: web.Request):
+        try:
+            plugin = request.query["plugin"]
+            key = request.query["key"]
+            info = self.state.get_plugin_nested_info(plugin, key)
+        except KeyError:
+            raise web.HTTPBadRequest()
+        return serialized_response(info)
 
     @routes.get("/api/gateway/info")
     async def api_gateway_info(self, request: web.Request):

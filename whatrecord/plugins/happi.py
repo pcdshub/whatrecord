@@ -331,7 +331,6 @@ def main(search_criteria: str, pretty: bool = False):
             item["name"]: dict(item)
             for item in dict(client).values()
         },
-        metadata=None,
         execution_info={},
     )
 

@@ -12,6 +12,7 @@ export const store = createStore({
       ioc_to_records: {},
       file_info: {},
       plugin_info: {},
+      plugin_nested_info: {},
       gateway_info: null,
       pv_relations: {},
       queries_in_progress: 0,
@@ -50,6 +51,24 @@ export const store = createStore({
     },
     set_plugin_info (state, { plugin_name, plugin_info }) {
       state.plugin_info[plugin_name] = plugin_info;
+    },
+    set_plugin_nested_keys (state, { plugin_name, keys }) {
+      if ((plugin_name in state.plugin_nested_info) === false) {
+        state.plugin_nested_info[plugin_name] = {
+            keys: null,
+            info: {},
+        };
+      }
+      state.plugin_nested_info[plugin_name].keys = keys;
+    },
+    set_plugin_nested_info (state, { plugin_name, key, info }) {
+      if ((plugin_name in state.plugin_nested_info) === false) {
+        state.plugin_nested_info[plugin_name] = {
+            keys: [],
+            info: {},
+        };
+      }
+      state.plugin_nested_info[plugin_name].info[key] = info;
     },
     add_record_info (state, { record, info }) {
       state.record_info[record] = info;
@@ -103,6 +122,47 @@ export const store = createStore({
             }
         )
         await commit("set_plugin_info", {plugin_info: response.data[plugin], plugin_name: plugin });
+        return response.data;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
+    },
+
+    async get_plugin_nested_keys ({ commit }, { plugin }) {
+      try {
+        await commit("start_query");
+        const response = await axios.get(
+            `/api/plugin/nested/keys`,
+            {
+                params: {
+                    plugin: plugin
+                }
+            }
+        )
+        await commit("set_plugin_nested_keys", {plugin_name: plugin, keys: response.data });
+        return response.data;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
+    },
+
+    async get_plugin_nested_info ({ commit }, { plugin, key }) {
+      try {
+        await commit("start_query");
+        const response = await axios.get(
+            `/api/plugin/nested/info`,
+            {
+                params: {
+                    plugin: plugin,
+                    key: key
+                }
+            }
+        )
+        await commit("set_plugin_nested_info", {plugin_name: plugin, key: key, info: response.data });
         return response.data;
       } catch (error) {
         console.error(error);

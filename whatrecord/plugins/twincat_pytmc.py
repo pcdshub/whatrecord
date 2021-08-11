@@ -163,24 +163,30 @@ def get_declarations_code_from_source(source: str) -> Tuple[str, int, str]:
 
 @dataclass
 class PytmcPluginResults(PluginResults):
-    # Could potentially further specify metadata_by_key or metadata
-
     def merge(self, results: PytmcPluginResults) -> None:
         self.files_to_monitor.update(results.files_to_monitor)
         self.record_to_metadata_keys.update(results.record_to_metadata_keys)
         self.metadata_by_key.update(results.metadata_by_key)
         self.execution_info.update(results.execution_info)
+        self.nested.update(results.nested)
 
     @classmethod
     def from_metadata(cls, md: PlcMetadata) -> PytmcPluginResults:
-        return PytmcPluginResults(
+        plc_results = PytmcPluginResults(
             files_to_monitor=md.loaded_files,
             record_to_metadata_keys={
                 rec: [sym] for rec, sym in md.record_to_symbol.items()
             },
             metadata_by_key=md.symbols,
-            metadata=None,
+            metadata={
+                "dependencies": md.dependencies,
+            },
             execution_info={},
+        )
+        return PytmcPluginResults(
+            nested={
+                md.name: plc_results
+            }
         )
 
     @classmethod
@@ -202,7 +208,6 @@ class PytmcPluginResults(PluginResults):
             files_to_monitor={},
             record_to_metadata_keys={},
             metadata_by_key={},
-            metadata=None,
             execution_info={"result": "No PLCs found."},
         )
 
