@@ -33,14 +33,16 @@
         </DataTable>
       </div>
       <div id="right" class="column">
-        <details>
-          <summary>Dependencies</summary>
-          <dictionary-table
-            :dict="plc_dependencies"
-            :cls="'metadata'"
-            :skip_keys="[]"
-            />
-        </details>
+        <DataTable
+          :value="plc_dependencies"
+          class="p-datatable-sm"
+          dataKey="name"
+          filterDisplay="row"
+        >
+        <Column field="name" header="Name" />
+        <Column field="vendor" header="Vendor" />
+        <Column field="version" header="Version" />
+        </DataTable>
         <br />
 
         <DataTable
@@ -256,7 +258,7 @@ export default {
 #contents {
   display: flex;
   flex-direction: row;
-  height: 94vh;
+  height: 93vh;
   justify-content: flex-start;
   overflow-y: scroll;
 }
