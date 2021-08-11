@@ -15,6 +15,21 @@
         </router-link>
       </li>
     </ul>
+
+    <h3>PLC Information</h3>
+    Part of <router-link :to="{ name: 'twincat_pytmc', query: { plc: selected_item_plc } }">
+      {{ selected_item_plc }}
+    </router-link>
+    <h4>Dependencies</h4>
+    <DataTable
+      :value="plc_dependencies"
+      class="p-datatable-sm"
+      dataKey="name"
+    >
+      <Column field="name" header="Name" />
+      <Column field="vendor" header="Vendor" />
+      <Column field="version" header="Version" />
+    </DataTable>
   </template>
   <template v-else>
     <div id="contents">
@@ -161,6 +176,10 @@ export default {
     };
   },
   computed: {
+    selected_item_plc() {
+      return this.item_name?.split(":")[0] ?? "";
+    },
+
     selected_plc_name() {
       return this.selected_plc ? this.selected_plc.plc : "";
     },
