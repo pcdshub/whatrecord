@@ -35,8 +35,8 @@ from .. import client, settings, transformer
 from ..common import (AnyPath, FullLoadContext, IocMetadata, LoadContext,
                       remove_redundant_context)
 from ..server.common import PluginResults
+from ..util import get_file_sha256, read_text_file_with_hash
 
-# from ..util import get_file_sha256
 # from .util import suppress_output_decorator
 
 logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ class PytmcPluginResults(PluginResults):
     @classmethod
     def from_metadata(cls, md: PlcMetadata) -> PytmcPluginResults:
         return PytmcPluginResults(
-            files_to_monitor={},
+            files_to_monitor=md.loaded_files,
             record_to_metadata_keys={
                 rec: [sym] for rec, sym in md.record_to_symbol.items()
             },
@@ -222,8 +222,10 @@ class DataType:
 @dataclass
 class PlcCode:
     name: str
+    filename: str
     context: FullLoadContext
     declarations: Dict[str, Declaration]
+    hash: str
 
     @classmethod
     def from_pytmc(cls, code_obj: pytmc.parser.TwincatItem) -> PlcCode:
@@ -252,8 +254,10 @@ class PlcCode:
 
         return cls(
             name=str(code_obj.name),
+            filename=str(code_obj.filename),
             context=(LoadContext(str(code_obj.filename), 0), ),
             declarations=md_declarations,
+            hash=get_file_sha256(code_obj.filename),
         )
 
     @classmethod
@@ -711,6 +715,7 @@ class PlcMetadata:
     code: Dict[str, PlcCode]
     symbols: Dict[str, PlcSymbolMetadata]
     record_to_symbol: Dict[str, str]
+    loaded_files: Dict[str, str]
     dependencies: Dict[str, Dependency]
 
     def find_declaration_from_symbol(self, name: str) -> Optional[Declaration]:
@@ -808,6 +813,7 @@ class PlcMetadata:
         plc: pytmc.parser.Plc,
         include_dependencies: bool = True,
         include_symbols: bool = True,
+        loaded_files: Optional[Dict[str, str]] = None,
     ) -> PlcMetadata:
         """Create a PlcMetadata instance from a pytmc-parsed one."""
         tmc = plc.tmc
@@ -815,6 +821,7 @@ class PlcMetadata:
             logger.debug("%s: No TMC file for symbols; skipping...", plc.name)
             return
 
+        loaded_files = dict(loaded_files or {})
         code = {}
         deps = {}
         symbols = {}
@@ -824,10 +831,12 @@ class PlcMetadata:
             for resolution, proj in store.get_dependencies(plc):
                 code.update(proj.code)
                 deps.update(proj.dependencies)
+                loaded_files.update(proj.loaded_files)
                 deps[resolution.name] = resolution
 
         for code_obj in PlcCode.from_pytmc_plc(plc):
             code[code_obj.name] = code_obj
+            loaded_files[code_obj.filename] = code_obj.hash
 
         md = cls(
             name=plc.name,
@@ -836,6 +845,7 @@ class PlcMetadata:
             symbols=symbols,
             record_to_symbol={},
             dependencies=deps,
+            loaded_files=loaded_files,
         )
 
         if not include_symbols:
@@ -863,8 +873,10 @@ class PlcMetadata:
         include_dependencies: bool = True,
         include_symbols: bool = True,
         plc_whitelist: Optional[List[str]] = None,
+        loaded_files: Optional[Dict[str, str]] = None,
     ) -> Generator[PlcMetadata, None, None]:
         """Given a project/solution filename, get all PlcMetadata."""
+        loaded_files = dict(loaded_files or {})
         solution_path, projects = get_tsprojects_from_filename(project)
         logger.debug("Solution path %s projects %s", solution_path, projects)
         for tsproj_project in projects:
@@ -877,7 +889,8 @@ class PlcMetadata:
                 logger.debug("Found plc project %s", plc_name)
                 plc_md = cls.from_pytmc(
                     plc, include_dependencies=include_dependencies,
-                    include_symbols=include_symbols
+                    include_symbols=include_symbols,
+                    loaded_files=loaded_files,
                 )
                 if plc_md is not None:
                     yield plc_md
@@ -886,17 +899,19 @@ class PlcMetadata:
 MAKEFILE_VAR_RE = re.compile(r"^([A-Z_][A-Z0-9_]+)\s*:?=\s*(.*)$", re.IGNORECASE | re.MULTILINE)
 
 
-def get_project_from_ioc(md: IocMetadata) -> Optional[Tuple[pathlib.Path, str]]:
-    """Get the TwinCAT Project from a provided ads-ioc IocMetadata."""
-    makefile_path = md.script.parent / "Makefile"
-
+def get_ioc_makefile(md: IocMetadata) -> Optional[Tuple[str, str, pathlib.Path]]:
+    """Get the IOC Makefile contents, if available."""
+    makefile_path = (md.script.parent / "Makefile").resolve()
     try:
-        with open(makefile_path, "rt") as fp:
-            contents = fp.read()
+        sha, contents = read_text_file_with_hash(makefile_path)
+        return sha, contents, makefile_path
     except FileNotFoundError:
         return
 
-    variables = dict(MAKEFILE_VAR_RE.findall(contents))
+
+def get_project_from_ioc(md: IocMetadata, makefile: str) -> Optional[Tuple[pathlib.Path, str]]:
+    """Get the TwinCAT Project from a provided ads-ioc IocMetadata and Makefile contents."""
+    variables = dict(MAKEFILE_VAR_RE.findall(makefile))
     logger.debug("IOC: %s Makefile variables: %s", md.name, variables)
     try:
         plc_name = variables["PLC"]
@@ -929,10 +944,22 @@ async def main(
     results = []
     ioc_info = await client.get_iocs(server=server)
     for md in ioc_info.matches:
-        project_info = get_project_from_ioc(md)
+        makefile_info = get_ioc_makefile(md)
+        if makefile_info is None:
+            continue
+
+        makefile_hash, makefile_contents, makefile_path = makefile_info
+        project_info = get_project_from_ioc(md, makefile_contents)
         if project_info is not None:
+            loaded_files = {str(makefile_path): makefile_hash}
             project, plc_name = project_info
-            plc_md = list(PlcMetadata.from_project_filename(project, plc_whitelist=[plc_name]))
+            plc_md = list(
+                PlcMetadata.from_project_filename(
+                    project,
+                    plc_whitelist=[plc_name],
+                    loaded_files=loaded_files,
+                )
+            )
             results.extend(plc_md)
     return results
 
