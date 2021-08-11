@@ -2,35 +2,37 @@
   <dictionary-table
     :dict="ioc_info"
     :cls="'metadata'"
-    :skip_keys="['commands', 'variables', 'loaded_files']">
+    :skip_keys="['commands', 'variables', 'loaded_files']"
+  >
   </dictionary-table>
 
   <template v-if="file_list.length">
     <br />
-    Files loaded by {{ ioc_info.name }}: <br/>
+    Files loaded by {{ ioc_info.name }}: <br />
 
     <DataTable :value="file_list" dataKey="name">
       <Column field="name" header="File name">
-        <template #body="{data}">
-          <router-link :to="{ name: 'file', params: { filename: data.name, line: 0 } }">
-            {{data.name}}
+        <template #body="{ data }">
+          <router-link
+            :to="{ name: 'file', params: { filename: data.name, line: 0 } }"
+          >
+            {{ data.name }}
           </router-link>
         </template>
       </Column>
-      <Column field="hash" header="Hash">
-      </Column>
+      <Column field="hash" header="Hash"> </Column>
     </DataTable>
   </template>
 </template>
 
 <script>
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
 
-import DictionaryTable from './dictionary-table.vue'
+import DictionaryTable from "./dictionary-table.vue";
 
 export default {
-  name: 'IocInfo',
+  name: "IocInfo",
   components: {
     Column,
     DataTable,
@@ -38,11 +40,10 @@ export default {
   },
   props: ["ioc_info"],
   data() {
-    return {
-    }
+    return {};
   },
   computed: {
-    file_list () {
+    file_list() {
       let files = [];
       if (!this.ioc_info) {
         return files;
@@ -55,12 +56,8 @@ export default {
       }
       return files;
     },
-
   },
-
-}
+};
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

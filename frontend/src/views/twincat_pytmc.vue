@@ -5,13 +5,13 @@
       :dict="pytmc_item_info"
       :cls="'metadata'"
       :skip_keys="['_whatrecord']"
-      />
+    />
 
     <h3>Related Records</h3>
     <ul>
       <li v-for="rec of related_records" :key="rec">
         <router-link :to="`/whatrec/${rec}/${rec}`">
-          {{rec}}
+          {{ rec }}
         </router-link>
       </li>
     </ul>
@@ -39,9 +39,9 @@
           dataKey="name"
           filterDisplay="row"
         >
-        <Column field="name" header="Name" />
-        <Column field="vendor" header="Vendor" />
-        <Column field="version" header="Version" />
+          <Column field="name" header="Name" />
+          <Column field="vendor" header="Vendor" />
+          <Column field="version" header="Version" />
         </DataTable>
         <br />
 
@@ -57,36 +57,71 @@
         >
           <template #header>
             <div class="p-d-flex p-jc-between">
-              <Button type="button" icon="pi pi-filter-slash" label="Clear"
-                class="p-button-outlined" @click="clear_filters()"/>
+              <Button
+                type="button"
+                icon="pi pi-filter-slash"
+                label="Clear"
+                class="p-button-outlined"
+                @click="clear_filters()"
+              />
               <span class="p-input-icon-left">
                 <i class="pi pi-search" />
-                <InputText v-model="filters['global'].value" placeholder="Search" />
+                <InputText
+                  v-model="filters['global'].value"
+                  placeholder="Search"
+                />
               </span>
             </div>
           </template>
-          <Column field="name" header="Name" :sortable="true" style="width: 40vw">
-            <template #body="{data}">
-              <router-link :to="`/twincat_pytmc/${data.full_name}`">{{data.name}}</router-link>
+          <Column
+            field="name"
+            header="Name"
+            :sortable="true"
+            style="width: 40vw"
+          >
+            <template #body="{ data }">
+              <router-link :to="`/twincat_pytmc/${data.full_name}`">{{
+                data.name
+              }}</router-link>
             </template>
-            <template #filter="{filterModel,filterCallback}">
-              <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-                :placeholder="`Filter by name`" />
+            <template #filter="{ filterModel, filterCallback }">
+              <InputText
+                type="text"
+                v-model="filterModel.value"
+                @keydown.enter="filterCallback()"
+                class="p-column-filter"
+                :placeholder="`Filter by name`"
+              />
             </template>
           </Column>
-          <Column field="type" header="Type" :sortable="true" style="width: 20vw">
-            <template #filter="{filterModel,filterCallback}">
-              <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-                :placeholder="`Filter by type`" />
+          <Column
+            field="type"
+            header="Type"
+            :sortable="true"
+            style="width: 20vw"
+          >
+            <template #filter="{ filterModel, filterCallback }">
+              <InputText
+                type="text"
+                v-model="filterModel.value"
+                @keydown.enter="filterCallback()"
+                class="p-column-filter"
+                :placeholder="`Filter by type`"
+              />
             </template>
           </Column>
           <Column field="context" header="Context" :sortable="true">
-            <template #body="{data}">
+            <template #body="{ data }">
               <script-context-link :context="data.context" :short="3" />
             </template>
-            <template #filter="{filterModel,filterCallback}">
-              <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-                :placeholder="`Filter by type`" />
+            <template #filter="{ filterModel, filterCallback }">
+              <InputText
+                type="text"
+                v-model="filterModel.value"
+                @keydown.enter="filterCallback()"
+                class="p-column-filter"
+                :placeholder="`Filter by type`"
+              />
             </template>
           </Column>
         </DataTable>
@@ -96,19 +131,19 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapState } from "vuex";
 
-import Button from 'primevue/button';
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
-import InputText from 'primevue/inputtext';
-import {FilterMatchMode} from 'primevue/api';
+import Button from "primevue/button";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
+import InputText from "primevue/inputtext";
+import { FilterMatchMode } from "primevue/api";
 
-import ScriptContextLink from '../components/script-context-link.vue'
-import DictionaryTable from '../components/dictionary-table.vue'
+import ScriptContextLink from "../components/script-context-link.vue";
+import DictionaryTable from "../components/dictionary-table.vue";
 
 export default {
-  name: 'TwincatPytmcView',
+  name: "TwincatPytmcView",
   components: {
     Button,
     Column,
@@ -124,18 +159,18 @@ export default {
     return {
       filters: null,
       selected_plc: null,
-    }
+    };
   },
   computed: {
     selected_plc_name() {
       return this.selected_plc ? this.selected_plc.plc : "";
     },
 
-    pytmc_item_info () {
+    pytmc_item_info() {
       if (!this.item_name || !this.symbols || !this.info_ready) {
         return {
-          "error": "",
-          "_whatrecord": {"records": []},
+          error: "",
+          _whatrecord: { records: [] },
         };
       }
       return this.plc_info.metadata_by_key[this.item_name];
@@ -146,7 +181,9 @@ export default {
         return [];
       }
       let records = [];
-      for (const [record, symbols] of Object.entries(this.plc_info.record_to_metadata_keys || {})) {
+      for (const [record, symbols] of Object.entries(
+        this.plc_info.record_to_metadata_keys || {}
+      )) {
         for (const symbol of symbols) {
           if (symbol == this.item_name) {
             records.push(record);
@@ -156,59 +193,67 @@ export default {
       return records;
     },
 
-    symbols () {
-      return Object.values(this.plc_info?.metadata_by_key ?? {}).map(
-        function (info) {
-          let obj = { ...info };
-          obj.full_name = info.name;
-          [obj.plc, obj.name] = obj.full_name.split(":");
-          return obj;
-        }
-      );
+    symbols() {
+      return Object.values(this.plc_info?.metadata_by_key ?? {}).map(function (
+        info
+      ) {
+        let obj = { ...info };
+        obj.full_name = info.name;
+        [obj.plc, obj.name] = obj.full_name.split(":");
+        return obj;
+      });
     },
 
-    table_plcs () {
-      return this.plcs.map(
-        (name) => ({ plc: name })
-      );
+    table_plcs() {
+      return this.plcs.map((name) => ({ plc: name }));
     },
 
-    plc_dependencies () {
+    plc_dependencies() {
       return this.plc_info?.metadata?.dependencies ?? [];
     },
 
     ...mapState({
-      plcs (state) {
+      plcs(state) {
         return state.plugin_nested_info.twincat_pytmc?.keys ?? [];
       },
 
-      plcs_ready (state) {
-        return (state.plugin_nested_info.twincat_pytmc?.keys.length > 0) ?? false;
+      plcs_ready(state) {
+        return state.plugin_nested_info.twincat_pytmc?.keys.length > 0 ?? false;
       },
 
-      plc_info (state) {
-        return state.plugin_nested_info.twincat_pytmc?.info[this.selected_plc_name] ?? {};
+      plc_info(state) {
+        return (
+          state.plugin_nested_info.twincat_pytmc?.info[
+            this.selected_plc_name
+          ] ?? {}
+        );
       },
 
-      info_ready (state) {
-        return (this.selected_plc_name && this.selected_plc_name in (state.plugin_nested_info.twincat_pytmc?.info ?? {}));
+      info_ready(state) {
+        return (
+          this.selected_plc_name &&
+          this.selected_plc_name in
+            (state.plugin_nested_info.twincat_pytmc?.info ?? {})
+        );
       },
-
     }),
   },
   async created() {
     document.title = `WhatRecord? TwinCAT pytmc plugin`;
     this.init_filters();
     this.$watch(
-      () => this.$route.params, to_params => {
+      () => this.$route.params,
+      (to_params) => {
         this.from_params(to_params);
       }
-    )
+    );
     await this.from_params();
   },
   async mounted() {
     if (!this.plcs_ready) {
-      await this.$store.dispatch("get_plugin_nested_keys", { plugin: "twincat_pytmc" });
+      await this.$store.dispatch("get_plugin_nested_keys", {
+        plugin: "twincat_pytmc",
+      });
     }
     await this.from_params();
   },
@@ -218,23 +263,21 @@ export default {
       const plc = route_query.plc || "";
       // const item_name = route_query.item_name || "";
       if (plc) {
-        await this.$store.dispatch(
-          "get_plugin_nested_info", {
-            plugin: "twincat_pytmc",
-            key: plc,
-          }
-        );
+        await this.$store.dispatch("get_plugin_nested_info", {
+          plugin: "twincat_pytmc",
+          key: plc,
+        });
         this.selected_plc = { plc: plc };
       }
     },
 
     init_filters() {
       this.filters = {
-        global: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        plc: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        name: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        type: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        context: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        global: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        plc: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        name: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        type: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        context: { value: "", matchMode: FilterMatchMode.CONTAINS },
       };
     },
     clear_filters() {
@@ -248,10 +291,8 @@ export default {
         },
       });
     },
-
   },
-
-}
+};
 </script>
 
 <style scoped>

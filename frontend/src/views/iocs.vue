@@ -2,28 +2,53 @@
   <div id="iocs-contents">
     <div id="iocs-left" class="column">
       <DataTable
-        id="ioc_info_table" :value="ioc_info" dataKey="name" v-model:selection="selected_iocs"
+        id="ioc_info_table"
+        :value="ioc_info"
+        dataKey="name"
+        v-model:selection="selected_iocs"
         class="p-datatable-sm"
-        selectionMode="multiple" @rowSelect="new_ioc_selection"
-        :paginator="true" :rows="300" v-model:filters="ioc_filters"
-        filterDisplay="row" :globalFilterFields="['name', 'host', 'port', 'description', 'base_version']"
+        selectionMode="multiple"
+        @rowSelect="new_ioc_selection"
+        :paginator="true"
+        :rows="300"
+        v-model:filters="ioc_filters"
+        filterDisplay="row"
+        :globalFilterFields="[
+          'name',
+          'host',
+          'port',
+          'description',
+          'base_version',
+        ]"
       >
         <template #header>
           <div class="p-d-flex p-jc-between">
-            <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_ioc_filters()"/>
+            <Button
+              type="button"
+              icon="pi pi-filter-slash"
+              label="Clear"
+              class="p-button-outlined"
+              @click="clear_ioc_filters()"
+            />
             <span class="p-input-icon-left">
               <i class="pi pi-search" />
-              <InputText v-model="ioc_filters['global'].value" placeholder="Search" />
+              <InputText
+                v-model="ioc_filters['global'].value"
+                placeholder="Search"
+              />
             </span>
           </div>
         </template>
         <Column field="name" header="IOC Name">
-          <template #body="{data}">
-            <router-link :to="{ name: 'file', params: { filename: data.script, line: 0 }}">{{data.name}}</router-link>
+          <template #body="{ data }">
+            <router-link
+              :to="{ name: 'file', params: { filename: data.script, line: 0 } }"
+              >{{ data.name }}</router-link
+            >
           </template>
         </Column>
-        <Column field="host" header="Host"/>
-        <Column field="base_version" header="Version"/>
+        <Column field="host" header="Host" />
+        <Column field="base_version" header="Version" />
         <!-- <Column field="port" header="Port"/> -->
         <!-- <Column field="description" header="Description"/> -->
         <!-- <Column field="script" header="Script"/> -->
@@ -32,43 +57,69 @@
     <div id="iocs-right" class="column">
       <template v-for="ioc in selected_ioc_infos" :key="ioc.name">
         <details>
-          <summary>{{ioc.name}} information</summary>
+          <summary>{{ ioc.name }} information</summary>
           <ioc-info :ioc_info="ioc" />
         </details>
       </template>
 
       <DataTable
-        :value="record_list" dataKey="record.name"
+        :value="record_list"
+        dataKey="record.name"
         class="p-datatable-sm"
-        :paginator="true" :rows="200" v-model:filters="record_filters" filterDisplay="row"
+        :paginator="true"
+        :rows="200"
+        v-model:filters="record_filters"
+        filterDisplay="row"
         :globalFilterFields="['record.name', 'record.record_type']"
       >
         <template #header>
           <div class="p-d-flex p-jc-between">
-            <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_record_filters()"/>
+            <Button
+              type="button"
+              icon="pi pi-filter-slash"
+              label="Clear"
+              class="p-button-outlined"
+              @click="clear_record_filters()"
+            />
             <span class="p-input-icon-left">
               <i class="pi pi-search" />
-              <InputText v-model="record_filters['global'].value" placeholder="Search" />
+              <InputText
+                v-model="record_filters['global'].value"
+                placeholder="Search"
+              />
             </span>
           </div>
         </template>
         <Column field="record.name" header="Record">
-          <template #body="{data}">
-            <router-link :to="`/whatrec/${data.record.name}/${data.record.name}`">{{data.record.name}}</router-link>
+          <template #body="{ data }">
+            <router-link
+              :to="`/whatrec/${data.record.name}/${data.record.name}`"
+              >{{ data.record.name }}</router-link
+            >
           </template>
-          <template #filter="{filterModel,filterCallback}">
-            <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-              :placeholder="`Filter by name`" />
+          <template #filter="{ filterModel, filterCallback }">
+            <InputText
+              type="text"
+              v-model="filterModel.value"
+              @keydown.enter="filterCallback()"
+              class="p-column-filter"
+              :placeholder="`Filter by name`"
+            />
           </template>
         </Column>
         <Column field="record.record_type" header="Record">
-          <template #body="{data}">
-            {{data.record.record_type}}
+          <template #body="{ data }">
+            {{ data.record.record_type }}
           </template>
-          <template #filter="{filterModel,filterCallback}">
-            <Dropdown v-model="filterModel.value" :options="record_types"
-              placeholder="Any" class="p-column-filter" :showClear="true"
-              @change="filterCallback()" >
+          <template #filter="{ filterModel, filterCallback }">
+            <Dropdown
+              v-model="filterModel.value"
+              :options="record_types"
+              placeholder="Any"
+              class="p-column-filter"
+              :showClear="true"
+              @change="filterCallback()"
+            >
             </Dropdown>
           </template>
         </Column>
@@ -79,19 +130,19 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapState } from "vuex";
 
-import Button from 'primevue/button';
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
-import Dropdown from 'primevue/dropdown';
-import InputText from 'primevue/inputtext';
-import {FilterMatchMode} from 'primevue/api';
+import Button from "primevue/button";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
+import Dropdown from "primevue/dropdown";
+import InputText from "primevue/inputtext";
+import { FilterMatchMode } from "primevue/api";
 
-import IocInfo from '../components/ioc-info.vue'
+import IocInfo from "../components/ioc-info.vue";
 
 export default {
-  name: 'IOCs',
+  name: "IOCs",
   components: {
     Button,
     Column,
@@ -106,10 +157,10 @@ export default {
       selected_iocs: [],
       ioc_filters: null,
       record_filters: null,
-    }
+    };
   },
   computed: {
-    selected_ioc_names () {
+    selected_ioc_names() {
       let iocs = [];
       for (const ioc_info of this.selected_iocs) {
         iocs.push(ioc_info.name);
@@ -117,12 +168,14 @@ export default {
       return iocs;
     },
 
-    file_list_by_ioc () {
+    file_list_by_ioc() {
       let files = {};
       for (const ioc_name of this.selected_ioc_names) {
         files[ioc_name] = [];
         if (ioc_name in this.ioc_info_by_name) {
-          for (const [file, hash] of Object.entries(this.ioc_info_by_name[ioc_name].loaded_files)) {
+          for (const [file, hash] of Object.entries(
+            this.ioc_info_by_name[ioc_name].loaded_files
+          )) {
             files[ioc_name].push({
               ioc: ioc_name,
               name: file,
@@ -134,7 +187,7 @@ export default {
       return files;
     },
 
-    selected_ioc_infos () {
+    selected_ioc_infos() {
       let info = [];
       for (const ioc_name of this.selected_ioc_names) {
         if (ioc_name in this.ioc_info_by_name) {
@@ -145,10 +198,10 @@ export default {
     },
 
     ...mapState({
-      ioc_info: state => state.ioc_info,
-      ioc_records: state => state.ioc_to_records,
+      ioc_info: (state) => state.ioc_info,
+      ioc_records: (state) => state.ioc_to_records,
 
-      ioc_info_by_name (state) {
+      ioc_info_by_name(state) {
         let iocs = {};
         for (const ioc of state.ioc_info) {
           iocs[ioc.name] = ioc;
@@ -156,7 +209,7 @@ export default {
         return iocs;
       },
 
-      record_list (state) {
+      record_list(state) {
         let records = [];
         for (const ioc_name of this.selected_ioc_names) {
           if (ioc_name in state.ioc_to_records) {
@@ -171,7 +224,7 @@ export default {
         }
         return records;
       },
-      record_types (state) {
+      record_types(state) {
         let record_types = new Set();
         for (const ioc_name of this.selected_ioc_names) {
           if (ioc_name in state.ioc_to_records) {
@@ -192,7 +245,8 @@ export default {
     this.from_params(this.$route.params);
   },
 
-  async beforeRouteUpdate(to, from) {  // eslint-disable-line
+  async beforeRouteUpdate(to, from) {
+    // eslint-disable-line
     this.from_params(to.params);
   },
 
@@ -200,14 +254,16 @@ export default {
     from_params(params) {
       this.$store.dispatch("update_ioc_info");
 
-      const iocs_from_route = params.selected_iocs_in ? params.selected_iocs_in.split("|") : [];
+      const iocs_from_route = params.selected_iocs_in
+        ? params.selected_iocs_in.split("|")
+        : [];
       if (iocs_from_route != this.selected_iocs_list) {
         this.selected_iocs = [];
         for (const ioc_name of iocs_from_route) {
           if (ioc_name) {
-            this.selected_iocs.push({"name": ioc_name});
+            this.selected_iocs.push({ name: ioc_name });
             if (ioc_name in this.$store.state.ioc_to_records === false) {
-              this.$store.dispatch("get_ioc_records", {ioc_name: ioc_name});
+              this.$store.dispatch("get_ioc_records", { ioc_name: ioc_name });
             }
           }
         }
@@ -218,12 +274,12 @@ export default {
     new_ioc_selection() {
       this.$router.push({
         params: {
-          "selected_iocs_in": this.selected_ioc_names.join("|"),
+          selected_iocs_in: this.selected_ioc_names.join("|"),
         },
         query: {
-          "ioc_filter": this.ioc_filters["global"].value,
-          "record_filter": this.record_filters["global"].value,
-        }
+          ioc_filter: this.ioc_filters["global"].value,
+          record_filter: this.record_filters["global"].value,
+        },
       });
     },
 
@@ -237,24 +293,30 @@ export default {
 
     init_ioc_filters() {
       this.ioc_filters = {
-        'global': {value: this.ioc_filter, matchMode: FilterMatchMode.CONTAINS},
-        'name': {value: null, matchMode: FilterMatchMode.CONTAINS},
-        'host': {value: null, matchMode: FilterMatchMode.CONTAINS},
-        'port': {value: null, matchMode: FilterMatchMode.CONTAINS},
-        'base_version': {value: null, matchMode: FilterMatchMode.CONTAINS},
-        'description': {value: null, matchMode: FilterMatchMode.CONTAINS},
+        global: { value: this.ioc_filter, matchMode: FilterMatchMode.CONTAINS },
+        name: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        host: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        port: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        base_version: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        description: { value: null, matchMode: FilterMatchMode.CONTAINS },
       };
     },
 
     init_record_filters() {
       this.record_filters = {
-        'global': {value: this.record_filter, matchMode: FilterMatchMode.CONTAINS},
-        'record.name': {value: null, matchMode: FilterMatchMode.CONTAINS},
-        'record.record_type': {value: null, matchMode: FilterMatchMode.EQUALS},
+        global: {
+          value: this.record_filter,
+          matchMode: FilterMatchMode.CONTAINS,
+        },
+        "record.name": { value: null, matchMode: FilterMatchMode.CONTAINS },
+        "record.record_type": {
+          value: null,
+          matchMode: FilterMatchMode.EQUALS,
+        },
       };
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scoped>

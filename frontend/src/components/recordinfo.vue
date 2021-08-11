@@ -1,10 +1,19 @@
 <template>
-  <h3> {{ whatrec.name }} </h3>
+  <h3>{{ whatrec.name }}</h3>
   <!-- Available in {{ available_protocols }} -->
-  <template v-for="([defn, instance], idx) in [[record_defn, record], [null, pva_group]]" :key="idx">
+  <template
+    v-for="([defn, instance], idx) in [
+      [record_defn, record],
+      [null, pva_group],
+    ]"
+    :key="idx"
+  >
     <template v-if="instance != null">
-      <script-context-link :context="instance.context" :short="0"></script-context-link>
-      <br/>
+      <script-context-link
+        :context="instance.context"
+        :short="0"
+      ></script-context-link>
+      <br />
       <epics-format-record
         :name="instance.name"
         :aliases="instance.aliases"
@@ -19,7 +28,10 @@
       />
 
       <template v-for="plugin in plugins" :key="plugin.name">
-        <template v-for="plugin_match in instance.metadata[plugin.name] || []" :key="plugin_match">
+        <template
+          v-for="plugin_match in instance.metadata[plugin.name] || []"
+          :key="plugin_match"
+        >
           <details>
             <summary>
               {{ plugin.name }} - {{ plugin_match.name }}
@@ -31,26 +43,25 @@
               :dict="plugin_match"
               :cls="'metadata'"
               :skip_keys="['_whatrecord']"
-              />
+            />
           </details>
           <br />
         </template>
       </template>
     </template>
-
   </template>
 
   <template v-if="streamdevice_metadata">
     <details>
       <summary>
         StreamDevice protocol (
-          <span class="monospace">
-            {{ streamdevice_metadata.protocol_file }}
-          </span>,
-          <span class="monospace">
-            "{{ streamdevice_metadata.protocol_name }}"
-          </span>
-          )
+        <span class="monospace">
+          {{ streamdevice_metadata.protocol_file }} </span
+        >,
+        <span class="monospace">
+          "{{ streamdevice_metadata.protocol_name }}"
+        </span>
+        )
       </summary>
       <dictionary-table
         :dict="streamdevice_metadata"
@@ -67,10 +78,13 @@
         <br />Commands:
         <br />
         <span class="code">
-          <template v-for="command in streamdevice_metadata.protocol.commands" :key="command.name">
+          <template
+            v-for="command in streamdevice_metadata.protocol.commands"
+            :key="command.name"
+          >
             {{ command.name }} {{ command.arguments.join(" ") }}<br />
           </template>
-         </span>
+        </span>
       </template>
     </details>
     <br />
@@ -87,36 +101,32 @@
     </AccordionTab>
     <AccordionTab header="Archiver" v-if="record != null">
       <template v-if="record != null && appliance_viewer_url">
-        <a :href="appliance_viewer_url" target="_blank">
-          Archive Viewer
-        </a>
-        <iframe
-          :src="appliance_viewer_url"
-          title="Archive viewer"
-          />
-        </template>
+        <a :href="appliance_viewer_url" target="_blank"> Archive Viewer </a>
+        <iframe :src="appliance_viewer_url" title="Archive viewer" />
+      </template>
     </AccordionTab>
     <AccordionTab header="Gateway" v-if="record != null">
-      <template v-if="record != null && record.metadata.gateway != null && record.metadata.gateway.matches.length > 0">
+      <template
+        v-if="
+          record != null &&
+          record.metadata.gateway != null &&
+          record.metadata.gateway.matches.length > 0
+        "
+      >
         Matching gateway rules:
-        <gateway-matches :matches="record.metadata.gateway.matches"/>
+        <gateway-matches :matches="record.metadata.gateway.matches" />
       </template>
-      <template v-else>
-        No matches with gateway rules.
-      </template>
+      <template v-else> No matches with gateway rules. </template>
     </AccordionTab>
     <AccordionTab header="Access Security Group" v-if="asg != null">
-      <dictionary-table
-        :dict="asg"
-        :cls="'metadata'"
-        :skip_keys="[]"
-      />
+      <dictionary-table :dict="asg" :cls="'metadata'" :skip_keys="[]" />
     </AccordionTab>
     <AccordionTab header="Asyn" v-if="whatrec.asyn_ports.length > 0">
       <asyn-port
         v-for:="(asyn_port, idx) in whatrec.asyn_ports"
         :asyn_port="asyn_port"
-        :key="asyn_port.name"/>
+        :key="asyn_port.name"
+      />
     </AccordionTab>
     <AccordionTab header="Field table">
       <template v-if="record != null">
@@ -129,27 +139,26 @@
       </template>
     </AccordionTab>
     <AccordionTab header="Raw information">
-      <pre>{{whatrec}}</pre>
+      <pre>{{ whatrec }}</pre>
     </AccordionTab>
   </Accordion>
 </template>
 
 <script>
-import AsynPort from './asyn-port.vue'
-import DictionaryTable from './dictionary-table.vue'
-import EpicsFormatRecord from './epics-format-record.vue'
-import GatewayMatches from './gateway-matches.vue'
-import IocInfo from './ioc-info.vue'
-import RecordFieldTable from './record-field-table.vue'
-import ScriptContextLink from './script-context-link.vue'
-import Accordion from 'primevue/accordion';
-import AccordionTab from 'primevue/accordiontab';
+import AsynPort from "./asyn-port.vue";
+import DictionaryTable from "./dictionary-table.vue";
+import EpicsFormatRecord from "./epics-format-record.vue";
+import GatewayMatches from "./gateway-matches.vue";
+import IocInfo from "./ioc-info.vue";
+import RecordFieldTable from "./record-field-table.vue";
+import ScriptContextLink from "./script-context-link.vue";
+import Accordion from "primevue/accordion";
+import AccordionTab from "primevue/accordiontab";
 
-import { plugins } from '../settings.js';
-
+import { plugins } from "../settings.js";
 
 export default {
-  name: 'Recordinfo',
+  name: "Recordinfo",
   props: {
     whatrec: Object,
   },
@@ -168,7 +177,7 @@ export default {
     appliance_viewer_url() {
       const appliance_viewer_url = process.env.WHATRECORD_ARCHIVER_URL || "";
       if (!appliance_viewer_url || !this.record) {
-          return null;
+        return null;
       }
       return appliance_viewer_url + this.record.name;
     },
@@ -217,9 +226,9 @@ export default {
     },
     plugins() {
       return plugins;
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scoped>
@@ -251,7 +260,7 @@ iframe {
   display: block;
   font-family: monospace;
   font-size: 15px;
-  line-height: 1.0;
+  line-height: 1;
   margin-bottom: 1.6em;
   max-width: 100%;
   overflow: auto;

@@ -12,56 +12,102 @@
         <div class="p-d-flex p-jc-between">
           <span class="p-input-icon-left">
             <i class="pi pi-search" />
-            <InputText v-model="filters['name_match'].value" placeholder="PV Name match" />
+            <InputText
+              v-model="filters['name_match'].value"
+              placeholder="PV Name match"
+            />
           </span>
-          <Button type="button" icon="pi pi-filter-slash" label="Clear"
-            class="p-button-outlined" @click="clear_filters()"
+          <Button
+            type="button"
+            icon="pi pi-filter-slash"
+            label="Clear"
+            class="p-button-outlined"
+            @click="clear_filters()"
           />
           <span class="p-input-icon-left">
             <i class="pi pi-search" />
-            <InputText v-model="filters['global'].value" placeholder="Search All" />
+            <InputText
+              v-model="filters['global'].value"
+              placeholder="Search All"
+            />
           </span>
         </div>
       </template>
       <Column field="full_command" header="Command">
-        <template #filter="{filterModel,filterCallback}">
-          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-            :placeholder="`Filter by command`" />
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by command`"
+          />
         </template>
       </Column>
       <Column field="pattern" header="Pattern">
-        <template #filter="{filterModel,filterCallback}">
-          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-            :placeholder="`Filter by pattern`" />
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by pattern`"
+          />
         </template>
-        <template #body="{data}">
-          <router-link :to='{ name: "whatrec", params: { record_glob: data.pattern }, query: { regex: "true" } }'>
-              {{ data.pattern }}
+        <template #body="{ data }">
+          <router-link
+            :to="{
+              name: 'whatrec',
+              params: { record_glob: data.pattern },
+              query: { regex: 'true' },
+            }"
+          >
+            {{ data.pattern }}
           </router-link>
         </template>
       </Column>
       <Column field="comments" header="Comments">
-        <template #filter="{filterModel,filterCallback}">
-          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-            :placeholder="`Filter by comments`" />
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by comments`"
+          />
         </template>
       </Column>
       <Column field="error" header="Error">
-        <template #filter="{filterModel,filterCallback}">
-          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-            :placeholder="`Filter by error`" />
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by error`"
+          />
         </template>
       </Column>
       <Column field="short_fn" header="File name">
-        <template #body="{data}">
-          <router-link :to="{ name: 'file', params: { filename: data.filename, line: data.line } }">
+        <template #body="{ data }">
+          <router-link
+            :to="{
+              name: 'file',
+              params: { filename: data.filename, line: data.line },
+            }"
+          >
             {{ data.short_fn }}
           </router-link>
         </template>
-        <template #filter="{filterModel,filterCallback}">
-          <Dropdown v-model="filterModel.value" :options="filenames"
-            placeholder="Any" class="p-column-filter" :showClear="true"
-            @change="filterCallback()" >
+        <template #filter="{ filterModel, filterCallback }">
+          <Dropdown
+            v-model="filterModel.value"
+            :options="filenames"
+            placeholder="Any"
+            class="p-column-filter"
+            :showClear="true"
+            @change="filterCallback()"
+          >
           </Dropdown>
         </template>
       </Column>
@@ -70,19 +116,19 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapState } from "vuex";
 
-import Button from 'primevue/button';
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
-import Dropdown from 'primevue/dropdown';
-import InputText from 'primevue/inputtext';
-import {FilterMatchMode,FilterService} from 'primevue/api';
+import Button from "primevue/button";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
+import Dropdown from "primevue/dropdown";
+import InputText from "primevue/inputtext";
+import { FilterMatchMode, FilterService } from "primevue/api";
 
-const RegexFilter = 'REGEX_FILTER';
+const RegexFilter = "REGEX_FILTER";
 
 export default {
-  name: 'GatewayView',
+  name: "GatewayView",
   components: {
     Button,
     Column,
@@ -94,18 +140,18 @@ export default {
   data() {
     return {
       filters: null,
-    }
+    };
   },
   computed: {
-    filenames () {
-      return Object.keys(this.file_to_info).map(
-        fn => fn.replace(/^.*[\\/]/, '')
+    filenames() {
+      return Object.keys(this.file_to_info).map((fn) =>
+        fn.replace(/^.*[\\/]/, "")
       );
     },
-    gateway_rows () {
+    gateway_rows() {
       let table = [];
       for (const [fn, info] of Object.entries(this.file_to_info)) {
-        const short_fn = fn.replace(/^.*[\\/]/, '');
+        const short_fn = fn.replace(/^.*[\\/]/, "");
         for (const rule of info.rules) {
           const context = rule.context[0];
           let details = "";
@@ -117,33 +163,33 @@ export default {
             const access = rule.access ? rule.access : "(DEFAULT)";
             details = `->${rule.pvname} ${access}`;
           }
-          table.push(
-            {
-              short_fn: short_fn,
-              pattern: rule.pattern,
-              name_match: rule.pattern,  // For the other filter (TODO?)
-              full_command: rule.command + " " + details,
-              comments: rule.header,
-              filename: fn,
-              info: info,
-              line: context[1],
-              /*
+          table.push({
+            short_fn: short_fn,
+            pattern: rule.pattern,
+            name_match: rule.pattern, // For the other filter (TODO?)
+            full_command: rule.command + " " + details,
+            comments: rule.header,
+            filename: fn,
+            info: info,
+            line: context[1],
+            /*
               command: rule.command,
               details: details,
               */
-              error: "error" in rule.metadata ? "Error: " + rule.metadata["error"] : "",
-            }
-          );
+            error:
+              "error" in rule.metadata
+                ? "Error: " + rule.metadata["error"]
+                : "",
+          });
         }
       }
       return table;
     },
 
     ...mapState({
-      file_to_info (state) {
+      file_to_info(state) {
         return state.gateway_info || {};
       },
-
     }),
   },
   created() {
@@ -151,15 +197,19 @@ export default {
   },
   mounted() {
     FilterService.register(RegexFilter, (value, filter) => {
-      if (filter === undefined || filter === null || filter.trim() === '') {
+      if (filter === undefined || filter === null || filter.trim() === "") {
         return true;
-      } else if (value === undefined || value === null || value.toString() == ".*") {
+      } else if (
+        value === undefined ||
+        value === null ||
+        value.toString() == ".*"
+      ) {
         return false;
       }
 
       const pattern = value.toString();
       try {
-        const regex = new RegExp(`^${pattern}$$`, '');
+        const regex = new RegExp(`^${pattern}$$`, "");
         const match = filter.toString().match(regex);
         return match !== null;
       } catch (error) {
@@ -172,10 +222,6 @@ export default {
     }
   },
 
-  async beforeRouteUpdate(to, from) {  // eslint-disable-line
-    /* this.from_params(to.params); */
-  },
-
   methods: {
     clear_filters() {
       this.init_filters();
@@ -183,18 +229,17 @@ export default {
 
     init_filters() {
       this.filters = {
-        global: {value: this.filter, matchMode: FilterMatchMode.CONTAINS},
-        full_command: {value: null, matchMode: FilterMatchMode.CONTAINS},
-        pattern: {value: null, matchMode: FilterMatchMode.CONTAINS},
-        error: {value: null, matchMode: FilterMatchMode.CONTAINS},
-        comments: {value: null, matchMode: FilterMatchMode.CONTAINS},
-        short_fn: {value: null, matchMode: FilterMatchMode.CONTAINS},
-        name_match: {value: null, matchMode: RegexFilter},
+        global: { value: this.filter, matchMode: FilterMatchMode.CONTAINS },
+        full_command: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        pattern: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        error: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        comments: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        short_fn: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        name_match: { value: null, matchMode: RegexFilter },
       };
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

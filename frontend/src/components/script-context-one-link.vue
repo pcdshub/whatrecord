@@ -6,7 +6,7 @@
 
 <script>
 export default {
-  name: 'ScriptContextOneLink',
+  name: "ScriptContextOneLink",
   props: {
     name: String,
     line: Number,
@@ -18,21 +18,20 @@ export default {
       if (this.link_text) {
         return this.link_text;
       }
-      return `${this.display_name }:${this.line}`;
+      return `${this.display_name}:${this.line}`;
     },
     display_name() {
-      return (this.short > 0 ? this.short_name : this.name);
+      return this.short > 0 ? this.short_name : this.name;
     },
     short_name() {
       let parts = this.name.split("/");
       return parts.slice(-this.short).join("/");
     },
     link() {
-      return { name: 'file', params: { filename: this.name, line: this.line }};
-    }
-  }
-}
+      return { name: "file", params: { filename: this.name, line: this.line } };
+    },
+  },
+};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

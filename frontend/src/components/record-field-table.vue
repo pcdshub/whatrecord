@@ -12,18 +12,18 @@
     </Column>
   </DataTable>
 
-   <!--
+  <!--
    <script-context-link :context="field.context" :short="2"></script-context-link>
    -->
 </template>
 
 <script>
-import ScriptContextLink from './script-context-link.vue'
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
+import ScriptContextLink from "./script-context-link.vue";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
 
 export default {
-  name: 'RecordFieldTable',
+  name: "RecordFieldTable",
   props: {
     fields: Object,
     pva: Boolean,
@@ -33,8 +33,7 @@ export default {
     DataTable,
     ScriptContextLink,
   },
-}
+};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

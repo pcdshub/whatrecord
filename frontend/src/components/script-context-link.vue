@@ -2,30 +2,25 @@
   <div class="context">
     <template v-for="[name, line] in context" :key="name + line">
       &gt;
-        <script-context-one-link
-          :name="name"
-          :line="line"
-          :short="short"
-        />
-        <br />
+      <script-context-one-link :name="name" :line="line" :short="short" />
+      <br />
     </template>
   </div>
 </template>
 
 <script>
-import ScriptContextOneLink from './script-context-one-link.vue'
+import ScriptContextOneLink from "./script-context-one-link.vue";
 
 export default {
-  name: 'ScriptContextLink',
+  name: "ScriptContextLink",
   props: {
     context: Array,
-    short: Number
+    short: Number,
   },
   components: {
-    ScriptContextOneLink
-  }
-}
+    ScriptContextOneLink,
+  },
+};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>
