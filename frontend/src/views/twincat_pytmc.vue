@@ -235,7 +235,7 @@ export default {
     async from_params() {
       const route_query = this.$route.query;
       const plc = route_query.plc || "";
-      const item_name = route_query.item_name || "";
+      // const item_name = route_query.item_name || "";
       await this.$store.dispatch(
         "get_plugin_nested_info", {
           plugin: "twincat_pytmc",
