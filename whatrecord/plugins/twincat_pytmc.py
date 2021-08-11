@@ -788,6 +788,7 @@ class PlcMetadata:
         require_records: bool = True
     ) -> Generator[PlcSymbolMetadata, None, None]:
         """Get symbol metadata given a pytmc Symbol."""
+        symbol_type_name = symbol.data_type.qualified_type_name
         for pkg in pytmc.pragmas.record_packages_from_symbol(
             symbol, yield_exceptions=True, allow_no_pragma=False
         ):
@@ -806,10 +807,16 @@ class PlcMetadata:
                 for record in records:
                     self.record_to_symbol[record] = annotated_name
 
+                chain_type_name = pkg.chain.data_type.qualified_type_name
+                if symbol_type_name == chain_type_name:
+                    type_name = symbol_type_name
+                else:
+                    type_name = f"{chain_type_name} ({symbol_type_name})"
+
                 yield PlcSymbolMetadata(
                     context=tuple(context),
                     name=annotated_name,
-                    type=symbol.data_type.name,
+                    type=type_name,
                 )
 
     @classmethod
