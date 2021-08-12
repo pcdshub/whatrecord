@@ -44,6 +44,13 @@ logger = logging.getLogger(__name__)
 # Stash the description for later usage by the CLI interface.
 DESCRIPTION = __doc__.strip()
 
+BLARK_BUGFIXES = {
+    "global": [
+        # TODO blark grammar bug in GVLs but not FBs?
+        (re.compile(r"FB_Arbiter\(\d+\)"), "FB_Arbiter"),
+    ],
+}
+
 
 def get_tsprojects_from_filename(
     filename: AnyPath,
@@ -478,6 +485,15 @@ class _DeclarationsTransformer(lark.Transformer):
         self.pragmas.append(str(pragma))
 
 
+def apply_blark_bugfixes(var_section, source):
+    """Blark has some work necessary. Patch up common known bugs for now."""
+    for bugfix_match, replace_with in BLARK_BUGFIXES.get(var_section, []):
+        bugfix_match: re.Pattern
+        replace_with: str
+        source = bugfix_match.sub(replace_with, source)
+    return source
+
+
 def parse_declarations(
     var_section: str,
     filename: pathlib.Path,
@@ -490,11 +506,10 @@ def parse_declarations(
     line_offset = line_number - 1
     # line 1 will be (line_offset + 1) = line_number
     try:
-        # TODO better handling of sections than taking a look at the start
+        decl_source = apply_blark_bugfixes(var_section, decl_source)
         if var_section == "global":
             # Standalone section
-            # TODO blark grammar bug in GVLs but not FBs?
-            source = decl_source.replace("FB_Arbiter(1)", "FB_Arbiter")
+            ...
         elif var_section == "type":
             # Standalone type section
             source = decl_source
