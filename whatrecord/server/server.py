@@ -93,7 +93,7 @@ class ServerState:
         self.plugins = plugins or []
         self.plugins_by_name = {
             plugin.name: plugin
-            for plugin in plugins
+            for plugin in plugins or []
         }
         self.script_relations = {}
         self.standin_directories = standin_directories or {}

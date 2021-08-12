@@ -50,7 +50,7 @@ _CacheKeyType = Type[CacheKey]
 
 
 class _Cached:
-    _cache_path_: ClassVar[pathlib.Path]
+    _cache_path_: ClassVar[Optional[pathlib.Path]]
     _cache_version_: ClassVar[int]
     CacheKey: ClassVar[_CacheKeyType]
 
@@ -65,6 +65,9 @@ class _Cached:
         """Load the object based on its key from the whatrecord cache."""
         if cls is Cached:
             raise RuntimeError(f"Class {cls} is not intended to be saved/loaded")
+
+        if cls._cache_path_ is None:
+            return None
 
         try:
             with open(cls._get_cache_filename(key), "rb") as fp:
@@ -83,7 +86,7 @@ class _Cached:
 
     def save_to_cache(self, pretty: bool = False, overwrite: bool = True) -> bool:
         """Save the object to the whatrecord cache."""
-        if not self._cache_path_:
+        if self._cache_path_ is None:
             return False
 
         filename = self._get_cache_filename(self.key)
@@ -129,9 +132,12 @@ class Cached(_Cached):
             )
 
         cls._cache_version_ = version
-        cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
         cls.__annotations__["key"] = key
         cls.CacheKey = key
+        if cache_path is None and not CACHE_PATH:
+            cls._cache_path_ = None  # cache disabled
+        else:
+            cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
 
 
 @dataclass
@@ -157,7 +163,10 @@ class InlineCached(_Cached):
             )
 
         cls._cache_version_ = version
-        cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
+        if cache_path is None and not CACHE_PATH:
+            cls._cache_path_ = None  # cache disabled
+        else:
+            cls._cache_path_ = pathlib.Path(cache_path or CACHE_PATH)
 
     @property
     def key(self) -> CacheKey:
