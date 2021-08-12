@@ -234,6 +234,9 @@ class ServerState:
             self.container.add_loaded_ioc(loaded)
             self._replace_metadata(md, loaded.metadata)
 
+            # Let plugins update, if possible
+            await asyncio.sleep(0)
+
         with common.time_context() as ctx:
             self.script_relations = graph.build_script_relations(
                 self.container.database,

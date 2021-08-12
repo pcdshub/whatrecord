@@ -861,6 +861,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
 
         project_info = get_project_from_ioc(md, makefile_contents)
         if project_info is None:
+            logger.warning("No project found for %s", md.name)
             return
 
         loaded_files = {
@@ -868,6 +869,10 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
         }
 
         project, plc_name = project_info
+        logger.info(
+            "Found a PLC for this project: %s %s (%s)",
+            md.name, plc_name, project
+        )
         yield from PlcMetadata.from_project_filename(
             project,
             plc_whitelist=[plc_name],

@@ -16,7 +16,7 @@
         <td v-if="key == 'context'" class="value">
           <script-context-link
             :context="value"
-            :short="2"
+            :short="4"
           ></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'" class="value">

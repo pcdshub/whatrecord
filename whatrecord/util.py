@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import pathlib
+import textwrap
 from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import apischema
@@ -84,9 +85,10 @@ async def run_script_with_json_output(
 
     (stdout, stderr) = await proc.communicate()
     if stderr and log_errors:
+        stderr_text = textwrap.indent(stderr.decode("utf-8", "replace"), "    ! ")
         logger.warning(
-            "Standard error output while running script (%r): %s",
-            script_line, stderr
+            "Standard error output while running script (%r):\n%s",
+            script_line, stderr_text
         )
 
     if stdout:
