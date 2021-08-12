@@ -27,6 +27,15 @@ class PluginResults:
     execution_info: Dict[str, Any] = field(default_factory=dict)
     nested: Optional[Dict[str, PluginResults]] = None
 
+    def is_loaded_file(self, fn: str) -> bool:
+        """Is the given file one that was loaded in the plugin?"""
+        if fn in self.files_to_monitor:
+            return True
+        return any(
+            nested.is_loaded_file(fn)
+            for nested in (self.nested or {}).values()
+        )
+
     def find_record_metadata(self, record: str) -> Generator[Any, None, None]:
         """Find all metadata for the given record name."""
         for key in self.record_to_metadata_keys.get(record) or []:

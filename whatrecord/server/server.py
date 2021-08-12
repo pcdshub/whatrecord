@@ -430,10 +430,20 @@ class ServerState:
         ]:
             method.cache_clear()
 
+    def is_loaded_file(self, fn) -> bool:
+        """Is ``fn`` a file that was loaded?"""
+        fn = str(fn)
+        if fn in self.container.loaded_files:
+            return True
+
+        return any(
+            plugin.results.is_loaded_file(fn)
+            for plugin in self.plugins
+            if plugin.results is not None
+        )
+
     @functools.lru_cache(maxsize=2048)
     def script_info_from_loaded_file(self, fn) -> common.IocshScript:
-        assert fn in self.container.loaded_files
-
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
@@ -635,11 +645,10 @@ class ServerHandler:
         else:
             # Making this dual-purpose: script, db, or any loaded file
             ioc_md = None
-            try:
-                self.state.container.loaded_files[filename]
-                script_info = self.state.script_info_from_loaded_file(filename)
-            except KeyError as ex:
-                raise web.HTTPBadRequest() from ex
+            if not self.state.is_loaded_file(filename):
+                raise web.HTTPBadRequest()
+
+            script_info = self.state.script_info_from_loaded_file(filename)
 
         return serialized_response(
             {
