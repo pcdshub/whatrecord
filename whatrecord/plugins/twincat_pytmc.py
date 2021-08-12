@@ -20,7 +20,7 @@ import logging
 import pathlib
 import re
 import typing
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 import apischema
@@ -214,7 +214,7 @@ class PytmcPluginResults(PluginResults):
 
 @dataclass
 class Declaration:
-    context: FullLoadContext = field(default_factory=tuple)
+    context: FullLoadContext
     name: str = "unknown"
     type: str = "unknown"
 
