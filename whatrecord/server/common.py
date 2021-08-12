@@ -65,6 +65,8 @@ class ServerPluginSpec:
     files_to_monitor: Dict[str, str] = field(default_factory=dict)
     results: Optional[PluginResults] = None
     results_json: Any = None
+    # Require IOCs to be loaded first before running
+    after_iocs: bool = False
 
     @property
     def script(self) -> str:

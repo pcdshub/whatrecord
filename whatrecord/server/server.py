@@ -106,6 +106,11 @@ class ServerState:
         ]
         self._update_count = 0
 
+    @property
+    def update_count(self) -> int:
+        """The number of times IOCs have been updated."""
+        return self._update_count
+
     async def stop(self):
         """Stop any background updates."""
         self.running = False
@@ -114,19 +119,42 @@ class ServerState:
     async def async_init(self, app):
         self.running = True
         self.tasks.create(self._update_loop())
-        self.tasks.create(self._update_plugin_loop())
+        logger.info(
+            "Server plugins enabled: %s",
+            ", ".join(plugin.name for plugin in self.plugins)
+        )
+        for plugin in self.plugins:
+            self.tasks.create(self._update_plugin_loop(plugin))
 
-    async def _update_plugin_loop(self):
+    async def _update_plugin_loop(self, plugin: ServerPluginSpec):
+        while self.running and self.update_count == 0 and plugin.after_iocs:
+            # Wait until IOCs have been loaded before updating this one for the
+            # first time.
+            await asyncio.sleep(1)
+
+        logger.info("Server plugin %r updates started.", plugin.name)
+
         while self.running:
+            logger.info("Updating plugin: %s", plugin.name)
             with common.time_context() as ctx:
-                await self.update_plugins()
-                logger.info(
-                    "Updated plugins in %.1f seconds", ctx()
-                )
+                try:
+                    await plugin.update()
+                except Exception:
+                    logger.exception(
+                        "Failed to update plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
+                else:
+                    logger.info(
+                        "Successfully updated plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
 
+            # for record, md in info["record_to_metadata"].items():
+            #     ...
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
 
-        logger.info("Server state plugin updates finished.")
+        logger.info("Server plugin %r updates finished.", plugin.name)
 
     async def _update_loop(self):
         """Update scripts from the script loader and watch for updates."""
@@ -162,7 +190,7 @@ class ServerState:
 
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
 
-        logger.info("Server state updates finished.")
+        logger.info("Server script updates finished.")
 
     async def update_script_loaders(self):
         """Update scripts from the script loader and watch for updates."""
@@ -181,7 +209,7 @@ class ServerState:
         ]
         for item in list(updated):
             if not item.script or not item.script.exists() or item.looks_like_sh:
-                if self._update_count == 0:
+                if self.update_count == 0:
                     # Don't attempt another load unless the file exists
                     updated.remove(item)
 
@@ -214,28 +242,6 @@ class ServerState:
 
         logger.info("Updated script relations in %.1f s", ctx())
         self._update_count += 1
-
-    async def update_plugins(self):
-        """Update all plugins."""
-        for plugin in self.plugins:
-            logger.info("Updating plugin: %s", plugin.name)
-            with common.time_context() as ctx:
-                try:
-                    _ = await plugin.update()
-                except Exception:
-                    logger.exception(
-                        "Failed to update plugin %r [%.1f s]",
-                        plugin.name, ctx()
-                    )
-                    continue
-                else:
-                    logger.info(
-                        "Successfully updated plugin %r [%.1f s]",
-                        plugin.name, ctx()
-                    )
-
-            # for record, md in info["record_to_metadata"].items():
-            #     ...
 
     def get_plugin_info(self, allow_list: Optional[List[str]] = None) -> Dict[str, Any]:
         """Get plugin information as a dictionary."""
@@ -772,6 +778,7 @@ def _new_server_state(
                 name="twincat_pytmc",
                 module="whatrecord.plugins.twincat_pytmc",
                 executable=None,
+                after_iocs=True,
             )
         )
 

@@ -508,10 +508,10 @@ def parse_declarations(
     try:
         decl_source = apply_blark_bugfixes(var_section, decl_source)
         if var_section == "global":
-            # Standalone section
-            ...
+            # Standalone global section
+            source = decl_source
         elif var_section == "type":
-            # Standalone type section
+            # Standalone struct/type section
             source = decl_source
         else:
             source = (
@@ -944,8 +944,13 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
         solution_path, projects = get_tsprojects_from_filename(project)
         logger.debug("Solution path %s projects %s", solution_path, projects)
         for tsproj_project in projects:
-            logger.debug("Found tsproj %s", tsproj_project.name)
-            parsed_tsproj = pytmc.parser.parse(tsproj_project)
+            logger.warning("Found tsproj %s", tsproj_project.name)
+            try:
+                parsed_tsproj = pytmc.parser.parse(tsproj_project)
+            except Exception:
+                logger.exception("Failed to load project %s", tsproj_project.name)
+                continue
+
             for plc_name, plc in parsed_tsproj.plcs_by_name.items():
                 if plc_whitelist and plc_name not in plc_whitelist:
                     continue

@@ -85,7 +85,7 @@ async def run_script_with_json_output(
     (stdout, stderr) = await proc.communicate()
     if stderr and log_errors:
         logger.warning(
-            "Standard error output while updating IOCs (%r): %s",
+            "Standard error output while running script (%r): %s",
             script_line, stderr
         )
 
@@ -94,7 +94,7 @@ async def run_script_with_json_output(
 
     if log_errors:
         logger.warning(
-            "No standard output while updating IOCs (%r)",
+            "No standard output while running script (%r)",
             script_line
         )
 
