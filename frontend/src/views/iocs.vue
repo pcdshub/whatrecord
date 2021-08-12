@@ -245,8 +245,8 @@ export default {
     this.from_params(this.$route.params);
   },
 
+  // eslint-disable-next-line no-unused-vars
   async beforeRouteUpdate(to, from) {
-    // eslint-disable-line
     this.from_params(to.params);
   },
 
