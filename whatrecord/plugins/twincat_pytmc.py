@@ -31,7 +31,7 @@ import pytmc
 import pytmc.bin.db
 import pytmc.code
 
-from .. import client, settings, transformer
+from .. import cache, client, settings, transformer, util
 from ..common import (AnyPath, FullLoadContext, IocMetadata, LoadContext,
                       remove_redundant_context)
 from ..server.common import PluginResults
@@ -714,8 +714,23 @@ def get_dependency_store() -> DependencyStore:
 
 
 @dataclass
-class PlcMetadata:
+class PlcMetadataCacheKey(cache.CacheKey):
+    """
+    These attributes define a PlcMetadata cache item.
+
+    The PLC name and filename will be used as a cache key; however, additional
+    checks will be made to see that the files have not changed on disk since
+    the last save.
+    """
     name: str
+    filename: str
+    include_dependencies: bool
+    include_symbols: bool
+
+
+@dataclass
+class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
+    """This metadata is keyed on PlcMetadataCacheKey."""
     context: FullLoadContext
     code: Dict[str, PlcCode]
     symbols: Dict[str, PlcSymbolMetadata]
@@ -826,6 +841,7 @@ class PlcMetadata:
         include_dependencies: bool = True,
         include_symbols: bool = True,
         loaded_files: Optional[Dict[str, str]] = None,
+        use_cache: bool = True,
     ) -> PlcMetadata:
         """Create a PlcMetadata instance from a pytmc-parsed one."""
         tmc = plc.tmc
@@ -833,10 +849,25 @@ class PlcMetadata:
             logger.debug("%s: No TMC file for symbols; skipping...", plc.name)
             return
 
+        filename = str(plc.filename.resolve())
+        if use_cache:
+            key = PlcMetadataCacheKey(
+                name=plc.name,
+                filename=filename,
+                include_dependencies=include_dependencies,
+                include_symbols=include_symbols,
+            )
+            cached = cls.from_cache(key)
+            if cached is not None:
+                if util.check_files_up_to_date(cached.loaded_files):
+                    return cached
+
         loaded_files = dict(loaded_files or {})
         code = {}
         deps = {}
         symbols = {}
+
+        loaded_files[filename] = util.get_file_sha256(filename)
 
         if include_dependencies:
             store = get_dependency_store()
@@ -852,7 +883,10 @@ class PlcMetadata:
 
         md = cls(
             name=plc.name,
-            context=(LoadContext(str(plc.filename.resolve()), 0), ),
+            filename=filename,
+            include_dependencies=include_dependencies,
+            include_symbols=include_symbols,
+            context=(LoadContext(filename, 0), ),
             code=code,
             symbols=symbols,
             record_to_symbol={},
@@ -876,6 +910,9 @@ class PlcMetadata:
             "%s: Found %d symbols (%d generated metadata)",
             plc.name, len(all_symbols), len(symbols)
         )
+        if use_cache:
+            md.save_to_cache()
+
         return md
 
     @classmethod
@@ -900,7 +937,8 @@ class PlcMetadata:
 
                 logger.debug("Found plc project %s", plc_name)
                 plc_md = cls.from_pytmc(
-                    plc, include_dependencies=include_dependencies,
+                    plc,
+                    include_dependencies=include_dependencies,
                     include_symbols=include_symbols,
                     loaded_files=loaded_files,
                 )
@@ -945,6 +983,7 @@ async def main(
     server: Optional[str] = None,
     pretty: bool = False,
     verbose: bool = False,
+    test: bool = False,
 ) -> List[PlcMetadata]:
     if verbose:
         logging.basicConfig(level="DEBUG")
@@ -982,8 +1021,9 @@ async def _cli_main():
     results = await main(**vars(args))
     whatrecord_results = PytmcPluginResults.from_metadata_items(results)
     json_results = apischema.serialize(whatrecord_results)
-    dump_args = {"indent": 4} if args.pretty else {}
-    print(json.dumps(json_results, sort_keys=True, **dump_args))
+    if not args.test:
+        dump_args = {"indent": 4} if args.pretty else {}
+        print(json.dumps(json_results, sort_keys=True, **dump_args))
 
 
 def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):
@@ -1003,6 +1043,10 @@ def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Verbose logging"
+    )
+    parser.add_argument(
+        "-t", "--test", action="store_true",
+        help="Do not output project (for testing)"
     )
     return parser
 

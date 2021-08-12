@@ -147,7 +147,7 @@ class InlineCached(_Cached):
         version: int = 1,
         cache_path: Optional[AnyPath] = None,
     ):
-        for supercls in cls.mro():
+        for supercls in cls.mro()[1:]:
             if issubclass(supercls, CacheKey) and supercls is not CacheKey:
                 cls.CacheKey = supercls
                 break

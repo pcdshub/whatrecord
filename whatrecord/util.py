@@ -14,6 +14,7 @@ MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 
 
 T = TypeVar("T")
+AnyPath = Union[str, pathlib.Path]
 
 
 def get_bytes_sha256(contents: bytes):
@@ -22,7 +23,7 @@ def get_bytes_sha256(contents: bytes):
 
 
 def check_files_up_to_date(
-    file_to_hash: Dict[Union[str, pathlib.Path], str]
+    file_to_hash: Dict[AnyPath, str]
 ) -> bool:
     """
     Check if the provided files are up-to-date by way of recorded hash vs
@@ -48,7 +49,7 @@ def check_files_up_to_date(
     return True
 
 
-def get_file_sha256(binary: pathlib.Path):
+def get_file_sha256(binary: AnyPath):
     """Hash a binary with the SHA-256 algorithm."""
     # This doesn't do any sort of buffering; but our binaries are pretty small
     # in comparison to what we're storing as metadata, anyway
