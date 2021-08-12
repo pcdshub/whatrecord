@@ -134,7 +134,7 @@
                 v-model="filterModel.value"
                 @keydown.enter="filterCallback()"
                 class="p-column-filter"
-                :placeholder="`Filter by type`"
+                :placeholder="`Filter by context`"
               />
             </template>
           </Column>

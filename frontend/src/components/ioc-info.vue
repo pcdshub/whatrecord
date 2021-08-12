@@ -6,6 +6,24 @@
   >
   </dictionary-table>
 
+  <details v-if="commands.length">
+    <summary>Commands</summary>
+    <DataTable :value="commands" dataKey="name">
+      <Column field="name" header="Command"  :sortable="true" />
+      <Column field="args" header="Arguments" :sortable="true">
+        <template #body="{ data }">
+          {{ data.args.map(arg => arg.name).join(", ") }}
+        </template>
+      </Column>
+
+      <Column field="context" header="Context" :sortable="true">
+        <template #body="{ data }">
+          <script-context-link :context="data.context" :short="5" />
+        </template>
+      </Column>
+    </DataTable>
+  </details>
+
   <template v-if="file_list.length">
     <br />
     Files loaded by {{ ioc_info.name }}: <br />
@@ -30,6 +48,7 @@ import Column from "primevue/column";
 import DataTable from "primevue/datatable";
 
 import DictionaryTable from "./dictionary-table.vue";
+import ScriptContextLink from "../components/script-context-link.vue";
 
 export default {
   name: "IocInfo",
@@ -37,6 +56,7 @@ export default {
     Column,
     DataTable,
     DictionaryTable,
+    ScriptContextLink,
   },
   props: ["ioc_info"],
   data() {
@@ -45,10 +65,7 @@ export default {
   computed: {
     file_list() {
       let files = [];
-      if (!this.ioc_info) {
-        return files;
-      }
-      for (const [file, hash] of Object.entries(this.ioc_info.loaded_files)) {
+      for (const [file, hash] of Object.entries(this.ioc_info?.loaded_files || {})) {
         files.push({
           name: file,
           hash: hash,
@@ -56,6 +73,11 @@ export default {
       }
       return files;
     },
+
+    commands() {
+      return Object.values(this.ioc_info?.commands || {});
+    },
+
   },
 };
 </script>
