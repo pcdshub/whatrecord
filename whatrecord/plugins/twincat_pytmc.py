@@ -850,6 +850,31 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
                 )
 
     @classmethod
+    def from_ioc(
+        cls,
+        md: IocMetadata,
+    ) -> Generator[PlcMetadata, None, None]:
+        try:
+            makefile_hash, makefile_contents, makefile_path = get_ioc_makefile(md)
+        except FileNotFoundError:
+            return
+
+        project_info = get_project_from_ioc(md, makefile_contents)
+        if project_info is None:
+            return
+
+        loaded_files = {
+            str(makefile_path): makefile_hash or get_file_sha256
+        }
+
+        project, plc_name = project_info
+        yield from PlcMetadata.from_project_filename(
+            project,
+            plc_whitelist=[plc_name],
+            loaded_files=loaded_files,
+        )
+
+    @classmethod
     def from_pytmc(
         cls,
         plc: pytmc.parser.Plc,
@@ -969,14 +994,11 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
 MAKEFILE_VAR_RE = re.compile(r"^([A-Z_][A-Z0-9_]+)\s*:?=\s*(.*)$", re.IGNORECASE | re.MULTILINE)
 
 
-def get_ioc_makefile(md: IocMetadata) -> Optional[Tuple[str, str, pathlib.Path]]:
+def get_ioc_makefile(md: IocMetadata) -> Tuple[str, str, pathlib.Path]:
     """Get the IOC Makefile contents, if available."""
     makefile_path = (md.script.parent / "Makefile").resolve()
-    try:
-        sha, contents = read_text_file_with_hash(makefile_path)
-        return sha, contents, makefile_path
-    except FileNotFoundError:
-        return
+    sha, contents = read_text_file_with_hash(makefile_path)
+    return sha, contents, makefile_path
 
 
 def get_project_from_ioc(md: IocMetadata, makefile: str) -> Optional[Tuple[pathlib.Path, str]]:
@@ -1015,23 +1037,11 @@ async def main(
     results = []
     ioc_info = await client.get_iocs(server=server)
     for md in ioc_info.matches:
-        makefile_info = get_ioc_makefile(md)
-        if makefile_info is None:
-            continue
-
-        makefile_hash, makefile_contents, makefile_path = makefile_info
-        project_info = get_project_from_ioc(md, makefile_contents)
-        if project_info is not None:
-            loaded_files = {str(makefile_path): makefile_hash}
-            project, plc_name = project_info
-            plc_md = list(
-                PlcMetadata.from_project_filename(
-                    project,
-                    plc_whitelist=[plc_name],
-                    loaded_files=loaded_files,
-                )
-            )
-            results.extend(plc_md)
+        try:
+            for plc_md in PlcMetadata.from_ioc(md):
+                results.append(plc_md)
+        except Exception:
+            logger.exception("Failed to add PLC from makefile: %s", md.name)
     return results
 
 
