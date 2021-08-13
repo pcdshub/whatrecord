@@ -517,7 +517,6 @@ class RecordInstanceSummary:
     name: str
     record_type: str
     # fields: Dict[str, RecordField]
-    archived: bool = False
     metadata: Dict[str, str] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     # is_grecord: bool = False
@@ -530,7 +529,6 @@ class RecordInstanceSummary:
             context=instance.context,
             name=instance.name,
             record_type=instance.record_type,
-            archived=instance.archived,
             metadata=instance.metadata,
             aliases=instance.aliases,
             is_pva=instance.is_pva,
@@ -623,7 +621,6 @@ class RecordInstance:
     name: str
     record_type: str
     fields: Dict[str, AnyField] = field(default_factory=dict)
-    archived: bool = False
     metadata: Dict[StringWithContext, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     is_grecord: bool = False

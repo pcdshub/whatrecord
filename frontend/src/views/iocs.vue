@@ -39,7 +39,7 @@
             </span>
           </div>
         </template>
-        <Column field="name" header="IOC Name">
+        <Column field="name" header="IOC Name" :sortable="true" style="width: 45%;">
           <template #body="{ data }">
             <router-link
               :to="{ name: 'file', params: { filename: data.script, line: 0 } }"
@@ -47,8 +47,8 @@
             >
           </template>
         </Column>
-        <Column field="host" header="Host" />
-        <Column field="base_version" header="Version" />
+        <Column field="host" header="Host" :sortable="true" style="width: 27%" />
+        <Column field="base_version" header="Version" :sortable="true" style="width: 27%" />
         <!-- <Column field="port" header="Port"/> -->
         <!-- <Column field="description" header="Description"/> -->
         <!-- <Column field="script" header="Script"/> -->
@@ -337,13 +337,12 @@ export default {
 }
 
 #iocs-left {
-  min-width: 15vw;
-  max-width: 20vw;
+  width: 25vw;
 }
 
 #iocs-right {
   margin: 1em;
   justify-content: stretch;
-  max-width: 78vw;
+  width: 72vw;
 }
 </style>

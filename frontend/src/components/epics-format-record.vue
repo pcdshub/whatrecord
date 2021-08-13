@@ -54,7 +54,7 @@ import ScriptContextOneLink from "./script-context-one-link.vue";
 import { plugins } from "../settings.js";
 
 const skip_keys =
-  ["asg", "gateway", "archived", "streamdevice"] +
+  ["asg", "gateway", "streamdevice"] +
   plugins.map((plugin) => plugin.name);
 
 export default {

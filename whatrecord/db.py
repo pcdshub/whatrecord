@@ -53,6 +53,7 @@ class LinterResults:
         List of warnings found
     """
 
+    macros: Dict[str, str] = field(default_factory=dict)
     errors: List[LinterError] = field(default_factory=list)
     warnings: List[LinterWarning] = field(default_factory=list)
     db: Optional[Database] = field(
@@ -94,6 +95,7 @@ class LinterResults:
             db, dbd=dbd, macro_context=macro_context, version=version,
             lint=lint, filename=db_filename
         )
+        lint.macros = dict(macro_context)
         return lint
 
     @classmethod
