@@ -37,12 +37,10 @@
         <DataTable
           :value="table_plcs"
           class="p-datatable-sm"
-          dataKey="name"
-          filterDisplay="row"
+          dataKey="plc"
           v-model:selection="selected_plc"
           @rowSelect="push_route"
           selectionMode="single"
-          :globalFilterFields="['plc']"
         >
           <Column field="plc" header="PLC" :sortable="true" />
         </DataTable>
@@ -91,7 +89,7 @@
             field="name"
             header="Name"
             :sortable="true"
-            style="width: 40vw"
+            style="width: 35vw"
           >
             <template #body="{ data }">
               <router-link :to="`/twincat_pytmc/${data.full_name}`">{{
@@ -112,7 +110,7 @@
             field="type"
             header="Type"
             :sortable="true"
-            style="width: 20vw"
+            style="width: 15vw"
           >
             <template #filter="{ filterModel, filterCallback }">
               <InputText
@@ -181,7 +179,7 @@ export default {
     },
 
     selected_plc_name() {
-      return this.selected_plc ? this.selected_plc.plc : "";
+      return this.selected_plc?.plc ?? "";
     },
 
     pytmc_item_info() {
