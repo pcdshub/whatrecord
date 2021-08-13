@@ -95,7 +95,7 @@ class LinterResults:
             db, dbd=dbd, macro_context=macro_context, version=version,
             lint=lint, filename=db_filename
         )
-        lint.macros = dict(macro_context)
+        lint.macros = dict(macro_context or {})
         return lint
 
     @classmethod
