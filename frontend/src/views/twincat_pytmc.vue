@@ -57,6 +57,35 @@
         </DataTable>
         <br />
 
+        <details v-if="nc_axes.length">
+          <summary>{{ nc_axes.length }} NC Axes</summary>
+          <DataTable
+            :value="nc_axes"
+            class="p-datatable-sm"
+            dataKey="name"
+          >
+            <Column field="axis_id" header="ID" style="width: 5vw" />
+            <Column field="name" header="Axis" style="width: 15vw">
+              <template #body="{ data }">
+                "{{ data.name }}" <br />
+                <br/>
+                <script-context-link :context="data.context" :short="1" />
+              </template>
+            </column>
+            <Column field="units" header="Units" style="width: 5vw" />
+            <Column field="params" header="Params">
+              <template #body="{ data }">
+                <dictionary-table
+                  :dict="data.params"
+                  :cls="'metadata'"
+                  :skip_keys="[]"
+                />
+              </template>
+            </Column>
+          </DataTable>
+        </details>
+        <br />
+
         <DataTable
           :value="symbols"
           class="p-datatable-sm"
@@ -222,6 +251,10 @@ export default {
 
     table_plcs() {
       return this.plcs.map((name) => ({ plc: name }));
+    },
+
+    nc_axes() {
+      return Object.values(this.plc_info?.metadata?.nc?.axes || []);
     },
 
     plc_dependencies() {

@@ -18,7 +18,11 @@ export default {
       if (this.link_text) {
         return this.link_text;
       }
-      return `${this.display_name}:${this.line}`;
+      if (this.line > 0) {
+        return `${this.display_name}:${this.line}`;
+      } else {
+        return this.display_name;
+      }
     },
     display_name() {
       return this.short > 0 ? this.short_name : this.name;

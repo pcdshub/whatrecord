@@ -297,7 +297,7 @@ class NCAxis:
     hash: str
 
     axis_id: int
-    axis_name: str
+    name: str
     units: str
     params: Dict[str, str]
 
@@ -312,7 +312,7 @@ class NCAxis:
             filename=filename,
             hash=get_file_sha256(filename),
             axis_id=axis.axis_number,
-            axis_name=axis.name,
+            name=axis.name,
             units=axis.units,
             params=dict(axis.summarize()),
         )
