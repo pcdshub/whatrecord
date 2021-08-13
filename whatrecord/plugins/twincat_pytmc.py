@@ -921,7 +921,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
 
         project_info = get_project_from_ioc(md, makefile_contents)
         if project_info is None:
-            logger.warning("No project found for %s", md.name)
+            logger.debug("No project found for %s", md.name)
             return
 
         loaded_files = {
