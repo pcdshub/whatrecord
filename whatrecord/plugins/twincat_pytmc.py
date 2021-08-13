@@ -187,6 +187,7 @@ class PytmcPluginResults(PluginResults):
             metadata_by_key=md.symbols,
             metadata={
                 "dependencies": md.dependencies,
+                "nc": md.nc,
             },
             execution_info={},
         )
@@ -286,6 +287,64 @@ class PlcCode:
         for _, section_dict in code_sections:
             for _, code_obj in section_dict.items():
                 yield cls.from_pytmc(code_obj)
+
+
+@dataclass
+class NCAxis:
+    """A single NC axis."""
+    context: FullLoadContext
+    filename: str
+    hash: str
+
+    axis_id: int
+    axis_name: str
+    units: str
+    params: Dict[str, str]
+
+    @classmethod
+    def from_pytmc(
+        cls,
+        axis: pytmc.parser.Axis,
+    ) -> NCAxis:
+        filename = str(axis.filename.resolve())
+        return cls(
+            context=(LoadContext(filename, 0), ),
+            filename=filename,
+            hash=get_file_sha256(filename),
+            axis_id=axis.axis_number,
+            axis_name=axis.name,
+            units=axis.units,
+            params=dict(axis.summarize()),
+        )
+
+
+@dataclass
+class NCAxes:
+    """Top-level NC axis information."""
+    context: FullLoadContext
+    filename: str
+    hash: str
+    axes: List[NCAxis]
+
+    @classmethod
+    def from_pytmc(
+        cls,
+        plc: pytmc.parser.Plc,
+    ) -> Optional[NCAxes]:
+        """Create an NCAxes instance from a pytmc-parsed Plc."""
+        try:
+            nc = next(plc.root.find(pytmc.parser.NC))
+        except StopIteration:
+            return
+
+        filename = str(nc.filename.resolve())
+
+        return cls(
+            context=(LoadContext(filename, 0), ),
+            filename=filename,
+            hash=get_file_sha256(filename),
+            axes=[NCAxis.from_pytmc(axis) for axis in nc.axes],
+        )
 
 
 def _find_in_items(items, cls):
@@ -752,6 +811,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
     record_to_symbol: Dict[str, str]
     loaded_files: Dict[str, str]
     dependencies: Dict[str, Dependency]
+    nc: Optional[NCAxes] = None
 
     def find_declaration_from_symbol(self, name: str) -> Optional[Declaration]:
         """Given a symbol name, find its Declaration."""
@@ -926,6 +986,13 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
             code[code_obj.name] = code_obj
             loaded_files[code_obj.filename] = code_obj.hash
 
+        nc = NCAxes.from_pytmc(plc)
+
+        if nc is not None:
+            loaded_files[nc.filename] = nc.hash
+            for axis in nc.axes:
+                loaded_files[axis.filename] = axis.hash
+
         md = cls(
             name=plc.name,
             filename=filename,
@@ -937,6 +1004,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
             record_to_symbol={},
             dependencies=deps,
             loaded_files=loaded_files,
+            nc=nc,
         )
 
         if not include_symbols:
