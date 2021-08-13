@@ -7,25 +7,26 @@
         :line="field_info.context[0][1]"
         :link_text="field.name"
         class="unassuming_link"
-        />
+      />
     </template>
     <template v-else>
-      {{ field.name }}
-    </template>, <script-context-one-link
-        :name="field.context[0][0]"
-        :line="field.context[0][1]"
-        :link_text='`"${field.value}"`'
-        class="unassuming_link"
-        />)
-    <br/>
+      {{ field.name }} </template
+    >,
+    <script-context-one-link
+      :name="field.context[0][0]"
+      :line="field.context[0][1]"
+      :link_text="`&quot;${field.value}&quot;`"
+      class="unassuming_link"
+    />)
+    <br />
   </div>
 </template>
 
 <script>
-import ScriptContextOneLink from './script-context-one-link.vue'
+import ScriptContextOneLink from "./script-context-one-link.vue";
 
 export default {
-  name: 'EpicsFormatField',
+  name: "EpicsFormatField",
   props: {
     field: Object,
     field_info: Object,
@@ -42,8 +43,18 @@ export default {
       }
       let field_body = [];
       const known_keys = [
-        "asl", "initial", "promptgroup", "prompt", "special", "pp",
-        "interest", "base", "size", "extra", "menu", "prop"
+        "asl",
+        "initial",
+        "promptgroup",
+        "prompt",
+        "special",
+        "pp",
+        "interest",
+        "base",
+        "size",
+        "extra",
+        "menu",
+        "prop",
       ];
       for (const [key, value] of Object.entries(info)) {
         if (known_keys.indexOf(key) >= 0) {
@@ -86,20 +97,20 @@ export default {
     },
 
     tooltip() {
-      const ctx = this.field.context.join(':');
+      const ctx = this.field.context.join(":");
       return `
 Data type: ${this.field.dtype}
 Context: ${ctx}
 ${this.field_info_text}
 `.trim();
-    }
+    },
   },
-}
+};
 </script>
 
 <style scoped>
 .unassuming_link {
   color: black;
-  text-decoration:none;
+  text-decoration: none;
 }
 </style>

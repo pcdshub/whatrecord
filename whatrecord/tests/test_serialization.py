@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Union
 import apischema
 import pytest
 
-from .. import common, ioc_finder, shell
+from .. import cache, common, ioc_finder, shell
 from ..common import FullLoadContext, LoadContext
 
 MODULE_PATH = Path(__file__).parent
@@ -21,6 +21,7 @@ MODULE_PATH = Path(__file__).parent
 logger = logging.getLogger(__name__)
 
 SKIP_CLASSES = (
+    cache.Cached,
     ioc_finder.IocScriptStaticInfoList,
     ioc_finder.IocScriptStaticList,
 )

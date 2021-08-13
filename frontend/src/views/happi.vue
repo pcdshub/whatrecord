@@ -5,7 +5,7 @@
       :dict="happi_item_info"
       :cls="'metadata'"
       :skip_keys="['_whatrecord']"
-      />
+    />
 
     <h2>{{ item_name }} - Related Records</h2>
     <template v-if="Object.keys(kind_to_related_records).length > 0">
@@ -16,11 +16,14 @@
           <th>Kind</th>
         </thead>
         <tbody>
-          <template v-for="[kind, records] in Object.entries(kind_to_related_records)" :key="kind">
+          <template
+            v-for="[kind, records] in Object.entries(kind_to_related_records)"
+            :key="kind"
+          >
             <tr v-for="rec in records" :key="rec.name">
               <td class="pv">
                 <router-link :to="`/whatrec/${rec.name}/${rec.name}`">
-                  {{rec.name}}
+                  {{ rec.name }}
                 </router-link>
               </td>
               <td class="pv">
@@ -37,42 +40,59 @@
   </template>
   <template v-else>
     <DataTable
-        id="happi_table"
-        :value="happi_items"
-        dataKey="name"
-        filterDisplay="row"
-        v-model:filters="filters"
-        :globalFilterFields="global_filter_fields"
+      id="happi_table"
+      class="p-datatable-sm"
+      :value="happi_items"
+      dataKey="name"
+      filterDisplay="row"
+      v-model:filters="filters"
+      :globalFilterFields="global_filter_fields"
     >
       <template #header>
         <div class="p-d-flex p-jc-between">
           <MultiSelect
             :modelValue="selected_columns"
-            :options="columns" optionLabel="header"
+            :options="columns"
+            optionLabel="header"
             @update:modelValue="onToggle"
             placeholder="Select Columns"
             style="width: 20em"
           />
 
-          <Button type="button" icon="pi pi-filter-slash" label="Clear"
-            class="p-button-outlined" @click="clear_filters()"/>
+          <Button
+            type="button"
+            icon="pi pi-filter-slash"
+            label="Clear"
+            class="p-button-outlined"
+            @click="clear_filters()"
+          />
           <span class="p-input-icon-left">
             <i class="pi pi-search" />
             <InputText v-model="filters['global'].value" placeholder="Search" />
           </span>
         </div>
       </template>
-      <Column field="name" header="Name" :sortable="true">
-        <template #body="{data}">
-          <router-link :to="`/happi/${data.name}`">{{data.name}}</router-link>
+      <Column field="name" header="Name" :sortable="true" style="width: 12vw">
+        <template #body="{ data }">
+          <router-link :to="`/happi/${data.name}`">{{ data.name }}</router-link>
         </template>
-        <template #filter="{filterModel,filterCallback}">
-          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-            :placeholder="`Filter by name`" />
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by name`"
+          />
         </template>
       </Column>
-      <Column field="device_class" header="Class"> :sortable="true"
-        <template #body="{data}">
+      <Column
+        field="device_class"
+        header="Class"
+        :sortable="true"
+        style="width: 25vw"
+      >
+        <template #body="{ data }">
           <div class="tooltip">
             {{ data.device_class.split(".").slice(-1)[0] }}
             <span class="tooltiptext">
@@ -80,64 +100,92 @@
             </span>
           </div>
         </template>
-        <template #filter="{filterModel,filterCallback}">
-          <Dropdown v-model="filterModel.value" :options="device_classes"
-            placeholder="Any" class="p-column-filter" :showClear="true"
-            @change="filterCallback()" >
+        <template #filter="{ filterModel, filterCallback }">
+          <Dropdown
+            v-model="filterModel.value"
+            :options="device_classes"
+            placeholder="Any"
+            class="p-column-filter"
+            :showClear="true"
+            @change="filterCallback()"
+          >
           </Dropdown>
         </template>
       </Column>
       <Column field="prefix" header="Prefix" :sortable="true">
-        <template #body="{data}">
+        <template #body="{ data }">
           <router-link :to="`/whatrec/${data.prefix}*/${data.prefix}`">
-            {{data.prefix}}
+            {{ data.prefix }}
           </router-link>
         </template>
-        <template #filter="{filterModel,filterCallback}">
-          <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-            :placeholder="`Filter by prefix`" />
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by prefix`"
+          />
         </template>
       </Column>
-      <Column field="active" header="Active" :sortable="true">
-        <template #body="{data}">
+      <Column
+        field="active"
+        header="Active"
+        :sortable="true"
+        style="width: 10vw"
+      >
+        <template #body="{ data }">
           <i :class="['pi', data.active ? 'pi-check' : 'pi-times']" />
         </template>
-        <template #filter="{filterModel,filterCallback}">
-          <Dropdown v-model="filterModel.value" :options="[false, true]"
-            placeholder="Any" class="p-column-filter" :showClear="true"
-            @change="filterCallback()" >
+        <template #filter="{ filterModel, filterCallback }">
+          <Dropdown
+            v-model="filterModel.value"
+            :options="[false, true]"
+            placeholder="Any"
+            class="p-column-filter"
+            :showClear="true"
+            @change="filterCallback()"
+          >
           </Dropdown>
         </template>
       </Column>
-      <Column v-for="(col, index) of selected_columns"
-        :field="col.field" :header="col.header"
+      <Column
+        v-for="(col, index) of selected_columns"
+        :field="col.field"
+        :header="col.header"
         :key="col.field + '_' + index"
         :sortable="true"
-        >
-          <template #filter="{filterModel,filterCallback}">
-            <InputText type="text" v-model="filterModel.value" @keydown.enter="filterCallback()" class="p-column-filter"
-              :placeholder="`Filter`" />
-          </template>
+        :style="col.style"
+      >
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter`"
+          />
+        </template>
       </Column>
     </DataTable>
   </template>
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapState } from "vuex";
 
-import Button from 'primevue/button';
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
-import Dropdown from 'primevue/dropdown';
-import InputText from 'primevue/inputtext';
-import MultiSelect from 'primevue/multiselect';
-import {FilterMatchMode} from 'primevue/api';
+import Button from "primevue/button";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
+import Dropdown from "primevue/dropdown";
+import InputText from "primevue/inputtext";
+import MultiSelect from "primevue/multiselect";
+import { FilterMatchMode } from "primevue/api";
 
-import DictionaryTable from '../components/dictionary-table.vue'
+import DictionaryTable from "../components/dictionary-table.vue";
 
 export default {
-  name: 'HappiView',
+  name: "HappiView",
   components: {
     Button,
     Column,
@@ -154,14 +202,14 @@ export default {
     return {
       filters: null,
       selected_columns: null,
-    }
+    };
   },
   computed: {
-    happi_item_info () {
+    happi_item_info() {
       if (!this.item_name || !this.happi_items || !this.happi_info_ready) {
         return {
-          "error": "",
-          "_whatrecord": {"records": []},
+          error: "",
+          _whatrecord: { records: [] },
         };
       }
       return this.happi_info.metadata_by_key[this.item_name];
@@ -190,14 +238,14 @@ export default {
       }
       return result;
     },
-    happi_items () {
+    happi_items() {
       if (Object.keys(this.happi_info).length == 0) {
         return [];
       }
       return Object.values(this.happi_info.metadata_by_key);
     },
 
-    global_filter_fields () {
+    global_filter_fields() {
       let fields = ["name", "device_class", "prefix"];
       for (const col of this.selected_columns) {
         fields.push(col.field);
@@ -205,16 +253,16 @@ export default {
       return fields;
     },
     ...mapState({
-      happi_info_ready (state) {
-        return Object.keys(state.plugin_info).length > 0;
+      happi_info_ready(state) {
+        return Object.keys(state.plugin_info.happi || {}).length > 0;
       },
-      happi_info (state) {
+      happi_info(state) {
         if (!state.plugin_info) {
           return {};
         }
         const happi_info = state.plugin_info.happi || {
-            metadata_by_key: {},
-          };
+          metadata_by_key: {},
+        };
         return happi_info;
       },
     }),
@@ -225,32 +273,32 @@ export default {
   },
   mounted() {
     if (!this.happi_info_ready) {
-        this.$store.dispatch("update_plugin_info");
+      this.$store.dispatch("update_plugin_info", { plugin: "happi" });
     }
   },
   methods: {
     init_filters() {
       this.filters = {
-        global: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        name: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        device_class: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        prefix: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        beamline: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        stand: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        active: {value: "", matchMode: FilterMatchMode.EQUALS},
-        z: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        last_edit: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        args: {value: "", matchMode: FilterMatchMode.CONTAINS},
-        kwargs: {value: "", matchMode: FilterMatchMode.CONTAINS},
+        global: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        name: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        device_class: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        prefix: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        beamline: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        stand: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        active: { value: "", matchMode: FilterMatchMode.EQUALS },
+        z: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        last_edit: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        args: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        kwargs: { value: "", matchMode: FilterMatchMode.CONTAINS },
       };
       this.columns = [
-        {field: 'beamline', header: 'Beamline'},
-        {field: 'stand', header: 'Stand'},
-        {field: 'z', header: 'Z Location (m)'},
-        {field: 'last_edit', header: 'Last Edit'},
-        {field: 'args', header: 'Arguments'},
-        {field: 'kwargs', header: 'Keyword Arguments'},
-      ]
+        { field: "beamline", header: "Beamline", style: "width: 10vw" },
+        { field: "stand", header: "Stand", style: "width: 10vw" },
+        { field: "z", header: "Z Location (m)", style: "width: 10vw" },
+        { field: "last_edit", header: "Last Edit", style: "width: 10vw" },
+        { field: "args", header: "Arguments", style: "width: 15vw" },
+        { field: "kwargs", header: "Keyword Arguments", style: "width: 15vw" },
+      ];
       this.selected_columns = this.columns.slice(0, 2);
     },
     clear_filters() {
@@ -258,10 +306,9 @@ export default {
     },
     onToggle(value) {
       this.selected_columns = value;
-    }
+    },
   },
-
-}
+};
 </script>
 
 <!-- https://www.w3schools.com/css/css_tooltip.asp -->
@@ -292,12 +339,13 @@ export default {
   border-collapse: collapse;
 }
 
-#related_records td, #related_records th {
+#related_records td,
+#related_records th {
   border: 1px solid #ddd;
   padding: 8px;
 }
 
-#related_records tr:nth-child(even){
+#related_records tr:nth-child(even) {
   background-color: #f2f2f2;
 }
 

@@ -6,11 +6,11 @@
 
 <script>
 export default {
-  name: 'ScriptContextOneLink',
+  name: "ScriptContextOneLink",
   props: {
     name: String,
     line: Number,
-    short: Boolean,
+    short: Number,
     link_text: String,
   },
   computed: {
@@ -18,20 +18,24 @@ export default {
       if (this.link_text) {
         return this.link_text;
       }
-      return `${this.display_name }:${this.line}`;
+      if (this.line > 0) {
+        return `${this.display_name}:${this.line}`;
+      } else {
+        return this.display_name;
+      }
     },
     display_name() {
-      return (this.short ? this.short_name : this.name);
+      return this.short > 0 ? this.short_name : this.name;
     },
     short_name() {
-      return this.name.replace(/^.*[\\/]/, '');
+      let parts = this.name.split("/");
+      return parts.slice(-this.short).join("/");
     },
     link() {
-      return { name: 'file', params: { filename: this.name, line: this.line }};
-    }
-  }
-}
+      return { name: "file", params: { filename: this.name, line: this.line } };
+    },
+  },
+};
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

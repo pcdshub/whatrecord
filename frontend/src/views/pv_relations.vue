@@ -3,63 +3,89 @@
     <div id="left" class="column">
       <div>
         <h3>Include unknown</h3>
-        <InputSwitch v-model="include_unknown" :binary="true" @change="push_route" />
+        <InputSwitch
+          v-model="include_unknown"
+          :binary="true"
+          @change="push_route"
+        />
       </div>
       <div>
         <h3>Show records</h3>
-        <InputSwitch v-model="show_records" :binary="true" @change="push_route" />
+        <InputSwitch
+          v-model="show_records"
+          :binary="true"
+          @change="push_route"
+        />
       </div>
       <div>
         <h3>Groups</h3>
-        <DataTable id="groups" :value="groups" dataKey="name"
-            v-model:selection="selected_groups"
-            selectionMode="multiple" @rowSelect="push_route"
-            :paginator="true" :rows="300" v-model:filters="group_filters"
-            filterDisplay="row" :globalFilterFields="['iocs']"
-            >
+        <DataTable
+          id="groups"
+          :value="groups"
+          dataKey="name"
+          v-model:selection="selected_groups"
+          selectionMode="multiple"
+          @rowSelect="push_route"
+          :paginator="true"
+          :rows="300"
+          v-model:filters="group_filters"
+          filterDisplay="row"
+          :globalFilterFields="['iocs']"
+        >
           <template #header>
             <div class="p-d-flex p-jc-between">
-              <Button type="button" icon="pi pi-filter-slash" label="Clear" class="p-button-outlined" @click="clear_group_filters()"/>
+              <Button
+                type="button"
+                icon="pi pi-filter-slash"
+                label="Clear"
+                class="p-button-outlined"
+                @click="clear_group_filters()"
+              />
               <span class="p-input-icon-left">
                 <i class="pi pi-search" />
-                <InputText v-model="group_filters['global'].value" placeholder="Search" />
+                <InputText
+                  v-model="group_filters['global'].value"
+                  placeholder="Search"
+                />
               </span>
             </div>
           </template>
           <Column field="iocs" header="IOC Names">
-            <template #body="{data}">
+            <template #body="{ data }">
               <template v-for="ioc in data.iocs" :key="ioc">
-                {{ioc}}<br/>
+                {{ ioc }}<br />
               </template>
             </template>
           </Column>
         </DataTable>
       </div>
     </div>
-    <div id="graph" class="column">
-    </div>
-    <div id="node_info" class="column hidden">
-    </div>
+    <div id="graph" class="column"></div>
+    <div id="node_info" class="column hidden"></div>
   </div>
 </template>
 
 <script>
-import { mapState } from 'vuex';
-const axios = require('axios').default;
+import { mapState } from "vuex";
+const axios = require("axios").default;
 
-import Button from 'primevue/button';
-import InputSwitch from 'primevue/inputswitch';
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
-import InputText from 'primevue/inputtext';
-import {FilterMatchMode} from 'primevue/api';
+import Button from "primevue/button";
+import InputSwitch from "primevue/inputswitch";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
+import InputText from "primevue/inputtext";
+import { FilterMatchMode } from "primevue/api";
 
-import cytoscape from 'cytoscape';
-import fcose from 'cytoscape-fcose';
+import cytoscape from "cytoscape";
+import fcose from "cytoscape-fcose";
 
-cytoscape.use( fcose );
+cytoscape.use(fcose);
 
-function get_simple_nodes(relations, include_unknown = false, include_records = false) {
+function get_simple_nodes(
+  relations,
+  include_unknown = false,
+  include_records = false
+) {
   let pv_to_node = {};
   let ioc_to_node = {};
   let script_edges = {};
@@ -72,9 +98,7 @@ function get_simple_nodes(relations, include_unknown = false, include_records = 
         data: {
           id: ioc1,
         },
-        classes: [
-          "script",
-        ],
+        classes: ["script"],
       };
       ioc_to_node[ioc1] = script_node;
     }
@@ -90,7 +114,7 @@ function get_simple_nodes(relations, include_unknown = false, include_records = 
             source: ioc1,
             target: ioc2,
             field_label: "",
-          }
+          },
         };
       }
       if (include_records) {
@@ -102,9 +126,7 @@ function get_simple_nodes(relations, include_unknown = false, include_records = 
                 parent: ioc2,
                 weight: 1,
               },
-              classes: [
-                "pv",
-              ],
+              classes: ["pv"],
             };
             pv_to_node[pv] = pv_node;
           }
@@ -120,7 +142,7 @@ function get_simple_nodes(relations, include_unknown = false, include_records = 
     edges: [],
     all_nodes: Object.values(ioc_to_node).concat(Object.values(pv_to_node)),
     all_edges: Object.values(script_edges),
-  }
+  };
 }
 
 function get_all_nodes(relations, include_unknown = false) {
@@ -139,9 +161,7 @@ function get_all_nodes(relations, include_unknown = false) {
         id: script_id,
         weight: 2,
       },
-      classes: [
-        "script",
-      ],
+      classes: ["script"],
     };
     ioc_to_node[script_id] = script_node;
     for (const pv of pvs) {
@@ -151,9 +171,7 @@ function get_all_nodes(relations, include_unknown = false) {
           parent: script_id,
           weight: 1,
         },
-        classes: [
-          "pv",
-        ],
+        classes: ["pv"],
       };
       pv_to_node[pv] = pv_node;
     }
@@ -190,7 +208,7 @@ function get_all_nodes(relations, include_unknown = false) {
                 source: node1.data.parent,
                 target: node2.data.parent,
                 field_label: "",
-              }
+              },
             };
           }
         }
@@ -204,7 +222,7 @@ function get_all_nodes(relations, include_unknown = false) {
             source: pv1,
             target: pv2,
             field_label: field_label,
-          }
+          },
         });
       }
     }
@@ -216,9 +234,8 @@ function get_all_nodes(relations, include_unknown = false) {
     edges: edges,
     all_nodes: Object.values(ioc_to_node).concat(Object.values(pv_to_node)),
     all_edges: edges.concat(Object.values(script_edges)),
-  }
+  };
 }
-
 
 function groups_from_relations(relations, include_unknown) {
   let groups = [];
@@ -232,15 +249,13 @@ function groups_from_relations(relations, include_unknown) {
       const name = `${ioc1},${ioc2s.join(",")}`;
       let group_iocs = [ioc1].concat(ioc2s);
       if (!include_unknown) {
-        group_iocs = group_iocs.filter(item => item != "unknown");
+        group_iocs = group_iocs.filter((item) => item != "unknown");
       }
       if (group_iocs.length > 1) {
-        groups.push(
-          {
-            "name": name,
-            "iocs": group_iocs,
-          }
-        )
+        groups.push({
+          name: name,
+          iocs: group_iocs,
+        });
       }
       for (const ioc of group_iocs) {
         saw[ioc] = true;
@@ -260,22 +275,31 @@ function filter_elements(info, ioc_list, include_records) {
   for (const node_info of info.all_nodes) {
     if (ioc_list.indexOf(node_info.data.id) >= 0) {
       nodes.push(node_info);
-    } else if (include_records && ioc_list.indexOf(node_info.data.parent) >= 0) {
+    } else if (
+      include_records &&
+      ioc_list.indexOf(node_info.data.parent) >= 0
+    ) {
       nodes.push(node_info);
       records[node_info.data.id] = true;
     }
   }
   for (const edge_info of info.all_edges) {
     const edge_data = edge_info.data;
-    if (ioc_list.indexOf(edge_data.source) >= 0 && ioc_list.indexOf(edge_data.target) >= 0) {
+    if (
+      ioc_list.indexOf(edge_data.source) >= 0 &&
+      ioc_list.indexOf(edge_data.target) >= 0
+    ) {
       edges.push(edge_info);
-     } else if (include_records && edge_data.source in records && edge_data.target in records) {
+    } else if (
+      include_records &&
+      edge_data.source in records &&
+      edge_data.target in records
+    ) {
       edges.push(edge_info);
     }
   }
   return nodes.concat(edges);
 }
-
 
 function create_plot(info, ioc_list = null, include_records = false) {
   const filtered_elements = filter_elements(info, ioc_list, include_records);
@@ -287,81 +311,79 @@ function create_plot(info, ioc_list = null, include_records = false) {
   let layout_options;
   if (include_records) {
     layout_options = {
-      name: 'fcose',
+      name: "fcose",
       animate: false,
       nodeDimensionsIncludeLabels: true,
       nodeSeparation: 200,
-      quality: 'proof',
+      quality: "proof",
       randomize: false,
       tile: true,
       uniformNodeDimensions: false,
-    }
+    };
   } else {
     layout_options = {
-      name: 'fcose',
+      name: "fcose",
       animate: false,
       nodeDimensionsIncludeLabels: true,
       nodeSeparation: 200,
-      quality: 'proof',
+      quality: "proof",
       randomize: false,
       tile: true,
       uniformNodeDimensions: false,
-    }
+    };
   }
   let cy = cytoscape({
-    container: document.getElementById('graph'),
+    container: document.getElementById("graph"),
     elements: filtered_elements,
-    ready: function() {
-    },
+    ready: function () {},
     style: [
       {
-        selector: '.pv',
+        selector: ".pv",
         style: {
-          'background-color': 'lightgreen',
-          'label': 'data(id)',
-          'width': 'label',   // TODO: deprecated
-          'text-valign': 'center',
-          'border-style': 'solid',
-          'border-color': 'gray',
-        }
+          "background-color": "lightgreen",
+          label: "data(id)",
+          width: "label", // TODO: deprecated
+          "text-valign": "center",
+          "border-style": "solid",
+          "border-color": "gray",
+        },
       },
       {
-        selector: '.script',
+        selector: ".script",
         style: {
-          'background-color': 'lightgray',
-          'shape': 'rectangle',
-          'label': 'data(id)',
-          'text-valign': 'bottom',
-          'border-style': 'dashed',
-          'border-color': 'black',
-        }
+          "background-color": "lightgray",
+          shape: "rectangle",
+          label: "data(id)",
+          "text-valign": "bottom",
+          "border-style": "dashed",
+          "border-color": "black",
+        },
       },
 
       {
-        selector: 'edge',
+        selector: "edge",
         style: {
-          'label': 'data(field_label)',
-          'width': 1,
-          'line-color': 'black',
-          'target-arrow-color': '#ccc',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier',
-          'text-valign': 'top',
-          'text-margin-y': '-10',
-          'text-wrap': 'wrap',
-        }
-      }
+          label: "data(field_label)",
+          width: 1,
+          "line-color": "black",
+          "target-arrow-color": "#ccc",
+          "target-arrow-shape": "triangle",
+          "curve-style": "bezier",
+          "text-valign": "top",
+          "text-margin-y": "-10",
+          "text-wrap": "wrap",
+        },
+      },
     ],
 
     layout: layout_options,
   });
 
-
   return cy;
 }
 
 export default {
-  name: 'PVRelationsView',
+  name: "PVRelationsView",
   components: {
     Button,
     Column,
@@ -387,7 +409,7 @@ export default {
       show_records: true,
       selected_record: null,
       shown_record: null,
-    }
+    };
   },
   computed: {
     route_groups() {
@@ -406,7 +428,7 @@ export default {
       }
       return groups;
     },
-    selected_ioc_list () {
+    selected_ioc_list() {
       if (!this.selected_groups) {
         return [];
       }
@@ -419,7 +441,7 @@ export default {
       return iocs;
     },
     ...mapState({
-      pv_relations (state) {
+      pv_relations(state) {
         return state.pv_relations;
       },
     }),
@@ -428,10 +450,11 @@ export default {
     document.title = `WhatRecord? PV Map`;
     this.init_group_filters();
     this.$watch(
-      () => this.$route.params, to_params => {
+      () => this.$route.params,
+      (to_params) => {
         this.from_params(to_params);
       }
-    )
+    );
     await this.from_params();
   },
   async mounted() {
@@ -452,7 +475,10 @@ export default {
       if (this.last_query != query && Object.keys(this.pv_relations).length) {
         this.last_query = query;
 
-        this.groups = groups_from_relations(this.pv_relations, query.include_unknown);
+        this.groups = groups_from_relations(
+          this.pv_relations,
+          query.include_unknown
+        );
         let group_by_name = {};
         for (const group of this.groups) {
           group_by_name[group.name] = group;
@@ -464,17 +490,24 @@ export default {
 
         if (this.full_relations) {
           this.node_info = get_all_nodes(
-            this.pv_relations, query.include_unknown
+            this.pv_relations,
+            query.include_unknown
           );
         } else {
           this.node_info = get_simple_nodes(
-            this.pv_relations, query.include_unknown, query.show_records
+            this.pv_relations,
+            query.include_unknown,
+            query.show_records
           );
         }
 
         try {
-          this.cy = create_plot(this.node_info, this.selected_ioc_list, query.show_records);
-        }  catch (error) {
+          this.cy = create_plot(
+            this.node_info,
+            this.selected_ioc_list,
+            query.show_records
+          );
+        } catch (error) {
           console.error("Failed to update plot", error);
           this.cy = null;
         }
@@ -486,44 +519,49 @@ export default {
       const record = route_query.record;
       if (record && this.shown_record != record) {
         this.shown_record = record;
-        axios.get(
-          "/api/pv/" + record + "/graph/svg", {})
-          .then(response => {
+        axios
+          .get("/api/pv/" + record + "/graph/svg", {})
+          .then((response) => {
             var parser = new DOMParser();
-            let svg_doc = parser.parseFromString(response.data, "image/svg+xml");
+            let svg_doc = parser.parseFromString(
+              response.data,
+              "image/svg+xml"
+            );
 
             const node_info_div = document.getElementById("node_info");
-            node_info_div.replaceChildren(svg_doc.getElementsByTagName("svg")[0]);
+            node_info_div.replaceChildren(
+              svg_doc.getElementsByTagName("svg")[0]
+            );
             node_info_div.classList = ["column", "shown"];
           })
-          .catch(error => {
-            console.log(error)
+          .catch((error) => {
+            console.log(error);
           });
       }
     },
     push_route() {
       this.$router.push({
         query: {
-          "record": this.selected_record,
-          "show_records": this.show_records,
-          "unknowns": this.include_unknown,
-          "groups": this.selected_groups_list,
-          "global_filter": this.group_filters["global"].value,
+          record: this.selected_record,
+          show_records: this.show_records,
+          unknowns: this.include_unknown,
+          groups: this.selected_groups_list,
+          global_filter: this.group_filters["global"].value,
         },
       });
     },
 
-    node_selected (event) {
+    node_selected(event) {
       const node = event.target;
       if (node.hasClass("script")) {
         const ioc_name = node.data().id;
         this.$router.push({
           name: "iocs",
           params: {
-            "selected_iocs_in": ioc_name,
+            selected_iocs_in: ioc_name,
           },
           query: {
-            "ioc_filter": ioc_name,
+            ioc_filter: ioc_name,
           },
         });
       } else if (node.hasClass("pv")) {
@@ -538,13 +576,12 @@ export default {
 
     init_group_filters() {
       this.group_filters = {
-        'global': {value: this.ioc_filter, matchMode: FilterMatchMode.CONTAINS},
-        'iocs': {value: null, matchMode: FilterMatchMode.CONTAINS},
+        global: { value: this.ioc_filter, matchMode: FilterMatchMode.CONTAINS },
+        iocs: { value: null, matchMode: FilterMatchMode.CONTAINS },
       };
     },
-
-  }
-}
+  },
+};
 </script>
 
 <style scoped>

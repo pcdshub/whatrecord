@@ -1,5 +1,8 @@
 <template>
-  <table :class="[cls, table_default_class, path_table_class]" v-if="Object.keys(filtered_dict).length > 0">
+  <table
+    :class="[cls, table_default_class, path_table_class]"
+    v-if="Object.keys(filtered_dict).length > 0"
+  >
     <thead>
       <tr>
         <th>{{ key_column || "Key" }}</th>
@@ -7,27 +10,28 @@
       </tr>
     </thead>
     <tbody>
-      <tr v-for="value, key in filtered_dict" :key="key + '-' + value">
+      <tr v-for="(value, key) in filtered_dict" :key="key + '-' + value">
         <td class="key">{{ key }}</td>
 
         <td v-if="key == 'context'" class="value">
-          <script-context-link :context=value :short=true></script-context-link>
+          <script-context-link
+            :context="value"
+            :short="4"
+          ></script-context-link>
         </td>
         <td v-else-if="key == 'metadata'" class="value">
           <dictionary-table
             :dict="value"
             cls="metadata"
             :path="path ? path + '.' + key : key"
-            :skip_keys="[]" />
+            :skip_keys="[]"
+          />
         </td>
         <td v-else-if="value instanceof Array" class="value">
           <ul>
             <li v-for="item of value" :key="item">
               <template v-if="item && Object.keys(item)[0] != 0">
-                <dictionary-table
-                  :dict="item"
-                  cls="metadata"
-                  :skip_keys="[]" />
+                <dictionary-table :dict="item" cls="metadata" :skip_keys="[]" />
               </template>
               <template v-else>
                 {{ item }}
@@ -40,7 +44,8 @@
             :dict="value"
             cls=""
             :path="path ? path + '.' + key : key"
-            :skip_keys="[]" />
+            :skip_keys="[]"
+          />
         </td>
         <td v-else class="value">
           <pre>{{ value }}</pre>
@@ -51,10 +56,10 @@
 </template>
 
 <script>
-import ScriptContextLink from './script-context-link.vue';
+import ScriptContextLink from "./script-context-link.vue";
 
 export default {
-  name: 'DictionaryTable',
+  name: "DictionaryTable",
   props: {
     cls: String,
     dict: Object,
@@ -80,15 +85,14 @@ export default {
     filtered_dict() {
       let filtered = {};
       if (this.dict === null || this.dict === undefined) {
-          return filtered;
+        return filtered;
       }
       for (const [key, value] of Object.entries(this.dict)) {
         if (this.skip_keys.indexOf(key) < 0 && value != null) {
-          const looks_worth_displaying = (
+          const looks_worth_displaying =
             typeof value == "boolean" ||
             typeof value == "number" ||
-            Object.entries(value).length > 0
-          );
+            Object.entries(value).length > 0;
           if (looks_worth_displaying) {
             filtered[key] = value;
           }
@@ -96,12 +100,13 @@ export default {
       }
       return filtered;
     },
-  }
-}
+  },
+};
 </script>
 
 <style scoped>
-th, td {
+th,
+td {
   padding: 5px 5px;
 }
 
@@ -165,15 +170,15 @@ tr:nth-child(even) {
 }
 
 ul {
-    list-style: none;
-    margin-left: 0;
-    padding-left: 1em;
+  list-style: none;
+  margin-left: 0;
+  padding-left: 1em;
 }
 ul > li:before {
-    display: inline-block;
-    content: "-";
-    width: 1em;
-    margin-left: -1em;
+  display: inline-block;
+  content: "-";
+  width: 1em;
+  margin-left: -1em;
 }
 pre {
   margin: 0px;

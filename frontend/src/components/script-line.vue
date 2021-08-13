@@ -1,17 +1,17 @@
 <template>
   <tr>
-    <td :class="line_id_class">
-      {{ line_id }}:
-    </td>
+    <td :class="line_id_class">{{ line_id }}:</td>
     <td :class="script_line_class">
       <template v-if="!has_details">
-        <pre class="script-line" :id="line_id">{{ line.line.replace("\t", "    ") }}</pre>
+        <pre class="script-line" :id="line_id">{{
+          line.line.replace("\t", "    ")
+        }}</pre>
       </template>
       <template v-else>
         <details :id="line_id" class="script-line">
           <summary class="script-line">
-            <span :class='is_error_line ? "script-error-line" : "script-line"'>
-              {{line.line}}
+            <span :class="is_error_line ? 'script-error-line' : 'script-line'">
+              {{ line.line }}
             </span>
           </summary>
 
@@ -23,7 +23,8 @@
               <dictionary-table
                 :dict="line.error"
                 cls="error"
-                :skip_keys="[]" />
+                :skip_keys="[]"
+              />
             </template>
           </span>
           <span v-if="line.result != null" class="result-block">
@@ -46,9 +47,9 @@
               key_column="Argument"
               value_column="Value"
               cls="command_info_table"
-              :skip_keys="[]" />
+              :skip_keys="[]"
+            />
           </template>
-
         </details>
       </template>
     </td>
@@ -56,19 +57,13 @@
 </template>
 
 <script>
-import DictionaryTable from './dictionary-table.vue';
-import LinterResults from './linter-results.vue';
+import DictionaryTable from "./dictionary-table.vue";
+import LinterResults from "./linter-results.vue";
 
 export default {
-  name: 'ScriptLine',
-  components: [
-    DictionaryTable,
-    LinterResults,
-  ],
-  props: [
-    "line",
-    "all_commands"
-  ],
+  name: "ScriptLine",
+  components: [DictionaryTable, LinterResults],
+  props: ["line", "all_commands"],
   computed: {
     command() {
       if (this.line.argv != null && this.line.argv.length > 0) {
@@ -86,7 +81,11 @@ export default {
     },
 
     command_info_table() {
-      if (this.command_info == null || this.command_info.length == 0 || !this.argv) {
+      if (
+        this.command_info == null ||
+        this.command_info.length == 0 ||
+        !this.argv
+      ) {
         return null;
       }
       var info_table = {};
@@ -95,14 +94,15 @@ export default {
       }
       for (const [idx, arg_info] of this.command_info["args"].entries()) {
         const argv_idx = idx + 1;
-        const arg_value = argv_idx < this.argv.length ? this.argv[argv_idx] : "";
+        const arg_value =
+          argv_idx < this.argv.length ? this.argv[argv_idx] : "";
         info_table[arg_info.name] = arg_value;
       }
       return info_table;
     },
 
     line_id() {
-      return this.line.context.map(ctx => ctx[1]).join(':');
+      return this.line.context.map((ctx) => ctx[1]).join(":");
     },
 
     line_id_class() {
@@ -117,15 +117,22 @@ export default {
     },
 
     has_details() {
-      return !(this.line.result == null && this.line.error == null && this.command_info == null);
+      return !(
+        this.line.result == null &&
+        this.line.error == null &&
+        this.command_info == null
+      );
     },
 
     is_error_line() {
-      return (this.is_db_load_error || this.line.error != null);
+      return this.is_db_load_error || this.line.error != null;
     },
 
     script_line_class() {
-      if (this.line.context.length > 0 && this.line.context[0][1] == this.$route.params.line) {
+      if (
+        this.line.context.length > 0 &&
+        this.line.context[0][1] == this.$route.params.line
+      ) {
         return ["script-line-selected", "script-line"];
       }
       return "script-line";
@@ -135,18 +142,20 @@ export default {
       return (
         this.line.result instanceof Object &&
         "load_count" in this.line.result &&
-        (this.line.result.errors.length > 0 || this.line.result.warnings.length > 0)
+        (this.line.result.errors.length > 0 ||
+          this.line.result.warnings.length > 0)
       );
     },
-
   },
   beforeCreate() {
     // TODO: I don't think this is circular; why am I running into this?
     // V2 ref: https://vuejs.org/v2/guide/components-edge-cases.html#Circular-References-Between-Components
-    this.$options.components.LinterResults = require('./linter-results.vue').default;
-    this.$options.components.DictionaryTable = require('./dictionary-table.vue').default;
+    this.$options.components.LinterResults =
+      require("./linter-results.vue").default;
+    this.$options.components.DictionaryTable =
+      require("./dictionary-table.vue").default;
   },
-}
+};
 </script>
 
 <style scoped>
@@ -180,15 +189,15 @@ td.script-line-selected {
 }
 
 details > summary {
-    list-style-type: none;
+  list-style-type: none;
 }
 
 details > summary::marker {
-    display: none;
+  display: none;
 }
 
 details.script-line > summary::before {
-    content: '';
+  content: "";
 }
 
 .script-error-line {
@@ -203,7 +212,7 @@ details.script-line > summary::before {
   page-break-inside: avoid;
   font-family: monospace;
   font-size: 15px;
-  line-height: 1.0;
+  line-height: 1;
   margin-bottom: 0.5em;
   max-width: 100%;
   overflow: auto;
@@ -218,7 +227,7 @@ details.script-line > summary::before {
   page-break-inside: avoid;
   font-family: monospace;
   font-size: 15px;
-  line-height: 1.0;
+  line-height: 1;
   margin-bottom: 0.5em;
   max-width: 100%;
   overflow: auto;

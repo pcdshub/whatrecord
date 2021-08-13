@@ -16,29 +16,28 @@
 </template>
 
 <script>
-import { mapState } from 'vuex'
+import { mapState } from "vuex";
 
-import Recordinfo from '../components/recordinfo.vue'
-import Searchbar from '../components/searchbar.vue'
-
+import Recordinfo from "../components/recordinfo.vue";
+import Searchbar from "../components/searchbar.vue";
 
 export default {
-  name: 'WhatRec',
+  name: "WhatRec",
   components: {
     Recordinfo,
     Searchbar,
   },
   props: [],
   computed: {
-    record_glob () {
+    record_glob() {
       return this.$route.params.record_glob || "";
     },
-    selected_records () {
+    selected_records() {
       const records = this.$route.params.selected_records;
       return (records || "").split("|");
     },
     ...mapState({
-      record_info (state) {
+      record_info(state) {
         let record_info = [];
         for (const rec of this.selected_records) {
           if (rec in state.record_info) {
@@ -50,14 +49,14 @@ export default {
     }),
   },
   data() {
-    return {
-    }
+    return {};
   },
   created() {
-    console.debug(`WhatRecord Mounted: glob=${this.record_glob} PVs=${this.selected_records}`);
+    console.debug(
+      `WhatRecord Mounted: glob=${this.record_glob} PVs=${this.selected_records}`
+    );
   },
-
-}
+};
 </script>
 
 <style scoped>

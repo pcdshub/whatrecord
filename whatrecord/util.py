@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import pathlib
+import textwrap
 from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import apischema
@@ -14,6 +15,7 @@ MODULE_PATH = pathlib.Path(__file__).parent.resolve()
 
 
 T = TypeVar("T")
+AnyPath = Union[str, pathlib.Path]
 
 
 def get_bytes_sha256(contents: bytes):
@@ -22,7 +24,7 @@ def get_bytes_sha256(contents: bytes):
 
 
 def check_files_up_to_date(
-    file_to_hash: Dict[Union[str, pathlib.Path], str]
+    file_to_hash: Dict[AnyPath, str]
 ) -> bool:
     """
     Check if the provided files are up-to-date by way of recorded hash vs
@@ -48,7 +50,7 @@ def check_files_up_to_date(
     return True
 
 
-def get_file_sha256(binary: pathlib.Path):
+def get_file_sha256(binary: AnyPath):
     """Hash a binary with the SHA-256 algorithm."""
     # This doesn't do any sort of buffering; but our binaries are pretty small
     # in comparison to what we're storing as metadata, anyway
@@ -83,9 +85,10 @@ async def run_script_with_json_output(
 
     (stdout, stderr) = await proc.communicate()
     if stderr and log_errors:
+        stderr_text = textwrap.indent(stderr.decode("utf-8", "replace"), "    ! ")
         logger.warning(
-            "Standard error output while updating IOCs (%r): %s",
-            script_line, stderr
+            "Standard error output while running script (%r):\n%s",
+            script_line, stderr_text
         )
 
     if stdout:
@@ -93,7 +96,7 @@ async def run_script_with_json_output(
 
     if log_errors:
         logger.warning(
-            "No standard output while updating IOCs (%r)",
+            "No standard output while running script (%r)",
             script_line
         )
 

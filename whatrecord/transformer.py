@@ -48,3 +48,8 @@ def pass_through(obj: Optional[T] = None) -> Optional[T]:
 def dictify(*tuples: Tuple[Any, Any]) -> dict:
     """Transformer helper to stringify a single argument."""
     return dict(tuples)
+
+
+@staticmethod
+def ignore(*args: Any) -> None:
+    """Transformer helper to drop the subtree."""

@@ -1,3 +1,4 @@
+import os
 import pathlib
 
 import pytest
@@ -10,6 +11,7 @@ STARTUP_SCRIPTS = list((MODULE_PATH / "iocs").glob("**/st.cmd"))
 
 # Disable caching for _all_ tests
 settings.CACHE_PATH = ""
+os.environ["WHATRECORD_CACHE_PATH"] = ""
 
 startup_scripts = pytest.mark.parametrize(
     "startup_script",

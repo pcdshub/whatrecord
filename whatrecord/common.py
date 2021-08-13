@@ -44,6 +44,7 @@ def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
 # FullLoadContext = Tuple[LoadContext, ...]
 FullLoadContext = List[LoadContext]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
+AnyPath = Union[str, pathlib.Path]
 
 
 @dataclass(repr=False)
@@ -516,7 +517,6 @@ class RecordInstanceSummary:
     name: str
     record_type: str
     # fields: Dict[str, RecordField]
-    archived: bool = False
     metadata: Dict[str, str] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     # is_grecord: bool = False
@@ -529,7 +529,6 @@ class RecordInstanceSummary:
             context=instance.context,
             name=instance.name,
             record_type=instance.record_type,
-            archived=instance.archived,
             metadata=instance.metadata,
             aliases=instance.aliases,
             is_pva=instance.is_pva,
@@ -622,7 +621,6 @@ class RecordInstance:
     name: str
     record_type: str
     fields: Dict[str, AnyField] = field(default_factory=dict)
-    archived: bool = False
     metadata: Dict[StringWithContext, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     is_grecord: bool = False
@@ -803,3 +801,29 @@ def time_context():
 def context_from_lark_token(fn: str, token: lark.Token) -> FullLoadContext:
     """Get a full load context from a given lark Token."""
     return (LoadContext(name=fn, line=token.line), )
+
+
+def remove_redundant_context(full_context: FullLoadContext) -> FullLoadContext:
+    """Remove redundant context information if it does not add anything."""
+    if not full_context:
+        return full_context
+
+    # Inefficient, but the data set is small here, so meh
+    zero_line_files = set(
+        item.name
+        for item in full_context
+        if item.line == 0
+    )
+
+    for file in set(zero_line_files):
+        for ctx in full_context:
+            if ctx.name == file and ctx.line > 0:
+                break
+        else:
+            zero_line_files.remove(file)
+
+    return tuple(
+        ctx
+        for ctx in full_context
+        if ctx.name not in zero_line_files or ctx.line > 0
+    )

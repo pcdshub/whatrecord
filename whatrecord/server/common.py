@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import logging
 import sys
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import apischema
 
 from .. import util
 from ..common import (IocMetadata, PVRelations, RecordInstance,
                       RecordInstanceSummary, ScriptPVRelations, WhatRecord)
+
+logger = logging.getLogger(__name__)
 
 
 class TooManyRecordsError(Exception):
@@ -17,12 +20,46 @@ class TooManyRecordsError(Exception):
 
 @dataclass
 class PluginResults:
-    files_to_monitor: Dict[str, str]
-    record_to_metadata_keys: Dict[str, List[str]]
-    metadata_by_key: Dict[str, Any]
-    metadata: Any
-    execution_info: Dict[str, Any]
-    # defines records? defines IOCs?
+    files_to_monitor: Dict[str, str] = field(default_factory=dict)
+    record_to_metadata_keys: Dict[str, List[str]] = field(default_factory=dict)
+    metadata_by_key: Dict[str, Any] = field(default_factory=dict)
+    metadata: Any = None
+    execution_info: Dict[str, Any] = field(default_factory=dict)
+    nested: Optional[Dict[str, PluginResults]] = None
+
+    def is_loaded_file(self, fn: str) -> bool:
+        """Is the given file one that was loaded in the plugin?"""
+        if fn in self.files_to_monitor:
+            return True
+        return any(
+            nested.is_loaded_file(fn)
+            for nested in (self.nested or {}).values()
+        )
+
+    def find_record_metadata(self, record: str) -> Generator[Any, None, None]:
+        """Find all metadata for the given record name."""
+        for key in self.record_to_metadata_keys.get(record) or []:
+            try:
+                yield self.metadata_by_key[key]
+            except KeyError:
+                logger.debug(
+                    "Consistency error in plugin: missing metadata key(s) %r "
+                    "for record %s",
+                    key, record
+                )
+
+        for nested in (self.nested or {}).values():
+            yield from nested.find_record_metadata(record)
+
+    def find_by_key(self, key: str) -> Generator[Tuple[str, Any], None, None]:
+        """Find all metadata for the given record name."""
+        md = self.metadata_by_key.get(key, None)
+        if md is not None:
+            yield key, md
+
+        for nest_key, nested in (self.nested or {}).items():
+            for sub_key, info in nested.find_by_key(key):
+                yield f"{nest_key}:{sub_key}", info
 
 
 @dataclass
@@ -37,6 +74,8 @@ class ServerPluginSpec:
     files_to_monitor: Dict[str, str] = field(default_factory=dict)
     results: Optional[PluginResults] = None
     results_json: Any = None
+    # Require IOCs to be loaded first before running
+    after_iocs: bool = False
 
     @property
     def script(self) -> str:

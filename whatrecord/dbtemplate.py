@@ -8,19 +8,17 @@ import pathlib
 import re
 import shlex
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import apischema
 import lark
 
 from . import transformer
-from .common import FullLoadContext
+from .common import AnyPath, FullLoadContext
 from .macro import MacroContext
 from .transformer import context_from_token
 
 logger = logging.getLogger(__name__)
-
-AnyPath = Union[str, pathlib.Path]
 
 
 def _strip_double_quote(value: str) -> str:

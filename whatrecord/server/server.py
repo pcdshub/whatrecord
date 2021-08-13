@@ -3,6 +3,7 @@ import collections
 import fnmatch
 import functools
 import logging
+import os
 import re
 import tempfile
 
@@ -18,14 +19,13 @@ import graphviz
 from aiohttp import web
 
 from .. import common, gateway, graph, ioc_finder, settings
-from ..common import LoadContext, RecordInstance, WhatRecord
+from ..common import LoadContext, RecordInstance, StringWithContext, WhatRecord
 from ..shell import (LoadedIoc, ScriptContainer,
                      load_startup_scripts_with_metadata)
 from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
-                     IocMetadata, PluginResults, PVGetInfo,
-                     PVGetMatchesResponse, PVRelationshipResponse,
-                     PVShortRelationshipResponse, ServerPluginSpec,
-                     TooManyRecordsError)
+                     IocMetadata, PVGetInfo, PVGetMatchesResponse,
+                     PVRelationshipResponse, PVShortRelationshipResponse,
+                     ServerPluginSpec, TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
@@ -74,7 +74,6 @@ class ServerState:
     container: ScriptContainer
     gateway_config: gateway.GatewayConfig
     script_loaders: List[ioc_finder._IocInfoFinder]
-    plugin_data: Dict[str, Optional[PluginResults]]
     ioc_metadata: List[IocMetadata]
     _update_count: int
 
@@ -91,8 +90,11 @@ class ServerState:
         self.gateway_config = None
         self.gateway_config_path = gateway_config
         self.ioc_metadata = []
-        self.plugin_data = {}
         self.plugins = plugins or []
+        self.plugins_by_name = {
+            plugin.name: plugin
+            for plugin in plugins or []
+        }
         self.script_relations = {}
         self.standin_directories = standin_directories or {}
         self.tasks = TaskHandler()
@@ -104,6 +106,11 @@ class ServerState:
         ]
         self._update_count = 0
 
+    @property
+    def update_count(self) -> int:
+        """The number of times IOCs have been updated."""
+        return self._update_count
+
     async def stop(self):
         """Stop any background updates."""
         self.running = False
@@ -112,19 +119,42 @@ class ServerState:
     async def async_init(self, app):
         self.running = True
         self.tasks.create(self._update_loop())
-        self.tasks.create(self._update_plugin_loop())
+        logger.info(
+            "Server plugins enabled: %s",
+            ", ".join(plugin.name for plugin in self.plugins)
+        )
+        for plugin in self.plugins:
+            self.tasks.create(self._update_plugin_loop(plugin))
 
-    async def _update_plugin_loop(self):
+    async def _update_plugin_loop(self, plugin: ServerPluginSpec):
+        while self.running and self.update_count == 0 and plugin.after_iocs:
+            # Wait until IOCs have been loaded before updating this one for the
+            # first time.
+            await asyncio.sleep(1)
+
+        logger.info("Server plugin %r updates started.", plugin.name)
+
         while self.running:
+            logger.info("Updating plugin: %s", plugin.name)
             with common.time_context() as ctx:
-                await self.update_plugins()
-                logger.info(
-                    "Updated plugins in %.1f seconds", ctx()
-                )
+                try:
+                    await plugin.update()
+                except Exception:
+                    logger.exception(
+                        "Failed to update plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
+                else:
+                    logger.info(
+                        "Successfully updated plugin %r [%.1f s]",
+                        plugin.name, ctx()
+                    )
 
+            # for record, md in info["record_to_metadata"].items():
+            #     ...
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
 
-        logger.info("Server state plugin updates finished.")
+        logger.info("Server plugin %r updates finished.", plugin.name)
 
     async def _update_loop(self):
         """Update scripts from the script loader and watch for updates."""
@@ -160,7 +190,7 @@ class ServerState:
 
             await asyncio.sleep(settings.SERVER_SCAN_PERIOD)
 
-        logger.info("Server state updates finished.")
+        logger.info("Server script updates finished.")
 
     async def update_script_loaders(self):
         """Update scripts from the script loader and watch for updates."""
@@ -179,7 +209,7 @@ class ServerState:
         ]
         for item in list(updated):
             if not item.script or not item.script.exists() or item.looks_like_sh:
-                if self._update_count == 0:
+                if self.update_count == 0:
                     # Don't attempt another load unless the file exists
                     updated.remove(item)
 
@@ -204,6 +234,9 @@ class ServerState:
             self.container.add_loaded_ioc(loaded)
             self._replace_metadata(md, loaded.metadata)
 
+            # Let plugins update, if possible
+            await asyncio.sleep(0)
+
         with common.time_context() as ctx:
             self.script_relations = graph.build_script_relations(
                 self.container.database,
@@ -213,35 +246,26 @@ class ServerState:
         logger.info("Updated script relations in %.1f s", ctx())
         self._update_count += 1
 
-    async def update_plugins(self):
-        """Update all plugins."""
-        for plugin in self.plugins:
-            logger.info("Updating plugin: %s", plugin.name)
-            with common.time_context() as ctx:
-                try:
-                    _ = await plugin.update()
-                except Exception:
-                    logger.exception(
-                        "Failed to update plugin %r [%.1f s]",
-                        plugin.name, ctx()
-                    )
-                    continue
-                else:
-                    logger.info(
-                        "Successfully updated plugin %r [%.1f s]",
-                        plugin.name, ctx()
-                    )
+    def get_plugin_info(self, allow_list: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Get plugin information as a dictionary."""
+        if allow_list is None:
+            allow_list = [plugin.name for plugin in self.plugins]
 
-            # for record, md in info["record_to_metadata"].items():
-            #     ...
-
-    def get_plugin_info(self) -> Dict[str, Any]:
-        """Get all plugin information as a dictionary."""
         return {
             plugin.name: plugin.results_json
             for plugin in self.plugins
-            if plugin.results
+            if plugin.name in allow_list and plugin.results
         }
+
+    def get_plugin_nested_keys(self, plugin_name: str) -> List[str]:
+        """Get plugin custom nested metadata keys."""
+        plugin = self.plugins_by_name[plugin_name]
+        return list(plugin.results.nested) if plugin.results else []
+
+    def get_plugin_nested_info(self, plugin_name: str, key: str) -> Any:
+        """Get plugin custom nested metadata info."""
+        results = self.plugins_by_name[plugin_name].results
+        return results.nested[key] if results else {}
 
     def _load_gateway_config(self):
         if not self.gateway_config_path:
@@ -295,12 +319,10 @@ class ServerState:
                 if not plugin.results:
                     continue
 
-                for md_key in plugin.results.record_to_metadata_keys.get(
-                    instance.name, []
-                ):
-                    plugin_md = plugin.results.metadata_by_key[md_key]
-                    plugin_matches = instance.metadata.setdefault(plugin.name, [])
-                    plugin_matches.append(plugin_md)
+                info = list(plugin.results.find_record_metadata(instance.name))
+                if info:
+                    plugin_key = StringWithContext(plugin.name, context=())
+                    instance.metadata[plugin_key] = info
 
         return what
 
@@ -408,10 +430,20 @@ class ServerState:
         ]:
             method.cache_clear()
 
+    def is_loaded_file(self, fn) -> bool:
+        """Is ``fn`` a file that was loaded?"""
+        fn = str(fn)
+        if fn in self.container.loaded_files:
+            return True
+
+        return any(
+            plugin.results.is_loaded_file(fn)
+            for plugin in self.plugins
+            if plugin.results is not None
+        )
+
     @functools.lru_cache(maxsize=2048)
     def script_info_from_loaded_file(self, fn) -> common.IocshScript:
-        assert fn in self.container.loaded_files
-
         with open(fn, "rt") as fp:
             lines = fp.read().splitlines()
 
@@ -574,7 +606,28 @@ class ServerHandler:
 
     @routes.get("/api/plugin/info")
     async def api_plugin_info(self, request: web.Request):
-        return serialized_response(self.state.get_plugin_info())
+        plugins = request.query.get("plugin", "all")
+        allow_list = None if plugins == "all" else plugins.split(" ")
+        return serialized_response(self.state.get_plugin_info(allow_list))
+
+    @routes.get("/api/plugin/nested/keys")
+    async def api_plugin_nested_keys(self, request: web.Request):
+        try:
+            plugin = request.query["plugin"]
+            keys = self.state.get_plugin_nested_keys(plugin)
+        except KeyError:
+            raise web.HTTPBadRequest()
+        return serialized_response(keys)
+
+    @routes.get("/api/plugin/nested/info")
+    async def api_plugin_nested_info(self, request: web.Request):
+        try:
+            plugin = request.query["plugin"]
+            key = request.query["key"]
+            info = self.state.get_plugin_nested_info(plugin, key)
+        except KeyError:
+            raise web.HTTPBadRequest()
+        return serialized_response(info)
 
     @routes.get("/api/gateway/info")
     async def api_gateway_info(self, request: web.Request):
@@ -592,11 +645,10 @@ class ServerHandler:
         else:
             # Making this dual-purpose: script, db, or any loaded file
             ioc_md = None
-            try:
-                self.state.container.loaded_files[filename]
-                script_info = self.state.script_info_from_loaded_file(filename)
-            except KeyError as ex:
-                raise web.HTTPBadRequest() from ex
+            if not self.state.is_loaded_file(filename):
+                raise web.HTTPBadRequest()
+
+            script_info = self.state.script_info_from_loaded_file(filename)
 
         return serialized_response(
             {
@@ -722,19 +774,32 @@ def _new_server_state(
     if not isinstance(standin_directory, dict):
         standin_directory = dict(path.split("=", 1) for path in standin_directory)
 
+    plugins = []
+    if "happi" in settings.PLUGINS:
+        plugins.append(
+            ServerPluginSpec(
+                name="happi",
+                module="whatrecord.plugins.happi",
+                executable=None,
+            )
+        )
+
+    if "twincat_pytmc" in settings.PLUGINS:
+        plugins.append(
+            ServerPluginSpec(
+                name="twincat_pytmc",
+                module="whatrecord.plugins.twincat_pytmc",
+                executable=None,
+                after_iocs=True,
+            )
+        )
+
     return ServerState(
         startup_scripts=scripts,
         script_loaders=script_loader,
         standin_directories=standin_directory,
         gateway_config=gateway_config,
-        plugins=[
-            ServerPluginSpec(
-                name="happi",
-                module="whatrecord.plugins.happi",
-                executable=None,
-                # result_class=dict,
-            ),
-        ],
+        plugins=plugins,
     )
 
 
@@ -746,6 +811,10 @@ def _new_server(
     """Create a new aiohttp Application for the given ServerHandler."""
     app = web.Application()
     add_routes(app, handler)
+
+    # Set the environment variable for plugins or subprocesses to be able to
+    # query the server.
+    os.environ["WHATRECORD_SERVER"] = f"http://localhost:{port}"
 
     app.on_startup.append(handler.async_init)
     if run:
