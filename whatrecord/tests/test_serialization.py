@@ -90,6 +90,7 @@ init_args_by_type = {
     Path: Path(),
     Union[int, str]: "abc",
     Union[shell.IocLoadFailure, str]: "use_cache",
+    Union[str, List[str]]: ["a", "b", "c"],
     bool: True,
     bytes: b"testing",
     FullLoadContext: [LoadContext("test", 1)],
