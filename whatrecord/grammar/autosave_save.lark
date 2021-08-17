@@ -1,40 +1,11 @@
-// Autosave save file - used for restoring values to PVs
+// Autosave save (.sav) file - used for restoring values to PVs
 // Lark grammar (Earley)
-
-?start: restore
-
-%import common.WS_INLINE
-%import common.WS
-%import common.INT
-%import common.NEWLINE
-
-COMMENT     : "#" /[^\n\r]/*
-%ignore COMMENT
-%ignore WS_INLINE
-%ignore WS
-
-EXCLAMATION     : "!"
-BAREWORD        : /[a-zA-Z0-9_\-+:.\[\]<>;]+/
-RECORD_NAME     : /[^. \t]+/
-FIELD_NAME      : BAREWORD
-BACKSLASH       : "\\"
-ARRAY_BEGIN     : "{"
-ARRAY_END       : "}"
-ELEMENT_BEGIN   : "\""
-ELEMENT_END     : "\""
-ESCAPED_ELEMENT : BACKSLASH "{"
-                | BACKSLASH "}"
-ARRAY_MARKER    : "@array@"
-
-ELEMENT_CHAR    : /[^{}"]/
-                | ESCAPED_ELEMENT
-ELEMENT_STRING  : ELEMENT_CHAR+
-
-END_MARKER      : "<END>"
-
-pvname          : RECORD_NAME "." FIELD_NAME -> record_and_field
-                | RECORD_NAME                -> record_name
-
+//
+// Autosave does not use a grammar directly; so this was hand-written and
+// tested against the save files at the LCLS.
+//
+// Per autosave source code:
+//
 //     [<error string>]
 //     which is "! <number> <optional descriptive text>"
 // OR
@@ -48,29 +19,64 @@ pvname          : RECORD_NAME "." FIELD_NAME -> record_and_field
 //        e.g., "1.2"
 //        OR
 //           @array@ { "<val>" "<val>" }
-
+//
 // examples:
 //   xxx:interp.E 100
 //   xxx:interp.C @array@ { "1" "0.99" }
+//
+// Array Examples:
+//   @array@ { "1.23" " 2.34" " 3.45" }
+//   @array@ { "abc" "de\"f" "g{hi\"" "jkl mno} pqr" }
 
-restore: (restore_item NEWLINE)* END_MARKER?
+?start: restore
+
+%import common.INT
+%import common.CR
+%import common.LF
+
+_WS             : (" "|/\t/)+
+_NEWLINE        : (CR? LF)+
+COMMENT_CHAR    : /[^\r\n]/
+EXCLAMATION     : "!"
+BAREWORD        : /[a-zA-Z0-9_\-+:.\[\]<>;]+/
+RECORD_NAME     : /[^!# \r\n][^ \t\r\n]+/
+BACKSLASH       : "\\"
+DOUBLE_QUOTE    : "\""
+STRINGCHAR      : /[^"\n\r\\]/
+ESCAPE          : BACKSLASH /./
+END_MARKER      : "<END>"
+
+ARRAY_MARKER    : "@array@"
+ARRAY_BEGIN     : "{"
+ARRAY_END       : "}"
+ARRAY_ELEMENT   : DOUBLE_QUOTE ( STRINGCHAR | ESCAPE )* DOUBLE_QUOTE
+
+pvname          : RECORD_NAME
+
+restore: (restore_item _NEWLINE)* end_line? _NEWLINE*
+
+comment: "#" /[^\r\n]+/
+empty_comment: "#"
+
+end_line: END_MARKER
 
 restore_item: error
-            | scalar_restore
-            | array_restore
+            | value_restore
+            | comment
+            | empty_comment
+            | _NEWLINE*
 
-error: EXCLAMATION error_number error_description?
+error: EXCLAMATION _WS error_number (_WS error_description)?
 error_number: INT
-error_description: /.+/
+error_description: /[^\r\n]+/
 
-array_restore: pvname ARRAY_MARKER ARRAY_BEGIN array_elements ARRAY_END
-scalar_restore: pvname scalar_value
+value_restore: pvname _WS value?
+// disconnected_pv: "#" pvname "Search Issued"
 
-scalar_value: /.+/ NEWLINE?
+value: array_value
+     | scalar_value
 
-array_elements: array_element*
-array_element: ELEMENT_BEGIN ELEMENT_STRING? ELEMENT_END
+array_value: ARRAY_MARKER _WS ARRAY_BEGIN _WS? array_elements _WS? ARRAY_END
+scalar_value: /[^\r\n]+/
 
-// Examples:
-// { "1.23" " 2.34" " 3.45" }
-// { "abc" "de\"f" "g{hi\"" "jkl mno} pqr" }
+array_elements: (ARRAY_ELEMENT _WS)* ARRAY_ELEMENT?

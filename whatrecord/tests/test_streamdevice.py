@@ -4,7 +4,7 @@ import pprint
 import apischema
 import pytest
 
-from ..streamdevice import StreamProtocol, load_streamdevice_protocol
+from ..streamdevice import StreamProtocol
 from . import conftest
 
 PROTOCOL_FILES = list((conftest.MODULE_PATH / "iocs").glob("**/*.proto"))
@@ -29,7 +29,7 @@ protocol_files = pytest.mark.parametrize(
 
 @protocol_files
 def test_parse(protocol_file):
-    proto = load_streamdevice_protocol(protocol_file)
+    proto = StreamProtocol.from_file(protocol_file)
 
     serialized = apischema.serialize(proto)
     pprint.pprint(serialized)

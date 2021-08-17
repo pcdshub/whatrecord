@@ -265,6 +265,3 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             }
         )
         return defn
-
-
-load_streamdevice_protocol = StreamProtocol.from_file
