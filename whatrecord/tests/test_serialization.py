@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Union
 import apischema
 import pytest
 
-from .. import cache, common, ioc_finder, shell
+from .. import autosave, cache, common, ioc_finder, shell
 from ..common import FullLoadContext, LoadContext
 
 MODULE_PATH = Path(__file__).parent
@@ -30,6 +30,7 @@ SKIP_DESERIALIZATION = {
     # These take too long to round-trip and verify somehow:
     shell.LoadedIoc,
     shell.ShellState,
+    autosave.AutosaveState,
 }
 
 
