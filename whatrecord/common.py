@@ -720,7 +720,7 @@ class ShellStateHandler:
     parent: Optional[ShellStateHandler] = field(
         default=None, metadata=apischema.metadata.skip
     )
-    primary_handler: Optional[ShellStateHandler] = field(
+    primary_handler: Optional[ShellState] = field(
         default=None, metadata=apischema.metadata.skip
     )
     _handlers: Dict[str, Callable] = field(
@@ -732,6 +732,12 @@ class ShellStateHandler:
         for sub_handler in self.sub_handlers:
             sub_handler.parent = self
             sub_handler.primary_handler = self.parent or self
+
+    def get_load_context(self) -> FullLoadContext:
+        """Get a FullLoadContext tuple representing where we are now."""
+        if self.primary_handler is None:
+            return tuple()
+        return self.primary_handler.get_load_context()
 
     @property
     def sub_handlers(self) -> List[ShellStateHandler]:

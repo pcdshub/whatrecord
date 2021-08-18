@@ -9,6 +9,7 @@ import lark
 
 from . import transformer
 from .common import FullLoadContext, ShellStateHandler
+from .macro import macros_from_string
 from .transformer import context_from_token
 
 
@@ -182,11 +183,22 @@ def _fix_value(value: Optional[str]) -> str:
 
 
 @dataclass
-class AutosaveMonitorSet:
+class AutosaveSet:
     context: FullLoadContext
-    filename: str
-    period: int
-    macros: Dict[str, str]
+    request_filename: str
+    save_filename: str
+    period: Optional[int] = None
+    trigger_channel: Optional[str] = None
+    macros: Dict[str, str] = field(default_factory=dict)
+    method: str = "manual"
+
+
+@dataclass
+class AutosaveRestorePassFile:
+    context: FullLoadContext
+    save_filename: str
+    macros: Dict[str, str] = field(default_factory=dict)
+    pass_number: int = 0
 
 
 @dataclass
@@ -196,23 +208,34 @@ class AutosaveState(ShellStateHandler):
     configured: bool = False
     request_paths: List[pathlib.Path] = field(default_factory=list)
     save_path: pathlib.Path = field(default_factory=pathlib.Path)
-    save_filename: str = ""
-    monitor_sets: List[AutosaveMonitorSet] = field(default_factory=list)
-    incomplete_sets_ok: bool = True
-    dated_backups: bool = True
-    date_period_minutes: int = 0
-    num_seq_files: int = 3
-    seq_period: int = 0
-    retry_seconds: int = 0
-    ca_reconnect: bool = False
-    callback_timeout: int = 0
-    task_priority: int = 0
-    nfs_host: str = ""
-    use_status_pvs: bool = False
-    status_prefix: str = ""
-    file_permissions: int = 0o664
-    debug: int = 0
-    # TODO: autosaveBuild, or require it to be existing?
+    sets: Dict[str, AutosaveSet] = field(default_factory=dict)
+    restore_files: Dict[str, AutosaveRestorePassFile] = field(default_factory=dict)
+    incomplete_sets_ok: Optional[bool] = None  # default: True
+    dated_backups: Optional[bool] = None  # default: True
+    date_period_minutes: Optional[int] = None  # default: 0
+    num_seq_files: Optional[int] = None  # default: 3
+    seq_period: Optional[int] = None  # default: 0
+    retry_seconds: Optional[int] = None  # default: 0
+    ca_reconnect: Optional[bool] = None  # default: False
+    callback_timeout: Optional[int] = None  # default: 0
+    task_priority: Optional[int] = None  # default: 0
+    nfs_host: Optional[str] = None
+    use_status_pvs: Optional[bool] = None  # default: False
+    status_prefix: Optional[str] = None
+    file_permissions: Optional[int] = None  # default: 0o664
+    debug: Optional[int] = None  # default: 0
+
+    @property
+    def save_name_pv(self) -> Optional[str]:
+        """The save name PV, derived from the macro context."""
+        if self.primary_handler is not None:
+            return self.primary_handler.macro_context.get("SAVENAMEPV")
+
+    @property
+    def save_path_pv(self) -> Optional[str]:
+        """The save path PV, derived from the macro context."""
+        if self.primary_handler is not None:
+            return self.primary_handler.macro_context.get("SAVEPATHPV")
 
     # save_restore.c
 
@@ -249,7 +272,12 @@ class AutosaveState(ShellStateHandler):
         If a save set has already been created for the request file, this
         function will change the save file name.
         """
-        ...
+        try:
+            set_ = self.sets[request_file]
+        except KeyError:
+            raise ValueError("Request file not configured")
+
+        set_.save_filename = save_filename
 
     def handle_create_periodic_set(
         self, filename: str = "", period: int = 0, macro_string: str = "", *_
@@ -258,6 +286,15 @@ class AutosaveState(ShellStateHandler):
         Create a save set for the request file. The save file will be written
         every period seconds.
         """
+        self.sets[filename] = AutosaveSet(
+            context=self.get_load_context(),
+            request_filename=filename,
+            save_filename="{}.sav".format(pathlib.Path(filename).stem),
+            period=period,
+            trigger_channel=None,
+            macros=macros_from_string(macro_string),
+            method="periodic",
+        )
 
     def handle_create_triggered_set(
         self, filename: str = "", trigger_channel: str = "", macro_string: str = "", *_
@@ -267,15 +304,37 @@ class AutosaveState(ShellStateHandler):
         whenever the PV specified by trigger_channel is posted. Normally this
         occurs when the PV's value changes.
         """
+        self.sets[filename] = AutosaveSet(
+            context=self.get_load_context(),
+            request_filename=filename,
+            save_filename="{}.sav".format(pathlib.Path(filename).stem),
+            period=None,
+            trigger_channel=trigger_channel,
+            macros=macros_from_string(macro_string),
+            method="triggered",
+        )
 
     def handle_create_monitor_set(
-        self, filename: str = "", period: int = 0, macro_string: str = "", *_
+        self, filename: Optional[str] = None, period: int = 0, macro_string: str = "", *_
     ):
         """
         Create a save set for the request file. The save file will be written
         every period seconds, if any PV in the save set was posted
         (changed value) since the last write.
         """
+        if filename is None:
+            # An indicator to "start the save task"
+            return
+
+        self.sets[filename] = AutosaveSet(
+            context=self.get_load_context(),
+            request_filename=filename,
+            save_filename="{}.sav".format(pathlib.Path(filename).stem),
+            period=int(period),
+            trigger_channel=None,
+            macros=macros_from_string(macro_string),
+            method="monitor",
+        )
 
     def handle_create_manual_set(self, filename: str = "", macro_string: str = "", *_):
         """
@@ -283,10 +342,19 @@ class AutosaveState(ShellStateHandler):
         when the function manual_save() is called with the same request-file
         name.
         """
-        ...
+        self.sets[filename] = AutosaveSet(
+            context=self.get_load_context(),
+            request_filename=filename,
+            save_filename="{}.sav".format(pathlib.Path(filename).stem),
+            period=None,
+            trigger_channel=None,
+            macros=macros_from_string(macro_string),
+            method="manual",
+        )
 
     def handle_save_restoreShow(self, verbose: int = 0, *_):
         """Show the save restore status."""
+        return self.sets
 
     def handle_set_requestfile_path(self, path: str = "", subpath: str = "", *_):
         full_path = (pathlib.Path(path) / subpath).resolve()
@@ -489,7 +557,12 @@ class AutosaveState(ShellStateHandler):
         prepend the file path specified to set_savefile_path(). The second
         argument is optional.
         """
-        ...
+        self.restore_files[file] = AutosaveRestorePassFile(
+            context=self.get_load_context(),
+            save_filename=file,
+            macros=macros_from_string(macro_string),
+            pass_number=0,
+        )
 
     def handle_set_pass1_restoreFile(self, file: str = "", macro_string: str = "", *_):
         """
@@ -500,7 +573,12 @@ class AutosaveState(ShellStateHandler):
         prepend the file path specified to set_savefile_path(). The second
         argument is optional.
         """
-        ...
+        self.restore_files[file] = AutosaveRestorePassFile(
+            context=self.get_load_context(),
+            save_filename=file,
+            macros=macros_from_string(macro_string),
+            pass_number=1,
+        )
 
     def handle_dbrestoreShow(self, *_):
         """

@@ -15,7 +15,7 @@ from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import apischema
 
-from . import asyn, dbtemplate, graph
+from . import asyn, common, dbtemplate, graph
 from . import motor as motor_mod
 from . import settings, streamdevice, util
 from .access_security import AccessSecurityConfig
@@ -1258,3 +1258,7 @@ async def load_startup_scripts_with_metadata(
         total_child_load_time,
         processes,
     )
+
+
+# TODO: apischema skip still requires forwardref to exist?
+common.ShellState = ShellState
