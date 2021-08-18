@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import pathlib
 import re
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
 import lark
 
 from . import transformer
-from .common import FullLoadContext, dataclass
+from .common import FullLoadContext, ShellStateHandler
 from .transformer import context_from_token
 
 
@@ -178,3 +179,403 @@ def _fix_value(value: Optional[str]) -> str:
         return ""
     value = _strip_double_quote(value)
     return RE_REMOVE_ESCAPE.sub(r"\1", value)
+
+
+@dataclass
+class AutosaveMonitorSet:
+    context: FullLoadContext
+    filename: str
+    period: int
+    macros: Dict[str, str]
+
+
+@dataclass
+class AutosaveState(ShellStateHandler):
+    """The state of autosave in an IOC."""
+
+    configured: bool = False
+    request_paths: List[pathlib.Path] = field(default_factory=list)
+    save_path: pathlib.Path = field(default_factory=pathlib.Path)
+    save_filename: str = ""
+    monitor_sets: List[AutosaveMonitorSet] = field(default_factory=list)
+    incomplete_sets_ok: bool = True
+    dated_backups: bool = True
+    date_period_minutes: int = 0
+    num_seq_files: int = 3
+    seq_period: int = 0
+    retry_seconds: int = 0
+    ca_reconnect: bool = False
+    callback_timeout: int = 0
+    task_priority: int = 0
+    nfs_host: str = ""
+    use_status_pvs: bool = False
+    status_prefix: str = ""
+    file_permissions: int = 0o664
+    debug: int = 0
+    # TODO: autosaveBuild, or require it to be existing?
+
+    # save_restore.c
+
+    def handle_fdbrestore(self, filename: str = "", *_):
+        """
+        If save_file refers to a save set that exists in memory, then PV's in
+        the save set will be restored from values in memory. Otherwise, this
+        functions restores the PV's in <saveRestorePath>/<save_file> and
+        creates a new backup file "<saveRestorePath>/<save_file>.bu". The
+        effect probably will not be the same as a boot-time restore, because
+        caput() calls are used instead of static database access dbPutX()
+        calls. Record processing will result from caput()'s to inherently
+        process- passive fields.
+        """
+
+    def handle_fdbrestoreX(self, filename="", macrostring="", *_):
+        """
+        This function restores from the file <saveRestorePath>/<save_file>,
+        which can look just like a save file, but which needn't end with <END>.
+        No backup file will be written. The effect probably will not be the
+        same as a boot-time restore, because caput() calls are used instead of
+        static database access dbPut*() calls. Record processing will result
+        from caput()'s to inherently process-passive fields.
+        """
+
+    def handle_manual_save(self, request_file: str = "", *_):
+        """
+        Cause current PV values for the request file to be saved. Any request
+        file named in a create_xxx_set() command can be saved manually.
+        """
+
+    def handle_set_savefile_name(self, request_file: str = "", save_filename: str = "", *_):
+        """
+        If a save set has already been created for the request file, this
+        function will change the save file name.
+        """
+        ...
+
+    def handle_create_periodic_set(
+        self, filename: str = "", period: int = 0, macro_string: str = "", *_
+    ):
+        """
+        Create a save set for the request file. The save file will be written
+        every period seconds.
+        """
+
+    def handle_create_triggered_set(
+        self, filename: str = "", trigger_channel: str = "", macro_string: str = "", *_
+    ):
+        """
+        Create a save set for the request file. The save file will be written
+        whenever the PV specified by trigger_channel is posted. Normally this
+        occurs when the PV's value changes.
+        """
+
+    def handle_create_monitor_set(
+        self, filename: str = "", period: int = 0, macro_string: str = "", *_
+    ):
+        """
+        Create a save set for the request file. The save file will be written
+        every period seconds, if any PV in the save set was posted
+        (changed value) since the last write.
+        """
+
+    def handle_create_manual_set(self, filename: str = "", macro_string: str = "", *_):
+        """
+        Create a save set for the request file. The save file will be written
+        when the function manual_save() is called with the same request-file
+        name.
+        """
+        ...
+
+    def handle_save_restoreShow(self, verbose: int = 0, *_):
+        """Show the save restore status."""
+
+    def handle_set_requestfile_path(self, path: str = "", subpath: str = "", *_):
+        full_path = (pathlib.Path(path) / subpath).resolve()
+        if full_path not in self.request_paths:
+            self.request_paths.append(full_path)
+
+    def handle_set_savefile_path(self, path: str = "", subpath: str = "", *_):
+        """
+        Called before iocInit(), this function specifies the path to be
+        prepended to save-file and restore-file names. pathsub, if present,
+        will be appended to path, if present, with a separating '/', whether or
+        not path ends or pathsub begins with '/'. If the result does not end in
+        '/', one will be appended to it.
+
+        If save_restore is managing its own NFS mount, this function specifies
+        the mount point, and calling it will result in an NFS mount if all
+        other requirements have already been met. If a valid NFS mount already
+        exists, the file system will be dismounted and then mounted with the
+        new path name. This function can be called at any time.
+        """
+        self.save_path = (pathlib.Path(path) / subpath).resolve()
+
+    def handle_set_saveTask_priority(self, priority: int = 0, *_):
+        """Set the priority of the save_restore task."""
+        self.task_priority = int(priority)
+
+    def handle_save_restoreSet_NFSHost(
+        self, hostname: str = "", address: str = "", mntpoint: str = "", *_
+    ):
+        """
+        Specifies the name and IP address of the NFS host. If both have been
+        specified, and set_savefile_path() has been called to specify the file
+        path, save_restore will manage its own NFS mount. This allows
+        save_restore to recover from a reboot of the NFS host
+        (that is, a stale file handle) and from some kinds of tampering with
+        the save_restore directory.
+        """
+        self.nfs_host = f"nfs://{hostname}/{mntpoint} ({address})"
+
+    def handle_remove_data_set(self, filename: str = "", *_):
+        """If a save set has been created for request_file, this function will delete it."""
+        ...
+
+    def handle_reload_periodic_set(
+        self, filename: str = "", period: int = 0, macro_string: str = "", *_
+    ):
+        """
+        This function allows you to change the PV's and the period associated
+        with a save set created by create_periodic_set().
+        """
+
+    def handle_reload_triggered_set(
+        self, filename: str = "", trigger_channel: str = "", macro_string: str = "", *_
+    ):
+        """
+        This function allows you to change the PV's and the trigger channel
+        associated with a save set created by create_triggered_set().
+        """
+
+    def handle_reload_monitor_set(
+        self, filename: str = "", period: int = 0, macro_string: str = "", *_
+    ):
+        """
+        This function allows you to change the PV's and the period associated
+        with a save set created by create_monitor_set().
+        """
+
+    def handle_reload_manual_set(self, filename: str = "", macrostring: str = "", *_):
+        """
+        This function allows you to change the PV's associated with a save set
+        created by create_manual_set().
+        """
+
+    def handle_save_restoreSet_Debug(self, level: int = 0, *_):
+        """
+        Sets the value (int) save_restoreDebug (initially 0). Increase to get
+        more informational messages printed to the console.
+        """
+        self.debug = int(level)
+
+    def handle_save_restoreSet_NumSeqFiles(self, numSeqFiles: int = 0, *_):
+        """
+        Sets the value of (int) save_restoreNumSeqFiles (initially 3). This is
+        the number of sequenced backup files to be maintained.
+        """
+        self.num_seq_files = int(numSeqFiles)
+        if not (0 <= self.num_seq_files <= 10):
+            raise ValueError("numSeqFiles must be between 0 and 10 inclusive.")
+
+    def handle_save_restoreSet_SeqPeriodInSeconds(self, period: int = 0, *_):
+        """
+        Sets the value of (int) save_restoreSeqPeriodInSeconds (initially 60).
+        Sequenced backup files will be written with this period.
+        """
+        self.seq_period = int(period)
+        if self.seq_period < 10:
+            raise ValueError("period must be 10 or greater.")
+
+    def handle_save_restoreSet_IncompleteSetsOk(self, ok: int = 0, *_):
+        """
+        Sets the value of (int) save_restoreIncompleteSetsOk (initially 1). If
+        set to zero, save files will not be restored at boot time unless they
+        are perfect, and they will not be overwritten at save time unless a
+        valid CA connection and value exists for every PV in the list.
+        """
+        self.incomplete_sets_ok = bool(ok)
+
+    def handle_save_restoreSet_DatedBackupFiles(self, ok: int = 0, *_):
+        """
+        Sets the value of (int) save_restoreDatedBackupFiles (initially 1). If
+        zero, the backup file written at reboot time
+        (a copy of the file from which PV values are restored) will have the
+        suffix '.bu', and will be overwritten every reboot. If nonzero, each
+        reboot will leave behind its own backup file.
+        """
+        self.dated_backups = bool(ok)
+
+    def handle_save_restoreSet_status_prefix(self, prefix: str = "", *_):
+        """
+        Specifies the prefix to be used to construct the names of PV's with
+        which save_restore reports its status. If you want autosave to update
+        status PVs as it operates, you must call this function and load the
+        database save_restoreStatus.db, specifying the same prefix in both
+        commands.
+        """
+        self.status_prefix = prefix
+
+    def handle_save_restoreSet_FilePermissions(self, permissions: int = 0, *_):
+        """
+        Specify the file permissions used to create new .sav files. This
+        integer value will be supplied, exactly as given, to the system call,
+        open(), and to the call fchmod(). Typically, file permissions are set
+        with an octal number, such as 0640, and
+        save_restoreSet_FilePermissions() will confirm any number given to it
+        by echoing it to the console as an octal number.
+        """
+        self.file_permissions = int(permissions)
+
+    def handle_save_restoreSet_RetrySeconds(self, seconds: int = 0, *_):
+        """
+        Specify the time delay between a failed .sav-file write and the retry
+        of that write. The default delay is 60 seconds. If list-PV's change
+        during the delay, the new values will be written.
+        """
+        self.retry_seconds = int(seconds)
+
+    def handle_save_restoreSet_UseStatusPVs(self, ok: int = 0, *_):
+        """
+        Specifies whether save_restore should report its status to a preloaded
+        set of EPICS PV's (contained in the database save_restoreStatus.db). If
+        the argument is '0', then status PV's will not be used.
+        """
+        self.use_status_pvs = bool(ok)
+
+    def handle_save_restoreSet_CAReconnect(self, ok: int = 0, *_):
+        """
+        Specify whether autosave should periodically retry connecting to PVs
+        whose initial connection attempt failed. Currently, the
+        connection-retry interval is hard-wired at 60 seconds.
+        """
+        self.ca_reconnect = bool(ok)
+
+    def handle_save_restoreSet_CallbackTimeout(self, timeout: int = 0, *_):
+        """
+        Specify the time interval in seconds between forced save-file writes.
+        (-1 means forever). This is intended to get save files written even if
+        the normal trigger mechanism is broken.
+        """
+        self.callback_timeout = int(timeout)
+
+    def handle_asVerify(
+        self, filename: str = "", verbose: int = 0, restoreFileName: str = "", *_
+    ):
+        """
+        Compare PV values in the IOC with values written in filename
+        (which should be an autosave restore file, or at least look like one).
+        If restoreFileName is not empty, write a new restore file.
+        """
+        ...
+
+    def handle_save_restoreSet_periodicDatedBackups(self, periodMinutes: int = 0, *_):
+        """
+        Sets the value of (int) save_restoreDatedBackupFiles (initially 1). If
+        zero, the backup file written at reboot time
+        (a copy of the file from which PV values are restored) will have the
+        suffix '.bu', and will be overwritten every reboot. If nonzero, each
+        reboot will leave behind its own backup file.
+        """
+        self.dated_backups = True
+        self.date_period_minutes = int(periodMinutes)
+
+    # dbrestore.c
+
+    def handle_set_pass0_restoreFile(self, file: str = "", macro_string: str = "", *_):
+        """
+        This function specifies a save file to be restored during iocInit,
+        before record initialization. An unlimited number of files can be
+        specified using calls to this function. If the file name begins with
+        "/", autosave will use it as specified; otherwise, autosave will
+        prepend the file path specified to set_savefile_path(). The second
+        argument is optional.
+        """
+        ...
+
+    def handle_set_pass1_restoreFile(self, file: str = "", macro_string: str = "", *_):
+        """
+        This function specifies a save file to be restored during iocInit,
+        after record initialization. An unlimited number of files can be
+        specified using calls to this function. If the file name begins with
+        "/", autosave will use it as specified; otherwise, autosave will
+        prepend the file path specified to set_savefile_path(). The second
+        argument is optional.
+        """
+        ...
+
+    def handle_dbrestoreShow(self, *_):
+        """
+        List all the save sets currently being managed by the save_restore
+        task. If (verbose != 0), lists the PV's as well.
+        """
+        ...
+
+    def handle_makeAutosaveFileFromDbInfo(
+        self, filename: str = "", info_name: str = "", *_
+    ):
+        """
+        Search through the EPICS database
+        (that is, all EPICS records loaded into an IOC) for 'info' nodes named
+        info_name; construct a list of PV names from the associated info_values
+        found, and write the PV names to the file fileBaseName. If fileBaseName
+        does not contain the string '.req', this string will be appended to it.
+        See makeAutosaveFiles() for more information.
+        """
+
+    def handle_makeAutosaveFiles(self, *_):
+        """
+        Search through the EPICS database
+        (that is, all EPICS records loaded into an IOC) for info nodes named
+        'autosaveFields' and 'autosaveFields_pass0'; construct lists of PV
+        names from the associated info values, and write the PV names to the
+        files 'info_settings.req' and 'info_positions.req', respectively.
+        """
+
+    def handle_eraseFile(self, filename: str = "", *_):
+        """Erase (empty) an autosave file."""
+        ...
+
+    def handle_appendToFile(self, filename: str = "", line: str = "", *_):
+        """
+        Append line to a file.
+
+        For example, to add a line to built_settings.req yourself:
+
+        appendToFile("built_settings.req", '$(P)userStringSeqEnable')
+        """
+        ...
+
+    def handle_autosaveBuild(
+        self, filename: str = "", reqFileSuffix: str = "", on: int = 0, *_
+    ):
+        """
+        It's tedious and error prone to have these entries separately
+        maintained, so autosave can do the request-file part for you. To do
+        this, you tell autosave to arrange to be called whenever
+        dbLoadRecords() is called
+        (note that dbLoadTemplate() calls dbLoadRecords()), you tell it how to
+        make a request-file name from a database-file name, and you give it the
+        name of the request file you want it to build. You can do this with the
+        following command:
+
+            autosaveBuild("built_settings.req", "_settings.req", 1)
+
+        This tells autosave to do the following:
+
+            1. Begin building the file built_settings.req. If this is the first
+               call that mentions built_settings.req, erase the file.
+            2. Generate request-file names by stripping ".db", or ".vdb", or
+               ".template" from database-file names, and adding the suffix
+               "_settings.req".
+            3. Enable (disable) automated building if the third argument is 1
+               (0).
+
+        While automated building is enabled, autosave will generate
+        request-file names and search for those files in its request-file path.
+        If it finds a request file, it will add the appropriate line to
+        built_settings.req.
+
+        All this does is get the file built_settings.req built. If you want it
+        to be used, you must add the following line to auto_settings.req:
+
+            file built_settings.req P=$(P)
+        """

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import functools
-import inspect
 import json
 import logging
 import os
@@ -12,8 +11,7 @@ import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import (Callable, Dict, Generator, Iterable, List, Optional, Tuple,
-                    Union)
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import apischema
 
@@ -21,10 +19,11 @@ from . import asyn, dbtemplate, graph
 from . import motor as motor_mod
 from . import settings, streamdevice, util
 from .access_security import AccessSecurityConfig
+from .autosave import AutosaveState
 from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      PVRelations, RecordDefinitionAndInstance, RecordInstance,
-                     WhatRecord, time_context)
+                     ShellStateHandler, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line, split_words
@@ -34,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ShellState:
+class ShellState(ShellStateHandler):
     """
     IOC shell state container.
 
@@ -107,9 +106,8 @@ class ShellState:
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[MutableLoadContext] = field(default_factory=list)
     asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
-    loaded_files: Dict[str, str] = field(
-        default_factory=dict,
-    )
+    loaded_files: Dict[str, str] = field(default_factory=dict)
+    autosave: AutosaveState = field(default_factory=AutosaveState)
     macro_context: MacroContext = field(
         default_factory=MacroContext, metadata=apischema.metadata.skip
     )
@@ -119,12 +117,8 @@ class ShellState:
         default_factory=dict
     )
 
-    _handlers: Dict[str, Callable] = field(
-        default_factory=dict, metadata=apischema.metadata.skip
-    )
-
     def __post_init__(self):
-        self._handlers.update(dict(self.find_handlers()))
+        super().__post_init__()
         self._setup_dynamic_handlers()
         self.macro_context.string_encoding = self.string_encoding
 
@@ -136,11 +130,10 @@ class ShellState:
                     self._generic_motor_handler, name
                 )
 
-    def find_handlers(self):
-        for attr, obj in inspect.getmembers(self):
-            if attr.startswith("handle_") and callable(obj):
-                name = attr.split("_", 1)[1]
-                yield name, obj
+    @property
+    def sub_handlers(self) -> List[object]:
+        """Handlers which contain their own state."""
+        return [self.autosave]
 
     def load_file(self, filename: Union[pathlib.Path, str]) -> Tuple[pathlib.Path, str]:
         """Load a file, record its hash, and return its contents."""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import pathlib
@@ -7,7 +8,8 @@ import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
-from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
+from typing import (Any, Callable, ClassVar, Dict, Generator, List, Optional,
+                    Tuple, Union)
 
 import apischema
 import lark
@@ -711,6 +713,41 @@ class AsynPortBase:
                 inherited=False,
             )
         )
+
+
+@dataclass
+class ShellStateHandler:
+    parent: Optional[ShellStateHandler] = field(
+        default=None, metadata=apischema.metadata.skip
+    )
+    primary_handler: Optional[ShellStateHandler] = field(
+        default=None, metadata=apischema.metadata.skip
+    )
+    _handlers: Dict[str, Callable] = field(
+        default_factory=dict, metadata=apischema.metadata.skip
+    )
+
+    def __post_init__(self):
+        self._handlers.update(dict(self.find_handlers()))
+        for sub_handler in self.sub_handlers:
+            sub_handler.parent = self
+            sub_handler.primary_handler = self.parent or self
+
+    @property
+    def sub_handlers(self) -> List[ShellStateHandler]:
+        """Handlers which contain their own state."""
+        return []
+
+    def find_handlers(self) -> Generator[Tuple[str, Callable], None, None]:
+        """Find all IOC shell command handlers by name."""
+        for handler_obj in [self] + self.sub_handlers:
+            for attr, obj in inspect.getmembers(handler_obj):
+                if attr.startswith("handle_") and callable(obj):
+                    name = attr.split("_", 1)[1]
+                    yield name, obj
+
+            if handler_obj is not self:
+                yield from handler_obj.find_handlers()
 
 
 @dataclass

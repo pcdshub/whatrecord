@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Dict, List
 
 import lark
 
 from . import transformer
-from .common import FullLoadContext, StringWithContext, dataclass
+from .common import FullLoadContext, StringWithContext
 from .transformer import context_from_token
 
 

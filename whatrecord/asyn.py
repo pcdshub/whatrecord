@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import ClassVar, Dict, Optional, Union
 
-from .common import AsynPortBase, FullLoadContext, dataclass
+from .common import AsynPortBase, FullLoadContext
 
 
 @dataclass
