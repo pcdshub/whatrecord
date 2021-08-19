@@ -260,7 +260,9 @@ class ServerState:
     def get_plugin_nested_keys(self, plugin_name: str) -> List[str]:
         """Get plugin custom nested metadata keys."""
         plugin = self.plugins_by_name[plugin_name]
-        return list(plugin.results.nested) if plugin.results else []
+        if plugin.results and plugin.results.nested:
+            return list(plugin.results.nested)
+        return []
 
     def get_plugin_nested_info(self, plugin_name: str, key: str) -> Any:
         """Get plugin custom nested metadata info."""
