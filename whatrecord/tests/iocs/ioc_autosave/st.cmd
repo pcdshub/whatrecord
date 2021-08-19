@@ -55,7 +55,7 @@ set_pass1_restoreFile("info_settings.sav")
 # specify directories in which to to search for included request files
 set_requestfile_path("", "")
 set_requestfile_path("", "autosave")
-:: set_requestfile_path(autosave, "asApp/Db")
+# set_requestfile_path(autosave, "asApp/Db")
 
 dbLoadRecords("../db/save_restoreStatus.db", "P=IOC:autosave:as:")
 

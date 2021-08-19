@@ -2,7 +2,7 @@
 # May not be backward/forward-compatible or 100% accurate
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import ClassVar, Dict
 
 from . import asyn
 from .common import AsynPortBase, ShellStateHandler
@@ -13,6 +13,8 @@ _handler = ShellStateHandler.generic_handler_decorator
 @dataclass
 class MotorState(ShellStateHandler):
     """Motor record support IOC shell state handler / container."""
+
+    metadata_key: ClassVar[str] = "motor"
 
     @property
     def asyn(self) -> asyn.AsynState:

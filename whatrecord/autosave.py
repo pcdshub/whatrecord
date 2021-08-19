@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import datetime
 import pathlib
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import lark
 
-from . import transformer
-from .common import FullLoadContext, ShellStateHandler
-from .macro import macros_from_string
+from . import settings, transformer
+from .common import AnyPath, FullLoadContext, ShellStateHandler
+from .db import RecordInstance
+from .macro import MacroContext, macros_from_string
 from .transformer import context_from_token
 
 
@@ -40,7 +42,10 @@ class AutosaveRestoreFile:
 
     @classmethod
     def from_string(
-        cls, contents, filename=None,
+        cls,
+        contents: str,
+        filename: AnyPath,
+        macros: Optional[Dict[str, str]] = None
     ) -> AutosaveRestoreFile:
         """Load an autosave file given its string contents."""
         grammar = lark.Lark.open_from_package(
@@ -51,20 +56,28 @@ class AutosaveRestoreFile:
             propagate_positions=True,
         )
 
+        if macros:
+            contents = MacroContext(macros=macros).expand_by_line(contents)
+
         return _AutosaveRestoreTransformer(cls, filename).transform(
             grammar.parse(contents)
         )
 
     @classmethod
-    def from_file_obj(cls, fp, filename=None) -> AutosaveRestoreFile:
+    def from_file_obj(
+        cls, fp, filename: AnyPath, macros: Optional[Dict[str, str]] = None
+    ) -> AutosaveRestoreFile:
         """Load an autosave file given a file object."""
         return cls.from_string(
             fp.read(),
             filename=getattr(fp, "name", filename),
+            macros=macros,
         )
 
     @classmethod
-    def from_file(cls, fn) -> AutosaveRestoreFile:
+    def from_file(
+        cls, filename: AnyPath, macros: Optional[Dict[str, str]] = None
+    ) -> AutosaveRestoreFile:
         """
         Load an autosave restore (.sav) file.
 
@@ -78,8 +91,8 @@ class AutosaveRestoreFile:
         file : AutosaveRestoreFile
             The resulting parsed file.
         """
-        with open(fn, "rt") as fp:
-            return cls.from_string(fp.read(), filename=fn)
+        with open(filename, "rt") as fp:
+            return cls.from_string(fp.read(), filename=filename, macros=macros)
 
 
 @lark.visitors.v_args(inline=True)
@@ -200,6 +213,31 @@ class AutosaveRestorePassFile:
     macros: Dict[str, str] = field(default_factory=dict)
     pass_number: int = 0
 
+    load_timestamp: Optional[datetime.datetime] = None
+    file_timestamp: Optional[datetime.datetime] = None
+    data: Optional[AutosaveRestoreFile] = None
+
+    def update(self, save_path: pathlib.Path) -> AutosaveRestoreFile:
+        """Update the autosave .sav file from disk."""
+        fn = save_path / self.save_filename
+        file_timestamp = datetime.datetime.fromtimestamp(fn.stat().st_mtime)
+        if self.file_timestamp is not None and file_timestamp == self.file_timestamp:
+            if self.data is not None:
+                return self.data
+
+        if self.load_timestamp is not None and self.data is not None:
+            dt = datetime.datetime.now() - self.load_timestamp
+            if dt.total_seconds() < settings.AUTOSAVE_RELOAD_PERIOD:
+                return self.data
+
+        self.file_timestamp = file_timestamp
+        self.load_timestamp = datetime.datetime.now()
+        self.data = AutosaveRestoreFile.from_file(
+            fn,
+            macros=self.macros,
+        )
+        return self.data
+
 
 _handler = ShellStateHandler.generic_handler_decorator
 
@@ -207,6 +245,8 @@ _handler = ShellStateHandler.generic_handler_decorator
 @dataclass
 class AutosaveState(ShellStateHandler):
     """The state of autosave in an IOC."""
+
+    metadata_key: ClassVar[str] = "autosave"
 
     configured: bool = False
     request_paths: List[pathlib.Path] = field(default_factory=list)
@@ -389,7 +429,10 @@ class AutosaveState(ShellStateHandler):
         exists, the file system will be dismounted and then mounted with the
         new path name. This function can be called at any time.
         """
-        self.save_path = (pathlib.Path(path) / subpath).resolve()
+        path = pathlib.Path(path) / subpath
+        if self.primary_handler is not None:
+            path = self.primary_handler._fix_path(path)
+        self.save_path = path.resolve()
 
     @_handler
     def handle_set_saveTask_priority(self, priority: int = 0):
@@ -598,6 +641,9 @@ class AutosaveState(ShellStateHandler):
             macros=macros_from_string(macro_string),
             pass_number=0,
         )
+        return {
+            "autosave": f"Added pass 0 restore file {self.save_path}/{file}"
+        }
 
     @_handler
     def handle_set_pass1_restoreFile(self, file: str = "", macro_string: str = ""):
@@ -615,6 +661,9 @@ class AutosaveState(ShellStateHandler):
             macros=macros_from_string(macro_string),
             pass_number=1,
         )
+        return {
+            "autosave": f"Added pass 1 restore file {self.save_path}/{file}"
+        }
 
     @_handler
     def handle_dbrestoreShow(self):
@@ -699,3 +748,30 @@ class AutosaveState(ShellStateHandler):
 
             file built_settings.req P=$(P)
         """
+
+    def annotate_record(self, record: RecordInstance) -> Optional[Dict[str, Any]]:
+        metadata = {}
+        for restore_file in self.restore_files.values():
+            try:
+                data = restore_file.update(self.save_path)
+            except FileNotFoundError:
+                fn = self.save_path / restore_file.save_filename
+                metadata.setdefault("error", []).append(
+                    f"Restore file not found: {fn}"
+                )
+                continue
+
+            record_data = data.values.get(record.name, None)
+            if record_data is not None:
+                metadata.setdefault("restore", []).append(record_data)
+            for pvname in data.disconnected:
+                if pvname.split(".")[0] == record.name:
+                    if "." in pvname:
+                        field = pvname.split(".", 1)[1]
+                    else:
+                        field = "VAL"
+                    metadata.setdefault("disconnected", []).append(
+                        field
+                    )
+
+        return metadata if metadata else None

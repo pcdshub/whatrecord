@@ -638,10 +638,7 @@ class Database:
             cache=True,
         )
         if macro_context is not None:
-            contents = "\n".join(
-                macro_context.expand(line) for line in contents.splitlines()
-            )
-            contents = contents.rstrip() + "\n"
+            contents = macro_context.expand_by_line(contents).rstrip() + "\n"
 
         db, linter_results = grammar.parse(contents)
         db.comments = comments

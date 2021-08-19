@@ -106,18 +106,35 @@
         <iframe :src="appliance_viewer_url" title="Archive viewer" />
       </template>
     </AccordionTab>
-    <AccordionTab header="Gateway" v-if="record != null">
-      <template
-        v-if="
-          record != null &&
-          record.metadata.gateway != null &&
-          record.metadata.gateway.matches.length > 0
-        "
-      >
-        Matching gateway rules:
-        <gateway-matches :matches="record.metadata.gateway.matches" />
+    <AccordionTab header="Autosave" v-if="record && autosave != null">
+      <template v-if="autosave?.disconnected">
+        Disconnected fields:
+        <ul>
+          <li v-for="field in autosave.disconnected" :key="field">
+            {{ field }}
+          </li>
+        </ul>
       </template>
-      <template v-else> No matches with gateway rules. </template>
+      <template v-for="table of autosave_restore_tables" :key="table">
+        <DataTable :value="table" dataKey="field">
+          <Column field="field" header="Field" :sortable="true" style="width: 10%" />
+          <Column field="value" header="Value" :sortable="true" />
+          <Column field="context" header="Context" :sortable="true">
+            <template #body="{ data }">
+              <script-context-link :context="data.context" :short="3" />
+            </template>
+          </Column>
+        </DataTable>
+      </template>
+      <template v-if="autosave.error">
+        Autosave errors on {{ whatrec.ioc.name }}:
+        <template v-for="error of autosave.error ?? []" :key="error">
+          <pre>{{ error }}</pre>
+        </template>
+      </template>
+    </AccordionTab>
+    <AccordionTab header="Gateway" v-if="record?.metadata?.gateway?.matches?.length > 0">
+      <gateway-matches :matches="record.metadata.gateway.matches" />
     </AccordionTab>
     <AccordionTab header="Access Security Group" v-if="asg != null">
       <dictionary-table :dict="asg" :cls="'metadata'" :skip_keys="[]" />
@@ -153,8 +170,11 @@ import GatewayMatches from "./gateway-matches.vue";
 import IocInfo from "./ioc-info.vue";
 import RecordFieldTable from "./record-field-table.vue";
 import ScriptContextLink from "./script-context-link.vue";
+
 import Accordion from "primevue/accordion";
 import AccordionTab from "primevue/accordiontab";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
 
 import { plugins } from "../settings.js";
 
@@ -165,6 +185,8 @@ export default {
   },
   components: {
     AsynPort,
+    Column,
+    DataTable,
     DictionaryTable,
     EpicsFormatRecord,
     GatewayMatches,
@@ -208,22 +230,16 @@ export default {
       return this.whatrec.record ? this.whatrec.record.definition : null;
     },
     asg() {
-      if (this.record == null) {
-        return null;
-      }
-      return this.record.metadata["asg"];
+      return this.record?.metadata["asg"];
+    },
+    autosave() {
+      return this.record?.metadata["autosave"] ?? null;
+    },
+    autosave_restore_tables() {
+      return this.autosave?.restore ?? [];
     },
     streamdevice_metadata() {
-      if (this.record == null) {
-        return null;
-      }
-      return this.record.metadata["streamdevice"];
-    },
-    happi_metadata() {
-      if (this.record == null) {
-        return [];
-      }
-      return this.record.metadata["happi"] || [];
+      return this.record?.metadata["streamdevice"];
     },
     plugins() {
       return plugins;
@@ -251,7 +267,7 @@ iframe {
 }
 
 .accordion {
-  max-width: 80vw;
+  max-width: 76vw;
 }
 
 .code {
