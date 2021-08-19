@@ -57,7 +57,7 @@ set_requestfile_path("", "")
 set_requestfile_path("", "autosave")
 :: set_requestfile_path(autosave, "asApp/Db")
 
-dbLoadRecords("../db/save_restoreStatus.db", "P=as:")
+dbLoadRecords("../db/save_restoreStatus.db", "P=IOC:autosave:as:")
 
 # daily periodic dated backups (period is specified in minutes)
 save_restoreSet_periodicDatedBackups(1440)
@@ -75,20 +75,20 @@ iocInit
 # reload_monitor_set("auto_settings.req",30,"P=as:")
 #
 # save positions every five seconds
-create_monitor_set("auto_positions.req",5,"P=as:")
+create_monitor_set("auto_positions.req",5,"P=IOC:autosave:as:")
 # save other things every thirty seconds
-create_monitor_set("auto_settings.req",30,"P=as:")
+create_monitor_set("auto_settings.req",30,"P=IOC:autosave:as:")
 
 # The following command makes the autosave request files 'info_settings.req',
 # and 'info_positions.req', from information (info nodes) contained in all of
 # the EPICS databases that have been loaded into this IOC.
 makeAutosaveFiles()
-create_monitor_set("info_positions.req",5,"P=as:")
-create_monitor_set("info_settings.req",30,"P=as:")
+create_monitor_set("info_positions.req",5,"P=IOC:autosave:as:")
+create_monitor_set("info_settings.req",30,"P=IOC:autosave:as:")
 
 # configMenu example
 # Note that the request file MUST be named $(CONFIG)Menu.req
 # If the macro CONFIGMENU is defined with any value, backup (".savB") and
 # sequence files (".savN") will not be written.  We don't want these for
 # configMenu.
-create_manual_set("scan1Menu.req","P=xxxL:,CONFIG=scan1,CONFIGMENU=1")
+create_manual_set("scan1Menu.req","P=IOC:autosave:,CONFIG=scan1,CONFIGMENU=1")
