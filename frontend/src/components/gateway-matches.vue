@@ -27,13 +27,13 @@
         <td>
           {{ match.rule.command }}
           <template v-if="match.rule.command == 'ALLOW'">
-            {{ match.rule.access ? match.rule.access : "(DEFAULT)" }}
+            {{ match.rule?.access ?? "(DEFAULT)" }}
           </template>
           <template v-else-if="match.rule.command == 'DENY'">
-            Hosts: {{ match.rule.hosts.join(" ") }}
+            Hosts: {{ match.rule.hosts?.join(" ") ?? "(All hosts)" }}
           </template>
           <template v-else-if="match.rule.command == 'ALIAS'">
-            {{ match.rule.access ? match.rule.access : "(DEFAULT)" }}
+            {{ match.rule?.access ?? "(DEFAULT)" }}
             {{ match.groups }}
           </template>
         </td>
