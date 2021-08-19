@@ -22,6 +22,7 @@
         :record_type="instance.record_type"
         :is_grecord="instance.is_grecord"
         :is_pva="instance.is_pva"
+        :info_nodes="instance.info"
         :metadata="instance.metadata"
         :record_defn="defn"
         :menus="whatrec.menus"
@@ -121,9 +122,9 @@
     <AccordionTab header="Access Security Group" v-if="asg != null">
       <dictionary-table :dict="asg" :cls="'metadata'" :skip_keys="[]" />
     </AccordionTab>
-    <AccordionTab header="Asyn" v-if="whatrec.asyn_ports.length > 0">
+    <AccordionTab header="Asyn" v-if="record?.metadata?.asyn?.length > 0">
       <asyn-port
-        v-for:="(asyn_port, idx) in whatrec.asyn_ports"
+        v-for:="(asyn_port, idx) in record.metadata.asyn"
         :asyn_port="asyn_port"
         :key="asyn_port.name"
       />

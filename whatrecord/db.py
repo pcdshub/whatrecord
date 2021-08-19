@@ -520,7 +520,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         record: RecordInstance = self._state.record
         context = context_from_token(self.fn, info_token)
         key = StringWithContext(name, context)
-        record.metadata[key] = value
+        record.info[key] = value
 
         if name == "Q:group" and isinstance(value, Mapping):
             self._add_q_group(value)

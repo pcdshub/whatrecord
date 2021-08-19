@@ -16,7 +16,7 @@
         />
       </template>
       <!-- info nodes -->
-      <span v-for="[key, value] in info_nodes" :key="key">
+      <span v-for="[key, value] in Object.entries(info_nodes)" :key="key">
         &nbsp;info({{ key }}, "{{ value }}")<br />
       </span>
       }
@@ -51,11 +51,6 @@
 <script>
 import EpicsFormatField from "./epics-format-field.vue";
 import ScriptContextOneLink from "./script-context-one-link.vue";
-import { plugins } from "../settings.js";
-
-const skip_keys =
-  ["asg", "gateway", "streamdevice"] +
-  plugins.map((plugin) => plugin.name);
 
 export default {
   name: "EpicsFormatRecord",
@@ -66,6 +61,7 @@ export default {
     is_grecord: Boolean,
     is_pva: Boolean,
     metadata: Object,
+    info_nodes: Object,
     name: String,
     record_type: String,
     record_type_info: Object,
@@ -77,11 +73,6 @@ export default {
     ScriptContextOneLink,
   },
   computed: {
-    info_nodes() {
-      return Object.entries(this.metadata).filter(
-        (item) => skip_keys.indexOf(item[0]) < 0
-      );
-    },
   },
 };
 </script>

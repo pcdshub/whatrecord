@@ -201,6 +201,9 @@ class AutosaveRestorePassFile:
     pass_number: int = 0
 
 
+_handler = ShellStateHandler.generic_handler_decorator
+
+
 @dataclass
 class AutosaveState(ShellStateHandler):
     """The state of autosave in an IOC."""
@@ -239,7 +242,8 @@ class AutosaveState(ShellStateHandler):
 
     # save_restore.c
 
-    def handle_fdbrestore(self, filename: str = "", *_):
+    @_handler
+    def handle_fdbrestore(self, filename: str = ""):
         """
         If save_file refers to a save set that exists in memory, then PV's in
         the save set will be restored from values in memory. Otherwise, this
@@ -251,7 +255,8 @@ class AutosaveState(ShellStateHandler):
         process- passive fields.
         """
 
-    def handle_fdbrestoreX(self, filename="", macrostring="", *_):
+    @_handler
+    def handle_fdbrestoreX(self, filename="", macrostring=""):
         """
         This function restores from the file <saveRestorePath>/<save_file>,
         which can look just like a save file, but which needn't end with <END>.
@@ -261,13 +266,15 @@ class AutosaveState(ShellStateHandler):
         from caput()'s to inherently process-passive fields.
         """
 
-    def handle_manual_save(self, request_file: str = "", *_):
+    @_handler
+    def handle_manual_save(self, request_file: str = ""):
         """
         Cause current PV values for the request file to be saved. Any request
         file named in a create_xxx_set() command can be saved manually.
         """
 
-    def handle_set_savefile_name(self, request_file: str = "", save_filename: str = "", *_):
+    @_handler
+    def handle_set_savefile_name(self, request_file: str = "", save_filename: str = ""):
         """
         If a save set has already been created for the request file, this
         function will change the save file name.
@@ -279,6 +286,7 @@ class AutosaveState(ShellStateHandler):
 
         set_.save_filename = save_filename
 
+    @_handler
     def handle_create_periodic_set(
         self, filename: str = "", period: int = 0, macro_string: str = "", *_
     ):
@@ -296,6 +304,7 @@ class AutosaveState(ShellStateHandler):
             method="periodic",
         )
 
+    @_handler
     def handle_create_triggered_set(
         self, filename: str = "", trigger_channel: str = "", macro_string: str = "", *_
     ):
@@ -314,6 +323,7 @@ class AutosaveState(ShellStateHandler):
             method="triggered",
         )
 
+    @_handler
     def handle_create_monitor_set(
         self, filename: Optional[str] = None, period: int = 0, macro_string: str = "", *_
     ):
@@ -336,7 +346,8 @@ class AutosaveState(ShellStateHandler):
             method="monitor",
         )
 
-    def handle_create_manual_set(self, filename: str = "", macro_string: str = "", *_):
+    @_handler
+    def handle_create_manual_set(self, filename: str = "", macro_string: str = ""):
         """
         Create a save set for the request file. The save file will be written
         when the function manual_save() is called with the same request-file
@@ -352,16 +363,19 @@ class AutosaveState(ShellStateHandler):
             method="manual",
         )
 
-    def handle_save_restoreShow(self, verbose: int = 0, *_):
+    @_handler
+    def handle_save_restoreShow(self, verbose: int = 0):
         """Show the save restore status."""
         return self.sets
 
-    def handle_set_requestfile_path(self, path: str = "", subpath: str = "", *_):
+    @_handler
+    def handle_set_requestfile_path(self, path: str = "", subpath: str = ""):
         full_path = (pathlib.Path(path) / subpath).resolve()
         if full_path not in self.request_paths:
             self.request_paths.append(full_path)
 
-    def handle_set_savefile_path(self, path: str = "", subpath: str = "", *_):
+    @_handler
+    def handle_set_savefile_path(self, path: str = "", subpath: str = ""):
         """
         Called before iocInit(), this function specifies the path to be
         prepended to save-file and restore-file names. pathsub, if present,
@@ -377,10 +391,12 @@ class AutosaveState(ShellStateHandler):
         """
         self.save_path = (pathlib.Path(path) / subpath).resolve()
 
-    def handle_set_saveTask_priority(self, priority: int = 0, *_):
+    @_handler
+    def handle_set_saveTask_priority(self, priority: int = 0):
         """Set the priority of the save_restore task."""
         self.task_priority = int(priority)
 
+    @_handler
     def handle_save_restoreSet_NFSHost(
         self, hostname: str = "", address: str = "", mntpoint: str = "", *_
     ):
@@ -394,10 +410,12 @@ class AutosaveState(ShellStateHandler):
         """
         self.nfs_host = f"nfs://{hostname}/{mntpoint} ({address})"
 
-    def handle_remove_data_set(self, filename: str = "", *_):
+    @_handler
+    def handle_remove_data_set(self, filename: str = ""):
         """If a save set has been created for request_file, this function will delete it."""
         ...
 
+    @_handler
     def handle_reload_periodic_set(
         self, filename: str = "", period: int = 0, macro_string: str = "", *_
     ):
@@ -406,6 +424,7 @@ class AutosaveState(ShellStateHandler):
         with a save set created by create_periodic_set().
         """
 
+    @_handler
     def handle_reload_triggered_set(
         self, filename: str = "", trigger_channel: str = "", macro_string: str = "", *_
     ):
@@ -414,6 +433,7 @@ class AutosaveState(ShellStateHandler):
         associated with a save set created by create_triggered_set().
         """
 
+    @_handler
     def handle_reload_monitor_set(
         self, filename: str = "", period: int = 0, macro_string: str = "", *_
     ):
@@ -422,20 +442,23 @@ class AutosaveState(ShellStateHandler):
         with a save set created by create_monitor_set().
         """
 
-    def handle_reload_manual_set(self, filename: str = "", macrostring: str = "", *_):
+    @_handler
+    def handle_reload_manual_set(self, filename: str = "", macrostring: str = ""):
         """
         This function allows you to change the PV's associated with a save set
         created by create_manual_set().
         """
 
-    def handle_save_restoreSet_Debug(self, level: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_Debug(self, level: int = 0):
         """
         Sets the value (int) save_restoreDebug (initially 0). Increase to get
         more informational messages printed to the console.
         """
         self.debug = int(level)
 
-    def handle_save_restoreSet_NumSeqFiles(self, numSeqFiles: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_NumSeqFiles(self, numSeqFiles: int = 0):
         """
         Sets the value of (int) save_restoreNumSeqFiles (initially 3). This is
         the number of sequenced backup files to be maintained.
@@ -444,7 +467,8 @@ class AutosaveState(ShellStateHandler):
         if not (0 <= self.num_seq_files <= 10):
             raise ValueError("numSeqFiles must be between 0 and 10 inclusive.")
 
-    def handle_save_restoreSet_SeqPeriodInSeconds(self, period: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_SeqPeriodInSeconds(self, period: int = 0):
         """
         Sets the value of (int) save_restoreSeqPeriodInSeconds (initially 60).
         Sequenced backup files will be written with this period.
@@ -453,7 +477,8 @@ class AutosaveState(ShellStateHandler):
         if self.seq_period < 10:
             raise ValueError("period must be 10 or greater.")
 
-    def handle_save_restoreSet_IncompleteSetsOk(self, ok: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_IncompleteSetsOk(self, ok: int = 0):
         """
         Sets the value of (int) save_restoreIncompleteSetsOk (initially 1). If
         set to zero, save files will not be restored at boot time unless they
@@ -462,7 +487,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.incomplete_sets_ok = bool(ok)
 
-    def handle_save_restoreSet_DatedBackupFiles(self, ok: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_DatedBackupFiles(self, ok: int = 0):
         """
         Sets the value of (int) save_restoreDatedBackupFiles (initially 1). If
         zero, the backup file written at reboot time
@@ -472,7 +498,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.dated_backups = bool(ok)
 
-    def handle_save_restoreSet_status_prefix(self, prefix: str = "", *_):
+    @_handler
+    def handle_save_restoreSet_status_prefix(self, prefix: str = ""):
         """
         Specifies the prefix to be used to construct the names of PV's with
         which save_restore reports its status. If you want autosave to update
@@ -482,7 +509,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.status_prefix = prefix
 
-    def handle_save_restoreSet_FilePermissions(self, permissions: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_FilePermissions(self, permissions: int = 0):
         """
         Specify the file permissions used to create new .sav files. This
         integer value will be supplied, exactly as given, to the system call,
@@ -493,7 +521,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.file_permissions = int(permissions)
 
-    def handle_save_restoreSet_RetrySeconds(self, seconds: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_RetrySeconds(self, seconds: int = 0):
         """
         Specify the time delay between a failed .sav-file write and the retry
         of that write. The default delay is 60 seconds. If list-PV's change
@@ -501,7 +530,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.retry_seconds = int(seconds)
 
-    def handle_save_restoreSet_UseStatusPVs(self, ok: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_UseStatusPVs(self, ok: int = 0):
         """
         Specifies whether save_restore should report its status to a preloaded
         set of EPICS PV's (contained in the database save_restoreStatus.db). If
@@ -509,7 +539,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.use_status_pvs = bool(ok)
 
-    def handle_save_restoreSet_CAReconnect(self, ok: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_CAReconnect(self, ok: int = 0):
         """
         Specify whether autosave should periodically retry connecting to PVs
         whose initial connection attempt failed. Currently, the
@@ -517,7 +548,8 @@ class AutosaveState(ShellStateHandler):
         """
         self.ca_reconnect = bool(ok)
 
-    def handle_save_restoreSet_CallbackTimeout(self, timeout: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_CallbackTimeout(self, timeout: int = 0):
         """
         Specify the time interval in seconds between forced save-file writes.
         (-1 means forever). This is intended to get save files written even if
@@ -525,6 +557,7 @@ class AutosaveState(ShellStateHandler):
         """
         self.callback_timeout = int(timeout)
 
+    @_handler
     def handle_asVerify(
         self, filename: str = "", verbose: int = 0, restoreFileName: str = "", *_
     ):
@@ -535,7 +568,8 @@ class AutosaveState(ShellStateHandler):
         """
         ...
 
-    def handle_save_restoreSet_periodicDatedBackups(self, periodMinutes: int = 0, *_):
+    @_handler
+    def handle_save_restoreSet_periodicDatedBackups(self, periodMinutes: int = 0):
         """
         Sets the value of (int) save_restoreDatedBackupFiles (initially 1). If
         zero, the backup file written at reboot time
@@ -548,7 +582,8 @@ class AutosaveState(ShellStateHandler):
 
     # dbrestore.c
 
-    def handle_set_pass0_restoreFile(self, file: str = "", macro_string: str = "", *_):
+    @_handler
+    def handle_set_pass0_restoreFile(self, file: str = "", macro_string: str = ""):
         """
         This function specifies a save file to be restored during iocInit,
         before record initialization. An unlimited number of files can be
@@ -564,7 +599,8 @@ class AutosaveState(ShellStateHandler):
             pass_number=0,
         )
 
-    def handle_set_pass1_restoreFile(self, file: str = "", macro_string: str = "", *_):
+    @_handler
+    def handle_set_pass1_restoreFile(self, file: str = "", macro_string: str = ""):
         """
         This function specifies a save file to be restored during iocInit,
         after record initialization. An unlimited number of files can be
@@ -580,13 +616,15 @@ class AutosaveState(ShellStateHandler):
             pass_number=1,
         )
 
-    def handle_dbrestoreShow(self, *_):
+    @_handler
+    def handle_dbrestoreShow(self):
         """
         List all the save sets currently being managed by the save_restore
         task. If (verbose != 0), lists the PV's as well.
         """
         ...
 
+    @_handler
     def handle_makeAutosaveFileFromDbInfo(
         self, filename: str = "", info_name: str = "", *_
     ):
@@ -599,7 +637,8 @@ class AutosaveState(ShellStateHandler):
         See makeAutosaveFiles() for more information.
         """
 
-    def handle_makeAutosaveFiles(self, *_):
+    @_handler
+    def handle_makeAutosaveFiles(self):
         """
         Search through the EPICS database
         (that is, all EPICS records loaded into an IOC) for info nodes named
@@ -608,11 +647,13 @@ class AutosaveState(ShellStateHandler):
         files 'info_settings.req' and 'info_positions.req', respectively.
         """
 
-    def handle_eraseFile(self, filename: str = "", *_):
+    @_handler
+    def handle_eraseFile(self, filename: str = ""):
         """Erase (empty) an autosave file."""
         ...
 
-    def handle_appendToFile(self, filename: str = "", line: str = "", *_):
+    @_handler
+    def handle_appendToFile(self, filename: str = "", line: str = ""):
         """
         Append line to a file.
 
@@ -622,6 +663,7 @@ class AutosaveState(ShellStateHandler):
         """
         ...
 
+    @_handler
     def handle_autosaveBuild(
         self, filename: str = "", reqFileSuffix: str = "", on: int = 0, *_
     ):

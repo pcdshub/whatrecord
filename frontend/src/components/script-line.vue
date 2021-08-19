@@ -35,7 +35,7 @@
               <dictionary-table
                 :dict="line.result"
                 cls="result"
-                :skip_keys="[]"
+                :skip_keys="['arguments']"
               />
             </template>
           </span>
@@ -81,21 +81,33 @@ export default {
     },
 
     command_info_table() {
-      if (
-        this.command_info == null ||
-        this.command_info.length == 0 ||
-        !this.argv
-      ) {
+      if (!this.line.argv) {
         return null;
       }
-      var info_table = {};
+
+      let info_table = {};
+      if (
+        this.command_info == null ||
+        this.command_info.length == 0
+      ) {
+        if (this.line?.result?.arguments?.length > 0) {
+          // whatrecord-suppplied argument information as a backup to
+          // what gdb could more accurately provide
+          this.line.result.arguments.forEach(
+            arg => (info_table[`${arg.name} (${arg.type})`] = arg.value)
+          );
+          return info_table;
+        }
+        return null;
+      }
+
       if (this.command_info["usage"]) {
         info_table["usage"] = this.command_info["usage"];
       }
       for (const [idx, arg_info] of this.command_info["args"].entries()) {
         const argv_idx = idx + 1;
         const arg_value =
-          argv_idx < this.argv.length ? this.argv[argv_idx] : "";
+          argv_idx < this.line.argv.length ? this.line.argv[argv_idx] : "";
         info_table[arg_info.name] = arg_value;
       }
       return info_table;

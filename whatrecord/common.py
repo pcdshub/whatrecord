@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 import json
 import logging
@@ -531,6 +532,7 @@ class RecordInstanceSummary:
             context=instance.context,
             name=instance.name,
             record_type=instance.record_type,
+            info=instance.info,
             metadata=instance.metadata,
             aliases=instance.aliases,
             is_pva=instance.is_pva,
@@ -623,6 +625,7 @@ class RecordInstance:
     name: str
     record_type: str
     fields: Dict[str, AnyField] = field(default_factory=dict)
+    info: Dict[StringWithContext, Any] = field(default_factory=dict)
     metadata: Dict[StringWithContext, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     is_grecord: bool = False
@@ -718,20 +721,32 @@ class AsynPortBase:
 @dataclass
 class ShellStateHandler:
     parent: Optional[ShellStateHandler] = field(
-        default=None, metadata=apischema.metadata.skip
+        default=None, metadata=apischema.metadata.skip,
+        repr=False, hash=False, compare=False
     )
     primary_handler: Optional[ShellState] = field(
-        default=None, metadata=apischema.metadata.skip
+        default=None, metadata=apischema.metadata.skip,
+        repr=False, hash=False, compare=False
     )
     _handlers: Dict[str, Callable] = field(
-        default_factory=dict, metadata=apischema.metadata.skip
+        default_factory=dict, metadata=apischema.metadata.skip,
+        repr=False, hash=False, compare=False, init=False
     )
 
     def __post_init__(self):
         self._handlers.update(dict(self.find_handlers()))
+        self._init_sub_handlers_()
+
+    def _init_sub_handlers_(self):
+        """Initialize sub-handlers with parent/primary_handler."""
         for sub_handler in self.sub_handlers:
             sub_handler.parent = self
-            sub_handler.primary_handler = self.parent or self
+            sub_handler.primary_handler = getattr(self.parent, "primary_handler", self)
+            sub_handler._init_sub_handlers_()
+
+    def annotate_record(self, instance: RecordInstance):
+        """Annotate the given record's metadata with state-related information."""
+        ...
 
     def get_load_context(self) -> FullLoadContext:
         """Get a FullLoadContext tuple representing where we are now."""
@@ -744,16 +759,87 @@ class ShellStateHandler:
         """Handlers which contain their own state."""
         return []
 
+    @staticmethod
+    def generic_handler_decorator(func=None, stub=False):
+        """
+        Decorate a handler method to generically return parameter-to-value
+        information.
+
+        This can be in addition to or in place of GDB command information.
+
+        Parameters
+        ----------
+        func : callable
+            The ``handler_`` method.
+
+        stub : bool, optional
+            Mark this as a stub method.  Variable arguments will be filled in
+            as necessary, even if defaults are not provided.
+        """
+
+        def wrap(func):
+            params = list(inspect.signature(func).parameters.items())[1:]
+            defaults = list(
+                None if param.default is inspect.Parameter.empty
+                else param.default
+                for _, param in params
+            )
+
+            @functools.wraps(func)
+            def wrapped(self, *args):
+                result = {}
+                if len(args) < len(params) and stub:
+                    # Pad unspecified arguments with defaults or "None"
+                    args = list(args) + defaults[len(args):]
+
+                if len(args) > len(params):
+                    result["argument_lint"] = "Too many arguments"
+
+                result["arguments"] = [
+                    {
+                        "name": name,
+                        "type": getattr(param.annotation, "__name__", param.annotation),
+                        "value": value,
+                    }
+                    for (name, param), value in zip(params, args)
+                ]
+
+                call_result = func(self, *args[:len(params)])
+                if call_result is not None:
+                    for key, value in call_result.items():
+                        if key in result:
+                            result[key].update(value)
+                        else:
+                            result[key] = value
+
+                return result
+            return wrapped
+
+        if func is not None:
+            return wrap(func)
+
+        return wrap
+
     def find_handlers(self) -> Generator[Tuple[str, Callable], None, None]:
         """Find all IOC shell command handlers by name."""
         for handler_obj in [self] + self.sub_handlers:
-            for attr, obj in inspect.getmembers(handler_obj):
-                if attr.startswith("handle_") and callable(obj):
-                    name = attr.split("_", 1)[1]
-                    yield name, obj
+            for attr in dir(handler_obj):
+                if attr.startswith("handle_"):
+                    obj = getattr(handler_obj, attr, None)
+                    if callable(obj):
+                        name = attr.split("_", 1)[1]
+                        yield name, obj
 
             if handler_obj is not self:
                 yield from handler_obj.find_handlers()
+
+    def pre_ioc_init(self):
+        """Pre-iocInit hook."""
+        ...
+
+    def post_ioc_init(self):
+        """Post-iocInit hook."""
+        ...
 
 
 @dataclass
@@ -790,9 +876,6 @@ class WhatRecord:
     pva_group : RecordInstance, optional
         The PVAccess group, if available.
 
-    asyn_ports : list of AsynPort
-        The relevant asyn ports, if available.
-
     ioc : IocMetadata, optional
         The associated IOC metadata, if available.
     """
@@ -800,12 +883,7 @@ class WhatRecord:
     record: Optional[RecordDefinitionAndInstance] = None
     menus: Optional[Dict[str, DatabaseMenu]] = None
     pva_group: Optional[RecordInstance] = None
-    asyn_ports: List[AsynPortBase] = field(default_factory=list)
     ioc: Optional[IocMetadata] = None
-    # TODO:
-    # - gateway rule matches?
-    # - maybe this in place of things like 'asyn_ports' above?
-    # metadata: Dict[str, Any] = field(default_factory=dict)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """\
@@ -821,10 +899,6 @@ class WhatRecord:
 {% set instance_info = render_object(pva_group, "console") %}
     {{ instance_info | indent(4)}}
 {% endif %}
-{% for asyn_port in asyn_ports %}
-{% set asyn_info = render_object(asyn_port, "console") %}
-    {{ asyn_info | indent(4)}}
-{% endfor %}
 }
 """,
     }

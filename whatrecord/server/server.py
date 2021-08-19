@@ -306,14 +306,7 @@ class ServerState:
                     self.get_gateway_matches(instance.name)
                 )
 
-                if ioc.shell_state.access_security is not None:
-                    asg = ioc.shell_state.access_security.get_group_from_record(
-                        instance
-                    )
-                    if asg is not None:
-                        instance.metadata["asg"] = apischema.serialize(
-                            asg
-                        )
+                ioc.shell_state.annotate_record(instance)
 
             for plugin in self.plugins:
                 if not plugin.results:

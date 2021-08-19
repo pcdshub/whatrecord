@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import json
 import logging
 import os
@@ -15,21 +14,25 @@ from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import apischema
 
-from . import asyn, common, dbtemplate, graph
-from . import motor as motor_mod
-from . import settings, streamdevice, util
-from .access_security import AccessSecurityConfig
+from . import common, dbtemplate, graph, settings, streamdevice, util
+from .access_security import AccessSecurityState
+from .asyn import AsynState
 from .autosave import AutosaveState
-from .common import (FullLoadContext, IocMetadata, IocshCmdArgs, IocshRedirect,
-                     IocshResult, IocshScript, LoadContext, MutableLoadContext,
-                     PVRelations, RecordDefinitionAndInstance, RecordInstance,
+from .common import (AnyPath, FullLoadContext, IocMetadata, IocshCmdArgs,
+                     IocshRedirect, IocshResult, IocshScript, LoadContext,
+                     MutableLoadContext, PVRelations,
+                     RecordDefinitionAndInstance, RecordInstance,
                      ShellStateHandler, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line, split_words
 from .macro import MacroContext
+from .motor import MotorState
 
 logger = logging.getLogger(__name__)
+
+
+_handler = ShellStateHandler.generic_handler_decorator
 
 
 @dataclass
@@ -39,21 +42,12 @@ class ShellState(ShellStateHandler):
 
     Contains hooks for commands and state information.
 
-    Parameters
-    ----------
-    prompt : str, optional
-        The prompt - PS1 - as in "epics>".
-    string_encoding : str, optional
-        String encoding for byte strings and files.
-    variables : dict, optional
-        Starting state for variables (not environment variables).
-
     Attributes
     ----------
     prompt : str
         The prompt - PS1 - as in "epics>".
     variables : dict
-        Shell variables.
+        Shell variables (not environment variables).
     string_encoding : str
         String encoding for byte strings and files.
     macro_context : MacroContext
@@ -62,14 +56,6 @@ class ShellState(ShellStateHandler):
         Rewrite hard-coded directory prefixes by setting::
 
             standin_directories = {"/replace_this/": "/with/this"}
-    access_security : AccessSecurityConfig
-        The loaded access security configuration (post iocInit).
-    access_security_filename : pathlib.Path
-        The access security filename.
-    access_security_macros : Dict[str, str]
-        Macros used when expanding the access security file.
-    asyn_ports : Dict[str, asyn.AsynPortBase]
-        Asyn ports defined by name.
     loaded_files : Dict[str, str]
         Files loaded, mapped to a hash of their contents.
     working_directory : pathlib.Path
@@ -100,14 +86,9 @@ class ShellState(ShellStateHandler):
     aliases: Dict[str, str] = field(default_factory=dict)
     database_definition: Optional[Database] = None
     database: Dict[str, RecordInstance] = field(default_factory=dict)
-    access_security: Optional[AccessSecurityConfig] = None
-    access_security_filename: Optional[pathlib.Path] = None
-    access_security_macros: Optional[Dict[str, str]] = None
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[MutableLoadContext] = field(default_factory=list)
-    asyn_ports: Dict[str, asyn.AsynPortBase] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(default_factory=dict)
-    autosave: AutosaveState = field(default_factory=AutosaveState)
     macro_context: MacroContext = field(
         default_factory=MacroContext, metadata=apischema.metadata.skip
     )
@@ -117,25 +98,22 @@ class ShellState(ShellStateHandler):
         default_factory=dict
     )
 
+    # Sub-state handlers:
+    access_security: AccessSecurityState = field(default_factory=AccessSecurityState)
+    asyn: AsynState = field(default_factory=AsynState)
+    autosave: AutosaveState = field(default_factory=AutosaveState)
+    motor: MotorState = field(default_factory=MotorState)
+
     def __post_init__(self):
         super().__post_init__()
-        self._setup_dynamic_handlers()
         self.macro_context.string_encoding = self.string_encoding
 
-    def _setup_dynamic_handlers(self):
-        # Just motors for now
-        for name, args in motor_mod.shell_commands.items():
-            if name not in self._handlers:
-                self._handlers[name] = functools.partial(
-                    self._generic_motor_handler, name
-                )
-
     @property
-    def sub_handlers(self) -> List[object]:
+    def sub_handlers(self) -> List[ShellStateHandler]:
         """Handlers which contain their own state."""
-        return [self.autosave]
+        return [self.access_security, self.asyn, self.autosave, self.motor]
 
-    def load_file(self, filename: Union[pathlib.Path, str]) -> Tuple[pathlib.Path, str]:
+    def load_file(self, filename: AnyPath) -> Tuple[pathlib.Path, str]:
         """Load a file, record its hash, and return its contents."""
         filename = self._fix_path(filename)
         filename = filename.resolve()
@@ -187,7 +165,7 @@ class ShellState(ShellStateHandler):
                 )
         elif shresult.argv:
             try:
-                result = self.handle_command(*shresult.argv)
+                result = self._handle_command(*shresult.argv)
                 if result:
                     # Only set if not-None to speed up serialization
                     shresult.result = result
@@ -242,24 +220,11 @@ class ShellState(ShellStateHandler):
         finally:
             self.load_context.remove(load_ctx)
 
-    def get_asyn_port_from_record(self, inst: RecordInstance) -> Optional[asyn.AsynPort]:
-        """Given a record, return its related asyn port."""
-        rec_field = inst.fields.get("INP", inst.fields.get("OUT", None))
-        if rec_field is None:
-            return
-
-        if not isinstance(rec_field.value, str):
-            # No PVAccess links just yet
-            return
-
-        value = rec_field.value.strip()
-        if value.startswith("@asyn"):
-            try:
-                asyn_args = value.split("@asyn")[1].strip(" ()")
-                asyn_port, *_ = asyn_args.split(",")
-                return self.asyn_ports.get(asyn_port.strip(), None)
-            except Exception:
-                logger.debug("Failed to parse asyn string", exc_info=True)
+        # for rec in list(self.database.values()) + list(self.pva_database.values()):
+        #     try:
+        #         self.annotate_record(rec)
+        #     except Exception:
+        #         logger.exception("Failed to annotate record: %s", rec.name)
 
     def get_load_context(self) -> FullLoadContext:
         """Get a FullLoadContext tuple representing where we are now."""
@@ -267,13 +232,19 @@ class ShellState(ShellStateHandler):
             return tuple()
         return tuple(ctx.to_load_context() for ctx in self.load_context)
 
-    def handle_command(self, command, *args):
+    def _handle_command(self, command, *args):
+        """Handle IOC shell 'command' with provided arguments."""
         handler = self._handlers.get(command, None)
         if handler is not None:
             return handler(*args)
         return self.unhandled(command, args)
 
-    def _fix_path(self, filename: Union[str, pathlib.Path]):
+    def _fix_path(self, filename: AnyPath) -> pathlib.Path:
+        """
+        Makes filename an absolute path with respect to the working directory.
+
+        Also replaces standin directories, if provided an absolute path.
+        """
         filename = str(filename)
         if os.path.isabs(filename):
             for from_, to in self.standin_directories.items():
@@ -331,16 +302,8 @@ class ShellState(ShellStateHandler):
         ...
         # return f"No handler for handle_{command}"
 
-    def _generic_motor_handler(self, name, *args):
-        arg_info = []
-        for (name, type_), value in zip(motor_mod.shell_commands[name].items(), args):
-            type_name = getattr(type_, "__name__", type_)
-            arg_info.append(f"({type_name}) {name} = {value!r}")
-
-        # TODO somehow figure out about motor port -> asyn port linking, maybe
-        return "\n".join(arg_info)
-
-    def handle_iocshRegisterVariable(self, variable, value, *_):
+    @_handler
+    def handle_iocshRegisterVariable(self, variable: str, value: str = ""):
         self.variables[variable] = value
         return f"Registered variable: {variable!r}={value!r}"
 
@@ -365,27 +328,30 @@ class ShellState(ShellStateHandler):
                     f" {self.ioc_info.base_version}"
                 )
 
-    def handle_epicsEnvSet(self, variable, value, *_):
+    @_handler
+    def handle_epicsEnvSet(self, variable: str, value: str = ""):
         self.macro_context.define(**{variable: value})
         hook = getattr(self, f"env_set_{variable}", None)
         if hook and callable(hook):
             hook_result = hook(value)
-        else:
-            hook_result = ""
+            if hook_result:
+                return {
+                    "hook": hook_result,
+                }
 
-        return {
-            "variable": variable,
-            "value": value,
-            "hook": hook_result,
-        }
-
-    def handle_epicsEnvShow(self, *_):
+    @_handler
+    def handle_epicsEnvShow(self):
         return self.macro_context.get_macros()
 
-    def handle_iocshCmd(self, command, *_):
+    @_handler
+    def handle_iocshCmd(self, command: str = ""):
         return IocshCmdArgs(context=self.get_load_context(), command=command)
 
-    def handle_cd(self, path, *_):
+    @_handler
+    def handle_cd(self, path: str = ""):
+        if not path:
+            raise RuntimeError("Invalid directory path, ignored")
+
         path = self._fix_path(path)
         if path.is_absolute():
             new_dir = path
@@ -395,11 +361,12 @@ class ShellState(ShellStateHandler):
         if not new_dir.exists():
             raise RuntimeError(f"Path does not exist: {new_dir}")
         self.working_directory = new_dir.resolve()
-        return f"New working directory: {self.working_directory}"
+        return {"result": f"New working directory: {self.working_directory}"}
 
     handle_chdir = handle_cd
 
-    def handle_iocInit(self, *_):
+    @_handler
+    def handle_iocInit(self):
         if self.ioc_initialized:
             return {
                 "success": False,
@@ -409,62 +376,28 @@ class ShellState(ShellStateHandler):
         result = {
             "success": True,
         }
+
+        for handler in self.sub_handlers:
+            handler_result = handler.pre_ioc_init()
+            result.update(handler_result or {})
+
         self.ioc_initialized = True
 
-        if self.access_security_filename is not None:
-            try:
-                result["access_security"] = self._load_access_security()
-            except Exception as ex:
-                result["access_security"] = {
-                    "exception_class": type(ex).__name__,
-                    "error": str(ex),
-                }
+        for handler in self.sub_handlers:
+            handler_result = handler.post_ioc_init()
+            result.update(handler_result or {})
 
         return result
 
-    def handle_asSetSubstitutions(self, macros, *_):
-        self.access_security_macros = self.macro_context.definitions_to_dict(
-            macros
-        )
-        return {
-            "macros": self.access_security_macros,
-            "note": "See iocInit results for details.",
-        }
-
-    def handle_asSetFilename(self, filename, *_):
-        self.access_security_filename = self._fix_path(filename).resolve()
-        return {
-            "filename": str(self.access_security_filename),
-            "note": "See iocInit results for details.",
-        }
-
-    def _load_access_security(self):
-        """Load access security settings at iocInit time."""
-        filename, contents = self.load_file(self.access_security_filename)
-        if self.access_security_macros:
-            macro_context = MacroContext(use_environment=False)
-            macro_context.define(**self.access_security_macros)
-            contents = "\n".join(
-                macro_context.expand(line)
-                for line in contents.splitlines()
-            )
-
-        self.access_security = AccessSecurityConfig.from_string(
-            contents, filename=str(filename)
-        )
-        return {
-            "filename": filename,
-            "macros": self.access_security_macros,
-        }
-
-    def handle_dbLoadDatabase(self, dbd, path=None, substitutions=None, *_):
+    @_handler
+    def handle_dbLoadDatabase(self, dbd: str, path: str = "", substitutions: str = ""):
         if self.ioc_initialized:
             raise RuntimeError("Database cannot be loaded after iocInit")
         if self.database_definition:
             # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
             return "whatrecord: TODO multiple dbLoadDatabase"
-        dbd = self._fix_path_with_search_list(dbd, self.db_include_paths)
+        dbd_path = self._fix_path_with_search_list(dbd, self.db_include_paths)
         fn, contents = self.load_file(dbd)
         macro_context = MacroContext(use_environment=False)
         macro_context.define_from_string(substitutions or "")
@@ -477,13 +410,13 @@ class ShellState(ShellStateHandler):
 
         for addpath in self.database_definition.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
-                self.db_add_paths.append((dbd.parent / path).resolve())
+                self.db_add_paths.append((dbd_path.parent / path).resolve())
 
         self.aliases.update(self.database_definition.aliases)
-
         return {"result": f"Loaded database: {fn}"}
 
-    def handle_dbLoadTemplate(self, filename, macros="", *_):
+    @_handler
+    def handle_dbLoadTemplate(self, filename: str, macros: str = ""):
         filename = self._fix_path_with_search_list(filename, self.db_include_paths)
         filename, contents = self.load_file(filename)
 
@@ -554,8 +487,6 @@ class ShellState(ShellStateHandler):
                 entry.fields.update(rec.fields)
                 # entry.owner = self.ioc_info.name ?
 
-            self.annotate_record(rec)
-
         for name, rec in db.pva_groups.items():
             if name not in self.pva_database:
                 self.pva_database[name] = rec
@@ -576,7 +507,8 @@ class ShellState(ShellStateHandler):
 
         return lint
 
-    def handle_dbLoadRecords(self, filename, macros="", *_):
+    @_handler
+    def handle_dbLoadRecords(self, filename: str, macros: str = ""):
         if not self.database_definition:
             raise RuntimeError("dbd not yet loaded")
         if self.ioc_initialized:
@@ -598,16 +530,23 @@ class ShellState(ShellStateHandler):
 
     def annotate_record(self, record: RecordInstance):
         """Hook to annotate a record after being loaded."""
-        # rtype = record.record_type
-        dtype = record.fields.get("DTYP", None)
-        if not dtype:
-            return
+        self.annotate_streamdevice(record)
 
-        if dtype.value == "stream":
-            self.annotate_streamdevice(record)
+        for handler in self.sub_handlers:
+            try:
+                handler.annotate_record(record)
+            except Exception:
+                logger.exception(
+                    "Record annotation failed for %s with handler %s",
+                    record.name, type(handler).__name__
+                )
 
     def annotate_streamdevice(self, record: RecordInstance):
         """Hook for StreamDevice annotation of a given record."""
+        dtype = record.fields.get("DTYP", None)
+        if not dtype or getattr(dtype, "value", None) != "stream":
+            return
+
         info_field = record.fields.get("INP", record.fields.get("OUT", None))
         if not info_field:
             return
@@ -663,27 +602,25 @@ class ShellState(ShellStateHandler):
             )
         return self.streamdevice[key]
 
-    def handle_dbl(self, rtyp=None, fields=None, *_):
-        return []  # list(self.database)
+    @_handler
+    def handle_dbl(self, rtyp: str = "", fields: str = ""):
+        ...
 
+    @_handler
     def handle_NDPvaConfigure(
         self,
-        portName=None,
-        queueSize=None,
-        blockingCallbacks=None,
-        NDArrayPort=None,
-        NDArrayAddr=None,
-        pvName=None,
-        maxBuffers=None,
-        maxMemory=None,
-        priority=None,
-        stackSize=None,
-        *_,
+        portName: str,
+        queueSize: int = 0,
+        blockingCallbacks: str = "",
+        NDArrayPort: str = "",
+        NDArrayAddr: str = "",
+        pvName: str = "",
+        maxBuffers: int = 0,
+        maxMemory: int = 0,
+        priority: int = 0,
+        stackSize: int = 0,
     ):
         """Implicitly creates a PVA group named ``pvName``."""
-        if pvName is None:
-            return
-
         metadata = {
             "portName": portName or "",
             "queueSize": queueSize or "",
@@ -705,139 +642,6 @@ class ShellState(ShellStateHandler):
             metadata={"areaDetector": metadata},
         )
         return metadata
-
-    def handle_drvAsynSerialPortConfigure(
-        self,
-        portName=None,
-        ttyName=None,
-        priority=None,
-        noAutoConnect=None,
-        noProcessEos=None,
-        *_,
-    ):
-        # SLAC-specific, but doesn't hurt anyone
-        if not portName:
-            return
-
-        self.asyn_ports[portName] = asyn.AsynSerialPort(
-            context=self.get_load_context(),
-            name=portName,
-            ttyName=ttyName,
-            priority=priority,
-            noAutoConnect=noAutoConnect,
-            noProcessEos=noProcessEos,
-        )
-
-    def handle_drvAsynIPPortConfigure(
-        self,
-        portName=None,
-        hostInfo=None,
-        priority=None,
-        noAutoConnect=None,
-        noProcessEos=None,
-        *_,
-    ):
-        # SLAC-specific, but doesn't hurt anyone
-        if portName:
-            self.asyn_ports[portName] = asyn.AsynIPPort(
-                context=self.get_load_context(),
-                name=portName,
-                hostInfo=hostInfo,
-                priority=priority,
-                noAutoConnect=noAutoConnect,
-                noProcessEos=noProcessEos,
-            )
-
-    def handle_adsAsynPortDriverConfigure(
-        self,
-        portName=None,
-        ipaddr=None,
-        amsaddr=None,
-        amsport=None,
-        asynParamTableSize=None,
-        priority=None,
-        noAutoConnect=None,
-        defaultSampleTimeMS=None,
-        maxDelayTimeMS=None,
-        adsTimeoutMS=None,
-        defaultTimeSource=None,
-        *_,
-    ):
-        # SLAC-specific, but doesn't hurt anyone
-        if portName:
-            self.asyn_ports[portName] = asyn.AdsAsynPort(
-                context=self.get_load_context(),
-                name=portName,
-                ipaddr=ipaddr,
-                amsaddr=amsaddr,
-                amsport=amsport,
-                asynParamTableSize=asynParamTableSize,
-                priority=priority,
-                noAutoConnect=noAutoConnect,
-                defaultSampleTimeMS=defaultSampleTimeMS,
-                maxDelayTimeMS=maxDelayTimeMS,
-                adsTimeoutMS=adsTimeoutMS,
-                defaultTimeSource=defaultTimeSource,
-            )
-
-    def handle_asynSetOption(self, name, addr, key, value, *_):
-        port = self.asyn_ports[name]
-        opt = asyn.AsynPortOption(
-            context=self.get_load_context(),
-            key=key,
-            value=value,
-        )
-
-        if isinstance(port, asyn.AsynPortMultiDevice):
-            port.devices[addr].options[key] = opt
-        else:
-            port.options[key] = opt
-
-    def handle_drvAsynMotorConfigure(
-        self,
-        port_name: str = "",
-        driver_name: str = "",
-        card_num: int = 0,
-        num_axes: int = 0,
-        *_,
-    ):
-        self.asyn_ports[port_name] = asyn.AsynMotor(
-            context=self.get_load_context(),
-            name=port_name,
-            parent=None,
-            metadata=dict(
-                num_axes=num_axes,
-                card_num=card_num,
-                driver_name=driver_name,
-            ),
-        )
-
-    def handle_EthercatMCCreateController(
-        self,
-        motor_port: str = "",
-        asyn_port: str = "",
-        num_axes: int = 0,
-        move_poll_rate: float = 0.0,
-        idle_poll_rate: float = 0.0,
-        *_,
-    ):
-        # SLAC-specific
-        port = self.asyn_ports[asyn_port]
-        motor = asyn.AsynMotor(
-            context=self.get_load_context(),
-            name=motor_port,
-            parent=asyn_port,
-            metadata=dict(
-                num_axes=num_axes,
-                move_poll_rate=move_poll_rate,
-                idle_poll_rate=idle_poll_rate,
-            ),
-        )
-
-        # Tie it to both the original asyn port (as a motor) and also the
-        # top-level asyn ports.
-        port.motors[motor_port] = motor
-        self.asyn_ports[motor_port] = motor
 
 
 @dataclass
@@ -896,10 +700,6 @@ class ScriptContainer:
                 for match in [info.record, info.pva_group]:
                     if file is not None and match is not None:
                         print(fmt.render_object(match, format_option), file=file)
-                        for asyn_port in info.asyn_ports:
-                            print(
-                                fmt.render_object(asyn_port, format_option), file=file
-                            )
                 result.append(info)
         return result
 
@@ -992,10 +792,11 @@ class LoadedIoc:
         if not v3_inst and not pva_inst:
             return
 
-        asyn_ports = []
         what = WhatRecord(
-            name=rec, asyn_ports=asyn_ports, ioc=self.metadata,
-            record=None, pva_group=None,
+            name=rec,
+            ioc=self.metadata,
+            record=None,
+            pva_group=None,
         )
         if v3_inst is not None:
             if not state.database_definition:
@@ -1007,15 +808,8 @@ class LoadedIoc:
                 what.menus = state.database_definition.menus
                 # but what about device types and such?
 
+            state.annotate_record(v3_inst)
             what.record = RecordDefinitionAndInstance(defn, v3_inst)
-
-            asyn_port = state.get_asyn_port_from_record(v3_inst)
-            if asyn_port is not None:
-                asyn_ports.append(asyn_port)
-
-                parent_port = getattr(asyn_port, "parent", None)
-                if parent_port is not None:
-                    asyn_ports.insert(0, state.asyn_ports.get(parent_port, None))
 
         if pva_inst is not None:
             what.pva_group = pva_inst
