@@ -287,7 +287,7 @@ class ShellState(ShellStateHandler):
         """Given a list of paths, find ``filename``."""
         filename = str(filename)
         if not include_paths or "/" in filename or "\\" in filename:
-            # Inclue path unset or even something resembling a nested path
+            # Include path unset or even something resembling a nested path
             # automatically is used as-is
             return self.working_directory / filename
 
@@ -363,8 +363,12 @@ class ShellState(ShellStateHandler):
 
         if not new_dir.exists():
             raise RuntimeError(f"Path does not exist: {new_dir}")
+
         self.working_directory = new_dir.resolve()
-        return {"result": f"New working directory: {self.working_directory}"}
+        os.environ["PWD"] = str(self.working_directory)
+        return {
+            "result": f"New working directory: {self.working_directory}"
+        }
 
     handle_chdir = handle_cd
 
@@ -401,7 +405,7 @@ class ShellState(ShellStateHandler):
             # raise RuntimeError("dbd already loaded")
             return "whatrecord: TODO multiple dbLoadDatabase"
         dbd_path = self._fix_path_with_search_list(dbd, self.db_include_paths)
-        fn, contents = self.load_file(dbd)
+        fn, contents = self.load_file(dbd_path)
         macro_context = MacroContext(use_environment=False)
         macro_context.define_from_string(substitutions or "")
         self.database_definition = Database.from_string(
@@ -712,6 +716,10 @@ class LoadedIoc:
         sh.working_directory = md.startup_directory
         sh.macro_context.define(**md.macros)
         sh.standin_directories = md.standin_directories or {}
+
+        # It's not enough to chdir, as we can rely on the environment variable
+        # in shell scripts:
+        os.environ["PWD"] = str(md.startup_directory)
 
         script = IocshScript.from_metadata(md, sh=sh)
         return cls(
