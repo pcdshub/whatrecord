@@ -43,6 +43,13 @@ class ShellState(ShellStateHandler):
 
     Contains hooks for commands and state information.
 
+    This base state handler should only handle epics base-defined IOC shell
+    commands, including: paths, variables, database loading, and IOC
+    initialization.
+
+    It is the top-level state container, which sub handlers should rely on for
+    things like loading files and other core state information.
+
     Attributes
     ----------
     prompt : str
