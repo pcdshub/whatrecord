@@ -520,7 +520,8 @@ class RecordInstanceSummary:
     name: str
     record_type: str
     # fields: Dict[str, RecordField]
-    metadata: Dict[str, str] = field(default_factory=dict)
+    info: Dict[str, str] = field(default_factory=dict)
+    # metadata: Dict[str, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     # is_grecord: bool = False
     is_pva: bool = False
@@ -533,7 +534,6 @@ class RecordInstanceSummary:
             name=instance.name,
             record_type=instance.record_type,
             info=instance.info,
-            metadata=instance.metadata,
             aliases=instance.aliases,
             is_pva=instance.is_pva,
             owner=instance.owner,
@@ -720,6 +720,7 @@ class AsynPortBase:
 
 @dataclass
 class ShellStateHandler:
+    metadata_key: ClassVar[str]
     parent: Optional[ShellStateHandler] = field(
         default=None, metadata=apischema.metadata.skip,
         repr=False, hash=False, compare=False
@@ -744,7 +745,7 @@ class ShellStateHandler:
             sub_handler.primary_handler = getattr(self.parent, "primary_handler", self)
             sub_handler._init_sub_handlers_()
 
-    def annotate_record(self, instance: RecordInstance):
+    def annotate_record(self, instance: RecordInstance) -> Optional[Dict[str, Any]]:
         """Annotate the given record's metadata with state-related information."""
         ...
 

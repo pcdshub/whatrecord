@@ -144,6 +144,7 @@ td .key {
   border-right: 1px solid #f8f8f8;
   font-size: 1em;
   font-weight: bold;
+  width: 0px;
 }
 
 td .value {

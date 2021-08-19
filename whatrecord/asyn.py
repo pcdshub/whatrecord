@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import ClassVar, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, Optional, Union
 
 from .common import (AsynPortBase, FullLoadContext, RecordField,
                      RecordInstance, ShellStateHandler)
@@ -130,6 +130,7 @@ class AsynState(ShellStateHandler):
     ports : Dict[str, asyn.AsynPortBase]
         Asyn ports defined by name.
     """
+    metadata_key: ClassVar[str] = "asyn"
     ports: Dict[str, AsynPortBase] = field(default_factory=dict)
 
     @_handler
@@ -207,13 +208,12 @@ class AsynState(ShellStateHandler):
             except Exception:
                 logger.debug("Failed to parse asyn string", exc_info=True)
 
-    def annotate_record(self, inst: RecordInstance):
-        port = self.get_port_from_record(inst)
-        if port is None:
-            return
-
-        inst.metadata["asyn"] = [port]
-
-        parent_port = getattr(port, "parent", None)
-        if parent_port is not None:
-            inst.metadata["asyn"].insert(0, self.ports.get(parent_port, None))
+    def annotate_record(self, record: RecordInstance) -> Optional[Dict[str, Any]]:
+        port = self.get_port_from_record(record)
+        if port is not None:
+            parent_port = getattr(port, "parent", None)
+            ports = [
+                port_ for port_ in [parent_port, port]
+                if port_ is not None
+            ]
+            return {"ports": ports}

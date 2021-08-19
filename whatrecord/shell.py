@@ -10,11 +10,11 @@ import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import apischema
 
-from . import common, dbtemplate, graph, settings, streamdevice, util
+from . import common, dbtemplate, graph, settings, util
 from .access_security import AccessSecurityState
 from .asyn import AsynState
 from .autosave import AutosaveState
@@ -25,9 +25,10 @@ from .common import (AnyPath, FullLoadContext, IocMetadata, IocshCmdArgs,
                      ShellStateHandler, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext
-from .iocsh import parse_iocsh_line, split_words
+from .iocsh import parse_iocsh_line
 from .macro import MacroContext
 from .motor import MotorState
+from .streamdevice import StreamDeviceState
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,6 @@ class ShellState(ShellStateHandler):
         The IOC database of PVAccess groups.
     aliases : Dict[str, str]
         Alias name to record name.
-    streamdevice : Dict[str, StreamProtocol]
-        Loadd StreamDevice protocols by name.
     load_context : List[MutableLoadContext]
         Current loading context stack (e.g., ``st.cmd`` then
         ``common_startup.cmd``).  Modified in place as scripts are evaluated.
@@ -94,15 +93,13 @@ class ShellState(ShellStateHandler):
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
-    streamdevice: Dict[str, streamdevice.StreamProtocol] = field(
-        default_factory=dict
-    )
 
     # Sub-state handlers:
     access_security: AccessSecurityState = field(default_factory=AccessSecurityState)
     asyn: AsynState = field(default_factory=AsynState)
     autosave: AutosaveState = field(default_factory=AutosaveState)
     motor: MotorState = field(default_factory=MotorState)
+    streamdevice: StreamDeviceState = field(default_factory=StreamDeviceState)
 
     def __post_init__(self):
         super().__post_init__()
@@ -111,7 +108,13 @@ class ShellState(ShellStateHandler):
     @property
     def sub_handlers(self) -> List[ShellStateHandler]:
         """Handlers which contain their own state."""
-        return [self.access_security, self.asyn, self.autosave, self.motor]
+        return [
+            self.access_security,
+            self.asyn,
+            self.autosave,
+            self.motor,
+            self.streamdevice,
+        ]
 
     def load_file(self, filename: AnyPath) -> Tuple[pathlib.Path, str]:
         """Load a file, record its hash, and return its contents."""
@@ -498,8 +501,6 @@ class ShellState(ShellStateHandler):
                 entry.fields.update(rec.fields)
                 # entry.owner = self.ioc_info.name ?
 
-            self.annotate_record(rec)
-
         self.aliases.update(db.aliases)
         for addpath in db.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
@@ -528,79 +529,19 @@ class ShellState(ShellStateHandler):
             "lint": lint,
         }
 
-    def annotate_record(self, record: RecordInstance):
+    def annotate_record(self, record: RecordInstance) -> Optional[Dict[str, Any]]:
         """Hook to annotate a record after being loaded."""
-        self.annotate_streamdevice(record)
-
         for handler in self.sub_handlers:
             try:
-                handler.annotate_record(record)
+                annotation = handler.annotate_record(record)
             except Exception:
                 logger.exception(
                     "Record annotation failed for %s with handler %s",
                     record.name, type(handler).__name__
                 )
-
-    def annotate_streamdevice(self, record: RecordInstance):
-        """Hook for StreamDevice annotation of a given record."""
-        dtype = record.fields.get("DTYP", None)
-        if not dtype or getattr(dtype, "value", None) != "stream":
-            return
-
-        info_field = record.fields.get("INP", record.fields.get("OUT", None))
-        if not info_field:
-            return
-
-        info_field = info_field.value.strip()
-        results = {}
-        try:
-            proto_file, proto_name, *proto_args = split_words(info_field).argv
-            proto_file = proto_file.lstrip("@ ")
-        except Exception:
-            results["error"] = (
-                f"Invalid StreamDevice input/output field: {info_field!r}"
-            )
-            proto_file = None
-            proto_name = None
-            proto_args = []
-        else:
-            try:
-                protocol = self.load_streamdevice_protocol(proto_file)
-            except Exception as ex:
-                results["error"] = f"{ex.__class__.__name__}: {ex}"
             else:
-                if proto_name in protocol.protocols:
-                    results["protocol"] = protocol.protocols[proto_name]
-                else:
-                    results["error"] = (
-                        f"Unknown protocol {proto_name!r} in {proto_file}; "
-                        f"options are: {list(protocol.protocols)}"
-                    )
-
-        record.metadata["streamdevice"] = {
-            "protocol_file": proto_file,
-            "protocol_name": proto_name,
-            "protocol_args": proto_args,
-            **results,
-        }
-
-    def load_streamdevice_protocol(
-        self,
-        filename: Union[str, pathlib.Path]
-    ) -> streamdevice.Protocol:
-        """Load a StreamDevice protocol file."""
-        filename = self._fix_path_with_search_list(
-            filename,
-            self.paths_from_env_var("STREAM_PROTOCOL_PATH", default=".")
-        )
-        key = str(filename)
-        if key not in self.streamdevice:
-            fn, contents = self.load_file(filename)
-            self.streamdevice[key] = streamdevice.StreamProtocol.from_string(
-                contents,
-                filename=fn
-            )
-        return self.streamdevice[key]
+                if annotation is not None:
+                    record.metadata[handler.metadata_key] = annotation
 
     @_handler
     def handle_dbl(self, rtyp: str = "", fields: str = ""):

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import pathlib
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 
 import lark
 
 from . import transformer
-from .common import FullLoadContext, StringWithContext
+from .common import (AnyPath, FullLoadContext, ShellStateHandler,
+                     StringWithContext)
+from .db import PVAFieldReference, RecordInstance
+from .iocsh import split_words
 from .transformer import context_from_token
 
 
@@ -265,3 +269,97 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             }
         )
         return defn
+
+
+_handler = ShellStateHandler.generic_handler_decorator
+
+
+@dataclass
+class StreamDeviceState(ShellStateHandler):
+    """
+    StreamDevice IOC shell state handler / container.
+
+    Contains hooks for StreamDevice-related commands and state information.
+
+    Attributes
+    ----------
+    protocols : Dict[str, StreamProtocol]
+        Loaded StreamDevice protocols by name.
+    """
+
+    metadata_key: ClassVar[str] = "streamdevice"
+    protocols: Dict[str, StreamProtocol] = field(
+        default_factory=dict
+    )
+
+    def find_streamdevice_protocol(self, filename: AnyPath) -> pathlib.Path:
+        shell_state = self.primary_handler
+        return shell_state._fix_path_with_search_list(
+            filename,
+            shell_state.paths_from_env_var("STREAM_PROTOCOL_PATH", default=".")
+        )
+
+    def load_streamdevice_protocol(
+        self,
+        filename: AnyPath,
+    ) -> StreamProtocol:
+        """Load a StreamDevice protocol file."""
+        filename = self.find_streamdevice_protocol(filename)
+        key = str(filename)
+        if key not in self.protocols:
+            shell_state = self.primary_handler
+            fn, contents = shell_state.load_file(filename)
+            self.protocols[key] = StreamProtocol.from_string(
+                contents,
+                filename=fn
+            )
+        return self.protocols[key]
+
+    def annotate_record(self, record: RecordInstance) -> Optional[Dict[str, Any]]:
+        """Hook to annotate a record after being loaded."""
+        dtype = record.fields.get("DTYP", None)
+        if not dtype or getattr(dtype, "value", None) != "stream":
+            return
+
+        info_field = record.fields.get("INP", record.fields.get("OUT", None))
+        if not info_field or isinstance(info_field, PVAFieldReference):
+            return {
+                "error": "INP/OUT not defined correctly"
+            }
+        if not isinstance(info_field.value, str):
+            return {
+                "error": "INP/OUT not defined correctly (JSON)"
+            }
+
+        info_field = info_field.value.strip()
+        results = {}
+        try:
+            proto_file, proto_name, *proto_args = split_words(info_field).argv
+            proto_file = proto_file.lstrip("@ ")
+        except Exception:
+            results["error"] = (
+                f"Invalid StreamDevice input/output field: {info_field!r}"
+            )
+            proto_file = None
+            proto_name = None
+            proto_args = []
+        else:
+            try:
+                protocol = self.load_streamdevice_protocol(proto_file)
+            except Exception as ex:
+                results["error"] = f"{ex.__class__.__name__}: {ex}"
+            else:
+                if proto_name in protocol.protocols:
+                    results["protocol"] = protocol.protocols[proto_name]
+                else:
+                    results["error"] = (
+                        f"Unknown protocol {proto_name!r} in {proto_file}; "
+                        f"options are: {list(protocol.protocols)}"
+                    )
+
+        return {
+            "protocol_file": proto_file,
+            "protocol_name": proto_name,
+            "protocol_args": proto_args,
+            **results,
+        }

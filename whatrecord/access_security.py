@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import pathlib
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import apischema
 import lark
@@ -380,6 +380,7 @@ class AccessSecurityState(ShellStateHandler):
     macros : Dict[str, str]
         Macros used when expanding the access security file.
     """
+    metadata_key: ClassVar[str] = "asg"
     config: Optional[AccessSecurityConfig] = None
     filename: Optional[pathlib.Path] = None
     macros: Optional[Dict[str, str]] = None
@@ -448,9 +449,9 @@ class AccessSecurityState(ShellStateHandler):
             "macros": self.macros,
         }
 
-    def annotate_record(self, instance: RecordInstance):
-        super().annotate_record(instance)
+    def annotate_record(self, record: RecordInstance) -> Optional[Dict[str, Any]]:
+        """Annotate record with access security information."""
         if self.config is not None:
-            asg = self.config.get_group_from_record(instance)
+            asg = self.config.get_group_from_record(record)
             if asg is not None:
-                instance.metadata["asg"] = apischema.serialize(asg)
+                return apischema.serialize(asg)

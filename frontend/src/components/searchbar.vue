@@ -55,7 +55,7 @@ export default {
   props: [],
   data() {
     return {
-      max_pvs: 100,
+      max_pvs: 200,
       regex: false,
       table_selection: [],
       input_record_glob: "*",
