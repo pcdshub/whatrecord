@@ -520,7 +520,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         record: RecordInstance = self._state.record
         context = context_from_token(self.fn, info_token)
         key = StringWithContext(name, context)
-        record.metadata[key] = value
+        record.info[key] = value
 
         if name == "Q:group" and isinstance(value, Mapping):
             self._add_q_group(value)
@@ -638,10 +638,7 @@ class Database:
             cache=True,
         )
         if macro_context is not None:
-            contents = "\n".join(
-                macro_context.expand(line) for line in contents.splitlines()
-            )
-            contents = contents.rstrip() + "\n"
+            contents = macro_context.expand_by_line(contents).rstrip() + "\n"
 
         db, linter_results = grammar.parse(contents)
         db.comments = comments

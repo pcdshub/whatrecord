@@ -11,12 +11,21 @@
       <template v-for="field in fields" :key="field.name">
         <epics-format-field
           :field="field"
-          :field_info="record_defn ? record_defn.fields[field.name] : null"
+          :field_info="record_defn?.fields[field.name] ?? null"
           :menus="menus"
+          :autosave="autosave_fields[field.name]"
+        />
+      </template>
+      <template v-for="field in new_autosave_fields" :key="field.name">
+        <epics-format-field
+          :field="field"
+          :field_info="record_defn?.fields[field.name] ?? null"
+          :menus="menus"
+          :autosave="field"
         />
       </template>
       <!-- info nodes -->
-      <span v-for="[key, value] in info_nodes" :key="key">
+      <span v-for="[key, value] in Object.entries(info_nodes)" :key="key">
         &nbsp;info({{ key }}, "{{ value }}")<br />
       </span>
       }
@@ -51,11 +60,6 @@
 <script>
 import EpicsFormatField from "./epics-format-field.vue";
 import ScriptContextOneLink from "./script-context-one-link.vue";
-import { plugins } from "../settings.js";
-
-const skip_keys =
-  ["asg", "gateway", "streamdevice"] +
-  plugins.map((plugin) => plugin.name);
 
 export default {
   name: "EpicsFormatRecord",
@@ -66,6 +70,7 @@ export default {
     is_grecord: Boolean,
     is_pva: Boolean,
     metadata: Object,
+    info_nodes: Object,
     name: String,
     record_type: String,
     record_type_info: Object,
@@ -77,11 +82,41 @@ export default {
     ScriptContextOneLink,
   },
   computed: {
-    info_nodes() {
-      return Object.entries(this.metadata).filter(
-        (item) => skip_keys.indexOf(item[0]) < 0
+    db_defined_fields() {
+      // database-defined fields
+      return Object.keys(this.fields);
+    },
+
+    new_autosave_fields() {
+      // autosave fields without database defaults
+      const new_field_names = Object.keys(this.autosave_fields).filter(
+        field_name => this.db_defined_fields.indexOf(field_name) < 0
+      );
+      return new_field_names.map(
+        field_name => this.autosave_fields[field_name]
       );
     },
+
+    autosave_fields() {
+      let fields = {};
+      const record_defn = this.record_defn;
+
+      function add_field(restore, field) {
+        fields[field.field] = {
+          name: field.field,
+          context: field.context,
+          value: field.value,
+          dtype: record_defn?.fields[field.field]?.type,
+        }
+      }
+      this.metadata?.autosave?.restore?.forEach(
+        restore => Object.values(restore).forEach(
+          field => add_field(restore, field)
+        )
+      );
+      return fields;
+    },
+
   },
 };
 </script>

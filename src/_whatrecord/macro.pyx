@@ -3,7 +3,7 @@
 import collections
 import contextlib
 import os
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 cimport epicscorelibs
 cimport epicscorelibs.Com
@@ -93,6 +93,8 @@ cdef class _MacroContext:
         use_environment=True,
         show_warnings=False,
         string_encoding: str = "latin-1",
+        macro_string: Optional[str] = None,
+        macros: Optional[Dict[str, str]] = None,
     ):
         cdef const char **env_pairs = ["", "environ", NULL, NULL]
 
@@ -102,6 +104,12 @@ cdef class _MacroContext:
         self.show_warnings = show_warnings
         self.string_encoding = string_encoding
         self.use_environment = bool(use_environment)
+
+        if macros:
+            self.define(**macros)
+
+        if macro_string:
+            self.define_from_string(macro_string)
 
     @property
     def show_warnings(self):
@@ -268,6 +276,13 @@ cdef class _MacroContext:
             if empty_on_failure:
                 return ""
         return buf.decode(self.string_encoding)
+
+    def expand_by_line(self, contents: str, *, delimiter: str = "\n"):
+        """Expand a multi-line string, line-by-line."""
+        return delimiter.join(
+            self.expand(line)
+            for line in contents.splitlines()
+        )
 
 
 class MacroContext(_MacroContext, collections.abc.MutableMapping):

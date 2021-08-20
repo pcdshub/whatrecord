@@ -72,7 +72,7 @@
           </span>
         </div>
       </template>
-      <Column field="name" header="Name" :sortable="true" style="width: 12vw">
+      <Column field="name" header="Name" :sortable="true" style="width: 12%">
         <template #body="{ data }">
           <router-link :to="`/happi/${data.name}`">{{ data.name }}</router-link>
         </template>
@@ -90,7 +90,7 @@
         field="device_class"
         header="Class"
         :sortable="true"
-        style="width: 25vw"
+        style="width: 25%"
       >
         <template #body="{ data }">
           <div class="tooltip">
@@ -132,7 +132,7 @@
         field="active"
         header="Active"
         :sortable="true"
-        style="width: 10vw"
+        style="width: 10%"
       >
         <template #body="{ data }">
           <i :class="['pi', data.active ? 'pi-check' : 'pi-times']" />
@@ -292,12 +292,12 @@ export default {
         kwargs: { value: "", matchMode: FilterMatchMode.CONTAINS },
       };
       this.columns = [
-        { field: "beamline", header: "Beamline", style: "width: 10vw" },
-        { field: "stand", header: "Stand", style: "width: 10vw" },
-        { field: "z", header: "Z Location (m)", style: "width: 10vw" },
-        { field: "last_edit", header: "Last Edit", style: "width: 10vw" },
-        { field: "args", header: "Arguments", style: "width: 15vw" },
-        { field: "kwargs", header: "Keyword Arguments", style: "width: 15vw" },
+        { field: "beamline", header: "Beamline", style: "width: 10%" },
+        { field: "stand", header: "Stand", style: "width: 10%" },
+        { field: "z", header: "Z Location (m)", style: "width: 10%" },
+        { field: "last_edit", header: "Last Edit", style: "width: 10%" },
+        { field: "args", header: "Arguments", style: "width: 15%" },
+        { field: "kwargs", header: "Keyword Arguments", style: "width: 15%" },
       ];
       this.selected_columns = this.columns.slice(0, 2);
     },
@@ -346,11 +346,11 @@ export default {
 }
 
 #related_records tr:nth-child(even) {
-  background-color: #f2f2f2;
+  background-color: var(--surface-b);
 }
 
 #related_records tr:hover {
-  background-color: #ddd;
+  background-color: var(--surface-c);
 }
 
 #related_records th {

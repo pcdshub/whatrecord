@@ -5,7 +5,7 @@ epicsEnvSet "STREAM_PROTOCOL_PATH", "."
 
 drvAsynIPPortConfigure "terminal", "localhost:40000"
 
-dbLoadRecords "test.db","P=STREAM"
+dbLoadRecords "test.db","P=IOC:streamdevice"
 
 #log debug output to file
 #streamSetLogfile StreamDebug.log

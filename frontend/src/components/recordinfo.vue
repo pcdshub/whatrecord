@@ -22,6 +22,7 @@
         :record_type="instance.record_type"
         :is_grecord="instance.is_grecord"
         :is_pva="instance.is_pva"
+        :info_nodes="instance.info"
         :metadata="instance.metadata"
         :record_defn="defn"
         :menus="whatrec.menus"
@@ -105,25 +106,42 @@
         <iframe :src="appliance_viewer_url" title="Archive viewer" />
       </template>
     </AccordionTab>
-    <AccordionTab header="Gateway" v-if="record != null">
-      <template
-        v-if="
-          record != null &&
-          record.metadata.gateway != null &&
-          record.metadata.gateway.matches.length > 0
-        "
-      >
-        Matching gateway rules:
-        <gateway-matches :matches="record.metadata.gateway.matches" />
+    <AccordionTab header="Autosave" v-if="record && autosave != null">
+      <template v-if="autosave?.disconnected">
+        Disconnected fields:
+        <ul>
+          <li v-for="field in autosave.disconnected" :key="field">
+            {{ field }}
+          </li>
+        </ul>
       </template>
-      <template v-else> No matches with gateway rules. </template>
+      <template v-for="(table, idx) in autosave_restore_tables" :key="idx">
+        <DataTable :value="Object.values(table)" dataKey="name">
+          <Column field="field" header="Field" :sortable="true" style="width: 10%" />
+          <Column field="value" header="Value" :sortable="true" />
+          <Column field="context" header="Context" :sortable="true">
+            <template #body="{ data }">
+              <script-context-link :context="data.context" :short="3" />
+            </template>
+          </Column>
+        </DataTable>
+      </template>
+      <template v-if="autosave.error">
+        Autosave errors on {{ whatrec.ioc.name }}:
+        <template v-for="error of autosave.error ?? []" :key="error">
+          <pre>{{ error }}</pre>
+        </template>
+      </template>
+    </AccordionTab>
+    <AccordionTab header="Gateway" v-if="record?.metadata?.gateway?.matches?.length > 0">
+      <gateway-matches :matches="record.metadata.gateway.matches" />
     </AccordionTab>
     <AccordionTab header="Access Security Group" v-if="asg != null">
       <dictionary-table :dict="asg" :cls="'metadata'" :skip_keys="[]" />
     </AccordionTab>
-    <AccordionTab header="Asyn" v-if="whatrec.asyn_ports.length > 0">
+    <AccordionTab header="Asyn" v-if="record?.metadata?.asyn?.length > 0">
       <asyn-port
-        v-for:="(asyn_port, idx) in whatrec.asyn_ports"
+        v-for:="(asyn_port, idx) in record.metadata.asyn"
         :asyn_port="asyn_port"
         :key="asyn_port.name"
       />
@@ -152,8 +170,11 @@ import GatewayMatches from "./gateway-matches.vue";
 import IocInfo from "./ioc-info.vue";
 import RecordFieldTable from "./record-field-table.vue";
 import ScriptContextLink from "./script-context-link.vue";
+
 import Accordion from "primevue/accordion";
 import AccordionTab from "primevue/accordiontab";
+import Column from "primevue/column";
+import DataTable from "primevue/datatable";
 
 import { plugins } from "../settings.js";
 
@@ -164,6 +185,8 @@ export default {
   },
   components: {
     AsynPort,
+    Column,
+    DataTable,
     DictionaryTable,
     EpicsFormatRecord,
     GatewayMatches,
@@ -207,22 +230,16 @@ export default {
       return this.whatrec.record ? this.whatrec.record.definition : null;
     },
     asg() {
-      if (this.record == null) {
-        return null;
-      }
-      return this.record.metadata["asg"];
+      return this.record?.metadata["asg"];
+    },
+    autosave() {
+      return this.record?.metadata["autosave"] ?? null;
+    },
+    autosave_restore_tables() {
+      return this.autosave?.restore ?? [];
     },
     streamdevice_metadata() {
-      if (this.record == null) {
-        return null;
-      }
-      return this.record.metadata["streamdevice"];
-    },
-    happi_metadata() {
-      if (this.record == null) {
-        return [];
-      }
-      return this.record.metadata["happi"] || [];
+      return this.record?.metadata["streamdevice"];
     },
     plugins() {
       return plugins;
@@ -250,13 +267,13 @@ iframe {
 }
 
 .accordion {
-  max-width: 80vw;
+  max-width: 76vw;
 }
 
 .code {
-  background: #efefef;
-  border-left: 3px solid lightgreen;
-  color: black;
+  background: var(--surface-f);
+  border-left: 3px solid var(--surface-600);
+  color: var(--text-color);
   display: block;
   font-family: monospace;
   font-size: 15px;

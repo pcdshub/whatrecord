@@ -1,0 +1,82 @@
+// Autosave save (.sav) file - used for restoring values to PVs
+// Lark grammar (Earley)
+//
+// Autosave does not use a grammar directly; so this was hand-written and
+// tested against the save files at the LCLS.
+//
+// Per autosave source code:
+//
+//     [<error string>]
+//     which is "! <number> <optional descriptive text>"
+// OR
+//     [<ignore>]<PV name><white>...<value>
+//     where
+//        <ignore> is the character '#'
+//        <PV name> is any legal EPICS PV name
+//        <white> is whitespace
+//        <value> is
+//           <printable>[<printable>...][<white>...][<anything>]
+//        e.g., "1.2"
+//        OR
+//           @array@ { "<val>" "<val>" }
+//
+// examples:
+//   xxx:interp.E 100
+//   xxx:interp.C @array@ { "1" "0.99" }
+//
+// Array Examples:
+//   @array@ { "1.23" " 2.34" " 3.45" }
+//   @array@ { "abc" "de\"f" "g{hi\"" "jkl mno} pqr" }
+
+?start: restore
+
+%import common.INT
+%import common.CR
+%import common.LF
+
+_WS             : (" "|/\t/)+
+_NEWLINE        : (CR? LF)+
+COMMENT_CHAR    : /[^\r\n]/
+EXCLAMATION     : "!"
+BAREWORD        : /[a-zA-Z0-9_\-+:.\[\]<>;]+/
+RECORD_NAME     : /[^!# \r\n][^ \t\r\n]+/
+BACKSLASH       : "\\"
+DOUBLE_QUOTE    : "\""
+STRINGCHAR      : /[^"\n\r\\]/
+ESCAPE          : BACKSLASH /./
+END_MARKER      : "<END>"
+
+ARRAY_MARKER    : "@array@"
+ARRAY_BEGIN     : "{"
+ARRAY_END       : "}"
+ARRAY_ELEMENT   : DOUBLE_QUOTE ( STRINGCHAR | ESCAPE )* DOUBLE_QUOTE
+
+pvname          : RECORD_NAME
+
+restore: (restore_item _NEWLINE)* end_line? _NEWLINE*
+
+comment: "#" /[^\r\n]+/
+empty_comment: "#"
+
+end_line: END_MARKER
+
+restore_item: error
+            | value_restore
+            | comment
+            | empty_comment
+            | _NEWLINE*
+
+error: EXCLAMATION _WS error_number (_WS error_description)?
+error_number: INT
+error_description: /[^\r\n]+/
+
+value_restore: pvname _WS value?
+// disconnected_pv: "#" pvname "Search Issued"
+
+value: array_value
+     | scalar_value
+
+array_value: ARRAY_MARKER _WS ARRAY_BEGIN _WS? array_elements _WS? ARRAY_END
+scalar_value: /[^\r\n]+/
+
+array_elements: (ARRAY_ELEMENT _WS)* ARRAY_ELEMENT?

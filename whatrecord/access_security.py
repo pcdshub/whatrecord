@@ -26,14 +26,15 @@ from __future__ import annotations
 import logging
 import pathlib
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import apischema
 import lark
 
 from . import transformer
-from .common import (FullLoadContext, RecordInstance, StringWithContext,
-                     context_from_lark_token)
+from .common import (FullLoadContext, RecordInstance, ShellStateHandler,
+                     StringWithContext, context_from_lark_token)
+from .macro import MacroContext
 from .util import get_bytes_sha256
 
 MODULE_PATH = pathlib.Path(__file__).parent.resolve()
@@ -358,3 +359,99 @@ class AccessSecurityConfig:
         """Load an ACF file from a filename."""
         with open(fn, "rt") as fp:
             return cls.from_file_obj(fp, filename=str(fn))
+
+
+_handler = ShellStateHandler.generic_handler_decorator
+
+
+@dataclass
+class AccessSecurityState(ShellStateHandler):
+    """
+    Access Security IOC shell state handler / container.
+
+    Contains hooks for as-related commands and state information.
+
+    Attributes
+    ----------
+    config : AccessSecurityState
+        The access security configuration.
+    filename : pathlib.Path
+        The access security filename.
+    macros : Dict[str, str]
+        Macros used when expanding the access security file.
+    """
+    metadata_key: ClassVar[str] = "asg"
+    config: Optional[AccessSecurityConfig] = None
+    filename: Optional[pathlib.Path] = None
+    macros: Optional[Dict[str, str]] = None
+
+    def post_ioc_init(self):
+        super().post_ioc_init()
+        if self.filename is None:
+            return
+
+        try:
+            return {
+                "access_security": self._load_access_security()
+            }
+        except Exception as ex:
+            return {
+                "access_security": {
+                    "exception_class": type(ex).__name__,
+                    "error": str(ex),
+                }
+            }
+
+    @_handler
+    def handle_asSetSubstitutions(self, macros: str):
+        if self.primary_handler is None:
+            return
+
+        macro_context = self.primary_handler.macro_context
+        self.macros = macro_context.definitions_to_dict(macros)
+        return {
+            "macros": self.macros,
+            "note": "See iocInit results for details.",
+        }
+
+    @_handler
+    def handle_asSetFilename(self, filename: str):
+        if self.primary_handler is None:
+            return
+
+        self.filename = self.primary_handler._fix_path(
+            filename
+        ).resolve()
+        return {
+            "filename": str(self.filename),
+            "note": "See iocInit results for details.",
+        }
+
+    def _load_access_security(self):
+        """Load access security settings at iocInit time."""
+        if self.primary_handler is None:
+            return
+
+        filename, contents = self.primary_handler.load_file(self.filename)
+        if self.macros:
+            macro_context = MacroContext(use_environment=False)
+            macro_context.define(**self.macros)
+            contents = "\n".join(
+                macro_context.expand(line)
+                for line in contents.splitlines()
+            )
+
+        self.config = AccessSecurityConfig.from_string(
+            contents, filename=str(filename)
+        )
+        return {
+            "filename": filename,
+            "macros": self.macros,
+        }
+
+    def annotate_record(self, record: RecordInstance) -> Optional[Dict[str, Any]]:
+        """Annotate record with access security information."""
+        if self.config is not None:
+            asg = self.config.get_group_from_record(record)
+            if asg is not None:
+                return apischema.serialize(asg)

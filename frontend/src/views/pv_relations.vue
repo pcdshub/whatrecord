@@ -405,7 +405,7 @@ export default {
       metadata: null,
       node_info: null,
       relations: [],
-      selected_groups: null,
+      selected_groups: [],
       show_records: true,
       selected_record: null,
       shown_record: null,
@@ -429,9 +429,6 @@ export default {
       return groups;
     },
     selected_ioc_list() {
-      if (!this.selected_groups) {
-        return [];
-      }
       let iocs = [];
       for (const group of this.selected_groups) {
         for (const ioc of group.iocs) {
@@ -485,7 +482,9 @@ export default {
         }
         this.selected_groups = [];
         for (const group of query.groups) {
-          this.selected_groups.push(group_by_name[group]);
+          if (group in group_by_name) {
+            this.selected_groups.push(group_by_name[group]);
+          }
         }
 
         if (this.full_relations) {

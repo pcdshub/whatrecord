@@ -19,10 +19,10 @@
       <table>
         <tbody>
           <script-line
-            v-for="(line, idx) in lines"
+            v-for="line in lines"
             :line="line"
             :all_commands="commands"
-            :key="idx"
+            :key="get_line_id(line)"
           />
         </tbody>
       </table>
@@ -115,6 +115,9 @@ export default {
             ? details.removeAttribute("open")
             : details.setAttribute("open", true)
         );
+    },
+    get_line_id(line) {
+        return line?.context?.map((ctx) => ctx[1]).join(":") ?? [];
     },
   },
 };

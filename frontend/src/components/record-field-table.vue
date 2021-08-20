@@ -11,10 +11,6 @@
       </template>
     </Column>
   </DataTable>
-
-  <!--
-   <script-context-link :context="field.context" :short="2"></script-context-link>
-   -->
 </template>
 
 <script>

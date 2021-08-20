@@ -118,7 +118,7 @@ table {
   width: 100%;
   max-width: 100%;
   white-space: nowrap;
-  background-color: white;
+  background-color: var(--surface-f);
 }
 
 table .metadata {
@@ -144,6 +144,7 @@ td .key {
   border-right: 1px solid #f8f8f8;
   font-size: 1em;
   font-weight: bold;
+  width: 0px;
 }
 
 td .value {
@@ -154,19 +155,18 @@ td .value {
 }
 
 thead th {
-  color: black;
-  background: white;
+  color: var(--text-color);
   border: solid black 1px;
   font-size: 1.2em;
-  background: var(--indigo-50);
+  background: var(--surface-d);
 }
 
 thead th:nth-child(odd) {
-  color: black;
+  color: var(--text-color);
 }
 
 tr:nth-child(even) {
-  background: var(--bluegray-50);
+  background: var(--surface-b);
 }
 
 ul {

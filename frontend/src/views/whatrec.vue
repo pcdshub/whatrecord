@@ -65,7 +65,7 @@ export default {
   justify-content: flex-start;
   display: flex;
   overflow: scroll;
-  height: 95vh;
+  height: 93vh;
 }
 
 .column {
@@ -77,8 +77,9 @@ export default {
 }
 
 #left {
-  min-width: 15vw;
-  max-width: 20vw;
+  min-width: 15%;
+  max-width: 20%;
+  border-right: 1px dotted;
 }
 
 #right {
