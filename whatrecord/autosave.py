@@ -44,7 +44,7 @@ class AutosaveRestoreFile:
     def from_string(
         cls,
         contents: str,
-        filename: AnyPath,
+        filename: AnyPath = "",
         macros: Optional[Dict[str, str]] = None
     ) -> AutosaveRestoreFile:
         """Load an autosave file given its string contents."""

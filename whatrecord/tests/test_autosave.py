@@ -43,7 +43,7 @@ def test_basic():
 ! 5 channel(s) not connected - or not all gets were successful
 XPP:R30:EVR:27:CTRL.DG0C 119
 <END>
-""")
+""", filename="None")
     assert result.comments == [
         "save/restore V5.1	Automatically generated - DO NOT MODIFY - 130618-005710",
     ]
@@ -76,7 +76,7 @@ def test_basic_array():
 XPP:R30:EVR:27:CTRL.DG0C @array@ { "500" "0.6" "0" "0" "0" "0" "0" "0" "0"'''
         + ''' "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" }
 <END>
-'''
+''', filename="None"
     )
     assert result.comments == [
         "save/restore V5.1	Automatically generated - DO NOT MODIFY - 130618-005710",
@@ -108,7 +108,7 @@ XPP:R30:EVR:27:CTRL.DG0C @array@ { "500" "0.6" "0" "0" "0" "0" "0" "0" "0"'''
 
 def test_basic_empty_value():
     result = AutosaveRestoreFile.from_string(
-        """XPP:R30:EVR:27:CTRL.DG0C \n<END>"""
+        """XPP:R30:EVR:27:CTRL.DG0C \n<END>""", filename="None"
     )
     assert result.values == {
         "XPP:R30:EVR:27:CTRL": {
@@ -128,7 +128,7 @@ def test_basic_string():
         r"""
 XPP:R30:EVR:27:CTRL.DG0C "a quoted string"
 <END>
-"""
+""", filename="None"
     )
     assert result.values == {
         "XPP:R30:EVR:27:CTRL": {
@@ -150,7 +150,7 @@ CTRL.DG0C a \"quoted\" string
 CTRL.DG1C @array@ { "1.23" " 2.34" " 3.45" }
 CTRL.DG2C @array@ { "abc" "de\"f" "g{hi\"" "jkl mno} pqr" }
 <END>
-""")
+""", filename="None")
     assert result.values == {
         "CTRL": {
             "DG0C": RestoreValue(
