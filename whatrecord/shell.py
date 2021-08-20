@@ -353,8 +353,8 @@ class ShellState(ShellStateHandler):
     def handle_epicsEnvShow(self):
         return self.macro_context.get_macros()
 
-    @_handler
-    def handle_iocshCmd(self, command: str = ""):
+    def handle_iocshCmd(self, command: str = "", *_):
+        # TODO: odd return type, used below
         return IocshCmdArgs(context=self.get_load_context(), command=command)
 
     @_handler

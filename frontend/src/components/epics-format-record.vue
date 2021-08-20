@@ -11,8 +11,17 @@
       <template v-for="field in fields" :key="field.name">
         <epics-format-field
           :field="field"
-          :field_info="record_defn ? record_defn.fields[field.name] : null"
+          :field_info="record_defn?.fields[field.name] ?? null"
           :menus="menus"
+          :autosave="autosave_fields[field.name]"
+        />
+      </template>
+      <template v-for="field in new_autosave_fields" :key="field.name">
+        <epics-format-field
+          :field="field"
+          :field_info="record_defn?.fields[field.name] ?? null"
+          :menus="menus"
+          :autosave="field"
         />
       </template>
       <!-- info nodes -->
@@ -73,6 +82,41 @@ export default {
     ScriptContextOneLink,
   },
   computed: {
+    db_defined_fields() {
+      // database-defined fields
+      return Object.keys(this.fields);
+    },
+
+    new_autosave_fields() {
+      // autosave fields without database defaults
+      const new_field_names = Object.keys(this.autosave_fields).filter(
+        field_name => this.db_defined_fields.indexOf(field_name) < 0
+      );
+      return new_field_names.map(
+        field_name => this.autosave_fields[field_name]
+      );
+    },
+
+    autosave_fields() {
+      let fields = {};
+      const record_defn = this.record_defn;
+
+      function add_field(restore, field) {
+        fields[field.field] = {
+          name: field.field,
+          context: field.context,
+          value: field.value,
+          dtype: record_defn?.fields[field.field]?.type,
+        }
+      }
+      this.metadata?.autosave?.restore?.forEach(
+        restore => Object.values(restore).forEach(
+          field => add_field(restore, field)
+        )
+      );
+      return fields;
+    },
+
   },
 };
 </script>

@@ -50,6 +50,7 @@
           :value="plc_dependencies"
           class="p-datatable-sm"
           dataKey="name"
+          style="width: 50%"
         >
           <Column field="name" header="Name" />
           <Column field="vendor" header="Vendor" />
@@ -64,15 +65,15 @@
             class="p-datatable-sm"
             dataKey="name"
           >
-            <Column field="axis_id" header="ID" style="width: 5vw" />
-            <Column field="name" header="Axis" style="width: 15vw">
+            <Column field="axis_id" header="ID" style="width: 5%" />
+            <Column field="name" header="Axis" style="width: 15%">
               <template #body="{ data }">
                 "{{ data.name }}" <br />
                 <br/>
                 <script-context-link :context="data.context" :short="1" />
               </template>
             </column>
-            <Column field="units" header="Units" style="width: 5vw" />
+            <Column field="units" header="Units" style="width: 5%" />
             <Column field="params" header="Params">
               <template #body="{ data }">
                 <dictionary-table
@@ -118,7 +119,7 @@
             field="name"
             header="Name"
             :sortable="true"
-            style="width: 35vw"
+            style="width: 40%"
           >
             <template #body="{ data }">
               <router-link :to="`/twincat_pytmc/${data.full_name}`">{{
@@ -139,7 +140,7 @@
             field="type"
             header="Type"
             :sortable="true"
-            style="width: 15vw"
+            style="width: 15%"
           >
             <template #filter="{ filterModel, filterCallback }">
               <InputText
@@ -151,7 +152,7 @@
               />
             </template>
           </Column>
-          <Column field="context" header="Context" :sortable="true">
+          <Column field="context" header="Context" :sortable="true" style="width: 30%">
             <template #body="{ data }">
               <script-context-link :context="data.context" :short="3" />
             </template>
@@ -369,5 +370,7 @@ export default {
   min-width: 15vw;
   max-width: 17vw;
   max-height: 97vh;
+  border-right: 1px dotted;
+  margin-right: 1em;
 }
 </style>

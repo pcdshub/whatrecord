@@ -1,7 +1,12 @@
 <template>
-  <div class="p-grid">
-    Regular expression:
-    <InputSwitch v-model="regex" :binary="true" @change="do_search" />
+  <div class="p-grid option">
+    <div class="p-col-6">
+    </div>
+    <div class="p-col-6">
+      <SelectButton v-model="search_mode" :options="search_mode_options" @click="do_search" />
+    </div>
+  </div>
+  <div class="p-grid search">
     <div class="p-col-10">
       <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
         <InputText
@@ -39,7 +44,7 @@ import { mapState } from "vuex";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import InputSwitch from "primevue/inputswitch";
+import SelectButton from 'primevue/selectbutton';
 import DataTable from "primevue/datatable";
 import InputText from "primevue/inputtext";
 
@@ -49,19 +54,26 @@ export default {
     Button,
     Column,
     DataTable,
-    InputSwitch,
+    SelectButton,
     InputText,
   },
   props: [],
   data() {
     return {
       max_pvs: 200,
-      regex: false,
       table_selection: [],
       input_record_glob: "*",
+      search_mode: "Glob",
+      search_mode_options: [
+        "Glob",
+        "Regex",
+      ],
     };
   },
   computed: {
+    regex() {
+      return this.search_mode === "Regex";
+    },
     table_selection_list() {
       let as_list = [];
       Object.values(this.table_selection).forEach((d) => as_list.push(d.pv));
@@ -105,7 +117,7 @@ export default {
       const pattern = params.record_glob;
       const selected_records = params.selected_records;
 
-      this.regex = regex;
+      this.search_mode = regex ? "Regex" : "Glob";
       this.input_record_glob = pattern || (regex ? ".*" : "*");
 
       // Get all the record info we need in the background
@@ -152,8 +164,12 @@ export default {
 </script>
 
 <style scoped>
-.p-grid {
+.p-grid .search {
   padding: 0.5em;
+}
+
+.p-grid .option {
+  padding: 0em;
 }
 
 .input_search {

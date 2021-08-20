@@ -115,8 +115,8 @@
           </li>
         </ul>
       </template>
-      <template v-for="table of autosave_restore_tables" :key="table">
-        <DataTable :value="table" dataKey="field">
+      <template v-for="(table, idx) in autosave_restore_tables" :key="idx">
+        <DataTable :value="Object.values(table)" dataKey="name">
           <Column field="field" header="Field" :sortable="true" style="width: 10%" />
           <Column field="value" header="Value" :sortable="true" />
           <Column field="context" header="Context" :sortable="true">

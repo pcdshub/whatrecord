@@ -39,7 +39,7 @@
             </span>
           </div>
         </template>
-        <Column field="name" header="IOC Name" :sortable="true" style="width: 45%;">
+        <Column field="name" header="IOC Name" :sortable="true">
           <template #body="{ data }">
             <router-link
               :to="{ name: 'file', params: { filename: data.script, line: 0 } }"
@@ -47,8 +47,8 @@
             >
           </template>
         </Column>
-        <Column field="host" header="Host" :sortable="true" style="width: 27%" />
-        <Column field="base_version" header="Version" :sortable="true" style="width: 27%" />
+        <Column field="host" header="Host" :sortable="true" />
+        <Column field="base_version" header="Version" :sortable="true" />
         <!-- <Column field="port" header="Port"/> -->
         <!-- <Column field="description" header="Description"/> -->
         <!-- <Column field="script" header="Script"/> -->
@@ -123,7 +123,7 @@
             </Dropdown>
           </template>
         </Column>
-        <Column field="ioc_name" header="IOC" />
+        <Column field="ioc_name" header="IOC" v-if="selected_ioc_names.length > 1" />
       </DataTable>
     </div>
   </div>
@@ -322,7 +322,7 @@ export default {
 <style scoped>
 #iocs-contents {
   flex-direction: row;
-  justify-content: flex-start;
+  justify-content: stretch;
   display: flex;
   flex-wrap: nowrap;
   height: 97vh;
@@ -337,12 +337,14 @@ export default {
 }
 
 #iocs-left {
-  width: 25vw;
+  max-width: 35%;
+  white-space: nowrap;
+  border-right: 1px dotted;
 }
 
 #iocs-right {
   margin: 1em;
   justify-content: stretch;
-  width: 72vw;
+  max-width: 65%;
 }
 </style>

@@ -1,8 +1,7 @@
 <template>
   <div :title="tooltip">
-    &nbsp;field(<template v-if="field_info && field_info.context">
+    &nbsp;field(<template v-if="field_info?.context?.length > 0">
       <script-context-one-link
-        v-if="field_info && field_info.context"
         :name="field_info.context[0][0]"
         :line="field_info.context[0][1]"
         :link_text="field.name"
@@ -10,14 +9,18 @@
       />
     </template>
     <template v-else>
-      {{ field.name }} </template
-    >,
+      {{ field.name }} </template>,
+    <template v-if="field?.context?.length > 0">
     <script-context-one-link
       :name="field.context[0][0]"
       :line="field.context[0][1]"
-      :link_text="`&quot;${field.value}&quot;`"
+      :link_text="`&quot;${display_value}&quot;`"
       class="unassuming_link"
     />)
+    </template>
+    <template v-else>
+      "{{ display_value }}")
+    </template>
     <br />
   </div>
 </template>
@@ -28,6 +31,7 @@ import ScriptContextOneLink from "./script-context-one-link.vue";
 export default {
   name: "EpicsFormatField",
   props: {
+    autosave: Object,
     field: Object,
     field_info: Object,
     menus: Object,
@@ -84,23 +88,45 @@ export default {
       return field_body.join("\n");
     },
 
+    display_value() {
+      return this.menu_text ?? this.raw_value;
+    },
+
     menu_options() {
-      const info = this.field_info;
-      if (!info || !info.menu) {
+      if (!this.field_info?.menu) {
         return null;
       }
-      const menu = this.menus[info.menu];
-      if (!menu) {
+      return this.menus[this.field_info.menu]?.choices;
+    },
+
+    raw_value() {
+      return this.autosave?.value ?? this.field.value;
+    },
+
+    menu_text() {
+      const menu_options = this.menu_options;
+      if (!menu_options) {
         return null;
       }
-      return menu.choices;
+      const field_value = parseInt(this.raw_value);
+      if (isNaN(field_value)) {
+        return null;
+      }
+      return Object.values(menu_options)[field_value];
     },
 
     tooltip() {
-      const ctx = this.field.context.join(":");
+      const ctx = this.field.context?.join(":");
+      if (ctx === null) {
+        return "";
+      }
       return `
 Data type: ${this.field.dtype}
 Context: ${ctx}
+-
+Database value: ${this.field.value}
+Autosave value: ${this.autosave?.value}
+-
 ${this.field_info_text}
 `.trim();
     },
