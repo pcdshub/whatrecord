@@ -20,12 +20,13 @@ from aiohttp import web
 
 from .. import common, gateway, graph, ioc_finder, settings
 from ..common import LoadContext, RecordInstance, StringWithContext, WhatRecord
-from ..shell import (LoadedIoc, ScriptContainer,
+from ..shell import (LoadedIoc, ScriptContainer, ShellState,
                      load_startup_scripts_with_metadata)
-from .common import (IocGetMatchesResponse, IocGetMatchingRecordsResponse,
-                     IocMetadata, PVGetInfo, PVGetMatchesResponse,
-                     PVRelationshipResponse, PVShortRelationshipResponse,
-                     ServerPluginSpec, TooManyRecordsError)
+from .common import (IocGetDuplicatesResponse, IocGetMatchesResponse,
+                     IocGetMatchingRecordsResponse, IocMetadata, PVGetInfo,
+                     PVGetMatchesResponse, PVRelationshipResponse,
+                     PVShortRelationshipResponse, ServerPluginSpec,
+                     TooManyRecordsError)
 from .util import TaskHandler
 
 TRUE_VALUES = {"1", "true", "True"}
@@ -346,14 +347,14 @@ class ServerState:
         """The pvAccess Database of groups/records."""
         return self.container.pva_database
 
-    def get_graph(self, pv_names: Tuple[str], graph_type: str) -> graphviz.Digraph:
+    def get_graph(self, pv_names: Tuple[str, ...], graph_type: str) -> graphviz.Digraph:
         if graph_type == "record":
             return self.get_link_graph(tuple(pv_names))
         if graph_type == "script":
             return self.get_script_graph(tuple(pv_names))
         raise RuntimeError("Invalid graph type")
 
-    def get_script_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
+    def get_script_graph(self, pv_names: Tuple[str, ...]) -> graphviz.Digraph:
         if len(pv_names) > settings.MAX_RECORDS:
             raise TooManyRecordsError()
 
@@ -367,7 +368,7 @@ class ServerState:
         )
         return digraph
 
-    def get_ioc_to_pvs(self, pv_names: Tuple[str]) -> Dict[str, List[str]]:
+    def get_ioc_to_pvs(self, pv_names: Tuple[str, ...]) -> Dict[str, List[str]]:
         ioc_to_pvs = {}
         for pv in pv_names:
             try:
@@ -382,7 +383,7 @@ class ServerState:
 
     def get_pv_relations(
         self,
-        pv_names: Tuple[str],
+        pv_names: Tuple[str, ...],
         *,
         full: bool = False,
     ) -> Union[PVRelationshipResponse, PVShortRelationshipResponse]:
@@ -399,7 +400,7 @@ class ServerState:
             ioc_to_pvs=self.get_ioc_to_pvs(tuple(self.container.pv_relations))
         )
 
-    def get_link_graph(self, pv_names: Tuple[str]) -> graphviz.Digraph:
+    def get_link_graph(self, pv_names: Tuple[str, ...]) -> graphviz.Digraph:
         if len(pv_names) > settings.MAX_RECORDS:
             raise TooManyRecordsError()
 
@@ -422,6 +423,7 @@ class ServerState:
             self.get_matching_pvs,
             self.get_matching_iocs,
             self.script_info_from_loaded_file,
+            self.get_duplicates,
         ]:
             method.cache_clear()
 
@@ -459,6 +461,23 @@ class ServerState:
             return None
         return self.gateway_config.get_matches(pvname)
 
+    @functools.lru_cache(maxsize=20)
+    def get_duplicates(
+        self, pattern: str, use_regex: bool = False
+    ) -> Dict[str, List[str]]:
+        """Get duplicate PVs matching the IOC pattern."""
+        iocs = self.get_matching_iocs(pattern=pattern, use_regex=use_regex)
+        seen = collections.defaultdict(list)
+        for ioc in iocs:
+            shell_state: ShellState = ioc.shell_state
+            for record in set(shell_state.database).union(shell_state.pva_database):
+                seen[record].append(ioc.name)
+        return {
+            record: iocs
+            for record, iocs in seen.items()
+            if len(iocs) > 1
+        }
+
     @functools.lru_cache(maxsize=2048)
     def get_matching_pvs(self, pattern: str, use_regex: bool = False) -> List[str]:
         try:
@@ -487,7 +506,7 @@ class ServerState:
         ]
 
     async def get_graph_rendered(
-        self, pv_names: Tuple[str], format: str, graph_type: str
+        self, pv_names: Tuple[str, ...], format: str, graph_type: str
     ) -> bytes:
         graph = self.get_graph(pv_names, graph_type=graph_type)
 
@@ -594,6 +613,19 @@ class ServerHandler:
                 response.matches.append((loaded_ioc.metadata, record_matches))
 
         return serialized_response(response)
+
+    @routes.get("/api/duplicates")
+    async def api_get_duplicates(self, request: web.Request):
+        """Get record names duplicated among two or more IOCs."""
+        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
+        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
+        return serialized_response(
+            IocGetDuplicatesResponse(
+                pattern=pattern,
+                regex=use_regex,
+                duplicates=self.state.get_duplicates(pattern, use_regex=use_regex),
+            )
+        )
 
     # @routes.get("/api/graphql/query")
     # async def api_graphql_query(self, request: web.Request):

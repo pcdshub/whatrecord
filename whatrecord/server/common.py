@@ -131,6 +131,13 @@ class IocGetMatchesResponse:
     matches: List[IocMetadata]
 
 
+@dataclass
+class IocGetDuplicatesResponse:
+    pattern: str
+    regex: bool
+    duplicates: Dict[str, List[str]]
+
+
 AnyRecordInstance = Union[RecordInstanceSummary, RecordInstance]
 
 

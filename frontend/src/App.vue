@@ -35,6 +35,11 @@ export default {
       to: "/gateway",
     });
     tab_menu_items.push({
+      label: "Duplicates",
+      icon: "pi pi-pause",
+      to: "/duplicates",
+    });
+    tab_menu_items.push({
       label: "Logs",
       icon: "pi pi-fw pi-list",
       to: "/logs",
