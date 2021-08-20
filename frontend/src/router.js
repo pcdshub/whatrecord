@@ -8,6 +8,7 @@ import TwincatPytmcView from "./views/twincat_pytmc.vue";
 import ServerLogView from "./views/logs.vue";
 import PVRelationsView from "./views/pv_relations.vue";
 import GatewayView from "./views/gateway.vue";
+import DuplicateView from "./views/duplicates.vue";
 
 import { happi_enabled, twincat_pytmc_enabled } from "./settings.js";
 
@@ -68,6 +69,12 @@ if (twincat_pytmc_enabled) {
     }),
   });
 }
+
+routes.push({
+  name: "duplicates",
+  path: "/duplicates",
+  component: DuplicateView,
+});
 
 routes.push({
   name: "logs",

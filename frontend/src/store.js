@@ -5,18 +5,19 @@ const axios = require("axios").default;
 
 export const store = createStore({
   state: () => ({
-    regex_to_pvs: {},
+    duplicates: {},
+    file_info: {},
+    gateway_info: null,
     glob_to_pvs: {},
     ioc_info: [],
     ioc_to_records: {},
-    file_info: {},
     plugin_info: {},
     plugin_nested_info: {},
-    gateway_info: null,
     pv_relations: {},
     queries_in_progress: 0,
     query_in_progress: false,
     record_info: {},
+    regex_to_pvs: {},
   }),
   mutations: {
     start_query(state) {
@@ -37,6 +38,9 @@ export const store = createStore({
       } else {
         state.glob_to_pvs[pattern] = pv_list;
       }
+    },
+    set_duplicates(state, { duplicates }) {
+      state.duplicates = duplicates;
     },
     set_file_info(state, { filename, info }) {
       state.file_info[filename] = info;
@@ -221,6 +225,23 @@ export const store = createStore({
           filename: filename,
           info: response.data,
         });
+        return response.data;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        await commit("end_query");
+      }
+    },
+
+    async update_duplicates({ commit }) {
+      try {
+        await commit("start_query");
+        const response = await axios.get(`/api/duplicates`, {
+          params: {
+            pattern: "*",
+          },
+        });
+        await commit("set_duplicates", { duplicates: response.data.duplicates });
         return response.data;
       } catch (error) {
         console.error(error);
