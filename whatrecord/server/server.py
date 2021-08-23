@@ -108,6 +108,28 @@ class ServerState:
         self._update_count = 0
 
     @property
+    def iocs_by_name(self) -> Dict[str, IocMetadata]:
+        """Dictionary of IOC name to IocMetadata."""
+        return {
+            ioc.name: ioc
+            for ioc in self.ioc_metadata
+        }
+
+    def add_or_update_ioc_metadata(self, md: IocMetadata):
+        """
+        Add a new IOC to monitor by its metadata.
+
+        Note: an assumption is made here that an IOC name is unique among all
+        those loaded.
+        """
+        try:
+            existing = self.iocs_by_name[md.name]
+        except KeyError:
+            self.ioc_metadata.append(md)
+        else:
+            existing.update(md)
+
+    @property
     def update_count(self) -> int:
         """The number of times IOCs have been updated."""
         return self._update_count
@@ -159,11 +181,10 @@ class ServerState:
 
     async def _update_loop(self):
         """Update scripts from the script loader and watch for updates."""
-        # TODO: script loaders need to be called periodically, but we need
-        # to determine which IOCs are new, which were removed, etc.
-        await self.update_script_loaders()
-
         while self.running:
+            logger.info("Checking for new or updated IOCs...")
+            await self.update_script_loaders()
+
             logger.info("Checking for changed scripts and database files...")
             self._load_gateway_config()
 
@@ -195,12 +216,10 @@ class ServerState:
 
     async def update_script_loaders(self):
         """Update scripts from the script loader and watch for updates."""
-        # TODO: script loaders need to be called periodically, but we need
-        # to determine which IOCs are new, which were removed, etc.
         for loader in self.script_loaders:
             await loader.update()
             for _, md in loader.scripts.items():
-                self.ioc_metadata.append(md)
+                self.add_or_update_ioc_metadata(md)
 
     def get_updated_iocs(self) -> List[IocMetadata]:
         """Check loaded IOCs for any changes."""
