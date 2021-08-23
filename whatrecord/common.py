@@ -207,6 +207,44 @@ class IocMetadata:
     loaded_files: Dict[str, str] = field(default_factory=dict)
     load_success: bool = True
 
+    def update(self, other: IocMetadata, merge: bool = False):
+        """
+        Update the metadata with a new set from an IOC Loader.
+
+        Parameters
+        ----------
+        other : IocMetadata
+            The other IOC metadata to update this instance with.
+
+        merge : bool, optional
+            Merge in dictionary information, or overwrite it.  Defaults to
+            'overwrite' (merge=False).
+        """
+        self.name = other.name
+        self.script = other.script
+        self.startup_directory = other.startup_directory
+        self.host = other.host or self.host
+        self.port = other.port or self.port
+        self.binary = other.binary or self.binary
+        self.base_version = (
+            other.base_version
+            if other.base_version != settings.DEFAULT_BASE_VERSION
+            else self.base_version
+        )
+
+        if merge:
+            self.metadata.update(other.metadata)
+            self.macros.update(other.macros)
+            self.standin_directories.update(other.standin_directories)
+            self.commands.update(other.commands)
+            self.variables.update(other.variables)
+        else:
+            self.metadata = dict(other.metadata)
+            self.macros = dict(other.macros)
+            self.standin_directories = dict(other.standin_directories)
+            self.commands = dict(other.commands)
+            self.variables = dict(other.variables)
+
     @property
     def looks_like_sh(self) -> bool:
         """Is the script likely sh/bash/etc?"""
