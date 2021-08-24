@@ -159,7 +159,7 @@ class IocshScript:
             """\
             {%- for line in lines -%}
             {% set line = render_object(line, "console-verbose") %}
-            {{- line }}
+            {{ line }}
             {%- endfor %}
             """.rstrip(),
         )
@@ -262,38 +262,6 @@ class IocMetadata:
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(default_factory=dict)
     load_success: bool = True
-
-    _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": textwrap.dedent(
-            """\
-            {{ obj | classname }}:
-            name: {{ name }}
-            script: {{ script }}
-            binary: {{ binary }}
-            base_version: {{ base_version }}
-            metadata: {{ metadata }}
-            macros: {{ macros }}
-            standin_directories: {{ standin_directories }}
-            load_success: {{ load_success }}
-            """.rstrip(),
-        ),
-        "console-verbose": textwrap.dedent(
-            """\
-            {{ obj | classname }}:
-            name: {{ name }}
-            script: {{ script }}
-            binary: {{ binary }}
-            base_version: {{ base_version }}
-            metadata: {{ metadata }}
-            macros: {{ macros }}
-            standin_directories: {{ standin_directories }}
-            commands: {{ commands }}
-            variables: {{ variables }}
-            loaded_files: {{ loaded_files }}
-            load_success: {{ load_success }}
-            """.rstrip(),
-        )
-    }
 
     @property
     def looks_like_sh(self) -> bool:
@@ -734,7 +702,7 @@ record("{{record_type}}", "{{name}}") {
 {% endfor %}
 {% for name, field_inst in fields.items() | sort %}
 {% set field_text = render_object(field_inst, "console") %}
-    {{ field_text | indent(4)}}
+    {{ field_text | indent(4) }}
 {% endfor %}
 }
 """,

@@ -1,9 +1,13 @@
 import dataclasses
 import inspect
 import logging
+import textwrap
+import typing
 
 import apischema
 import jinja2
+
+from .common import LoadContext
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +19,31 @@ pass_eval_context = (
 )
 
 
+def template_from_dataclass(cls, fields, render_option):
+    """Generate a console-friendly render template from a dataclass."""
+    if not fields:
+        return f"{cls.__name__}\n"
+
+    name_length = max(len(name) + 1 for name in fields)
+    field_text = "\n".join(
+        "{% if " + field + " | string | length > 0 %}\n" +
+        field.rjust(name_length) +
+        ": {% set field_text = render_object(" + field + ", render_option) %}"
+        "{{ field_text | indent(name_length + 2) }}"
+        "{% endif %}\n"
+        for field in fields
+    )
+    return (
+        f"{cls.__name__}:\n"
+        f"{{% set name_length = {name_length} %}}\n"
+        f"{{% set render_option = {render_option} %}}\n"
+        + field_text
+    )
+
+
 class FormatContext:
     def __init__(
-        self, helpers=None, *, trim_blocks=True, lstrip_blocks=True,
+        self, helpers=None, *, trim_blocks=True, lstrip_blocks=False,
         default_options="console",
         **env_kwargs
     ):
@@ -59,33 +85,59 @@ class FormatContext:
         }
 
     def render_template(self, _template: str, **context):
-        # TODO: want this to be positional-only; fallback here for pypi
+        # TODO: want this to be positional-only; fallback here for pypy
         template = _template
 
         for key, value in self.default_render_context.items():
             context.setdefault(key, value)
-        self._template_dict["template"] = template
-        return self.env.get_template("template").render(context)
+        context["render_ctx"] = context
+        return self.env.from_string(template).render(context)
 
     def _render_object_fallback(self, _obj, _option, **context):
         # TODO: want this to be positional-only; fallback here for pypy
-        obj, _ = _obj, _option
+        obj, option = _obj, _option
+
+        if isinstance(obj, typing.Sequence) and not isinstance(obj, str):
+            if all(isinstance(obj_idx, LoadContext) for obj_idx in obj):
+                # Special-case FullLoadContext
+                return " ".join(str(ctx) for ctx in obj)
+
+            return "\n".join(
+                f"[{idx}]: " + textwrap.indent(
+                    self.render_object(obj_idx, _option, **context),
+                    '    '
+                ).lstrip()
+                for idx, obj_idx in enumerate(obj)
+            )
+
+        if isinstance(obj, typing.Mapping):
+            return "\n".join(
+                f'"{key}": ' + self.render_object(value, _option, **context)
+                for key, value in sorted(obj.items())
+            )
 
         if dataclasses.is_dataclass(obj):
             cls = type(obj)
             if cls not in self._fallback_formats:
-                fmt = ["{{obj|classname}}",] + [   # noqa: E231
-                    "%12s: {{%s}}" % (field, field)
-                    for field in apischema.serialize(obj)
+                # TODO: lazy method here with 'fields'
+                serialized = apischema.serialize(obj)
+                fields = [
+                    field.name
+                    for field in dataclasses.fields(obj)
+                    if field.name in serialized
                 ]
-                self._fallback_formats[cls] = "\n".join(fmt)
-
-            return self.render_template(self._fallback_formats[cls], **context)
+                self._fallback_formats[cls] = template_from_dataclass(
+                    cls, fields, option or self.default_options
+                )
+            return self.render_template(
+                self._fallback_formats[cls],
+                **context
+            )
 
         return str(obj)
 
     def render_object(self, _obj, _option=None, **context):
-        # TODO: want this to be positional-only; fallback here for pypi
+        # TODO: want this to be positional-only; fallback here for pypy
         obj, option = _obj, _option
         if option is None:
             option = self.default_options
@@ -99,9 +151,11 @@ class FormatContext:
         try:
             template = obj._jinja_format_[option]
         except (AttributeError, KeyError):
-            return self._render_object_fallback(obj, option, **context)
+            ...
+        else:
+            return self.render_template(template, **context)
 
-        return self.render_template(template, **context)
+        return self._render_object_fallback(obj, option, **context)
 
     def get_render_context(self) -> dict:
         """Jinja template context dictionary - helper functions."""

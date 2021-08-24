@@ -190,7 +190,7 @@ class _PVListTransformer(lark.visitors.Transformer_InPlaceRecursive):
             context=context_from_lark_token(self.fn, deny_token),
             command=str(deny_token).upper(),
             pattern=pattern,
-            hosts=hosts,
+            hosts=hosts or [],
             header=self.get_recent_comments(deny_token.line),
         )
 

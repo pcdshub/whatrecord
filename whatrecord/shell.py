@@ -692,7 +692,7 @@ class LoadedIoc:
             {{ shell_state | indent(4) }}
             script:
             {% set script = render_object(script, "console") %}
-            {{ script | indent(4) }}
+                {{ script | indent(4) }}
             load_failure: {{ load_failure }}
             """.rstrip(),
         ),
