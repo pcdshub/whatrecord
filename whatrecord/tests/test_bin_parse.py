@@ -63,12 +63,36 @@ def test_load_and_whatrec(startup_script):
 
 @conftest.startup_scripts
 @pytest.mark.parametrize(
-    "as_json",
+    "friendly",
     [
-        pytest.param(False, id="formatted"),
-        pytest.param(True, id="json"),
+        pytest.param(True, id="friendly"),
+        pytest.param(False, id="json"),
     ]
 )
-def test_load_dump(startup_script, as_json):
+def test_load_dump(startup_script, friendly):
     os.environ["PWD"] = str(startup_script.resolve().parent)
-    main(startup_script, as_json=as_json)
+    main(startup_script, friendly=friendly)
+
+
+@pytest.mark.parametrize(
+    "friendly",
+    [
+        pytest.param(True, id="friendly"),
+        pytest.param(False, id="json"),
+    ]
+)
+@pytest.mark.parametrize(
+    "filename",
+    [
+        pytest.param(conftest.MODULE_PATH / fn, id=fn)
+        for fn in [
+            "access.acf",
+            "kfe.pvlist",
+            "iocs/db/test.substitutions",
+            "iocs/streamdevice/hex.proto",
+        ]
+    ]
+)
+def test_load_misc(filename, friendly):
+    os.environ["PWD"] = str(filename.resolve().parent)
+    main(filename, friendly=friendly)

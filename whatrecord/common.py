@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import functools
 import inspect
 import json
@@ -23,6 +24,41 @@ if typing.TYPE_CHECKING:
 from . import settings, util
 
 logger = logging.getLogger(__name__)
+
+
+class FileFormat(str, enum.Enum):
+    iocsh = 'iocsh'
+    database = 'database'
+    database_definition = 'database_definition'
+    substitution = 'substitution'
+    gateway_pvlist = 'gateway_pvlist'
+    access_security = 'access_security'
+    stream_protocol = 'stream_protocol'
+
+    @classmethod
+    def from_extension(cls, extension: str) -> FileFormat:
+        """Get a file format based on a file extension."""
+        return {
+            "cmd": FileFormat.iocsh,
+            "db": FileFormat.database,
+            "dbd": FileFormat.database_definition,
+            "template": FileFormat.database,
+            "substitutions": FileFormat.substitution,
+            "pvlist": FileFormat.gateway_pvlist,
+            "acf": FileFormat.access_security,
+            "proto": FileFormat.stream_protocol,
+        }[extension.lower()]
+
+    @classmethod
+    def from_filename(cls, filename: AnyPath) -> FileFormat:
+        """Get a file format based on a full filename."""
+        extension = pathlib.Path(filename).suffix.lstrip(".")
+        try:
+            return FileFormat.from_extension(extension)
+        except KeyError:
+            raise ValueError(
+                "Could not determine file type from extension: {extension}"
+            ) from None
 
 
 @dataclass(frozen=True)
