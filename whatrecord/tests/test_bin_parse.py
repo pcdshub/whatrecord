@@ -61,26 +61,23 @@ def test_load_and_whatrec(startup_script):
         assert rec == state.pva_database[pvname]
 
 
-@conftest.startup_scripts
-@pytest.mark.parametrize(
+friendly_param = pytest.mark.parametrize(
     "friendly",
     [
         pytest.param(True, id="friendly"),
         pytest.param(False, id="json"),
     ]
 )
+
+
+@conftest.startup_scripts
+@friendly_param
 def test_load_dump(startup_script, friendly):
     os.environ["PWD"] = str(startup_script.resolve().parent)
     main(startup_script, friendly=friendly)
 
 
-@pytest.mark.parametrize(
-    "friendly",
-    [
-        pytest.param(True, id="friendly"),
-        pytest.param(False, id="json"),
-    ]
-)
+@friendly_param
 @pytest.mark.parametrize(
     "filename",
     [

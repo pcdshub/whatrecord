@@ -1,6 +1,7 @@
 """
-"whatrecord parse" is used to parse and interpret a startup script or database
-file, dumping the resulting ``ShellState`` or ``Database``.
+"whatrecord parse" is used to parse and interpret any of whatrecord's supported
+file formats, dumping the results to the console (standard output) in JSON
+format, by default.
 """
 
 import argparse
@@ -71,6 +72,13 @@ def build_arg_parser(parser=None):
     parser.add_argument(
         "--friendly",
         action="store_true",
+        help="Output Python object representation instead of JSON",
+    )
+
+    parser.add_argument(
+        "--friendly-format",
+        type=str,
+        default="console",
         help="Output Python object representation instead of JSON",
     )
 
@@ -269,6 +277,7 @@ def main(
     use_gdb: bool = False,
     format: Optional[str] = None,
     expand: bool = False,
+    friendly_format: str = "console",
 ):
     result = parse_from_cli_args(
         filename=filename,
@@ -282,7 +291,7 @@ def main(
 
     if friendly:
         fmt = FormatContext()
-        print(fmt.render_object(result, "console"))
+        print(fmt.render_object(result, friendly_format))
     else:
         # TODO: JSON -> obj -> JSON round tripping
         json_info = apischema.serialize(result)

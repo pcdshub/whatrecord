@@ -6,6 +6,7 @@ import inspect
 import json
 import logging
 import pathlib
+import textwrap
 import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -57,7 +58,7 @@ class FileFormat(str, enum.Enum):
             return FileFormat.from_extension(extension)
         except KeyError:
             raise ValueError(
-                "Could not determine file type from extension: {extension}"
+                f"Could not determine file type from extension: {extension}"
             ) from None
 
 
@@ -144,6 +145,25 @@ class IocshScript:
     path: str
     # lines: Tuple[IocshResult, ...]
     lines: List[IocshResult]
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": textwrap.dedent(
+            """\
+            {%- for line in lines %}
+            {% set line = render_object(line, "console") %}
+            {{ line }}
+            {%- endfor %}
+            """.rstrip(),
+        ),
+        "console-verbose": textwrap.dedent(
+            """\
+            {%- for line in lines -%}
+            {% set line = render_object(line, "console-verbose") %}
+            {{- line }}
+            {%- endfor %}
+            """.rstrip(),
+        )
+    }
 
     @classmethod
     def from_metadata(cls, md: IocMetadata, sh: ShellState) -> IocshScript:
@@ -242,6 +262,38 @@ class IocMetadata:
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
     loaded_files: Dict[str, str] = field(default_factory=dict)
     load_success: bool = True
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": textwrap.dedent(
+            """\
+            {{ obj | classname }}:
+            name: {{ name }}
+            script: {{ script }}
+            binary: {{ binary }}
+            base_version: {{ base_version }}
+            metadata: {{ metadata }}
+            macros: {{ macros }}
+            standin_directories: {{ standin_directories }}
+            load_success: {{ load_success }}
+            """.rstrip(),
+        ),
+        "console-verbose": textwrap.dedent(
+            """\
+            {{ obj | classname }}:
+            name: {{ name }}
+            script: {{ script }}
+            binary: {{ binary }}
+            base_version: {{ base_version }}
+            metadata: {{ metadata }}
+            macros: {{ macros }}
+            standin_directories: {{ standin_directories }}
+            commands: {{ commands }}
+            variables: {{ variables }}
+            loaded_files: {{ loaded_files }}
+            load_success: {{ load_success }}
+            """.rstrip(),
+        )
+    }
 
     @property
     def looks_like_sh(self) -> bool:
