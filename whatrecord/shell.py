@@ -7,10 +7,12 @@ import os
 import pathlib
 import signal
 import sys
+import textwrap
 import traceback
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Union
+from typing import (Any, ClassVar, Dict, Generator, Iterable, List, Optional,
+                    Tuple, Union)
 
 import apischema
 
@@ -107,6 +109,19 @@ class ShellState(ShellStateHandler):
     autosave: AutosaveState = field(default_factory=AutosaveState)
     motor: MotorState = field(default_factory=MotorState)
     streamdevice: StreamDeviceState = field(default_factory=StreamDeviceState)
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": textwrap.dedent(
+            """\
+            {{ obj | classname }}:
+            """.rstrip(),
+        ),
+        "console-verbose": textwrap.dedent(
+            """\
+            {{ obj | classname }}:
+            """.rstrip(),
+        )
+    }
 
     def __post_init__(self):
         super().__post_init__()
@@ -665,6 +680,38 @@ class LoadedIoc:
     script: IocshScript
     load_failure: bool = False
     pv_relations: PVRelations = field(default_factory=dict)
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "console": textwrap.dedent(
+            """\
+            {{ obj | classname }}:
+            path: {{ path }}
+            metadata: {% set metadata = render_object(metadata, "console") %}
+            {{ metadata | indent(4) }}
+            shell_state: {% set shell_state = render_object(shell_state, "console") %}
+            {{ shell_state | indent(4) }}
+            script:
+            {% set script = render_object(script, "console") %}
+                {{ script | indent(4) }}
+            load_failure: {{ load_failure }}
+            """.rstrip(),
+        ),
+        "console-verbose": textwrap.dedent(
+            """\
+            {{ obj | classname }}:
+            path: {{ path }}
+            metadata: {% set metadata = render_object(metadata, "console-verbose") %}
+            {{ metadata | indent(4) }}
+            shell_state: {% set shell_state = render_object(shell_state, "console-verbose") %}
+            {{ shell_state | indent(4) }}
+            script:
+            {% set script = render_object(script, "console-verbose") %}
+            {{ script | indent(4) }}
+            load_failure: {{ load_failure }}
+            pv_relations: {{ pv_relations }}
+            """.rstrip(),
+        )
+    }
 
     @classmethod
     def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:

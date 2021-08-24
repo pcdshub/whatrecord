@@ -41,7 +41,7 @@ def gateway_config():
                 context=(LoadContext("None", 1), ),
                 command="DENY",
                 pattern="SXR:YAG:CVV:01.*",
-                hosts=None,
+                hosts=[],
             ),
             id="deny_basic",
         ),
