@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import math
 import pathlib
-import textwrap
 from dataclasses import field
-from typing import Any, ClassVar, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import apischema
 import lark
@@ -610,47 +609,6 @@ class Database:
     record_types: Dict[str, RecordType] = field(default_factory=dict)
     registrars: List[str] = field(default_factory=list)
     variables: Dict[str, Optional[str]] = field(default_factory=dict)
-
-    _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": textwrap.dedent(
-            """\
-            Database:
-            {{ records | length }} records and {{ pva_groups | length }} PVA Groups.
-            {% if standalone_aliases %}{{ standalone_aliases | length }}
-            standalone_aliases.
-            {% endif %}
-            {% if aliases %}{{ aliases | length }} aliases. {% endif %}
-            {% if paths %}{{ paths | length }} paths. {% endif %}
-            {% if addpaths %}{{ addpaths | length }} addpaths. {% endif %}
-            {% if breaktables %}{{ breaktables | length }} breaktables. {% endif %}
-            {% if comments %}{{ comments | length }} comments. {% endif %}
-            {% if devices %}{{ devices | length }} devices. {% endif %}
-            {% if drivers %}{{ drivers | length }} drivers. {% endif %}
-            {% if functions %}{{ functions | length }} functions. {% endif %}
-            {% if includes %}{{ includes | length }} includes. {% endif %}
-            {% if links %}{{ links | length }} links. {% endif %}
-            {% if menus %}{{ menus | length }} menus. {% endif %}
-            {% if records %}{{ records | length }} records. {% endif %}
-            {% if pva_groups %}{{ pva_groups | length }} pva_groups. {% endif %}
-            {% if record_types %}{{ record_types | length }} record_types. {% endif %}
-            {% if registrars %}{{ registrars | length }} registrars. {% endif %}
-            {% if variables %}{{ variables | length }} variables. {% endif %}
-            """
-        ),
-        "console-verbose": textwrap.dedent(
-            """\
-            Database
-            Records: {{ records | length }}
-                {% for record in records %}
-                    {{+ record }}
-                {% endfor %}
-            PVA Groups: {{ pva_groups | length }}
-                {% for group in pva_groups %}
-                    {{+ group }}
-                {% endfor %}
-            """,
-        ),
-    }
 
     @classmethod
     def from_string(
