@@ -119,21 +119,21 @@ class PVGetInfo:
 
 @dataclass
 class PVGetMatchesResponse:
-    pattern: str
+    patterns: List[str]
     regex: bool
     matches: List[str]
 
 
 @dataclass
 class IocGetMatchesResponse:
-    pattern: str
+    patterns: List[str]
     regex: bool
     matches: List[IocMetadata]
 
 
 @dataclass
 class IocGetDuplicatesResponse:
-    pattern: str
+    patterns: List[str]
     regex: bool
     duplicates: Dict[str, List[str]]
 
@@ -143,8 +143,8 @@ AnyRecordInstance = Union[RecordInstanceSummary, RecordInstance]
 
 @dataclass
 class IocGetMatchingRecordsResponse:
-    ioc_pattern: str
-    record_pattern: str
+    ioc_patterns: List[str]
+    record_patterns: List[str]
     regex: bool
     # TODO: ew, redo this
     matches: List[Tuple[IocMetadata, List[AnyRecordInstance]]]

@@ -205,10 +205,10 @@ export default {
       return appliance_viewer_url + this.record.name;
     },
     graph_link() {
-      return "/api/pv/" + this.whatrec.name + "/graph/svg";
+      return `/api/pv/graph?pv=${this.whatrec.name}&format=svg`;
     },
     script_graph_link() {
-      return "/api/pv/" + this.whatrec.name + "/script-graph/svg";
+      return `/api/pv/script-graph?pv=${this.whatrec.name}&format=svg`;
     },
     available_protocols() {
       let protocols = [];

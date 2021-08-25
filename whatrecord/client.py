@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union
 
 import aiohttp
 import apischema
@@ -6,8 +6,10 @@ import apischema
 from . import settings
 from .server.server import IocGetMatchesResponse, PVGetInfo
 
+Params = Dict[str, Union[List[str], str]]
 
-async def make_query(path, server=None, params: Optional[Dict[str, str]] = None):
+
+async def make_query(path, server=None, params: Optional[Params] = None):
     params = params or {}
     server = (server or settings.WHATREC_SERVER).rstrip("/")
 
@@ -17,7 +19,7 @@ async def make_query(path, server=None, params: Optional[Dict[str, str]] = None)
         )
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{server}{path}") as resp:
+        async with session.get(f"{server}{path}", params=params) as resp:
             if resp.status != 200:
                 raise RuntimeError(f"Server error: {resp.status}")
             return await resp.json()
@@ -25,8 +27,7 @@ async def make_query(path, server=None, params: Optional[Dict[str, str]] = None)
 
 async def get_record_info(*records, server: Optional[str] = None) -> Dict[str, PVGetInfo]:
     """Get record information from the server."""
-    reclist = "|".join(records)
-    response = await make_query(f"/api/pv/{reclist}/info", server=server)
+    response = await make_query("/api/pv/info", server=server, params=dict(pv=list(records)))
     return apischema.deserialize(Dict[str, PVGetInfo], response)
 
 
@@ -35,6 +36,6 @@ async def get_iocs(
 ) -> IocGetMatchesResponse:
     """Get record information from the server."""
     response = await make_query(
-        f"/api/iocs/{pattern}/matches", server=server, params=dict(regex=str(regex))
+        "/api/ioc/matches", server=server, params=dict(pattern=pattern, regex=str(regex))
     )
     return apischema.deserialize(IocGetMatchesResponse, response)
