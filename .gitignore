@@ -126,3 +126,5 @@ pnpm-debug.log*
 
 # Lark cache files
 *.cache
+
+/tags

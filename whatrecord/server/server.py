@@ -55,19 +55,24 @@ class ServerLogHandler(logging.Handler):
         self.messages.append(self.format(record))
 
 
-def compile_pattern(pattern, flags=re.IGNORECASE, separator="|", use_regex=False):
-    """Compile a regular expression (or glob)."""
+def compile_patterns(patterns: Tuple[str, ...], flags=re.IGNORECASE, use_regex=False):
+    """Compile regular expression (or glob) patterns with `re.compile`."""
     if use_regex:
-        return re.compile(
-            pattern,
-            flags=flags,
-        )
+        return re.compile("|".join(patterns), flags=flags)
 
-    # Otherwise, glob
     return re.compile(
-        "|".join(fnmatch.translate(pattern) for part in pattern.split(separator)),
+        "|".join(fnmatch.translate(pattern) for pattern in patterns),
         flags=flags,
     )
+
+
+def get_patterns(
+    query, key: str = "pattern", regex_key: str = "regex"
+) -> Tuple[bool, Tuple[str, ...]]:
+    """Get glob/regex patterns from a server query."""
+    use_regex = query.get(regex_key, "false").lower() in TRUE_VALUES
+    default = (".*" if use_regex else "*",)
+    return use_regex, tuple(query.getall(key, default))
 
 
 class ServerState:
@@ -463,10 +468,10 @@ class ServerState:
 
     @functools.lru_cache(maxsize=20)
     def get_duplicates(
-        self, pattern: str, use_regex: bool = False
+        self, patterns: Tuple[str, ...], use_regex: bool = False
     ) -> Dict[str, List[str]]:
-        """Get duplicate PVs matching the IOC pattern."""
-        iocs = self.get_matching_iocs(pattern=pattern, use_regex=use_regex)
+        """Get duplicate PVs from the matching IOC(s)."""
+        iocs = self.get_matching_iocs(patterns, use_regex=use_regex)
         seen = collections.defaultdict(list)
         for ioc in iocs:
             shell_state: ShellState = ioc.shell_state
@@ -479,9 +484,20 @@ class ServerState:
         }
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_pvs(self, pattern: str, use_regex: bool = False) -> List[str]:
+    def get_matching_pvs(self, patterns: Tuple[str, ...], use_regex: bool = False) -> List[str]:
+        """
+        Get matching PV names given pattern(s).
+
+        Parameters
+        ----------
+        patterns : list of str
+            List of patterns in glob or regex format.
+
+        use_regex : bool, optional
+            Interpret patterns as glob (False) or regex (True).
+        """
         try:
-            regex = compile_pattern(pattern, use_regex=use_regex)
+            regex = compile_patterns(patterns, use_regex=use_regex)
         except re.error:
             return []
 
@@ -489,9 +505,22 @@ class ServerState:
         return [pv_name for pv_name in sorted(pv_names) if regex.match(pv_name)]
 
     @functools.lru_cache(maxsize=2048)
-    def get_matching_iocs(self, pattern: str, use_regex: bool = False) -> List[LoadedIoc]:
+    def get_matching_iocs(
+        self, patterns: Tuple[str, ...], use_regex: bool = False
+    ) -> List[LoadedIoc]:
+        """
+        Get matching IOCs given pattern(s).
+
+        Parameters
+        ----------
+        patterns : list of str
+            List of patterns in glob or regex format.
+
+        use_regex : bool, optional
+            Interpret patterns as glob (False) or regex (True).
+        """
         try:
-            regex = compile_pattern(pattern, use_regex=use_regex)
+            regex = compile_patterns(patterns, use_regex=use_regex)
         except re.error:
             return []
 
@@ -508,6 +537,20 @@ class ServerState:
     async def get_graph_rendered(
         self, pv_names: Tuple[str, ...], format: str, graph_type: str
     ) -> bytes:
+        """
+        Get a rendered PV relationship graph of the provided PVs.
+
+        Parameters
+        ----------
+        pv_names : tuple of str
+            PV names.
+
+        format : str
+            The format of the graph (e.g., pdf, png).
+
+        graph_type : { "record", "script" }
+            The type of graph to generate.
+        """
         graph = self.get_graph(pv_names, graph_type=graph_type)
 
         with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
@@ -528,9 +571,9 @@ class ServerHandler:
     async def async_init(self, app):
         await self.state.async_init(app)
 
-    @routes.get("/api/pv/{pv_names}/info")
+    @routes.get("/api/pv/info")
     async def api_pv_get_info(self, request: web.Request):
-        pv_names = request.match_info.get("pv_names", "").split("|")
+        pv_names = request.query.getall("pv")
         info = {pv_name: self.state.whatrec(pv_name) for pv_name in pv_names}
         return serialized_response(
             {
@@ -544,48 +587,47 @@ class ServerHandler:
             }
         )
 
-    @routes.get("/api/pv/{pattern}/matches")
+    @routes.get("/api/pv/matches")
     async def api_pv_get_matches(self, request: web.Request):
         max_matches = int(request.query.get("max", "200"))
-        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
-        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
-        matches = self.state.get_matching_pvs(pattern, use_regex=use_regex)
+        use_regex, patterns = get_patterns(request.query)
+        matches = self.state.get_matching_pvs(patterns, use_regex=use_regex)
         if max_matches > 0:
             matches = matches[:max_matches]
 
         return serialized_response(
             PVGetMatchesResponse(
-                pattern=pattern,
+                patterns=patterns,
                 regex=use_regex,
                 matches=matches,
             )
         )
 
-    @routes.get("/api/iocs/{pattern}/matches")
+    @routes.get("/api/ioc/matches")
     async def api_ioc_get_matches(self, request: web.Request):
         # Ignore max for now. This is not much in the way of information.
         # max_matches = int(request.query.get("max", "1000"))
-        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
-        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
+        use_regex, patterns = get_patterns(request.query)
         match_metadata = [
             loaded_ioc.metadata
-            for loaded_ioc in self.state.get_matching_iocs(pattern, use_regex=use_regex)
+            for loaded_ioc in self.state.get_matching_iocs(patterns, use_regex=use_regex)
         ]
         return serialized_response(
             IocGetMatchesResponse(
-                pattern=pattern,
+                patterns=patterns,
                 regex=use_regex,
                 matches=match_metadata,
             )
         )
 
-    @routes.get("/api/iocs/{ioc_glob}/pvs/{pv_glob}")
+    @routes.get("/api/ioc/pvs")
     async def api_ioc_get_pvs(self, request: web.Request):
-        regex = request.query.get("regex", "false") in TRUE_VALUES
+        use_regex, ioc_patterns = get_patterns(request.query, key="ioc")
+        _, record_patterns = get_patterns(request.query, key="pv")
         response = IocGetMatchingRecordsResponse(
-            ioc_pattern=request.match_info.get("ioc_glob", ".*" if regex else "*"),
-            record_pattern=request.match_info.get("pv_glob", ".*" if regex else "*"),
-            regex=regex,
+            ioc_patterns=ioc_patterns,
+            record_patterns=record_patterns,
+            regex=use_regex,
             matches=[],
         )
 
@@ -594,15 +636,15 @@ class ServerHandler:
             yield from shell_state.pva_database.items()
 
         try:
-            pv_glob_re = compile_pattern(
-                response.record_pattern,
-                use_regex=response.regex,
+            pv_glob_re = compile_patterns(
+                record_patterns,
+                use_regex=use_regex,
             )
         except re.error:
             raise web.HTTPBadRequest()
 
         for loaded_ioc in self.state.get_matching_iocs(
-            response.ioc_pattern, use_regex=response.regex,
+            ioc_patterns, use_regex=response.regex,
         ):
             record_matches = [
                 rec_info.to_summary()
@@ -614,16 +656,15 @@ class ServerHandler:
 
         return serialized_response(response)
 
-    @routes.get("/api/duplicates")
-    async def api_get_duplicates(self, request: web.Request):
+    @routes.get("/api/pv/duplicates")
+    async def api_pv_get_duplicates(self, request: web.Request):
         """Get record names duplicated among two or more IOCs."""
-        use_regex = request.query.get("regex", "false").lower() in TRUE_VALUES
-        pattern = request.match_info.get("pattern", ".*" if use_regex else "*")
+        use_regex, patterns = get_patterns(request.query)
         return serialized_response(
             IocGetDuplicatesResponse(
-                pattern=pattern,
+                patterns=patterns,
                 regex=use_regex,
-                duplicates=self.state.get_duplicates(pattern, use_regex=use_regex),
+                duplicates=self.state.get_duplicates(patterns, use_regex=use_regex),
             )
         )
 
@@ -687,10 +728,8 @@ class ServerHandler:
     async def get_graph(self, pv_names: List[str], use_glob: bool = False,
                         graph_type: str = "record",
                         format: str = "pdf"):
-        if "*" in pv_names or use_glob:
+        if use_glob:
             pv_names = self.state.get_matching_pvs(pv_names)
-        else:
-            pv_names = pv_names.split("|")
 
         if format == "dot":
             try:
@@ -733,34 +772,30 @@ class ServerHandler:
             )
         )
 
-    @routes.get("/api/pv/{pv_names}/relations")
+    @routes.get("/api/pv/relations")
     async def api_pv_get_relations(self, request: web.Request):
-        pv_names = request.match_info.get("pv_names", "")
-        use_glob = request.query.get("glob", "false") in TRUE_VALUES
-        if "*" in pv_names or use_glob:
-            pv_names = self.state.get_matching_pvs(pv_names)
-        else:
-            pv_names = pv_names.split("|")
+        use_regex, pv_names = get_patterns(request.query, key="pv")
+        pv_names = self.state.get_matching_pvs(pv_names, use_regex=use_regex)
         full = request.query.get("full", "false") in TRUE_VALUES
         return serialized_response(
             self.state.get_pv_relations(pv_names=pv_names, full=full)
         )
 
-    @routes.get("/api/pv/{pv_names}/graph/{format}")
+    @routes.get("/api/pv/graph")
     async def api_pv_get_record_graph(self, request: web.Request):
         return await self.get_graph(
-            pv_names=request.match_info["pv_names"],
+            pv_names=request.query.getall("pv"),
             use_glob=request.query.get("glob", "false") in TRUE_VALUES,
-            format=request.match_info["format"],
+            format=request.query["format"],
             graph_type="record",
         )
 
-    @routes.get("/api/pv/{pv_names}/script-graph/{format}")
+    @routes.get("/api/pv/script-graph")
     async def api_pv_get_script_graph(self, request: web.Request):
         return await self.get_graph(
-            pv_names=request.match_info["pv_names"],
+            pv_names=request.query.getall("pv"),
             use_glob=request.query.get("glob", "false") in TRUE_VALUES,
-            format=request.match_info["format"],
+            format=request.query["format"],
             graph_type="script",
         )
 

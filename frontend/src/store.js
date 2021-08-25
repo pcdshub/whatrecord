@@ -89,7 +89,7 @@ export const store = createStore({
       }
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/iocs/*/matches`, {});
+        const response = await axios.get("/api/ioc/matches", { params: { pattern: "*" } });
         await commit("set_ioc_info", { ioc_info: response.data.matches });
         return response.data.matches;
       } catch (error) {
@@ -102,7 +102,7 @@ export const store = createStore({
     async update_gateway_info({ commit }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/gateway/info`, {});
+        const response = await axios.get("/api/gateway/info", {});
         await commit("set_gateway_info", { gateway_info: response.data });
         return response.data;
       } catch (error) {
@@ -115,7 +115,7 @@ export const store = createStore({
     async update_plugin_info({ commit }, { plugin }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/plugin/info`, {
+        const response = await axios.get("/api/plugin/info", {
           params: {
             plugin: plugin,
           },
@@ -135,7 +135,7 @@ export const store = createStore({
     async get_plugin_nested_keys({ commit }, { plugin }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/plugin/nested/keys`, {
+        const response = await axios.get("/api/plugin/nested/keys", {
           params: {
             plugin: plugin,
           },
@@ -155,7 +155,7 @@ export const store = createStore({
     async get_plugin_nested_info({ commit }, { plugin, key }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/plugin/nested/info`, {
+        const response = await axios.get("/api/plugin/nested/info", {
           params: {
             plugin: plugin,
             key: key,
@@ -180,7 +180,7 @@ export const store = createStore({
       }
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/pv/${record_name}/info`, {});
+        const response = await axios.get("/api/pv/info", { params: { pv: record_name }});
         for (const [rec, rec_info] of Object.entries(response.data)) {
           await commit("add_record_info", {
             record: rec,
@@ -198,7 +198,7 @@ export const store = createStore({
     async get_ioc_records({ commit }, { ioc_name }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/iocs/${ioc_name}/pvs/*`, {});
+        const response = await axios.get("/api/ioc/pvs", { params: { ioc: ioc_name, pv: "*" } });
         const records =
           response.data.matches.length > 0 ? response.data.matches[0][1] : [];
         await commit("set_ioc_records", {
@@ -216,7 +216,7 @@ export const store = createStore({
     async get_file_info({ commit }, { filename }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/file/info`, {
+        const response = await axios.get("/api/file/info", {
           params: {
             file: filename,
           },
@@ -236,7 +236,7 @@ export const store = createStore({
     async update_duplicates({ commit }) {
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/duplicates`, {
+        const response = await axios.get("/api/pv/duplicates", {
           params: {
             pattern: "*",
           },
@@ -256,8 +256,10 @@ export const store = createStore({
 
       try {
         await commit("start_query");
-        const response = await axios.get(`/api/pv/${pv_glob}/relations`, {
+        const response = await axios.get("/api/pv/relations", {
           params: {
+            pv: pv_glob,
+            glob: true,
             full: full,
           },
         });
@@ -288,8 +290,8 @@ export const store = createStore({
       );
 
       try {
-        const response = await axios.get(`/api/pv/${query_pattern}/matches`, {
-          params: { max: max_pvs, regex: regex },
+        const response = await axios.get("/api/pv/matches", {
+          params: { pattern: query_pattern, max: max_pvs, regex: regex },
         });
         const matches = response.data["matches"];
         await commit("add_record_search_results", {

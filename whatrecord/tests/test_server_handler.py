@@ -1,6 +1,7 @@
 """Requires pytest-aiohttp"""
 import json
 import logging
+import pathlib
 from typing import Any, Dict, Optional, Type, TypeVar
 
 import aiohttp
@@ -9,8 +10,10 @@ import aiohttp.web
 import apischema
 import pytest
 
+from .. import gateway
 from ..common import RecordInstance, WhatRecord
-from ..server.server import (IocGetMatchingRecordsResponse, PVGetInfo,
+from ..server.server import (IocGetDuplicatesResponse, IocGetMatchesResponse,
+                             IocGetMatchingRecordsResponse, PVGetInfo,
                              PVGetMatchesResponse, ServerHandler, ServerState,
                              _new_server)
 from .conftest import MODULE_PATH, STARTUP_SCRIPTS
@@ -76,46 +79,46 @@ async def get_and_deserialize(
     "url, cls, params, expected",
     [
         pytest.param(
-            f"/api/pv/{pvname}.*/matches",
+            "/api/pv/matches",
             PVGetMatchesResponse,
-            dict(regex="true"),
+            dict(pattern=f"{pvname}.*", regex="true"),
             PVGetMatchesResponse(
-                pattern=pvname + ".*",
+                patterns=[pvname + ".*"],
                 regex=True,
                 matches=[pvname],
             ),
             id="match-regex"
         ),
         pytest.param(
-            f"/api/pv/{pvname}*/matches",
+            "/api/pv/matches",
             PVGetMatchesResponse,
-            dict(regex="false"),
+            dict(pattern=f"{pvname}*", regex="false"),
             PVGetMatchesResponse(
-                pattern=pvname + "*",
+                patterns=[pvname + "*"],
                 regex=False,
                 matches=[pvname],
             ),
             id="match-glob"
         ),
         pytest.param(
-            f"/api/iocs/*/pvs/{nonexistent_pvname}",
+            "/api/ioc/pvs",
             IocGetMatchingRecordsResponse,
-            dict(regex="False"),
+            dict(ioc="*", pv=nonexistent_pvname, regex="False"),
             IocGetMatchingRecordsResponse(
-                ioc_pattern="*",
-                record_pattern=nonexistent_pvname,
+                ioc_patterns=["*"],
+                record_patterns=[nonexistent_pvname],
                 regex=False,
                 matches=[],
             ),
             id="ioc-no-matching-records-glob"
         ),
         pytest.param(
-            f"/api/iocs/.*/pvs/{nonexistent_pvname}",
+            "/api/ioc/pvs",
             IocGetMatchingRecordsResponse,
-            dict(regex="true"),
+            dict(ioc=".*", pv=nonexistent_pvname, regex="true"),
             IocGetMatchingRecordsResponse(
-                ioc_pattern=".*",
-                record_pattern=nonexistent_pvname,
+                ioc_patterns=[".*"],
+                record_patterns=[nonexistent_pvname],
                 regex=True,
                 matches=[],
             ),
@@ -143,13 +146,13 @@ async def test_request(
     "url, params",
     [
         pytest.param(
-            "/api/iocs/*/pvs/*",
-            dict(regex="false"),
+            "/api/ioc/pvs",
+            dict(ioc="*", pv="*", regex="false"),
             id="match-glob"
         ),
         pytest.param(
-            "/api/iocs/.*/pvs/.*",
-            dict(regex="true"),
+            "/api/ioc/pvs",
+            dict(ioc=".*", pv=".*", regex="true"),
             id="match-regex"
         ),
         pytest.param(
@@ -163,18 +166,18 @@ async def test_request(
             id="logs"
         ),
         pytest.param(
-            f"/api/pv/{pvname}/info",
-            dict(),
+            "/api/pv/info",
+            dict(pv=pvname),
             id="pv-info"
         ),
         pytest.param(
-            f"/api/pv/{pvname}/relations",
-            dict(),
+            "/api/pv/relations",
+            dict(pv=pvname),
             id="relations"
         ),
         # No plugin info
         # pytest.param(
-        #     f"/api/plugin/info",
+        #     "/api/plugin/info",
         #     dict(),
         #     id="plugin-info"
         # ),
@@ -197,13 +200,13 @@ async def test_request_smoke(
     "url, params",
     [
         pytest.param(
-            f"/api/pv/{pvname}/graph/dot",
-            dict(),
+            "/api/pv/graph",
+            dict(pv=pvname, format="dot"),
             id="pv-dot"
         ),
         pytest.param(
-            f"/api/pv/{pvname}/script-graph/dot",
-            dict(),
+            "/api/pv/script-graph",
+            dict(pv=pvname, format="dot"),
             id="script-dot"
         ),
     ],
@@ -262,7 +265,8 @@ async def test_record_metadata(
 ):
     response = await get_and_deserialize(
         client,
-        url=f"/api/pv/{pvname}/info",
+        url="/api/pv/info",
+        params=dict(pv=pvname),
         cls=Dict[str, PVGetInfo],
     )
     pv_get_info = response[pvname]
@@ -274,3 +278,57 @@ async def test_record_metadata(
     whatrec: WhatRecord = pv_get_info.info[0]
     instance: RecordInstance = whatrec.record.instance
     assert instance.metadata[key] == value
+
+
+@pytest.mark.parametrize(
+    "regex",
+    [True, False]
+)
+async def test_get_duplicates(
+    client, server: aiohttp.web.Application, regex: bool
+):
+    response = await get_and_deserialize(
+        client,
+        url="/api/pv/duplicates",
+        params=dict(regex=str(regex)),
+        cls=IocGetDuplicatesResponse,
+    )
+    assert response == IocGetDuplicatesResponse(
+        patterns=[".*" if regex else "*"],
+        regex=regex,
+        duplicates={"IOC:KFE:C:One": ["ioc_c", "ioc_d"]},
+    )
+
+
+async def test_get_matches(
+    client, server: aiohttp.web.Application,
+):
+    response = await get_and_deserialize(
+        client,
+        url="/api/ioc/matches",
+        params=dict(pattern="ioc_[cd]$", regex="true"),
+        cls=IocGetMatchesResponse,
+    )
+    assert response.patterns == ["ioc_[cd]$"]
+    assert response.regex
+    assert len(response.matches) == 2
+    assert response.matches[0].name == "ioc_c"
+    assert response.matches[1].name == "ioc_d"
+
+
+async def test_gateway_info(
+    client, server: aiohttp.web.Application,
+):
+    info = await get_and_deserialize(
+        client,
+        url="/api/gateway/info",
+        params=dict(),
+        cls=Dict[pathlib.Path, gateway.PVList],
+    )
+
+    filename, kfe_pvlist = list(info.items())[0]
+    assert filename.name == "kfe.pvlist"
+    assert kfe_pvlist.evaluation_order == "ALLOW, DENY"
+
+
+# TODO: any way of testing plugin/nested/{info,keys}?
