@@ -43,7 +43,7 @@ class Rule:
     def match(self, name):
         """Match a pv name against this rule."""
         if self.regex is not None:
-            return self.regex.match(name)
+            return self.regex.fullmatch(name)
 
 
 @dataclass
