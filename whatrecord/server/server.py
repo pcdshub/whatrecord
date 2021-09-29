@@ -875,6 +875,16 @@ def _new_server_state(
             )
         )
 
+    if "netconfig" in settings.PLUGINS:
+        plugins.append(
+            ServerPluginSpec(
+                name="netconfig",
+                module="whatrecord.plugins.netconfig",
+                executable=None,
+                after_iocs=False,
+            )
+        )
+
     return ServerState(
         startup_scripts=scripts,
         script_loaders=script_loader,

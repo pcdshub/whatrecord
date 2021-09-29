@@ -70,12 +70,14 @@ def main(
     client = ldap.initialize(server)
     metadata = {}
     for dn, attrs in client.search_s(base, scope, filter_query):
-        info = {
-            key: value for dninfo in ldap.dn.str2dn(dn) for key, value, *_ in dninfo
-        }
-        info.update(decode_ldap_attrs(attrs, encoding=encoding))
+        info = decode_ldap_attrs(attrs, encoding=encoding)
         for cn in info["cn"]:
-            metadata.setdefault(cn, {}).update(info)
+            cn_info = metadata.setdefault(cn, {})
+            for key, value in info.items():
+                cn_info.setdefault(key, []).extend(value)
+            for dninfo in ldap.dn.str2dn(dn):
+                for key, value, *_ in dninfo:
+                    cn_info.setdefault(key, []).append(value)
 
     return NetconfigPluginResults(
         files_to_monitor={},
