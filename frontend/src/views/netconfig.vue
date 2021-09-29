@@ -59,6 +59,11 @@
           {{ data.location?.join(", ") }}
         </template>
       </Column>
+      <Column field="dc" header="Subnet" :sortable="true" style="">
+        <template #body="{ data }">
+          {{ data.dc?.join(", ") }}
+        </template>
+      </Column>
       <Column field="ipHostNumber" header="IP Address" :sortable="true" style="">
         <template #body="{ data }">
           {{ data.ipHostNumber?.join(", ") }}
