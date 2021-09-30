@@ -35,6 +35,7 @@
             class="p-button-outlined"
             @click="clear_filters()"
           />
+
           <span class="p-input-icon-left">
             <i class="pi pi-search" />
             <InputText v-model="filters['global'].value" placeholder="Search" />
@@ -49,34 +50,25 @@
           </template>
         </template>
       </Column>
-      <Column field="description" header="Description" :sortable="true" style="">
-        <template #body="{ data }">
-          {{ data.description?.join(", ") }}
+      <Column
+        v-for="(col, index) of selected_columns"
+        :field="col.field"
+        :header="nice_names[col.field] || col.field"
+        :key="col.field + '_' + index"
+        :sortable="true"
+        :style="col.style"
+      >
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter`"
+          />
         </template>
-      </Column>
-      <Column field="location" header="Location" :sortable="true" style="">
         <template #body="{ data }">
-          {{ data.location?.join(", ") }}
-        </template>
-      </Column>
-      <Column field="dc" header="Subnet" :sortable="true" style="">
-        <template #body="{ data }">
-          {{ data.dc?.join(", ") }}
-        </template>
-      </Column>
-      <Column field="ipHostNumber" header="IP Address" :sortable="true" style="">
-        <template #body="{ data }">
-          {{ data.ipHostNumber?.join(", ") }}
-        </template>
-      </Column>
-      <Column field="macAddress" header="MAC Address" :sortable="true" style="">
-        <template #body="{ data }">
-          {{ data.macAddress?.join(", ") }}
-        </template>
-      </Column>
-      <Column field="pcNumber" header="PC Number" :sortable="true" style="">
-        <template #body="{ data }">
-          {{ data.pcNumber?.join(", ") }}
+          {{ data[col.field]?.join(", ") }}
         </template>
       </Column>
     </DataTable>
@@ -114,6 +106,16 @@ export default {
     return {
       filters: null,
       selected_columns: null,
+      nice_names: {
+        description: "Description",
+        location: "Location",
+        dc: "Subnet",
+        ipHostNumber: "IP Address",
+        macAddress: "MAC Address",
+        pcNumber: "PC Number",
+        o: "Organization",
+        ou: "Organization Unit",
+      },
     };
   },
   computed: {
@@ -147,7 +149,7 @@ export default {
     }),
   },
   created() {
-    document.title = `WhatRecord? netconfig plugin ${this.item_name}`;
+    document.title = `WhatRecord? netconfig ${this.item_name}`;
     this.init_filters();
   },
   mounted() {
@@ -161,24 +163,29 @@ export default {
         global: { value: "", matchMode: FilterMatchMode.CONTAINS },
         name: { value: "", matchMode: FilterMatchMode.CONTAINS },
         device_class: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        prefix: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        beamline: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        stand: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        active: { value: "", matchMode: FilterMatchMode.EQUALS },
-        z: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        last_edit: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        args: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        kwargs: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        description: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        location: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        dc: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        ipHostNumber: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        macAddress: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        pcNumber: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        manager: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        objectClass: { value: "", matchMode: FilterMatchMode.CONTAINS },
       };
       this.columns = [
-        { field: "beamline", header: "Beamline", style: "width: 10%" },
-        { field: "stand", header: "Stand", style: "width: 10%" },
-        { field: "z", header: "Z Location (m)", style: "width: 10%" },
-        { field: "last_edit", header: "Last Edit", style: "width: 10%" },
-        { field: "args", header: "Arguments", style: "width: 15%" },
-        { field: "kwargs", header: "Keyword Arguments", style: "width: 15%" },
+        { field: "description", style: "" },
+        { field: "location", style: "" },
+        { field: "dc", style: "" },
+        { field: "ipHostNumber", style: "" },
+        { field: "macAddress", style: "" },
+        { field: "pcNumber", style: "" },
+        { field: "manager", style: "" },
+        { field: "objectClass", style: "" },
       ];
-      this.selected_columns = this.columns.slice(0, 2);
+      for (let col of this.columns) {
+        col["header"] = this.nice_names[col.field] ?? col.field;
+      }
+      this.selected_columns = this.columns.slice(0, 6);
     },
     clear_filters() {
       this.init_filters();
@@ -190,56 +197,5 @@ export default {
 };
 </script>
 
-<!-- https://www.w3schools.com/css/css_tooltip.asp -->
 <style scoped>
-.tooltip {
-  position: relative;
-  display: inline-block;
-  border-bottom: 1px dashed black;
-}
-
-.tooltip .tooltiptext {
-  visibility: hidden;
-  width: auto;
-  background-color: lightblue;
-  color: black;
-  text-align: center;
-  padding: 5px 0;
-  border-radius: 6px;
-  position: absolute;
-  z-index: 1;
-}
-
-.tooltip:hover .tooltiptext {
-  visibility: visible;
-}
-
-#related_records {
-  border-collapse: collapse;
-}
-
-#related_records td,
-#related_records th {
-  border: 1px solid #ddd;
-  padding: 8px;
-}
-
-#related_records tr:nth-child(even) {
-  background-color: var(--surface-b);
-}
-
-#related_records tr:hover {
-  background-color: var(--surface-c);
-}
-
-#related_records th {
-  padding-top: 12px;
-  padding-bottom: 12px;
-  text-align: center;
-  border: 1px solid;
-}
-
-#related_records td {
-  font-family: monospace;
-}
 </style>
