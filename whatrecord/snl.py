@@ -52,6 +52,8 @@ class SequencerProgram:
                     )
             elif line.startswith("#if"):
                 ...  # sorry; this may break things
+            elif line.startswith("#else"):
+                ...  # sorry; this may break things
             elif line.startswith("#elif"):
                 ...  # sorry; this may break things
             elif line.startswith("#endif"):
