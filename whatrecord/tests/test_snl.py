@@ -32,6 +32,20 @@ snl_filenames = pytest.mark.parametrize(
 
 @snl_filenames
 def test_parse(program_filename):
+    with open(program_filename, "rt") as fp:
+        source = SequencerProgram.preprocess(
+            fp.read(), search_path=program_filename.parent
+        )
+    has_program = any(
+        line.startswith("program")
+        for line in source.splitlines()
+    )
+    if not has_program:
+        raise pytest.skip(
+            "No program found in source "
+            "(perhaps it's meant to be included from another?)"
+        )
+
     program = SequencerProgram.from_file(program_filename)
     print(program.pretty())
 
@@ -43,39 +57,6 @@ def test_parse(program_filename):
 @pytest.mark.parametrize(
     "source, partial_error",
     [
-        # No clue why this is failing...
-        pytest.param(
-            """\
-            program name
-
-
-            %{
-                code1
-            }%
-
-            entry {
-                seq_test_init(20);
-            }
-
-            ss myss {
-                state doit {
-                    when (delay(0.1)) {
-                    } state doit
-                    when (i_saved == 10) {
-                    } exit
-                }
-            }
-
-            exit {
-            }
-
-            %{
-                adding code2 -> unexpected eof
-            }%
-            """,
-            "Unexpected end-of-input",
-            id="two_ccode"
-        ),
         pytest.param(
             """\
             program name
@@ -114,7 +95,7 @@ def test_parse(program_filename):
         ),
     ]
 )
-@pytest.mark.xfail(strict=True, reason="grammar bug?")
+@pytest.mark.xfail(strict=True, reason="preprocessor incomplete")
 def test_tofix(source, partial_error):
     source = textwrap.dedent(source)
     try:

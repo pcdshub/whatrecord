@@ -13,8 +13,8 @@
 WHITESPACE: /[ \t\v\f]+/
 %ignore WHITESPACE
 
-MULTI_LINE_COMMENT: "/*" /./s* "*/"
-SINGLE_LINE_COMMENT: "//" /[^\n]/*
+MULTI_LINE_COMMENT: "/*" /.*?/s "*/"
+SINGLE_LINE_COMMENT: "//" /.*/
 
 COMMENT: MULTI_LINE_COMMENT
        | SINGLE_LINE_COMMENT
@@ -165,12 +165,12 @@ STRCON: "\"" (ESC | /[^"\n\\]/)* "\""
 LINE_MARKER: DEC+ SPC*
            | "\"" (ESC | /[^\n\\"]/)* "\""
 
-CCODE: "%{" /./s* "}%"
+CCODE: "%{" /.*?/s "}%"
      | "%%" /[^\n]*/
 
 // The program itself
 
-program: PROGRAM NAME program_param? initial_defns entry state_sets exit final_defns
+program: PROGRAM NAME program_param? initial_defns entry? state_sets exit? final_defns
 
 program_param: LPAREN string RPAREN
 
