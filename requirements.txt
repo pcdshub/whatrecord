@@ -1,7 +1,5 @@
 aiohttp
 apischema[graphql]
-cython
-epicscorelibs
 graphviz
 jinja2
 lark-parser
