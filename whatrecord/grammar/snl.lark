@@ -176,22 +176,22 @@ program_param: LPAREN string RPAREN
 
 // Definitions
 
-initial_defns: initial_defn*
-initial_defn: assign
-            | monitor
-            | sync
-            | syncq
-            | declaration
-            | option
-            | c_code
-            | funcdef
-            | structdef
+initial_defns: _initial_defn*
+_initial_defn: assign
+             | monitor
+             | sync
+             | syncq
+             | declaration
+             | option
+             | c_code
+             | funcdef
+             | structdef
 
-final_defns: final_defn*
+final_defns: _final_defn*
 
-final_defn: c_code
-          | funcdef
-          | structdef
+_final_defn: c_code
+           | funcdef
+           | structdef
 
 assign: ASSIGN variable to string SEMICOLON
       | ASSIGN variable subscript to string SEMICOLON
@@ -322,26 +322,26 @@ state_sets: state_sets state_set
 
 state_set: STATE_SET NAME LBRACE ss_defns states RBRACE
 
-ss_defns: ss_defn*
+ss_defns: _ss_defn*
 
-ss_defn: assign
-       | monitor
-       | sync
-       | syncq
-       | declaration
+_ss_defn: assign
+        | monitor
+        | sync
+        | syncq
+        | declaration
 
 states: state*
 
 state: STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
 
-state_defns: state_defn*
+state_defns: _state_defn*
 
-state_defn: assign
-          | monitor
-          | sync
-          | syncq
-          | declaration
-          | option
+_state_defn: assign
+           | monitor
+           | sync
+           | syncq
+           | declaration
+           | option
 
 entry: ENTRY block
 
@@ -357,16 +357,14 @@ condition: opt_expr
 
 block: LBRACE block_defns statements RBRACE
 
-block_defns: block_defns block_defn
-           |
+block_defns: _block_defn*
 
-block_defn: declaration
-          | c_code
+_block_defn: declaration
+           | c_code
 
 // Statements
 
-statements: statements statement
-          |
+statements: statement*
 
 statement: BREAK SEMICOLON
          | CONTINUE SEMICOLON
@@ -452,8 +450,7 @@ integer_literal: INTCON
 comma_expr: comma_expr COMMA expr
           | expr
 
-opt_expr: comma_expr
-        |
+opt_expr: comma_expr?
 
 // Function arguments
 // Syntactically the same as opt_expr but interpreted differently.
