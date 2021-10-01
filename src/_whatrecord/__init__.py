@@ -1,14 +1,28 @@
-import ctypes
+def _preload_shared_libraries():
+    """
+    Pre-load epicscorelibs shared libraries.
 
-import epicscorelibs.path
+    Ensuring we find the ones distributed with whatrecord.
+    """
+    import ctypes
+    import pathlib
+    import sys
 
-# Necessary unless [DY]LD_LIBRARY_PATH is set for epicscorelibs
-ctypes.CDLL(epicscorelibs.path.get_lib("Com"))
-ctypes.CDLL(epicscorelibs.path.get_lib("dbCore"))
+    module_path = pathlib.Path(__file__).resolve().parent
 
-del epicscorelibs.path
-del ctypes
+    extension = {
+        "darwin": "dylib",
+        "linux": "so",
+        "windows": "dll"
+    }.get(sys.platform, "so")
 
-# from . import iocsh, macro
+    for lib_prefix in ["libCom", "libca", "libdbCore"]:
+        for lib in module_path.glob(f"{lib_prefix}*.{extension}"):
+            ctypes.CDLL(str(lib))
 
-# __all__ = ["iocsh", "macro"]
+
+_preload_shared_libraries()
+
+from . import iocsh, macro  # noqa  # isort: skip
+
+__all__ = ["iocsh", "macro"]

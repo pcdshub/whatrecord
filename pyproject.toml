@@ -6,3 +6,13 @@ requires = [
     "setuptools_dso",
     "wheel",
 ]
+
+[project]
+dependencies = [
+    "aiohttp",
+    "apischema[graphql]",
+    "cython",
+    "graphviz",
+    "jinja2",
+    "lark-parser",
+]
