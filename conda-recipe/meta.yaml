@@ -20,7 +20,6 @@ requirements:
     run:
       - python >=3.7
       - aiohttp
-      - cython
       - graphviz
       - python-graphviz
       - jinja2
