@@ -10,14 +10,14 @@ def _preload_shared_libraries():
 
     module_path = pathlib.Path(__file__).resolve().parent
 
-    extension = {
-        "darwin": "dylib",
-        "linux": "so",
-        "windows": "dll"
-    }.get(sys.platform, "so")
+    pattern = {
+        "darwin": "{lib_prefix}*.dylib",
+        "linux": "{lib_prefix}.so.*",
+        "windows": "{lib_prefix}*.dll"
+    }.get(sys.platform, "{lib_prefix}.so.*")
 
     for lib_prefix in ["libCom", "libca", "libdbCore"]:
-        for lib in module_path.glob(f"{lib_prefix}*.{extension}"):
+        for lib in module_path.glob(pattern.format(lib_prefix=lib_prefix)):
             ctypes.CDLL(str(lib))
 
 
