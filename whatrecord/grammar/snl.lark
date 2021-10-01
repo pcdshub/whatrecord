@@ -1,6 +1,9 @@
 // Attempt at a state notation language (snl/seq) grammar
 //
 // snl itself uses re2c and an LALR-based lemon grammar.
+//
+// Limitations:
+//  * Preprocessor support (#include is OK, #ifdef and such get ignored)
 
 ?start: program
 
@@ -10,11 +13,13 @@
 WHITESPACE: /[ \t\v\f]+/
 %ignore WHITESPACE
 
-MULTI_LINE_COMMENT: /\/\*.*?\*\//s
+MULTI_LINE_COMMENT: "/*" /./s* "*/"
 SINGLE_LINE_COMMENT: "//" /[^\n]/*
 
-%ignore MULTI_LINE_COMMENT
-%ignore SINGLE_LINE_COMMENT
+COMMENT: MULTI_LINE_COMMENT
+       | SINGLE_LINE_COMMENT
+
+%ignore COMMENT
 
 NL: /[\n]/
 ANY: /[^]/
@@ -41,7 +46,7 @@ MONITOR: "monitor"
 OPTION: "option"
 PROGRAM: "program"
 RETURN: "return"
-SS: "ss"
+STATE_SET: "ss"
 STATE: "state"
 STRING: "string"
 SYNCQ: "syncQ"
@@ -74,8 +79,8 @@ UINT16T: "uint16_t"
 INT32T: "int32_t"
 UINT32T: "uint32_t"
 
-TYPEWORD: CHAR | CONST | DOUBLE | ENUM | EVFLAG | FLOAT | FOREIGN | INT 
-        | INT16T | INT32T | INT8T | LONG | SHORT | SIZEOF | STRUCT 
+TYPEWORD: CHAR | CONST | DOUBLE | ENUM | EVFLAG | FLOAT | FOREIGN | INT
+        | INT16T | INT32T | INT8T | LONG | SHORT | SIZEOF | STRUCT
         | TYPENAME | UINT16T | UINT32T | UINT8T | UNION | UNSIGNED | VOID
 
 // "seqg_" (LET|DEC)*  -> "identifier '%s'starts with reserved prefix\n"
@@ -160,8 +165,8 @@ STRCON: "\"" (ESC | /[^"\n\\]/)* "\""
 LINE_MARKER: DEC+ SPC*
            | "\"" (ESC | /[^\n\\"]/)* "\""
 
-CCODE: "%{" /./* "}%"
-     | "%%" /[^\n]/*
+CCODE: "%{" /./s* "}%"
+     | "%%" /[^\n]*/
 
 // The program itself
 
@@ -197,7 +202,7 @@ to: TO?
 
 strings: strings COMMA string
        | string
-       | 
+       |
 
 monitor: MONITOR variable opt_subscript SEMICOLON
 // | MONITOR variable opt_subscript error SEMICOLON
@@ -235,7 +240,7 @@ declarator: variable
           | ASTERISK declarator
           | CONST declarator
 
-param_decls: 
+param_decls:
            | param_decl
            | param_decls COMMA param_decl
 
@@ -254,12 +259,12 @@ init_expr: LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
 
 init_exprs: init_exprs COMMA init_expr
           | init_expr
-          | 
+          |
 
 // Type expressions
 
 // C standard calls this specifier-qualifier-list
-prim_type: CHAR
+PRIM_TYPE: CHAR
          | SHORT
          | INT
          | LONG
@@ -277,7 +282,7 @@ prim_type: CHAR
          | DOUBLE
          | STRING
 
-basetype: prim_type
+basetype: PRIM_TYPE
         | EVFLAG
         | VOID
         | ENUM NAME
@@ -315,10 +320,9 @@ option_value: ADD
 state_sets: state_sets state_set
           | state_set
 
-state_set: SS NAME LBRACE ss_defns states RBRACE
+state_set: STATE_SET NAME LBRACE ss_defns states RBRACE
 
-ss_defns: ss_defns ss_defn
-        | 
+ss_defns: ss_defn*
 
 ss_defn: assign
        | monitor
@@ -326,13 +330,11 @@ ss_defn: assign
        | syncq
        | declaration
 
-states: states state
-      | state
+states: state*
 
-state: STATE NAME LBRACE state_defns entry transitions exit RBRACE
+state: STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
 
-state_defns: state_defns state_defn
-           | 
+state_defns: state_defn*
 
 state_defn: assign
           | monitor
@@ -342,13 +344,10 @@ state_defn: assign
           | option
 
 entry: ENTRY block
-     | 
 
 exit: EXIT block
-    | 
 
-transitions: transitions transition
-           | transition
+transitions: transition+
 
 transition: WHEN LPAREN condition RPAREN block STATE NAME
           | WHEN LPAREN condition RPAREN block EXIT
@@ -359,7 +358,7 @@ condition: opt_expr
 block: LBRACE block_defns statements RBRACE
 
 block_defns: block_defns block_defn
-           | 
+           |
 
 block_defn: declaration
           | c_code
@@ -367,7 +366,7 @@ block_defn: declaration
 // Statements
 
 statements: statements statement
-          | 
+          |
 
 statement: BREAK SEMICOLON
          | CONTINUE SEMICOLON
@@ -454,13 +453,13 @@ comma_expr: comma_expr COMMA expr
           | expr
 
 opt_expr: comma_expr
-        | 
+        |
 
 // Function arguments
 // Syntactically the same as opt_expr but interpreted differently.
 args: args COMMA expr
     | expr
-    | 
+    |
 
 string: STRCON
 member: NAME
@@ -480,6 +479,5 @@ member_decls: member_decl
 member_decl: basetype declarator SEMICOLON
            | c_code
 
-// Literal  code
-
+// Literal code
 c_code: CCODE
