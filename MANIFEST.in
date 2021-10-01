@@ -5,3 +5,4 @@ recursive-include whatrecord/tests *.substitutions *.substitutions.expanded
 include versioneer.py
 include requirements.txt
 include dev-requirements.txt
+include LICENSE.md
