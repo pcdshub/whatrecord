@@ -1,6 +1,10 @@
+include LICENSE.md
+include README.rst
+include dev-requirements.txt
+include requirements.txt
+include versioneer.py
+
 recursive-include whatrecord/_whatrecord *.pyx
 recursive-include whatrecord/grammar *.lark
 recursive-include whatrecord/tests *.db *.cmd *.dbd *.proto *.pvlist *.acf t1-*.txt
 recursive-include whatrecord/tests *.substitutions *.substitutions.expanded
-include versioneer.py
-include whatrecord/_version.py
