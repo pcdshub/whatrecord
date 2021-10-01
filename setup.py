@@ -94,10 +94,10 @@ def get_extensions():
     return no_cythonize(extensions)
 
 
-# with open("requirements.txt") as fp:
-#     install_requires = [
-#         line for line in fp.read().splitlines() if line and not line.startswith("#")
-#     ]
+with open("requirements.txt") as fp:
+    install_requires = [
+        line for line in fp.read().splitlines() if line and not line.startswith("#")
+    ]
 
 with open("README.rst", encoding="utf-8") as fp:
     readme = fp.read()
@@ -122,7 +122,7 @@ setup(
     description="EPICS IOC record search and meta information tool",
     ext_modules=get_extensions() if epicscorelibs is not None else [],
     include_package_data=True,
-    # install_requires=install_requires,
+    install_requires=install_requires,
     license="BSD",
     long_description=readme,
     python_requires=">=3.7",
