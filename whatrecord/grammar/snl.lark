@@ -170,7 +170,7 @@ CCODE: "%{" /.*?/s "}%"
 
 // The program itself
 
-program: PROGRAM NAME program_param? initial_defns entry? state_sets exit? final_defns
+program: PROGRAM NAME program_param? initial_defns entry state_sets exit final_defns
 
 program_param: LPAREN string RPAREN
 
@@ -193,24 +193,20 @@ _final_defn: c_code
            | funcdef
            | structdef
 
-assign: ASSIGN variable to string SEMICOLON
-      | ASSIGN variable subscript to string SEMICOLON
-      | ASSIGN variable to LBRACE strings RBRACE SEMICOLON
+assign: ASSIGN variable to string SEMICOLON                -> assign_string
+      | ASSIGN variable subscript to string SEMICOLON      -> assign_subscript_string
+      | ASSIGN variable to LBRACE strings RBRACE SEMICOLON -> assign_strings
       | ASSIGN variable SEMICOLON
 
 to: TO?
 
-strings: strings COMMA string
-       | string
-       |
+strings: _comma_separated{string}?
 
 monitor: MONITOR variable opt_subscript SEMICOLON
-// | MONITOR variable opt_subscript error SEMICOLON
 
 sync: SYNC variable opt_subscript to event_flag SEMICOLON
-// | SYNC variable opt_subscript to event_flag error SEMICOLON
 
-syncq: SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON
+syncq: SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON -> syncq_flagged
      | SYNCQ variable opt_subscript syncq_size SEMICOLON
 
 event_flag: NAME
@@ -224,32 +220,26 @@ subscript: LBRACKET INTCON RBRACKET
 
 // Declarations
 declaration: basetype init_declarators SEMICOLON
-           | FOREIGN variables SEMICOLON   // Deprecated
+           | FOREIGN variables SEMICOLON          -> foreign_declaration // Deprecated
 
+init_declarators: _comma_separated{init_declarator}
 
-init_declarators: init_declarator
-                | init_declarators COMMA init_declarator
-
-init_declarator: declarator
-               | declarator EQUAL init_expr
+init_declarator: declarator (EQUAL init_expr)?
 
 declarator: variable
-          | declarator subscript
-          | declarator LPAREN param_decls RPAREN
-          | LPAREN declarator RPAREN
-          | ASTERISK declarator
-          | CONST declarator
+          | declarator LPAREN param_decls RPAREN   -> declarator_decls
+          | declarator subscript                   -> declarator_subscript
+          | LPAREN declarator RPAREN               -> declarator_paren
+          | ASTERISK declarator                    -> declarator_deref
+          | CONST declarator                       -> declarator_const
 
-param_decls:
-           | param_decl
-           | param_decls COMMA param_decl
+param_decls: _comma_separated{param_decl}?
 
 // Allow parameter declaration with or without identifier
 param_decl: basetype declarator
           | type_expr
 
-variables: variable
-         | variables COMMA variable
+variables: _comma_separated{variable}
 
 // Initializer
 // Note: comma operator not allowed in 'expr'.
@@ -257,9 +247,7 @@ init_expr: LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
          | LBRACE init_exprs RBRACE
          | expr
 
-init_exprs: init_exprs COMMA init_expr
-          | init_expr
-          |
+init_exprs: _comma_separated{init_expr}?
 
 // Type expressions
 
@@ -290,8 +278,7 @@ basetype: PRIM_TYPE
         | UNION NAME
         | TYPENAME NAME
 
-type_expr: basetype
-         | basetype abs_decl
+type_expr: basetype abs_decl?
 
 // abstract_declarator
 abs_decl: LPAREN abs_decl RPAREN
@@ -317,8 +304,7 @@ option_value: ADD
             | SUB
 
 // State sets and states
-state_sets: state_sets state_set
-          | state_set
+state_sets: state_set+
 
 state_set: STATE_SET NAME LBRACE ss_defns states RBRACE
 
@@ -332,7 +318,7 @@ _ss_defn: assign
 
 states: state*
 
-state: STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
+state: STATE NAME LBRACE state_defns entry transitions exit RBRACE
 
 state_defns: _state_defn*
 
@@ -343,14 +329,13 @@ _state_defn: assign
            | declaration
            | option
 
-entry: ENTRY block
-
-exit: EXIT block
+entry: (ENTRY block)?
+exit: (EXIT block)?
 
 transitions: transition+
 
 transition: WHEN LPAREN condition RPAREN block STATE NAME
-          | WHEN LPAREN condition RPAREN block EXIT
+          | WHEN LPAREN condition RPAREN block EXIT        -> transition_exit
 // | WHEN LPAREN condition RPAREN block error // report("expected 'state' or 'exit'\n");
 
 condition: opt_expr
@@ -366,19 +351,20 @@ _block_defn: declaration
 
 statements: statement*
 
-statement: BREAK SEMICOLON
-         | CONTINUE SEMICOLON
-         | RETURN opt_expr SEMICOLON
-         | STATE NAME SEMICOLON
+statement: BREAK SEMICOLON                              -> break_statement
+         | CONTINUE SEMICOLON                           -> continue_statement
+         | RETURN opt_expr SEMICOLON                    -> return_statement
+         | STATE NAME SEMICOLON                         -> state_statement
          | c_code
          | block
-         | IF LPAREN comma_expr RPAREN statement
-         | IF LPAREN comma_expr RPAREN statement ELSE statement
-         | WHILE LPAREN comma_expr RPAREN statement
+         | if_statement
+         | WHILE LPAREN comma_expr RPAREN statement     -> while_statement
          | for_statement
-         | opt_expr SEMICOLON
+         | opt_expr SEMICOLON                           -> expr_statement
 //       | error SEMICOLON(t).
 
+
+if_statement: IF LPAREN comma_expr RPAREN statement (ELSE statement)?
 
 for_statement: FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
 
@@ -392,71 +378,78 @@ floating_point_literal: FPCON
 integer_literal: INTCON
 
 // Atomic
-?expr: integer_literal
-     | floating_point_literal
-     | string
-     | variable
-     | LPAREN comma_expr RPAREN // Primary Expression and Unary Postfix Operators
-     | expr LPAREN args RPAREN
-     | EXIT LPAREN args RPAREN
-     | SIZEOF LPAREN type_expr RPAREN
-     | expr LBRACKET expr RBRACKET
-     | expr PERIOD member
-     | expr POINTER member
-     | expr INCR
-     | expr DECR
-     | ADD   expr   // Unary Prefix Operators
-     | SUB   expr
-     | ASTERISK  expr
-     | AMPERSAND expr
-     | NOT   expr
-     | TILDE expr
-     | INCR  expr
-     | DECR  expr
-     | SIZEOF    expr
-     | LPAREN type_expr RPAREN expr   // type cast
-     | expr SUB expr  // Binary Operators, left-to-right
-     | expr ADD expr
-     | expr ASTERISK expr
-     | expr SLASH expr
-     | expr GT expr
-     | expr GE expr
-     | expr EQ expr
-     | expr NE expr
-     | expr LE expr
-     | expr LT expr
-     | expr OROR expr
-     | expr ANDAND expr
-     | expr LSHIFT expr
-     | expr RSHIFT expr
-     | expr VBAR expr
-     | expr CARET expr
-     | expr AMPERSAND expr
-     | expr MOD expr
-     | expr QUESTION expr COLON expr
-     | expr EQUAL expr
-     | expr ADDEQ expr
-     | expr SUBEQ expr
-     | expr ANDEQ expr
-     | expr OREQ expr
-     | expr DIVEQ expr
-     | expr MULEQ expr
-     | expr MODEQ expr
-     | expr LSHEQ expr
-     | expr RSHEQ expr
-     | expr XOREQ expr
+?expr: literal_expr
+     | LPAREN comma_expr RPAREN       -> parenthesized_expr
+     | expr LPAREN args RPAREN        -> expr_with_args
+     | expr LBRACKET expr RBRACKET    -> bracket_expr
+     | EXIT LPAREN args RPAREN        -> exit_expr
+     | SIZEOF LPAREN type_expr RPAREN -> sizeof
+     | unary_postfix_expr
+     | unary_prefix_expr
+     | binary_operator_expr
+     | LPAREN type_expr RPAREN expr   -> type_cast_expr
+     | expr QUESTION expr COLON expr  -> ternary_expr
+
+
+member_expr: expr PERIOD member
+           | expr POINTER member
+
+literal_expr: integer_literal
+            | floating_point_literal
+            | string
+            | variable
+
+unary_postfix_expr: expr INCR
+                  | expr DECR
+
+unary_prefix_expr: ADD expr   // Unary Prefix Operators
+                 | SUB expr
+                 | ASTERISK expr
+                 | AMPERSAND expr
+                 | NOT expr
+                 | TILDE expr
+                 | INCR expr
+                 | DECR expr
+                 | SIZEOF expr
+
+binary_operator_expr: expr SUB expr  // Binary Operators, left-to-right
+                    | expr ADD expr
+                    | expr ASTERISK expr
+                    | expr SLASH expr
+                    | expr GT expr
+                    | expr GE expr
+                    | expr EQ expr
+                    | expr NE expr
+                    | expr LE expr
+                    | expr LT expr
+                    | expr OROR expr
+                    | expr ANDAND expr
+                    | expr LSHIFT expr
+                    | expr RSHIFT expr
+                    | expr VBAR expr
+                    | expr CARET expr
+                    | expr AMPERSAND expr
+                    | expr MOD expr
+                    | expr EQUAL expr
+                    | expr ADDEQ expr
+                    | expr SUBEQ expr
+                    | expr ANDEQ expr
+                    | expr OREQ expr
+                    | expr DIVEQ expr
+                    | expr MULEQ expr
+                    | expr MODEQ expr
+                    | expr LSHEQ expr
+                    | expr RSHEQ expr
+                    | expr XOREQ expr
 
 // Comma, left-to-right
-comma_expr: comma_expr COMMA expr
-          | expr
+comma_expr: _comma_separated{expr}
 
 opt_expr: comma_expr?
 
 // Function arguments
 // Syntactically the same as opt_expr but interpreted differently.
-args: args COMMA expr
-    | expr
-    |
+args: _comma_separated{expr}?
 
 string: STRCON
 member: NAME
@@ -470,11 +463,12 @@ structdef: STRUCT NAME members SEMICOLON
 
 members: LBRACE member_decls RBRACE
 
-member_decls: member_decl
-            | member_decls member_decl
+member_decls: member_decl+
 
 member_decl: basetype declarator SEMICOLON
-           | c_code
+           | c_code                          -> member_decl_ccode
 
 // Literal code
 c_code: CCODE
+
+_comma_separated{x}: x ( "," x )*

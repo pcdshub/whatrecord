@@ -4,23 +4,314 @@ import collections
 import pathlib
 import shlex
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional, Union
 
 import lark
 
-from .common import AnyPath
+from . import transformer
+from .common import AnyPath, FullLoadContext
+from .transformer import context_from_token
 
-# from . import transformer
-# from .common import (AnyPath, FullLoadContext, ShellStateHandler,
-#                      StringWithContext)
-# from .db import RecordInstance
-# from .transformer import context_from_token
+
+@dataclass
+class Assignment:
+    context: FullLoadContext
+    variable: str
+    value: Optional[Union[str, List[str]]] = None
+    subscript: Optional[int] = None
+
+
+@dataclass
+class AbstractDeclarator:
+    context: FullLoadContext
+
+
+@dataclass
+class Type:
+    context: FullLoadContext
+    name: str
+    abstract: Optional[AbstractDeclarator] = None
+
+
+@dataclass
+class Monitor:
+    context: FullLoadContext
+    variable: str
+    subscript: Optional[int]
+
+
+@dataclass
+class Option:
+    context: FullLoadContext
+    name: str
+    enable: bool
+
+
+@dataclass
+class Sync:
+    context: FullLoadContext
+    variable: str
+    subscript: Optional[int]
+    queued: bool
+    event_flag: Optional[str] = None
+    queue_size: Optional[int] = None
+
+
+@dataclass
+class Declaration:
+    context: FullLoadContext
+    type: Type
+    declarators: List[Declarator]
+
+
+@dataclass
+class Variable:
+    context: FullLoadContext
+    name: str
+
+
+@dataclass
+class ForeignVariable:
+    context: FullLoadContext
+    name: str
+
+
+@dataclass
+class Declarator:
+    context: FullLoadContext
+    object: Union[Declarator, Variable]
+    params: Optional[List[Expression]] = None
+    value: Optional[Expression] = None
+    modifier: Optional[str] = None
+    subscript: Optional[int] = None
+
+
+@dataclass
+class Parameter:
+    context: FullLoadContext
+
+
+Definition = Union[
+    Assignment,
+    Monitor,
+    Sync,
+    Declaration,
+]
+
+
+@dataclass
+class State:
+    context: FullLoadContext
+    name: str
+    definitions: List[Definition]
+    transitions: List[Transition]
+    entry: Optional[Block] = None
+    exit: Optional[Block] = None
+
+
+@dataclass
+class StateSet:
+    context: FullLoadContext
+    name: str
+    definitions: List[Definition]
+    states: List[State]
+
+
+@dataclass
+class Transition:
+    context: FullLoadContext
+    block: Block
+    target_state: Optional[str] = None
+    condition: Optional[Expression] = None
+
+
+@dataclass
+class ExitTransition(Transition):
+    ...
+
+
+@dataclass
+class Block:
+    context: FullLoadContext
+    definitions: List[Definition]
+    statements: List[Statement]
+
+
+@dataclass
+class Statement:
+    context: FullLoadContext
+
+
+@dataclass
+class BreakStatement(Statement):
+    ...
+
+
+@dataclass
+class ContinueStatement(Statement):
+    ...
+
+
+@dataclass
+class ReturnStatement(Statement):
+    value: Optional[Expression] = None
+
+
+@dataclass
+class StateStatement(Statement):
+    name: str
+
+
+@dataclass
+class WhileStatement(Statement):
+    condition: Expression
+    body: Statement
+
+
+@dataclass
+class ForStatement(Statement):
+    init: Expression
+    condition: Expression
+    increment: Expression
+    statement: Statement
+
+
+@dataclass
+class ExpressionStatement(Statement):
+    expression: Expression
+
+
+@dataclass
+class IfStatement(Statement):
+    condition: Expression
+    body: Statement
+    else_body: Optional[Statement] = None
+
+
+@dataclass
+class FuncDef:
+    context: FullLoadContext
+    type: Type
+    declarator: Declarator
+    block: Block
+
+
+@dataclass
+class StructMember:
+    context: FullLoadContext
+    type: Type
+    declarator: Declarator
+
+
+@dataclass
+class CCode:
+    context: FullLoadContext
+    code: str
+
+
+@dataclass
+class StructDef:
+    context: FullLoadContext
+    name: Type
+    members: List[Union[StructMember, CCode]]
+
+
+@dataclass
+class Expression:
+    context: FullLoadContext
+
+
+@dataclass
+class InitExpression(Expression):
+    # ( type ) { exprs }
+    # LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
+    # LBRACE init_exprs RBRACE
+    # expr
+    type: Type
+
+
+@dataclass
+class Literal(Expression):
+    type: str
+    value: str
+
+
+@dataclass
+class UnaryPrefixExpression(Expression):
+    operator: str
+    expression: Expression
+
+
+@dataclass
+class UnaryPostfixExpression(Expression):
+    expression: Expression
+    operator: str
+
+
+@dataclass
+class BinaryOperatorExpression(Expression):
+    left: Expression
+    operator: str
+    right: Expression
+
+
+@dataclass
+class TypeCastExpression(Expression):
+    type: Type
+    expression: Expression
+
+
+@dataclass
+class TernaryExpression(Expression):
+    condition: Expression
+    if_true: Expression
+    if_false: Expression
+
+
+@dataclass
+class MemberExpression(Expression):
+    parent: Expression
+    member: str
+    dereference: bool  # True = ->, False = .
+
+
+@dataclass
+class SizeofExpression(Expression):
+    type: Type
+
+
+@dataclass
+class ExitExpression(Expression):
+    expression: Expression
+
+
+@dataclass
+class BracketedExpression(Expression):
+    outer: Expression
+    inner: Expression
+
+
+@dataclass
+class ParenthesisExpression(Expression):
+    expression: Expression
+
+
+@dataclass
+class ExpressionWithArguments(Expression):
+    expression: Expression
+    arguments: Expression
 
 
 @dataclass
 class SequencerProgram:
     """Representation of a state notation language (snl seq) program."""
-    # variables: Dict[str, str] = field(default_factory=dict)
+    context: FullLoadContext
+    name: str
+    initial_definitions: List[Definition]
+    entry: Block
+    state_sets: List[StateSet]
+    exit: Block
+    final_definitions: List[Definition]
 
     @staticmethod
     def preprocess(code: str, search_path: Optional[AnyPath] = None) -> str:
@@ -80,6 +371,7 @@ class SequencerProgram:
             search_paths=("grammar", ),
             parser="earley",
             lexer_callbacks={"COMMENT": comments.append},
+            propagate_positions=True,
         )
 
         search_path = None
@@ -123,10 +415,561 @@ class SequencerProgram:
 @lark.visitors.v_args(inline=True)
 class _ProgramTransformer(lark.visitors.Transformer):
     def __init__(self, cls, fn, visit_tokens=False):
-        super().__init__(visit_tokens=visit_tokens)
+        super().__init__(visit_tokens=visit_tokens, )
         self.fn = str(fn)
         self.cls = cls
 
+    def program(
+        self,
+        program_token: lark.Token,
+        name: lark.Token,
+        initial_defns: List[Definition],
+        entry: Block,
+        state_sets: List[StateSet],
+        exit: Block,
+        final_defns: List[Definition],
+    ):
+        # PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
+        return self.cls(
+            context=context_from_token(self.fn, program_token),
+            name=str(name),
+            initial_definitions=initial_defns,
+            entry=entry,
+            state_sets=state_sets,
+            exit=exit,
+            final_definitions=final_defns,
+        )
+
+    # @lark.visitors.v_args(tree=True)
+    # def program(self, body):
+    #     return body
+
+    def program_param(self, *args):
+        if not args:
+            return None
+        # LPAREN string RPAREN
+        return str(args[1])
+
+    initial_defns = transformer.tuple_args
+    final_defns = transformer.tuple_args
+
+    def assign(self, assign_token, variable, _):
+        # ASSIGN variable SEMICOLON
+        return Assignment(
+            context=context_from_token(self.fn, assign_token),
+            variable=str(variable),
+        )
+
+    def assign_string(self, assign_token, variable, to_, value, _):
+        # ASSIGN variable to string SEMICOLON
+        return Assignment(
+            context=context_from_token(self.fn, assign_token),
+            variable=str(variable),
+            value=str(value),
+        )
+
+    def assign_subscript_string(self, assign_token, variable, subscript, to_, value, _):
+        # ASSIGN variable subscript to string SEMICOLON
+        return Assignment(
+            context=context_from_token(self.fn, assign_token),
+            variable=str(variable),
+            value=str(value),
+            subscript=subscript,
+        )
+
+    def assign_strings(self, assign_token, variable, to_, _, strings, *__):
+        # ASSIGN variable to LBRACE strings RBRACE SEMICOLON
+        return Assignment(
+            context=context_from_token(self.fn, assign_token),
+            variable=str(variable),
+            value=strings,
+        )
+
+    strings = transformer.tuple_args
+
+    def monitor(self, monitor_token, variable, opt_subscript, _):
+        # MONITOR variable opt_subscript SEMICOLON
+        return Monitor(
+            context=context_from_token(self.fn, monitor_token),
+            variable=str(variable),
+            subscript=opt_subscript,
+        )
+
+    def sync(self, sync_token, variable, subscript, _, event_flag, __):
+        # SYNC variable opt_subscript to event_flag SEMICOLON
+        return Sync(
+            context=context_from_token(self.fn, sync_token),
+            variable=str(variable),
+            subscript=subscript,
+            event_flag=event_flag,
+            queued=False,
+        )
+
+    def syncq_flagged(self, syncq_token, variable, subscript, _, event_flag, syncq_size, __):
+        # SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON
+        return Sync(
+            context=context_from_token(self.fn, syncq_token),
+            variable=str(variable),
+            subscript=subscript,
+            event_flag=event_flag,
+            queued=True,
+            queue_size=syncq_size,
+        )
+
+    def syncq(self, syncq_token, variable, subscript, syncq_size, _):
+        # SYNCQ variable opt_subscript syncq_size SEMICOLON
+        return Sync(
+            context=context_from_token(self.fn, syncq_token),
+            variable=str(variable),
+            subscript=subscript,
+            queued=True,
+            queue_size=syncq_size,
+        )
+
+    event_flag = transformer.stringify
+    variable = transformer.pass_through
+
+    def syncq_size(self, size=None):
+        # INTCON?
+        return int(size) if size else None
+
+    def opt_subscript(self, subscript=None):
+        return subscript
+
+    def subscript(self, _, value, __):
+        # LBRACKET INTCON RBRACKET
+        return value
+
+    def declaration(self, basetype: Type, init_declarators, _):
+        # basetype init_declarators SEMICOLON
+        return Declaration(
+            context=basetype.context,
+            type=basetype,
+            declarators=init_declarators,
+        )
+
+    def foreign_declaration(self, foreign_token, variables, _):
+        # FOREIGN variables SEMICOLON
+        return [
+            ForeignVariable(
+                context=context_from_token(self.fn, variable),
+                name=str(variable),
+            )
+            for variable in variables
+        ]
+
+    init_declarators = transformer.tuple_args
+
+    def init_declarator(self, declarator: Declarator, *equal_expr):
+        if equal_expr:
+            _, value = equal_expr
+            declarator.value = value
+        return declarator
+
+    def declarator(self, variable: lark.Token):
+        return Declarator(
+            context=context_from_token(self.fn, variable),
+            object=Variable(
+                context=context_from_token(self.fn, variable),
+                name=str(variable),
+            ),
+        )
+
+    def declarator_decls(self, declarator, _, param_decls, __):
+        return Declarator(
+            context=declarator.context,
+            object=declarator,
+            params=param_decls,
+        )
+
+    def declarator_subscript(self, declarator, subscript):
+        return Declarator(
+            context=declarator.context,
+            object=declarator,
+            subscript=subscript,
+        )
+
+    def declarator_paren(self, _, declarator, __):
+        return Declarator(
+            context=declarator.context,
+            object=declarator,
+            modifier="()",
+        )
+
+    def declarator_deref(self, asterisk, declarator):
+        return Declarator(
+            context=context_from_token(self.fn, asterisk),
+            object=declarator,
+            modifier="*",
+        )
+
+    def declarator_const(self, const, declarator):
+        return Declarator(
+            context=context_from_token(self.fn, const),
+            object=declarator,
+            modifier="const",
+        )
+
+    param_decls = transformer.tuple_args
+
+    # def param_decl(self, type_, declarator=None):
+    #     # basetype declarator
+    #     # type_expr
+    # TODO not done yet
+
+    variables = transformer.tuple_args
+
+    def init_expr(self, lparen, type_expr, _, __, init_exprs, ___):
+        # LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
+        # TODO wrong
+        return InitExpression(
+            context=context_from_token(self.fn, lparen),
+            type=type_expr,
+            init_exprs=init_exprs,
+        )
+
+    init_exprs = transformer.tuple_args
+
+    def basetype(self, *type_info):
+        return Type(
+            context=context_from_token(self.fn, type_info[0]),
+            name=" ".join(type_info),
+        )
+
+    def type_expr(self, basetype, abs_decl=None):
+        basetype.abstract = abs_decl
+        return basetype
+
+    def abs_decl(self, *args):
+        # LPAREN abs_decl RPAREN
+        # ASTERISK
+        # ASTERISK abs_decl
+        # CONST
+        # CONST abs_decl
+        # subscript
+        # abs_decl subscript
+        # LPAREN param_decls RPAREN
+        # abs_decl LPAREN param_decls RPAREN
+        # TODO not done yet
+        return args  # TODO
+
+    def option(self, option_token, value, name, _):
+        # OPTION option_value NAME SEMICOLON
+        return Option(
+            context=context_from_token(self.fn, option_token),
+            name=name,
+            enable=(value == "+"),  # "+" or "-"
+        )
+
+    option_value = transformer.stringify
+    state_sets = transformer.tuple_args
+
+    def state_set(self, state_set_token, name, _, defns, states, __):
+        # STATE_SET NAME LBRACE ss_defns states RBRACE
+        return StateSet(
+            context=context_from_token(self.fn, state_set_token),
+            name=name,
+            definitions=defns,
+            states=states,
+        )
+
+    ss_defns = transformer.tuple_args
+
+    states = transformer.tuple_args
+
+    def state(
+        self,
+        state_token,
+        name: lark.Token,
+        _,
+        definitions: List[Definition],
+        entry: Block,
+        transitions: List[Transition],
+        exit: Block,
+        __,
+    ):
+        # STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
+        return State(
+            context=context_from_token(self.fn, state_token),
+            name=str(name),
+            definitions=definitions,
+            entry=entry,
+            transitions=transitions,
+            exit=exit,
+        )
+
+    state_defns = transformer.tuple_args
+
+    def entry(self, *args):
+        if args:
+            _, block = args
+            return block
+        return None
+
+    exit = entry
+    transitions = transformer.tuple_args
+
+    def transition(
+        self,
+        when: lark.Token,
+        _,
+        condition: Expression,
+        __,
+        block: Block,
+        ___,
+        state: lark.Token,
+    ):
+        # WHEN LPAREN condition RPAREN block STATE NAME
+        return Transition(
+            context=context_from_token(self.fn, when),
+            condition=condition,
+            block=block,
+            target_state=str(state),
+        )
+
+    def transition_exit(self, when: lark.Token, _, condition: Expression, __, block: Block, ___):
+        # WHEN LPAREN condition RPAREN block EXIT
+        return ExitTransition(
+            context=context_from_token(self.fn, when),
+            condition=condition,
+            block=block,
+        )
+
+    condition = transformer.pass_through
+
+    def block(self, lbrace: lark.Token, definitions, statements, _):
+        # LBRACE block_defns statements RBRACE
+        return Block(
+            context=context_from_token(self.fn, lbrace),
+            definitions=definitions,
+            statements=statements,
+        )
+
+    block_defns = transformer.tuple_args
+    statements = transformer.tuple_args
+    statement = transformer.pass_through
+
+    def break_statement(self, break_token: lark.Token, _):
+        return BreakStatement(
+            context=context_from_token(self.fn, break_token),
+        )
+
+    def continue_statement(self, continue_token: lark.Token, _):
+        return ContinueStatement(
+            context=context_from_token(self.fn, continue_token),
+        )
+
+    def return_statement(self, return_token: lark.Token, value: Expression, _):
+        return ReturnStatement(
+            context=context_from_token(self.fn, return_token),
+            value=value,
+        )
+
+    def state_statement(self, state_token: lark.Token, name: lark.Token, _):
+        return StateStatement(
+            context=context_from_token(self.fn, state_token),
+            name=str(name),
+        )
+
+    def while_statement(
+        self,
+        while_token: lark.Token,
+        _,
+        condition: Expression,
+        __,
+        statement: Statement,
+    ):
+        return WhileStatement(
+            context=context_from_token(self.fn, while_token),
+            condition=condition,
+            body=statement,
+        )
+
+    def expr_statement(self, expression: Expression, semicolon: lark.Token):
+        return ExpressionStatement(
+            context=context_from_token(self.fn, semicolon),
+            expression=expression,
+        )
+
+    statement = transformer.pass_through
+
+    def if_statement(
+        self,
+        if_token: lark.Token,
+        _,
+        condition: Expression,
+        __,
+        body: Expression,
+        *else_clause
+    ):
+        if else_clause:
+            else_token, else_body = else_clause
+        else:
+            else_body = None
+
+        # IF LPAREN comma_expr RPAREN statement (ELSE statement)?
+        return IfStatement(
+            context=context_from_token(self.fn, if_token),
+            condition=condition,
+            body=body,
+            else_body=else_body,
+        )
+
+    def for_statement(
+        self,
+        for_token: lark.Token,
+        _,
+        init: Expression,
+        __,
+        condition: Expression,
+        ___,
+        increment: Expression,
+        ____,
+        statement: Statement,
+    ):
+        # FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+        return ForStatement(
+            context=context_from_token(self.fn, for_token),
+            init=init,
+            condition=condition,
+            increment=increment,
+            statement=statement,
+        )
+
+    def unary_prefix_expr(self, operator: lark.Token, expr: Expression):
+        return UnaryPrefixExpression(
+            context=context_from_token(self.fn, operator),
+            operator=str(operator),
+            expression=expr,
+        )
+
+    def unary_postfix_expr(self, expr: Expression, operator: lark.Token):
+        return UnaryPostfixExpression(
+            context=context_from_token(self.fn, operator),
+            expression=expr,
+            operator=str(operator),
+        )
+
+    def binary_operator_expr(self, lhand: Expression, operator: lark.Token, rhand: Expression):
+        return BinaryOperatorExpression(
+            context=context_from_token(self.fn, operator),
+            left=lhand,
+            operator=str(operator),
+            right=rhand,
+        )
+
+    def type_cast_expr(self, lparen, type_expr, _, expr):
+        return TypeCastExpression(
+            context=context_from_token(self.fn, lparen),
+            type=type_expr,
+            expression=expr,
+        )
+
+    def sizeof(self, sizeof_token: lark.Token, _, type_expr: Type, __):
+        return SizeofExpression(
+            context=context_from_token(self.fn, sizeof_token),
+            type=type_expr,
+        )
+
+    def exit_expr(self, exit_token: lark.Token, _, expr: Expression, __):
+        return ExitExpression(
+            context=context_from_token(self.fn, exit_token),
+            expression=expr,
+        )
+
+    def expr_with_args(self, expression: Expression, tok: lark.Token, arguments: Expression, __):
+        return ExpressionWithArguments(
+            context=context_from_token(self.fn, tok),
+            expression=expression,
+            arguments=arguments,
+        )
+
+    def bracket_expr(self, outer: Expression, tok: lark.Token, inner: Expression, __):
+        return BracketedExpression(
+            context=context_from_token(self.fn, tok),
+            outer=outer,
+            inner=inner,
+        )
+
+    def parenthesized_expr(self, lparen: lark.Token, expression: Expression, _):
+        return ParenthesisExpression(
+            context=context_from_token(self.fn, lparen),
+            expression=expression,
+        )
+
+    def ternary_expr(self, condition, question, if_true, _, if_false):
+        return TernaryExpression(
+            context=context_from_token(self.fn, question),
+            condition=condition,
+            if_true=if_true,
+            if_false=if_false,
+        )
+
+    def member_expr(self, expr: Expression, operator: lark.Token, member: lark.Token):
+        return MemberExpression(
+            context=context_from_token(self.fn, operator),
+            parent=expr,
+            member=str(member),
+            dereference=operator == "->",
+        )
+
     @lark.visitors.v_args(tree=True)
-    def program(self, body):
-        return body
+    def literal_expr(self, item):
+        child = item.children[0]
+        if isinstance(child, lark.Token):
+            value = str(child)
+        else:
+            value = "".join(child.children)
+        return Literal(
+            context=context_from_token(self.fn, item),
+            type=item.data,
+            # [Tree('variable', [Token('NAME', 'seq_test_init')])]
+            value=value,
+        )
+
+    comma_expr = transformer.tuple_args
+    opt_expr = transformer.pass_through
+
+    args = transformer.tuple_args
+
+    string = transformer.pass_through
+    member = transformer.pass_through
+
+    def funcdef(self, basetype: Type, declarator: Declarator, block: Block):
+        # basetype declarator block
+        return FuncDef(
+            context=basetype.context,
+            type=basetype,
+            declarator=declarator,
+            block=block,
+        )
+
+    def structdef(self, struct_token, name, members, _):
+        # STRUCT NAME members SEMICOLON
+        return StructDef(
+            context=context_from_token(self.fn, struct_token),
+            name=name,
+            members=members,
+        )
+
+    def members(self, _, decls, __):
+        # LBRACE member_decls RBRACE
+        return decls
+
+    member_decls = transformer.tuple_args
+
+    def member_decl(self, type: Type, declarator: Declarator, _):
+        # basetype declarator SEMICOLON
+        return StructMember(
+            context=type.context,
+            type=type,
+            declarator=declarator,
+        )
+
+    member_decl_ccode = transformer.pass_through
+
+    def c_code(self, c_code):
+        return CCode(
+            context=context_from_token(self.fn, c_code),
+            code=str(c_code),
+        )

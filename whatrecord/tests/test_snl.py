@@ -47,7 +47,11 @@ def test_parse(program_filename):
         )
 
     program = SequencerProgram.from_file(program_filename)
-    print(program.pretty())
+
+    # from ..format import FormatContext
+    # ctx = FormatContext()
+    # print(ctx.render_object(program, "console"))
+    print(program)
 
     # serialized = apischema.serialize(program)
     # pprint.pprint(serialized)
