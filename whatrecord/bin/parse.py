@@ -21,6 +21,7 @@ from ..format import FormatContext
 from ..gateway import PVList as GatewayPVList
 from ..macro import MacroContext
 from ..shell import LoadedIoc
+from ..snl import SequencerProgram
 from ..streamdevice import StreamProtocol
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,7 @@ ParseResult = Union[
     GatewayPVList,
     LinterResults,
     LoadedIoc,
+    SequencerProgram,
     StreamProtocol,
     TemplateSubstitution,
 ]
@@ -190,6 +192,9 @@ def parse(
             dbd=Database.from_file(dbd) if dbd is not None else None,
             filename=filename,
         )
+
+    if format == FileFormat.state_notation:
+        return SequencerProgram.from_file(filename)
 
     with open(filename, "rt") as fp:
         contents = fp.read()
