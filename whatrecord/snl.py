@@ -229,9 +229,12 @@ class InitExpression(Expression):
         { init_exprs }
         expr
     """
+
     # TODO: may be improved?
     context: FullLoadContext
-    expressions: Tuple[Union[InitExpression, Expression], ...] = field(default_factory=tuple)
+    expressions: Tuple[Union[InitExpression, Expression], ...] = field(
+        default_factory=tuple
+    )
     type: Optional[Type] = None
 
 
@@ -310,6 +313,7 @@ class ExpressionWithArguments(Expression):
 @dataclass
 class SequencerProgram:
     """Representation of a state notation language (snl seq) program."""
+
     context: FullLoadContext
     name: str
     params: Optional[str]
@@ -329,12 +333,7 @@ class SequencerProgram:
         # with lark...
         search_path = pathlib.Path("." if search_path is None else search_path)
         result = []
-        stack = collections.deque(
-            [
-                (search_path, line)
-                for line in code.splitlines()
-            ]
-        )
+        stack = collections.deque([(search_path, line) for line in code.splitlines()])
         while stack:
             search_path, line = stack.popleft()
             if line.startswith("#include"):
@@ -377,7 +376,7 @@ class SequencerProgram:
         grammar = lark.Lark.open_from_package(
             "whatrecord",
             "snl.lark",
-            search_paths=("grammar", ),
+            search_paths=("grammar",),
             parser="earley",
             lexer_callbacks={"COMMENT": comments.append},
             propagate_positions=True,
@@ -425,7 +424,9 @@ class SequencerProgram:
 @lark.visitors.v_args(inline=True)
 class _ProgramTransformer(lark.visitors.Transformer):
     def __init__(self, cls, fn, visit_tokens=False):
-        super().__init__(visit_tokens=visit_tokens, )
+        super().__init__(
+            visit_tokens=visit_tokens,
+        )
         self.fn = str(fn)
         self.cls = cls
 
@@ -532,7 +533,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
             queued=False,
         )
 
-    def syncq_flagged(self, syncq_token, variable, subscript, _, event_flag, syncq_size, __):
+    def syncq_flagged(
+        self, syncq_token, variable, subscript, _, event_flag, syncq_size, __
+    ):
         """
         SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON
         """
@@ -655,9 +658,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         type_expr
         """
         return ParameterDeclarator(
-            context=type_.context,
-            type=type_,
-            declarator=declarator
+            context=type_.context, type=type_, declarator=declarator
         )
 
     variables = transformer.tuple_args
@@ -712,7 +713,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
     def abs_decl_subscript(self, *args):
         # TODO I think these may be wrong
         if len(args) == 1:
-            subscript, = args
+            (subscript,) = args
             return AbstractDeclarator(
                 context=context_from_token(self.fn, subscript),
                 subscript=str(subscript),
@@ -820,7 +821,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
             target_state=str(state),
         )
 
-    def transition_exit(self, when: lark.Token, _, condition: Expression, __, block: Block, ___):
+    def transition_exit(
+        self, when: lark.Token, _, condition: Expression, __, block: Block, ___
+    ):
         """
         WHEN LPAREN condition RPAREN block EXIT
         """
@@ -951,7 +954,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
             operator=str(operator),
         )
 
-    def binary_operator_expr(self, lhand: Expression, operator: lark.Token, rhand: Expression):
+    def binary_operator_expr(
+        self, lhand: Expression, operator: lark.Token, rhand: Expression
+    ):
         return BinaryOperatorExpression(
             context=context_from_token(self.fn, operator),
             left=lhand,
