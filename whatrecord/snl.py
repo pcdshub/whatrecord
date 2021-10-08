@@ -4,7 +4,7 @@ import collections
 import pathlib
 import shlex
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Optional, Tuple, Union
 
 import lark
 
@@ -17,13 +17,16 @@ from .transformer import context_from_token
 class Assignment:
     context: FullLoadContext
     variable: str
-    value: Optional[Union[str, List[str]]] = None
+    value: Optional[Union[str, Tuple[str, ...]]] = None
     subscript: Optional[int] = None
 
 
 @dataclass
 class AbstractDeclarator:
     context: FullLoadContext
+    params: Tuple[ParameterDeclarator, ...]
+    modifier: Optional[str] = None
+    subscript: Optional[int] = None
 
 
 @dataclass
@@ -61,13 +64,7 @@ class Sync:
 class Declaration:
     context: FullLoadContext
     type: Type
-    declarators: List[Declarator]
-
-
-@dataclass
-class Variable:
-    context: FullLoadContext
-    name: str
+    declarators: Tuple[Declarator, ...]
 
 
 @dataclass
@@ -80,7 +77,7 @@ class ForeignVariable:
 class Declarator:
     context: FullLoadContext
     object: Union[Declarator, Variable]
-    params: Optional[List[Expression]] = None
+    params: Optional[Tuple[Expression, ...]] = None
     value: Optional[Expression] = None
     modifier: Optional[str] = None
     subscript: Optional[int] = None
@@ -89,6 +86,13 @@ class Declarator:
 @dataclass
 class Parameter:
     context: FullLoadContext
+
+
+@dataclass
+class ParameterDeclarator:
+    context: FullLoadContext
+    type: Type
+    declarator: Optional[Declarator] = None
 
 
 Definition = Union[
@@ -103,8 +107,8 @@ Definition = Union[
 class State:
     context: FullLoadContext
     name: str
-    definitions: List[Definition]
-    transitions: List[Transition]
+    definitions: Tuple[Definition, ...]
+    transitions: Tuple[Transition, ...]
     entry: Optional[Block] = None
     exit: Optional[Block] = None
 
@@ -113,8 +117,8 @@ class State:
 class StateSet:
     context: FullLoadContext
     name: str
-    definitions: List[Definition]
-    states: List[State]
+    definitions: Tuple[Definition, ...]
+    states: Tuple[State, ...]
 
 
 @dataclass
@@ -133,8 +137,8 @@ class ExitTransition(Transition):
 @dataclass
 class Block:
     context: FullLoadContext
-    definitions: List[Definition]
-    statements: List[Statement]
+    definitions: Tuple[Definition, ...]
+    statements: Tuple[Statement, ...]
 
 
 @dataclass
@@ -212,8 +216,8 @@ class CCode:
 @dataclass
 class StructDef:
     context: FullLoadContext
-    name: Type
-    members: List[Union[StructMember, CCode]]
+    name: str
+    members: Tuple[Union[StructMember, CCode], ...]
 
 
 @dataclass
@@ -222,12 +226,19 @@ class Expression:
 
 
 @dataclass
+class Variable(Expression):
+    name: str
+
+
+@dataclass
 class InitExpression(Expression):
-    # ( type ) { exprs }
-    # LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
-    # LBRACE init_exprs RBRACE
+    # ( type ) { init_exprs }
+    # { init_exprs }
     # expr
-    type: Type
+    # TODO: may be improved?
+    context: FullLoadContext
+    expressions: Tuple[Union[InitExpression, Expression], ...]
+    type: Optional[Type] = None
 
 
 @dataclass
@@ -299,7 +310,7 @@ class ParenthesisExpression(Expression):
 @dataclass
 class ExpressionWithArguments(Expression):
     expression: Expression
-    arguments: Expression
+    arguments: Tuple[Expression, ...]
 
 
 @dataclass
@@ -307,11 +318,12 @@ class SequencerProgram:
     """Representation of a state notation language (snl seq) program."""
     context: FullLoadContext
     name: str
-    initial_definitions: List[Definition]
-    entry: Block
-    state_sets: List[StateSet]
-    exit: Block
-    final_definitions: List[Definition]
+    params: Optional[str]
+    initial_definitions: Tuple[Definition, ...]
+    entry: Optional[Block]
+    state_sets: Tuple[StateSet, ...]
+    exit: Optional[Block]
+    final_definitions: Tuple[Definition, ...]
 
     @staticmethod
     def preprocess(code: str, search_path: Optional[AnyPath] = None) -> str:
@@ -350,11 +362,13 @@ class SequencerProgram:
             elif line.startswith("#endif"):
                 ...  # sorry; this may break things
             elif line.startswith("#define"):
+                while stack and line.endswith("\\"):
+                    search_path, line = stack.popleft()
+
                 ...  # sorry; I think we can do better
             else:
                 result.append(line)
 
-        print("\n".join(result))
         return "\n".join(result)
 
     @classmethod
@@ -362,6 +376,7 @@ class SequencerProgram:
         cls,
         contents: str,
         filename: Optional[AnyPath] = None,
+        debug: bool = False,
     ) -> SequencerProgram:
         """Load a state notation language file given its string contents."""
         comments = []
@@ -372,6 +387,7 @@ class SequencerProgram:
             parser="earley",
             lexer_callbacks={"COMMENT": comments.append},
             propagate_positions=True,
+            debug=debug,
         )
 
         search_path = None
@@ -419,19 +435,24 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self.fn = str(fn)
         self.cls = cls
 
+    # def __default__(self, data, children, meta):
+    #     raise RuntimeError(f"Unhandled {data}")
+
     def program(
         self,
         program_token: lark.Token,
         name: lark.Token,
-        initial_defns: List[Definition],
+        program_param: Optional[str],
+        initial_defns: Tuple[Definition, ...],
         entry: Block,
-        state_sets: List[StateSet],
+        state_sets: Tuple[StateSet, ...],
         exit: Block,
-        final_defns: List[Definition],
+        final_defns: Tuple[Definition, ...],
     ):
         # PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
         return self.cls(
             context=context_from_token(self.fn, program_token),
+            params=program_param,
             name=str(name),
             initial_definitions=initial_defns,
             entry=entry,
@@ -439,10 +460,6 @@ class _ProgramTransformer(lark.visitors.Transformer):
             exit=exit,
             final_definitions=final_defns,
         )
-
-    # @lark.visitors.v_args(tree=True)
-    # def program(self, body):
-    #     return body
 
     def program_param(self, *args):
         if not args:
@@ -474,7 +491,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
             value=str(value),
-            subscript=subscript,
+            subscript=str(subscript),
         )
 
     def assign_strings(self, assign_token, variable, to_, _, strings, *__):
@@ -482,7 +499,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Assignment(
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
-            value=strings,
+            value=[str(value) for value in strings],
         )
 
     strings = transformer.tuple_args
@@ -492,7 +509,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Monitor(
             context=context_from_token(self.fn, monitor_token),
             variable=str(variable),
-            subscript=opt_subscript,
+            subscript=str(opt_subscript) if opt_subscript else None,
         )
 
     def sync(self, sync_token, variable, subscript, _, event_flag, __):
@@ -500,7 +517,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Sync(
             context=context_from_token(self.fn, sync_token),
             variable=str(variable),
-            subscript=subscript,
+            subscript=str(subscript) if subscript else None,
             event_flag=event_flag,
             queued=False,
         )
@@ -510,7 +527,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Sync(
             context=context_from_token(self.fn, syncq_token),
             variable=str(variable),
-            subscript=subscript,
+            subscript=str(subscript) if subscript else None,
             event_flag=event_flag,
             queued=True,
             queue_size=syncq_size,
@@ -521,7 +538,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Sync(
             context=context_from_token(self.fn, syncq_token),
             variable=str(variable),
-            subscript=subscript,
+            subscript=str(subscript) if subscript else None,
             queued=True,
             queue_size=syncq_size,
         )
@@ -533,8 +550,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         # INTCON?
         return int(size) if size else None
 
-    def opt_subscript(self, subscript=None):
-        return subscript
+    opt_subscript = transformer.pass_through
 
     def subscript(self, _, value, __):
         # LBRACKET INTCON RBRACKET
@@ -586,7 +602,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Declarator(
             context=declarator.context,
             object=declarator,
-            subscript=subscript,
+            subscript=str(subscript),
         )
 
     def declarator_paren(self, _, declarator, __):
@@ -612,20 +628,34 @@ class _ProgramTransformer(lark.visitors.Transformer):
 
     param_decls = transformer.tuple_args
 
-    # def param_decl(self, type_, declarator=None):
-    #     # basetype declarator
-    #     # type_expr
-    # TODO not done yet
+    def param_decl(self, type_, declarator=None):
+        # basetype declarator
+        # type_expr
+        return ParameterDeclarator(
+            context=type_.context,
+            type=type_,
+            declarator=declarator
+        )
 
     variables = transformer.tuple_args
 
-    def init_expr(self, lparen, type_expr, _, __, init_exprs, ___):
+    init_expr = transformer.pass_through
+
+    def typed_init_expr(self, lparen, type_expr, _, __, init_exprs, ___):
         # LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
-        # TODO wrong
+        # LBRACE init_exprs RBRACE
         return InitExpression(
             context=context_from_token(self.fn, lparen),
+            expressions=init_exprs,
             type=type_expr,
-            init_exprs=init_exprs,
+        )
+
+    def untyped_init_expr(self, lbrace, init_exprs, _):
+        # LBRACE init_exprs RBRACE
+        return InitExpression(
+            context=context_from_token(self.fn, lbrace),
+            expressions=init_exprs,
+            type=None,
         )
 
     init_exprs = transformer.tuple_args
@@ -640,24 +670,48 @@ class _ProgramTransformer(lark.visitors.Transformer):
         basetype.abstract = abs_decl
         return basetype
 
-    def abs_decl(self, *args):
+    def abs_decl_mod(self, token, abs_decl=None, *_):
         # LPAREN abs_decl RPAREN
-        # ASTERISK
-        # ASTERISK abs_decl
-        # CONST
-        # CONST abs_decl
-        # subscript
-        # abs_decl subscript
-        # LPAREN param_decls RPAREN
-        # abs_decl LPAREN param_decls RPAREN
-        # TODO not done yet
-        return args  # TODO
+        # ASTERISK abs_decl?
+        # CONST abs_decl?
+        if abs_decl is not None:
+            abs_decl.modifier = str(token)
+            return abs_decl
+
+        return token
+
+    def abs_decl_subscript(self, *args):
+        # TODO I think these may be wrong
+        if len(args) == 1:
+            subscript, = args
+            return AbstractDeclarator(
+                context=context_from_token(self.fn, subscript),
+                subscript=str(subscript),
+            )
+
+        decl, subscript = args
+        decl.subscript = subscript
+        return decl
+
+    def abs_decl_params(self, *args):
+        # abs_decl? LPAREN param_decls RPAREN
+        # TODO I think these may be wrong
+        if len(args) == 4:
+            abs_decl, lparen, param_decls, _ = args
+            abs_decl.params = param_decls
+            return abs_decl
+
+        lparen, param_decls, _ = args
+        return AbstractDeclarator(
+            context=context_from_token(self.fn, lparen),
+            params=param_decls,
+        )
 
     def option(self, option_token, value, name, _):
         # OPTION option_value NAME SEMICOLON
         return Option(
             context=context_from_token(self.fn, option_token),
-            name=name,
+            name=str(name),
             enable=(value == "+"),  # "+" or "-"
         )
 
@@ -668,7 +722,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         # STATE_SET NAME LBRACE ss_defns states RBRACE
         return StateSet(
             context=context_from_token(self.fn, state_set_token),
-            name=name,
+            name=str(name),
             definitions=defns,
             states=states,
         )
@@ -682,9 +736,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         state_token,
         name: lark.Token,
         _,
-        definitions: List[Definition],
+        definitions: Tuple[Definition, ...],
         entry: Block,
-        transitions: List[Transition],
+        transitions: Tuple[Transition, ...],
         exit: Block,
         __,
     ):
@@ -913,6 +967,12 @@ class _ProgramTransformer(lark.visitors.Transformer):
             dereference=operator == "->",
         )
 
+    def variable_literal(self, name):
+        return Variable(
+            context=context_from_token(self.fn, name),
+            name=str(name),
+        )
+
     @lark.visitors.v_args(tree=True)
     def literal_expr(self, item):
         child = item.children[0]
@@ -948,7 +1008,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         # STRUCT NAME members SEMICOLON
         return StructDef(
             context=context_from_token(self.fn, struct_token),
-            name=name,
+            name=str(name),
             members=members,
         )
 

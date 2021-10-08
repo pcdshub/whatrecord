@@ -170,9 +170,9 @@ CCODE: "%{" /.*?/s "}%"
 
 // The program itself
 
-program: PROGRAM NAME program_param? initial_defns entry state_sets exit final_defns
+program: PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
 
-program_param: LPAREN string RPAREN
+program_param: (LPAREN string RPAREN)?
 
 // Definitions
 
@@ -243,8 +243,8 @@ variables: _comma_separated{variable}
 
 // Initializer
 // Note: comma operator not allowed in 'expr'.
-init_expr: LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
-         | LBRACE init_exprs RBRACE
+init_expr: LPAREN type_expr RPAREN LBRACE init_exprs RBRACE -> typed_init_expr
+         | LBRACE init_exprs RBRACE                         -> untyped_init_expr
          | expr
 
 init_exprs: _comma_separated{init_expr}?
@@ -252,25 +252,25 @@ init_exprs: _comma_separated{init_expr}?
 // Type expressions
 
 // C standard calls this specifier-qualifier-list
-PRIM_TYPE: CHAR
-         | SHORT
-         | INT
-         | LONG
-         | UNSIGNED CHAR
-         | UNSIGNED SHORT
-         | UNSIGNED INT
-         | UNSIGNED LONG
-         | INT8T
-         | UINT8T
-         | INT16T
-         | UINT16T
-         | INT32T
-         | UINT32T
-         | FLOAT
-         | DOUBLE
-         | STRING
+_prim_type: CHAR
+          | SHORT
+          | INT
+          | LONG
+          | UNSIGNED CHAR
+          | UNSIGNED SHORT
+          | UNSIGNED INT
+          | UNSIGNED LONG
+          | INT8T
+          | UINT8T
+          | INT16T
+          | UINT16T
+          | INT32T
+          | UINT32T
+          | FLOAT
+          | DOUBLE
+          | STRING
 
-basetype: PRIM_TYPE
+basetype: _prim_type
         | EVFLAG
         | VOID
         | ENUM NAME
@@ -281,15 +281,14 @@ basetype: PRIM_TYPE
 type_expr: basetype abs_decl?
 
 // abstract_declarator
-abs_decl: LPAREN abs_decl RPAREN
-        | ASTERISK
-        | ASTERISK abs_decl
-        | CONST
-        | CONST abs_decl
-        | subscript
-        | abs_decl subscript
-        | LPAREN param_decls RPAREN
-        | abs_decl LPAREN param_decls RPAREN
+abs_decl: abs_decl_mod
+        | abs_decl? subscript                  -> abs_decl_subscript
+        | abs_decl? LPAREN param_decls RPAREN  -> abs_decl_params
+
+// abstract declarator with some modification (), *, const
+abs_decl_mod: LPAREN abs_decl RPAREN
+            | ASTERISK abs_decl?
+            | CONST abs_decl?
 
 // not supported: empty brackets, empty parameter list
 // abs_decl: LBRACKET RBRACKET
@@ -384,6 +383,7 @@ integer_literal: INTCON
      | expr LBRACKET expr RBRACKET    -> bracket_expr
      | EXIT LPAREN args RPAREN        -> exit_expr
      | SIZEOF LPAREN type_expr RPAREN -> sizeof
+     | member_expr
      | unary_postfix_expr
      | unary_prefix_expr
      | binary_operator_expr
@@ -391,13 +391,12 @@ integer_literal: INTCON
      | expr QUESTION expr COLON expr  -> ternary_expr
 
 
-member_expr: expr PERIOD member
-           | expr POINTER member
+member_expr: expr (PERIOD | POINTER) member
 
 literal_expr: integer_literal
             | floating_point_literal
             | string
-            | variable
+            | variable                -> variable_literal
 
 unary_postfix_expr: expr INCR
                   | expr DECR

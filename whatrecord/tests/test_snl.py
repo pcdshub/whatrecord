@@ -1,14 +1,12 @@
 import pathlib
-# import apischema
+import pprint
 import textwrap
 
+import apischema
 import pytest
 
 from ..snl import SequencerProgram
 from . import conftest
-
-# import pprint
-
 
 SNL_FILES = list((conftest.MODULE_PATH / "iocs").glob("**/*.st"))
 
@@ -53,8 +51,8 @@ def test_parse(program_filename):
     # print(ctx.render_object(program, "console"))
     print(program)
 
-    # serialized = apischema.serialize(program)
-    # pprint.pprint(serialized)
+    serialized = apischema.serialize(program)
+    pprint.pprint(serialized)
     # apischema.deserialize(SequencerProgram, serialized)
 
 
