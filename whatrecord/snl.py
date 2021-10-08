@@ -223,9 +223,12 @@ class Variable(Expression):
 
 @dataclass
 class InitExpression(Expression):
-    # ( type ) { init_exprs }
-    # { init_exprs }
-    # expr
+    """
+    Of the form:
+        ( type ) { init_exprs }
+        { init_exprs }
+        expr
+    """
     # TODO: may be improved?
     context: FullLoadContext
     expressions: Tuple[Union[InitExpression, Expression], ...] = field(default_factory=tuple)
@@ -440,7 +443,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         exit: Block,
         final_defns: Tuple[Definition, ...],
     ):
-        # PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
+        """
+        PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
+        """
         return self.cls(
             context=context_from_token(self.fn, program_token),
             params=program_param,
@@ -455,21 +460,27 @@ class _ProgramTransformer(lark.visitors.Transformer):
     def program_param(self, *args):
         if not args:
             return None
-        # LPAREN string RPAREN
+        """
+        LPAREN string RPAREN
+        """
         return str(args[1])
 
     initial_defns = transformer.tuple_args
     final_defns = transformer.tuple_args
 
     def assign(self, assign_token, variable, _):
-        # ASSIGN variable SEMICOLON
+        """
+        ASSIGN variable SEMICOLON
+        """
         return Assignment(
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
         )
 
     def assign_string(self, assign_token, variable, to_, value, _):
-        # ASSIGN variable to string SEMICOLON
+        """
+        ASSIGN variable to string SEMICOLON
+        """
         return Assignment(
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
@@ -477,7 +488,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def assign_subscript_string(self, assign_token, variable, subscript, to_, value, _):
-        # ASSIGN variable subscript to string SEMICOLON
+        """
+        ASSIGN variable subscript to string SEMICOLON
+        """
         return Assignment(
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
@@ -486,7 +499,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def assign_strings(self, assign_token, variable, to_, _, strings, *__):
-        # ASSIGN variable to LBRACE strings RBRACE SEMICOLON
+        """
+        ASSIGN variable to LBRACE strings RBRACE SEMICOLON
+        """
         return Assignment(
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
@@ -496,7 +511,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
     strings = transformer.tuple_args
 
     def monitor(self, monitor_token, variable, opt_subscript, _):
-        # MONITOR variable opt_subscript SEMICOLON
+        """
+        MONITOR variable opt_subscript SEMICOLON
+        """
         return Monitor(
             context=context_from_token(self.fn, monitor_token),
             variable=str(variable),
@@ -504,7 +521,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def sync(self, sync_token, variable, subscript, _, event_flag, __):
-        # SYNC variable opt_subscript to event_flag SEMICOLON
+        """
+        SYNC variable opt_subscript to event_flag SEMICOLON
+        """
         return Sync(
             context=context_from_token(self.fn, sync_token),
             variable=str(variable),
@@ -514,7 +533,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def syncq_flagged(self, syncq_token, variable, subscript, _, event_flag, syncq_size, __):
-        # SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON
+        """
+        SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON
+        """
         return Sync(
             context=context_from_token(self.fn, syncq_token),
             variable=str(variable),
@@ -525,7 +546,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def syncq(self, syncq_token, variable, subscript, syncq_size, _):
-        # SYNCQ variable opt_subscript syncq_size SEMICOLON
+        """
+        SYNCQ variable opt_subscript syncq_size SEMICOLON
+        """
         return Sync(
             context=context_from_token(self.fn, syncq_token),
             variable=str(variable),
@@ -538,17 +561,23 @@ class _ProgramTransformer(lark.visitors.Transformer):
     variable = transformer.pass_through
 
     def syncq_size(self, size=None):
-        # INTCON?
+        """
+        INTCON?
+        """
         return int(size) if size else None
 
     opt_subscript = transformer.pass_through
 
     def subscript(self, _, value, __):
-        # LBRACKET INTCON RBRACKET
+        """
+        LBRACKET INTCON RBRACKET
+        """
         return value
 
     def declaration(self, basetype: Type, init_declarators, _):
-        # basetype init_declarators SEMICOLON
+        """
+        basetype init_declarators SEMICOLON
+        """
         return Declaration(
             context=basetype.context,
             type=basetype,
@@ -556,7 +585,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def foreign_declaration(self, foreign_token, variables, _):
-        # FOREIGN variables SEMICOLON
+        """
+        FOREIGN variables SEMICOLON
+        """
         return ForeignDeclaration(
             context=context_from_token(self.fn, foreign_token),
             names=tuple(str(variable) for variable in variables),
@@ -619,8 +650,10 @@ class _ProgramTransformer(lark.visitors.Transformer):
     param_decls = transformer.tuple_args
 
     def param_decl(self, type_, declarator=None):
-        # basetype declarator
-        # type_expr
+        """
+        basetype declarator
+        type_expr
+        """
         return ParameterDeclarator(
             context=type_.context,
             type=type_,
@@ -632,8 +665,10 @@ class _ProgramTransformer(lark.visitors.Transformer):
     init_expr = transformer.pass_through
 
     def typed_init_expr(self, lparen, type_expr, _, __, init_exprs, ___):
-        # LPAREN type_expr RPAREN LBRACE init_exprs RBRACE
-        # LBRACE init_exprs RBRACE
+        """
+        type_expr RPAREN LBRACE init_exprs RBRACE
+        LBRACE init_exprs RBRACE
+        """
         return InitExpression(
             context=context_from_token(self.fn, lparen),
             expressions=init_exprs,
@@ -641,7 +676,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def untyped_init_expr(self, lbrace, init_exprs, _):
-        # LBRACE init_exprs RBRACE
+        """
+        LBRACE init_exprs RBRACE
+        """
         return InitExpression(
             context=context_from_token(self.fn, lbrace),
             expressions=init_exprs,
@@ -661,9 +698,11 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return basetype
 
     def abs_decl_mod(self, token, abs_decl=None, *_):
-        # LPAREN abs_decl RPAREN
-        # ASTERISK abs_decl?
-        # CONST abs_decl?
+        """
+        LPAREN abs_decl RPAREN
+        ASTERISK abs_decl?
+        CONST abs_decl?
+        """
         if abs_decl is not None:
             abs_decl.modifier = str(token)
             return abs_decl
@@ -684,7 +723,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return decl
 
     def abs_decl_params(self, *args):
-        # abs_decl? LPAREN param_decls RPAREN
+        """
+        abs_decl? LPAREN param_decls RPAREN
+        """
         # TODO I think these may be wrong
         if len(args) == 4:
             abs_decl, lparen, param_decls, _ = args
@@ -698,7 +739,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def option(self, option_token, value, name, _):
-        # OPTION option_value NAME SEMICOLON
+        """
+        OPTION option_value NAME SEMICOLON
+        """
         return Option(
             context=context_from_token(self.fn, option_token),
             name=str(name),
@@ -709,7 +752,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
     state_sets = transformer.tuple_args
 
     def state_set(self, state_set_token, name, _, defns, states, __):
-        # STATE_SET NAME LBRACE ss_defns states RBRACE
+        """
+        STATE_SET NAME LBRACE ss_defns states RBRACE
+        """
         return StateSet(
             context=context_from_token(self.fn, state_set_token),
             name=str(name),
@@ -732,7 +777,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         exit: Block,
         __,
     ):
-        # STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
+        """
+        STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
+        """
         return State(
             context=context_from_token(self.fn, state_token),
             name=str(name),
@@ -763,7 +810,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         ___,
         state: lark.Token,
     ):
-        # WHEN LPAREN condition RPAREN block STATE NAME
+        """
+        WHEN LPAREN condition RPAREN block STATE NAME
+        """
         return Transition(
             context=context_from_token(self.fn, when),
             condition=condition[0] if condition else None,
@@ -772,7 +821,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def transition_exit(self, when: lark.Token, _, condition: Expression, __, block: Block, ___):
-        # WHEN LPAREN condition RPAREN block EXIT
+        """
+        WHEN LPAREN condition RPAREN block EXIT
+        """
         return ExitTransition(
             context=context_from_token(self.fn, when),
             condition=condition,
@@ -782,7 +833,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
     condition = transformer.pass_through
 
     def block(self, lbrace: lark.Token, definitions, statements, _):
-        # LBRACE block_defns statements RBRACE
+        """
+        LBRACE block_defns statements RBRACE
+        """
         return Block(
             context=context_from_token(self.fn, lbrace),
             definitions=definitions,
@@ -851,7 +904,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         else:
             else_body = None
 
-        # IF LPAREN comma_expr RPAREN statement (ELSE statement)?
+        """
+        IF LPAREN comma_expr RPAREN statement (ELSE statement)?
+        """
         return IfStatement(
             context=context_from_token(self.fn, if_token),
             condition=condition,
@@ -871,7 +926,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         ____,
         statement: Statement,
     ):
-        # FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+        """
+        FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+        """
         return ForStatement(
             context=context_from_token(self.fn, for_token),
             init=init,
@@ -992,7 +1049,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
     member = transformer.pass_through
 
     def funcdef(self, basetype: Type, declarator: Declarator, block: Block):
-        # basetype declarator block
+        """
+        basetype declarator block
+        """
         return FuncDef(
             context=basetype.context,
             type=basetype,
@@ -1001,7 +1060,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def structdef(self, struct_token, name, members, _):
-        # STRUCT NAME members SEMICOLON
+        """
+        STRUCT NAME members SEMICOLON
+        """
         return StructDef(
             context=context_from_token(self.fn, struct_token),
             name=str(name),
@@ -1009,13 +1070,17 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def members(self, _, decls, __):
-        # LBRACE member_decls RBRACE
+        """
+        LBRACE member_decls RBRACE
+        """
         return decls
 
     member_decls = transformer.tuple_args
 
     def member_decl(self, type: Type, declarator: Declarator, _):
-        # basetype declarator SEMICOLON
+        """
+        basetype declarator SEMICOLON
+        """
         return StructMember(
             context=type.context,
             type=type,
