@@ -3,7 +3,7 @@ from __future__ import annotations
 import collections
 import pathlib
 import shlex
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple, Union
 
 import lark
@@ -36,7 +36,7 @@ class Assignment(Definition):
 @dataclass
 class AbstractDeclarator:
     context: FullLoadContext
-    params: Tuple[ParameterDeclarator, ...]
+    params: Tuple[ParameterDeclarator, ...] = field(default_factory=tuple)
     modifier: Optional[str] = None
     subscript: Optional[int] = None
 
@@ -71,13 +71,13 @@ class Sync(Definition):
 
 @dataclass
 class Declaration(Definition):
-    type: Optional[Type]
-    declarators: Optional[Tuple[Declarator, ...]]
+    type: Optional[Type] = None
+    declarators: Optional[Tuple[Declarator, ...]] = field(default_factory=tuple)
 
 
 @dataclass
 class ForeignDeclaration(Declaration):
-    names: Tuple[str, ...]
+    names: Tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -106,8 +106,8 @@ class ParameterDeclarator:
 class State:
     context: FullLoadContext
     name: str
-    definitions: Tuple[Definition, ...]
-    transitions: Tuple[Transition, ...]
+    definitions: Tuple[Definition, ...] = field(default_factory=tuple)
+    transitions: Tuple[Transition, ...] = field(default_factory=tuple)
     entry: Optional[Block] = None
     exit: Optional[Block] = None
 
@@ -116,8 +116,8 @@ class State:
 class StateSet:
     context: FullLoadContext
     name: str
-    definitions: Tuple[Definition, ...]
-    states: Tuple[State, ...]
+    definitions: Tuple[Definition, ...] = field(default_factory=tuple)
+    states: Tuple[State, ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -136,8 +136,8 @@ class ExitTransition(Transition):
 @dataclass
 class Block:
     context: FullLoadContext
-    definitions: Tuple[Definition, ...]
-    statements: Tuple[Statement, ...]
+    definitions: Tuple[Definition, ...] = field(default_factory=tuple)
+    statements: Tuple[Statement, ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -213,7 +213,7 @@ class CCode(Definition):
 @dataclass
 class StructDef(Definition):
     name: str
-    members: Tuple[Union[StructMember, CCode], ...]
+    members: Tuple[Union[StructMember, CCode], ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -228,7 +228,7 @@ class InitExpression(Expression):
     # expr
     # TODO: may be improved?
     context: FullLoadContext
-    expressions: Tuple[Union[InitExpression, Expression], ...]
+    expressions: Tuple[Union[InitExpression, Expression], ...] = field(default_factory=tuple)
     type: Optional[Type] = None
 
 
@@ -301,7 +301,7 @@ class ParenthesisExpression(Expression):
 @dataclass
 class ExpressionWithArguments(Expression):
     expression: Expression
-    arguments: Tuple[Expression, ...]
+    arguments: Tuple[Expression, ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -310,11 +310,11 @@ class SequencerProgram:
     context: FullLoadContext
     name: str
     params: Optional[str]
-    initial_definitions: Tuple[Definition, ...]
-    entry: Optional[Block]
-    state_sets: Tuple[StateSet, ...]
-    exit: Optional[Block]
-    final_definitions: Tuple[Definition, ...]
+    initial_definitions: Tuple[Definition, ...] = field(default_factory=tuple)
+    entry: Optional[Block] = None
+    state_sets: Tuple[StateSet, ...] = field(default_factory=tuple)
+    exit: Optional[Block] = None
+    final_definitions: Tuple[Definition, ...] = field(default_factory=tuple)
 
     @staticmethod
     def preprocess(code: str, search_path: Optional[AnyPath] = None) -> str:
@@ -921,7 +921,13 @@ class _ProgramTransformer(lark.visitors.Transformer):
             expression=expr,
         )
 
-    def expr_with_args(self, expression: Expression, tok: lark.Token, arguments: Expression, __):
+    def expr_with_args(
+        self,
+        expression: Expression,
+        tok: lark.Token,
+        arguments: Tuple[Expression, ...],
+        _,
+    ):
         return ExpressionWithArguments(
             context=context_from_token(self.fn, tok),
             expression=expression,
