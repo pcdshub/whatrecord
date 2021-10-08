@@ -14,8 +14,20 @@ from .transformer import context_from_token
 
 
 @dataclass
-class Assignment:
+class Definition:
     context: FullLoadContext
+
+
+@dataclass
+class Expression:
+    context: FullLoadContext
+
+
+OptionalExpression = Optional[Union[Expression, Tuple[Expression, ...]]]
+
+
+@dataclass
+class Assignment(Definition):
     variable: str
     value: Optional[Union[str, Tuple[str, ...]]] = None
     subscript: Optional[int] = None
@@ -37,22 +49,19 @@ class Type:
 
 
 @dataclass
-class Monitor:
-    context: FullLoadContext
+class Monitor(Definition):
     variable: str
     subscript: Optional[int]
 
 
 @dataclass
-class Option:
-    context: FullLoadContext
+class Option(Definition):
     name: str
     enable: bool
 
 
 @dataclass
-class Sync:
-    context: FullLoadContext
+class Sync(Definition):
     variable: str
     subscript: Optional[int]
     queued: bool
@@ -61,23 +70,21 @@ class Sync:
 
 
 @dataclass
-class Declaration:
-    context: FullLoadContext
-    type: Type
-    declarators: Tuple[Declarator, ...]
+class Declaration(Definition):
+    type: Optional[Type]
+    declarators: Optional[Tuple[Declarator, ...]]
 
 
 @dataclass
-class ForeignVariable:
-    context: FullLoadContext
-    name: str
+class ForeignDeclaration(Declaration):
+    names: Tuple[str, ...]
 
 
 @dataclass
 class Declarator:
     context: FullLoadContext
     object: Union[Declarator, Variable]
-    params: Optional[Tuple[Expression, ...]] = None
+    params: OptionalExpression = None
     value: Optional[Expression] = None
     modifier: Optional[str] = None
     subscript: Optional[int] = None
@@ -93,14 +100,6 @@ class ParameterDeclarator:
     context: FullLoadContext
     type: Type
     declarator: Optional[Declarator] = None
-
-
-Definition = Union[
-    Assignment,
-    Monitor,
-    Sync,
-    Declaration,
-]
 
 
 @dataclass
@@ -126,7 +125,7 @@ class Transition:
     context: FullLoadContext
     block: Block
     target_state: Optional[str] = None
-    condition: Optional[Expression] = None
+    condition: OptionalExpression = None
 
 
 @dataclass
@@ -168,15 +167,15 @@ class StateStatement(Statement):
 
 @dataclass
 class WhileStatement(Statement):
-    condition: Expression
+    condition: OptionalExpression
     body: Statement
 
 
 @dataclass
 class ForStatement(Statement):
-    init: Expression
-    condition: Expression
-    increment: Expression
+    init: OptionalExpression
+    condition: OptionalExpression
+    increment: OptionalExpression
     statement: Statement
 
 
@@ -193,8 +192,7 @@ class IfStatement(Statement):
 
 
 @dataclass
-class FuncDef:
-    context: FullLoadContext
+class FuncDef(Definition):
     type: Type
     declarator: Declarator
     block: Block
@@ -208,21 +206,14 @@ class StructMember:
 
 
 @dataclass
-class CCode:
-    context: FullLoadContext
+class CCode(Definition):
     code: str
 
 
 @dataclass
-class StructDef:
-    context: FullLoadContext
+class StructDef(Definition):
     name: str
     members: Tuple[Union[StructMember, CCode], ...]
-
-
-@dataclass
-class Expression:
-    context: FullLoadContext
 
 
 @dataclass
@@ -499,7 +490,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         return Assignment(
             context=context_from_token(self.fn, assign_token),
             variable=str(variable),
-            value=[str(value) for value in strings],
+            value=tuple(str(value) for value in strings),
         )
 
     strings = transformer.tuple_args
@@ -566,13 +557,12 @@ class _ProgramTransformer(lark.visitors.Transformer):
 
     def foreign_declaration(self, foreign_token, variables, _):
         # FOREIGN variables SEMICOLON
-        return [
-            ForeignVariable(
-                context=context_from_token(self.fn, variable),
-                name=str(variable),
-            )
-            for variable in variables
-        ]
+        return ForeignDeclaration(
+            context=context_from_token(self.fn, foreign_token),
+            names=tuple(str(variable) for variable in variables),
+            type=None,
+            declarators=None,
+        )
 
     init_declarators = transformer.tuple_args
 
@@ -776,7 +766,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         # WHEN LPAREN condition RPAREN block STATE NAME
         return Transition(
             context=context_from_token(self.fn, when),
-            condition=condition,
+            condition=condition[0] if condition else None,
             block=block,
             target_state=str(state),
         )
@@ -829,7 +819,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         while_token: lark.Token,
         _,
-        condition: Expression,
+        condition: OptionalExpression,
         __,
         statement: Statement,
     ):
@@ -873,11 +863,11 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         for_token: lark.Token,
         _,
-        init: Expression,
+        init: OptionalExpression,
         __,
-        condition: Expression,
+        condition: OptionalExpression,
         ___,
-        increment: Expression,
+        increment: OptionalExpression,
         ____,
         statement: Statement,
     ):

@@ -1,5 +1,5 @@
 import pathlib
-import pprint
+# import pprint
 import textwrap
 
 import apischema
@@ -52,8 +52,8 @@ def test_parse(program_filename):
     print(program)
 
     serialized = apischema.serialize(program)
-    pprint.pprint(serialized)
-    # apischema.deserialize(SequencerProgram, serialized)
+    # pprint.pprint(serialized)
+    apischema.deserialize(SequencerProgram, serialized)
 
 
 @pytest.mark.parametrize(
