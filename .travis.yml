@@ -40,8 +40,8 @@ jobs:
   include:
     - &testpythonpip
       stage: test
-      name: "Python 3.8 - PIP"
-      python: 3.8
+      name: "Python 3.9 - PIP"
+      python: 3.9
       install:
         - python -m pip install --upgrade pip
         - python -m pip install .
@@ -51,10 +51,6 @@ jobs:
           set -e
           coverage run --concurrency=thread --parallel-mode -m pytest -vv
           (coverage combine && coverage report | grep -v -e ' 0%') || true
-
-    - <<: *testpythonpip
-      name: "Python 3.9 - PIP"
-      python: 3.9
 
     - &testpythonconda
       stage: test
