@@ -1,0 +1,8 @@
+[build-system]
+requires = [
+    "cython",
+    "epicscorelibs",
+    "setuptools",
+    "setuptools_dso",
+    "wheel",
+]
