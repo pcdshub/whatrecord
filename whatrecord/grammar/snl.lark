@@ -1,0 +1,473 @@
+// Attempt at a state notation language (snl/seq) grammar
+//
+// snl itself uses re2c and an LALR-based lemon grammar.
+//
+// Limitations:
+//  * Preprocessor support (#include is OK, #ifdef and such get ignored)
+
+?start: program
+
+%import common.WS
+%ignore WS
+
+WHITESPACE: /[ \t\v\f]+/
+%ignore WHITESPACE
+
+MULTI_LINE_COMMENT: "/*" /.*?/s "*/"
+SINGLE_LINE_COMMENT: "//" /.*/
+
+COMMENT: MULTI_LINE_COMMENT
+       | SINGLE_LINE_COMMENT
+
+%ignore COMMENT
+
+NL: /[\n]/
+ANY: /[^]/
+SPC: /[ \t]/
+OCT: /[0-7]/
+DEC: /[0-9]/
+LET: /[a-zA-Z_]/
+HEX: /[a-fA-F0-9]/
+EXP: /[Ee]/ /[+-]?/ DEC+
+FS: /[fFlL]/
+IS: /[uUlL]*/
+ESC: "\\" (/[abfnrtv?'"\\]/ | "x" HEX+ | OCT+)
+LINE: SPC* "#" (SPC* "line")? SPC+
+
+ASSIGN: "assign"
+BREAK: "break"
+CONTINUE: "continue"
+ELSE: "else"
+ENTRY: "entry"
+EXIT: "exit"
+FOR: "for"
+IF: "if"
+MONITOR: "monitor"
+OPTION: "option"
+PROGRAM: "program"
+RETURN: "return"
+STATE_SET: "ss"
+STATE: "state"
+STRING: "string"
+SYNCQ: "syncQ"
+     | "syncq"
+SYNC: "sync"
+TO: "to"
+WHEN: "when"
+WHILE: "while"
+
+CHAR: "char"
+CONST: "const"
+DOUBLE: "double"
+ENUM: "enum"
+EVFLAG: "evflag"
+FLOAT: "float"
+FOREIGN: "foreign"
+INT: "int"
+LONG: "long"
+SHORT: "short"
+SIZEOF: "sizeof"
+STRUCT: "struct"
+TYPENAME: "typename"
+UNION: "union"
+UNSIGNED: "unsigned"
+VOID: "void"
+INT8T: "int8_t"
+UINT8T: "uint8_t"
+INT16T: "int16_t"
+UINT16T: "uint16_t"
+INT32T: "int32_t"
+UINT32T: "uint32_t"
+
+TYPEWORD: CHAR | CONST | DOUBLE | ENUM | EVFLAG | FLOAT | FOREIGN | INT
+        | INT16T | INT32T | INT8T | LONG | SHORT | SIZEOF | STRUCT
+        | TYPENAME | UINT16T | UINT32T | UINT8T | UNION | UNSIGNED | VOID
+
+// "seqg_" (LET|DEC)*  -> "identifier '%s'starts with reserved prefix\n"
+
+NAME: LET (LET|DEC)*
+
+// integer_literal
+INTCON: "0" "x"i HEX+ IS?
+      | "0" OCT+ IS?
+      | DEC+ IS?
+      | "'" ( ESC | /[^\n\\']/ )* "'"
+
+// floating_point_literal
+FPCON: DEC+ EXP FS?
+     | DEC* PERIOD DEC+ EXP? FS?
+     | DEC+ PERIOD DEC* EXP? FS?
+
+RSHEQ: ">>="
+LSHEQ: "<<="
+ADDEQ: "+="
+SUBEQ: "-="
+MULEQ: "*="
+DIVEQ: "/="
+MODEQ: "%="
+ANDEQ: "&="
+XOREQ: "^="
+OREQ: "|="
+RSHIFT: ">>"
+LSHIFT: "<<"
+INCR: "++"
+DECR: "--"
+POINTER: "->"
+ANDAND: "&&"
+OROR: "||"
+LE: "<="
+GE: ">="
+EQ: "=="
+NE: "!="
+COLON: ":"
+EQUAL: "="
+PERIOD: "."
+AMPERSAND: "&"
+NOT: "!"
+TILDE: "~"
+SUB: "-"
+ADD: "+"
+ASTERISK: "*"
+SLASH: "/"
+MOD: "%"
+LT: "<"
+GT: ">"
+CARET: "^"
+VBAR: "|"
+QUESTION: "?"
+
+OPERATOR: RSHEQ | LSHEQ | ADDEQ | SUBEQ | MULEQ | DIVEQ | MODEQ | ANDEQ | XOREQ | OREQ
+        | RSHIFT | LSHIFT | INCR | DECR
+        | POINTER
+        | ANDAND | OROR
+        | LE | GE | EQ | NE
+        | COLON
+        | EQUAL | PERIOD | AMPERSAND
+        | NOT | TILDE | SUB | ADD
+        | ASTERISK | SLASH | MOD | LT | GT
+        | CARET | VBAR | QUESTION
+
+SEMICOLON: ";"
+LBRACE: "{"
+RBRACE: "}"
+COMMA: ","
+LPAREN: "("
+RPAREN: ")"
+LBRACKET: "["
+RBRACKET: "]"
+
+DELIMITER: SEMICOLON | LBRACE | RBRACE | COMMA | LPAREN | RPAREN | LBRACKET | RBRACKET
+
+// string_const
+STRCON: "\"" (ESC | /[^"\n\\]/)* "\""
+
+
+LINE_MARKER: DEC+ SPC*
+           | "\"" (ESC | /[^\n\\"]/)* "\""
+
+CCODE: "%{" /.*?/s "}%"
+     | "%%" /[^\n]*/
+
+// The program itself
+
+program: PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
+
+program_param: (LPAREN string RPAREN)?
+
+// Definitions
+
+initial_defns: _initial_defn*
+_initial_defn: assign
+             | monitor
+             | sync
+             | syncq
+             | declaration
+             | option
+             | c_code
+             | funcdef
+             | structdef
+
+final_defns: _final_defn*
+
+_final_defn: c_code
+           | funcdef
+           | structdef
+
+assign: ASSIGN variable to string SEMICOLON                -> assign_string
+      | ASSIGN variable subscript to string SEMICOLON      -> assign_subscript_string
+      | ASSIGN variable to LBRACE strings RBRACE SEMICOLON -> assign_strings
+      | ASSIGN variable SEMICOLON
+
+to: TO?
+
+strings: _comma_separated{string}?
+
+monitor: MONITOR variable opt_subscript SEMICOLON
+
+sync: SYNC variable opt_subscript to event_flag SEMICOLON
+
+syncq: SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON -> syncq_flagged
+     | SYNCQ variable opt_subscript syncq_size SEMICOLON
+
+event_flag: NAME
+variable: NAME
+
+syncq_size: INTCON?
+
+opt_subscript: subscript?
+
+subscript: LBRACKET INTCON RBRACKET
+
+// Declarations
+declaration: basetype init_declarators SEMICOLON
+           | FOREIGN variables SEMICOLON          -> foreign_declaration // Deprecated
+
+init_declarators: _comma_separated{init_declarator}
+
+init_declarator: declarator (EQUAL init_expr)?
+
+declarator: variable
+          | declarator LPAREN param_decls RPAREN   -> declarator_decls
+          | declarator subscript                   -> declarator_subscript
+          | LPAREN declarator RPAREN               -> declarator_paren
+          | ASTERISK declarator                    -> declarator_deref
+          | CONST declarator                       -> declarator_const
+
+param_decls: _comma_separated{param_decl}?
+
+// Allow parameter declaration with or without identifier
+param_decl: basetype declarator
+          | type_expr
+
+variables: _comma_separated{variable}
+
+// Initializer
+// Note: comma operator not allowed in 'expr'.
+init_expr: LPAREN type_expr RPAREN LBRACE init_exprs RBRACE -> typed_init_expr
+         | LBRACE init_exprs RBRACE                         -> untyped_init_expr
+         | expr
+
+init_exprs: _comma_separated{init_expr}?
+
+// Type expressions
+
+// C standard calls this specifier-qualifier-list
+_prim_type: CHAR
+          | SHORT
+          | INT
+          | LONG
+          | UNSIGNED CHAR
+          | UNSIGNED SHORT
+          | UNSIGNED INT
+          | UNSIGNED LONG
+          | INT8T
+          | UINT8T
+          | INT16T
+          | UINT16T
+          | INT32T
+          | UINT32T
+          | FLOAT
+          | DOUBLE
+          | STRING
+
+basetype: _prim_type
+        | EVFLAG
+        | VOID
+        | ENUM NAME
+        | STRUCT NAME
+        | UNION NAME
+        | TYPENAME NAME
+
+type_expr: basetype abs_decl?
+
+// abstract_declarator
+abs_decl: abs_decl_mod
+        | abs_decl? subscript                  -> abs_decl_subscript
+        | abs_decl? LPAREN param_decls RPAREN  -> abs_decl_params
+
+// abstract declarator with some modification (), *, const
+abs_decl_mod: LPAREN abs_decl RPAREN
+            | ASTERISK abs_decl?
+            | CONST abs_decl?
+
+// not supported: empty brackets, empty parameter list
+// abs_decl: LBRACKET RBRACKET
+//         | abs_decl LBRACKET RBRACKET
+//         | LPAREN RPAREN
+//         | abs_decl LPAREN RPAREN
+
+// Option spec
+option: OPTION option_value NAME SEMICOLON
+
+option_value: ADD
+            | SUB
+
+// State sets and states
+state_sets: state_set+
+
+state_set: STATE_SET NAME LBRACE ss_defns states RBRACE
+
+ss_defns: _ss_defn*
+
+_ss_defn: assign
+        | monitor
+        | sync
+        | syncq
+        | declaration
+
+states: state*
+
+state: STATE NAME LBRACE state_defns entry transitions exit RBRACE
+
+state_defns: _state_defn*
+
+_state_defn: assign
+           | monitor
+           | sync
+           | syncq
+           | declaration
+           | option
+
+entry: (ENTRY block)?
+exit: (EXIT block)?
+
+transitions: transition+
+
+transition: WHEN LPAREN condition RPAREN block STATE NAME
+          | WHEN LPAREN condition RPAREN block EXIT        -> transition_exit
+// | WHEN LPAREN condition RPAREN block error // report("expected 'state' or 'exit'\n");
+
+condition: opt_expr
+
+block: LBRACE block_defns statements RBRACE
+
+block_defns: _block_defn*
+
+_block_defn: declaration
+           | c_code
+
+// Statements
+
+statements: statement*
+
+statement: BREAK SEMICOLON                              -> break_statement
+         | CONTINUE SEMICOLON                           -> continue_statement
+         | RETURN opt_expr SEMICOLON                    -> return_statement
+         | STATE NAME SEMICOLON                         -> state_statement
+         | c_code
+         | block
+         | if_statement
+         | WHILE LPAREN comma_expr RPAREN statement     -> while_statement
+         | for_statement
+         | opt_expr SEMICOLON                           -> expr_statement
+//       | error SEMICOLON(t).
+
+
+if_statement: IF LPAREN comma_expr RPAREN statement (ELSE statement)?
+
+for_statement: FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+
+// Expressions
+
+// Note: the non-terminal 'expr' does not include application of the comma operator.
+// Comma separated lists of 'expr' can be: function arguments (non-terminal
+// 'args')and applications of the comma operator (non-terminal 'comma_expr').
+
+floating_point_literal: FPCON
+integer_literal: INTCON
+
+// Atomic
+?expr: literal_expr
+     | LPAREN comma_expr RPAREN       -> parenthesized_expr
+     | expr LPAREN args RPAREN        -> expr_with_args
+     | expr LBRACKET expr RBRACKET    -> bracket_expr
+     | EXIT LPAREN args RPAREN        -> exit_expr
+     | SIZEOF LPAREN type_expr RPAREN -> sizeof
+     | member_expr
+     | unary_postfix_expr
+     | unary_prefix_expr
+     | binary_operator_expr
+     | LPAREN type_expr RPAREN expr   -> type_cast_expr
+     | expr QUESTION expr COLON expr  -> ternary_expr
+
+
+member_expr: expr (PERIOD | POINTER) member
+
+literal_expr: integer_literal
+            | floating_point_literal
+            | string
+            | variable                -> variable_literal
+
+unary_postfix_expr: expr INCR
+                  | expr DECR
+
+unary_prefix_expr: ADD expr   // Unary Prefix Operators
+                 | SUB expr
+                 | ASTERISK expr
+                 | AMPERSAND expr
+                 | NOT expr
+                 | TILDE expr
+                 | INCR expr
+                 | DECR expr
+                 | SIZEOF expr
+
+binary_operator_expr: expr SUB expr  // Binary Operators, left-to-right
+                    | expr ADD expr
+                    | expr ASTERISK expr
+                    | expr SLASH expr
+                    | expr GT expr
+                    | expr GE expr
+                    | expr EQ expr
+                    | expr NE expr
+                    | expr LE expr
+                    | expr LT expr
+                    | expr OROR expr
+                    | expr ANDAND expr
+                    | expr LSHIFT expr
+                    | expr RSHIFT expr
+                    | expr VBAR expr
+                    | expr CARET expr
+                    | expr AMPERSAND expr
+                    | expr MOD expr
+                    | expr EQUAL expr
+                    | expr ADDEQ expr
+                    | expr SUBEQ expr
+                    | expr ANDEQ expr
+                    | expr OREQ expr
+                    | expr DIVEQ expr
+                    | expr MULEQ expr
+                    | expr MODEQ expr
+                    | expr LSHEQ expr
+                    | expr RSHEQ expr
+                    | expr XOREQ expr
+
+// Comma, left-to-right
+comma_expr: _comma_separated{expr}
+
+opt_expr: comma_expr?
+
+// Function arguments
+// Syntactically the same as opt_expr but interpreted differently.
+args: _comma_separated{expr}?
+
+string: STRCON
+member: NAME
+
+// Function Definitions
+funcdef: basetype declarator block
+
+// Struct Definitions
+
+structdef: STRUCT NAME members SEMICOLON
+
+members: LBRACE member_decls RBRACE
+
+member_decls: member_decl+
+
+member_decl: basetype declarator SEMICOLON
+           | c_code                          -> member_decl_ccode
+
+// Literal code
+c_code: CCODE
+
+_comma_separated{x}: x ( "," x )*

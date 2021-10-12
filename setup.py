@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import shutil
 import sys
 
 if os.environ.get("CONDA_BUILD_STATE") == "RENDER":
@@ -19,6 +20,8 @@ Sorry, the following are required to build `whatrecord`. Please install these fi
         raise
 
 from setuptools import Extension, find_packages, setup  # isort: skip
+from setuptools.command.build_ext import build_ext
+
 import versioneer
 
 min_version = (3, 7)
@@ -100,9 +103,19 @@ with open("README.rst", encoding="utf-8") as fp:
     readme = fp.read()
 
 
+class BuildExt(build_ext):
+    def run(self):
+        super().run()
+        for lib in ["Com", "ca", "dbCore"]:
+            to = os.path.join(self.build_lib, "_whatrecord")
+            from_ = epicscorelibs.path.get_lib(lib)
+            print(f"Copying {from_} to {to}...")
+            shutil.copy2(from_, to)
+
+
 setup(
     name="whatrecord",
-    cmdclass=versioneer.get_cmdclass(),
+    cmdclass=versioneer.get_cmdclass({"build_ext": BuildExt}),
     version=versioneer.get_version(),
     packages=find_packages('.') + find_packages('src'),
     author="SLAC National Accelerator Laboratory",

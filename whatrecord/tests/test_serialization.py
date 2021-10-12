@@ -14,7 +14,7 @@ import apischema
 import pytest
 
 from .. import (access_security, asyn, autosave, cache, common, ioc_finder,
-                motor, shell)
+                motor, shell, snl)
 from ..common import FullLoadContext, LoadContext
 
 MODULE_PATH = Path(__file__).parent
@@ -108,9 +108,12 @@ init_args_by_type = {
     str: "testing",
     typing.Any: 123,
     typing.Tuple[str, str]: ("a", "b"),
+    Optional[int]: 11,
     Optional[common.RecordDefinitionAndInstance]: None,
     Optional[common.RecordInstance]: None,
     Optional[common.RecordType]: None,
+    Union[snl.Declarator, snl.Variable]: snl.Variable(context=[], name="test"),
+    snl.OptionalExpression: None,
 }
 
 

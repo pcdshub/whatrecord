@@ -12,7 +12,7 @@ import json
 import logging
 import typing
 from dataclasses import dataclass
-from typing import Dict, Generator, List, TypeVar, Union
+from typing import Dict, Generator, List, Tuple, TypeVar, Union
 
 import apischema
 
@@ -23,6 +23,7 @@ from .util import suppress_output_decorator
 try:
     import happi
     import ophyd
+    from ophyd.ophydobj import OphydObject
     from ophyd.signal import EpicsSignalBase
 except ImportError as ex:
     raise ImportError(f"Dependency required for happi plugin unavailable: {ex}")
@@ -132,7 +133,7 @@ def get_devices_by_criteria(
 def get_components_matching(
     obj: ophyd.Device,
     predicate: callable,
-) -> Generator[ophyd.ophydobj.OphydObject, None, None]:
+) -> Generator[OphydObject, None, None]:
     """
     Find signals of a specific type from a given ophyd Device.
 
@@ -146,7 +147,7 @@ def get_components_matching(
 
     Yields
     ------
-    obj : ophyd.ophydobj.OphydObject
+    obj : OphydObject
     """
     for name, dev in obj.walk_subdevices(include_lazy=True):
         try:
@@ -210,12 +211,16 @@ def patch_and_use_dummy_shim():
 def find_signals(
     criteria: CriteriaDict,
     signal_class: T,
-) -> Generator[T, None, None]:
+) -> Generator[Tuple[OphydObject, T], None, None]:
     """
     Find all signal metadata that match the given criteria.
 
     Yields
     ------
+    root : OphydObject
+        The root OphydObject - may be the same as signal.  This is guaranteed
+        to have happi metadata on it as the ``md`` attribute.
+
     sig : signal_class
         Signals of type `signal_class`.
     """
@@ -231,18 +236,34 @@ def find_signals(
         devices = get_devices_by_criteria(criteria)
 
     for dev in devices:
+        if not hasattr(dev, "md"):
+            # This should be a guarantee, but check just in case.
+            continue
+
         for sig in get_components_matching(dev, predicate=is_of_class):
-            yield sig
+            yield dev, sig
         # Top-level devices are OK too
         if isinstance(dev, signal_class):
-            yield dev
+            yield dev, dev
 
 
 def find_signal_metadata_pairs(
     criteria: CriteriaDict,
-) -> Generator[tuple[str, EpicsSignalBase], None, None]:
+) -> Generator[Tuple[OphydObject, str, EpicsSignalBase], None, None]:
     """
     Find all signal metadata that match the given criteria.
+
+    Yields
+    ------
+    root : OphydObject
+        The root OphydObject - may be the same as signal.  This is guaranteed
+        to have happi metadata on it as the ``md`` attribute.
+
+    pvname : str
+        The PV name.
+
+    signal : EpicsSignal, EpicsSignalRO, ...
+        The signal instance, one of ``SIGNAL_CLASSES``.
     """
 
     attributes = [
@@ -250,7 +271,7 @@ def find_signal_metadata_pairs(
         "setpoint_pvname",
     ]
 
-    for sig in find_signals(criteria, signal_class=SIGNAL_CLASSES):
+    for root, sig in find_signals(criteria, signal_class=SIGNAL_CLASSES):
         found_pvs = set()
         for attr in attributes:
             pvname = getattr(sig, attr, None)
@@ -259,12 +280,12 @@ def find_signal_metadata_pairs(
 
         if found_pvs:
             for pvname in sorted(found_pvs):
-                yield pvname, sig
+                yield root, pvname, sig
         else:
             # Then it's the prefix - possibly
             pvname = getattr(sig, "prefix", None)
             if pvname is not None:
-                yield pvname, sig
+                yield root, pvname, sig
 
 
 def _parse_criteria(criteria_string: str) -> CriteriaDict:
@@ -335,11 +356,12 @@ def main(search_criteria: str, pretty: bool = False):
     )
 
     criteria = _parse_criteria(search_criteria)
-    for record, sig in find_signal_metadata_pairs(criteria):
+    for root, record, sig in find_signal_metadata_pairs(criteria):
         if "." in record:
             record, *_ = record.split(".")
 
-        happi_md = sig.root.md
+        happi_md = root.md
+
         if happi_md.name not in results.record_to_metadata_keys[record]:
             results.record_to_metadata_keys[record].append(happi_md.name)
             md = results.metadata_by_key[happi_md.name]

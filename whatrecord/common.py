@@ -35,6 +35,7 @@ class FileFormat(str, enum.Enum):
     gateway_pvlist = 'gateway_pvlist'
     access_security = 'access_security'
     stream_protocol = 'stream_protocol'
+    state_notation = 'state_notation'
 
     @classmethod
     def from_extension(cls, extension: str) -> FileFormat:
@@ -48,6 +49,7 @@ class FileFormat(str, enum.Enum):
             "pvlist": FileFormat.gateway_pvlist,
             "acf": FileFormat.access_security,
             "proto": FileFormat.stream_protocol,
+            "st": FileFormat.state_notation,
         }[extension.lower()]
 
     @classmethod
