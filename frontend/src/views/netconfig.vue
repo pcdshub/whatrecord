@@ -14,6 +14,8 @@
       :value="netconfig_items"
       dataKey="name"
       filterDisplay="row"
+      :paginator="true"
+      :rows="150"
       v-model:filters="filters"
       :globalFilterFields="global_filter_fields"
     >
