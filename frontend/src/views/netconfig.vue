@@ -12,10 +12,10 @@
       id="netconfig_table"
       class="p-datatable-sm"
       :value="netconfig_items"
-      dataKey="name"
+      dataKey="cn"
       filterDisplay="row"
       :paginator="true"
-      :rows="150"
+      :rows="100"
       v-model:filters="filters"
       :globalFilterFields="global_filter_fields"
     >
@@ -45,6 +45,15 @@
         </div>
       </template>
       <Column field="cn" header="Name" :sortable="true" style="">
+        <template #filter="{ filterModel, filterCallback }">
+          <InputText
+            type="text"
+            v-model="filterModel.value"
+            @keydown.enter="filterCallback()"
+            class="p-column-filter"
+            :placeholder="`Filter by name`"
+          />
+        </template>
         <template #body="{ data }">
           <router-link :to="`/netconfig/${data.cn[0]}`">{{ data.cn[0] }}</router-link>
           <template v-if="data.cname">
@@ -163,7 +172,7 @@ export default {
     init_filters() {
       this.filters = {
         global: { value: "", matchMode: FilterMatchMode.CONTAINS },
-        name: { value: "", matchMode: FilterMatchMode.CONTAINS },
+        cn: { value: "", matchMode: FilterMatchMode.CONTAINS },
         device_class: { value: "", matchMode: FilterMatchMode.CONTAINS },
         description: { value: "", matchMode: FilterMatchMode.CONTAINS },
         location: { value: "", matchMode: FilterMatchMode.CONTAINS },
