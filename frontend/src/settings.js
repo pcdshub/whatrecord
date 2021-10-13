@@ -1,7 +1,8 @@
 export const enabled_plugins = (
-  process.env.VUE_APP_WHATRECORD_PLUGINS || "happi twincat_pytmc"
+  process.env.VUE_APP_WHATRECORD_PLUGINS || "happi twincat_pytmc netconfig"
 ).split(" ");
 export const happi_enabled = enabled_plugins.indexOf("happi") >= 0;
+export const netconfig_enabled = enabled_plugins.indexOf("netconfig") >= 0;
 export const twincat_pytmc_enabled =
   enabled_plugins.indexOf("twincat_pytmc") >= 0;
 let _plugin_info = [
@@ -14,6 +15,11 @@ let _plugin_info = [
     name: "twincat_pytmc",
     label: "TwinCAT",
     icon: "pi pi-chevron-circle-up",
+  },
+  {
+    name: "netconfig",
+    label: "Netconfig",
+    icon: "pi pi-chevron-circle-down",
   },
 ];
 
