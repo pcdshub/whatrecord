@@ -1,0 +1,37 @@
+pvname1
+
+#* descA
+pvname2
+pvname3
+
+#
+# comment
+#* descB
+pvname4 pva
+pvname5
+
+#* descC
+pvname6
+
+#* descC
+dupe_alias
+
+#* dupePV
+pvname5
+
+#* pvname5
+alias_is_pvname
+
+#* pv_is_alias
+descC
+
+#*eBeam_charge
+#BEAM:LCLS:ELEC:Q
+*aliaswithnopound
+# comment inbetween
+pvforthatalias
+
+< missing_include.txt
+
+# recursive include
+< test.txt

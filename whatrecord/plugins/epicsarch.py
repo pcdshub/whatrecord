@@ -336,11 +336,12 @@ def main(
         try:
             archfile = LclsEpicsArchFile.from_file(filename)
         except Exception as ex:
-            execution_info[filename] = (
+            execution_info[str(filename)] = (
                 f"Failed to load: {ex.__class__.__name__} {ex}"
             )
             continue
 
+        filename = str(filename)
         by_filename[filename] = archfile
         for pv in sorted(archfile.pvs):
             record, _ = split_record_and_field(pv)
@@ -361,6 +362,15 @@ def _get_argparser(
     if parser is None:
         parser = argparse.ArgumentParser(description=DESCRIPTION)
 
+    pds_root = pathlib.Path("/cds/group/pcds/dist/pds")
+    if pds_root.exists():
+        default_files = (
+            tuple(pds_root.glob("*/misc/epicsArch.txt")) +
+            tuple(pds_root.glob("*/misc/logbook.txt"))
+        )
+    else:
+        default_files = ()
+
     parser.add_argument(
         "-f", "--filename",
         dest="filenames",
@@ -368,10 +378,7 @@ def _get_argparser(
         nargs="+",
         required=False,
         help="Filenames",
-        default=(
-            "/reg/g/pcds/dist/pds/*/misc/epicsArch.txt",
-            "/reg/g/pcds/dist/pds/*/misc/logbook.txt"
-        ),
+        default=default_files,
     )
 
     parser.add_argument(
