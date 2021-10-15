@@ -1,0 +1,42 @@
+?start: archfile
+
+archfile: archfile_entry*
+
+archfile_entry: description_group
+              | comment
+              | pv+     -> pvs
+              | include
+              | _WS* EOL    -> blank_line
+
+_WS: /[ \t]/
+EOL: "\r\n"
+   | "\n"
+
+FILE_SEPARATOR: /[ ,;\t]/
+DESC_SEPARATOR: " " | "\t" | "*" | "#"
+
+COMMENT_TOKEN: "#"
+DESC_PREFIX: "#"? "*"
+
+INCLUDE_TOKEN: "<"
+
+FILENAME: /[^ ,;\t\r\n]+/
+DESC_TEXT: /[a-z_][a-z_0-9]*/i
+
+description: DESC_PREFIX _WS* DESC_TEXT _WS* EOL
+filenames: FILENAME (FILE_SEPARATOR FILENAME)*
+
+include: INCLUDE_TOKEN _WS+ filenames _WS* EOL
+
+PROVIDER: "ca"
+        | "pva"
+
+description_group: description description_item*
+?description_item: pv
+                 | comment
+
+pv: _WS* pvname (_WS+ PROVIDER)? _WS* EOL
+pvname: /[^#\*\s]\S+/
+
+comment: COMMENT_TOKEN comment_text? EOL
+comment_text: /[^\*][^\r\n]*/
