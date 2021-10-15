@@ -186,7 +186,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             provider=str(provider),
         )
 
-        self._add_pv(pv, as_group=False)
+        self._add_pv(pv, updating=False)
         return pv
 
     def description(self, desc_prefix, desc_text, _):
@@ -198,8 +198,8 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
 
     pvs = transformer.tuple_args
 
-    def _add_pv(self, pv: DaqPV, as_group: bool):
-        if pv.name in self._pvs and not as_group:
+    def _add_pv(self, pv: DaqPV, updating: bool = False):
+        if pv.name in self._pvs and not updating:
             old_pv = self._pvs[pv.name]
             self._warnings.append(
                 Warning(
@@ -263,7 +263,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
                 pv.alias = description
 
             pv.comments = list(self._comments)
-            self._add_pv(pv, as_group=True)
+            self._add_pv(pv, updating=True)
 
         self._comments = []
 
@@ -319,7 +319,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             else:
                 self._warnings.extend(included.warnings)
                 for pv in included.pvs.values():
-                    self._add_pv(pv, as_group=False)
+                    self._add_pv(pv, updating=False)
 
         def blank_line(self, *_):
             ...

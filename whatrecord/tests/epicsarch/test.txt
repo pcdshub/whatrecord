@@ -23,7 +23,7 @@ pvname5
 alias_is_pvname
 
 #* pv_is_alias
-descC
+descB
 
 #*eBeam_charge
 #BEAM:LCLS:ELEC:Q

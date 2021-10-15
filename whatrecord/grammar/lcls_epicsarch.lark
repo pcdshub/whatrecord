@@ -4,9 +4,9 @@ archfile: archfile_entry*
 
 archfile_entry: description_group
               | comment
-              | pv+     -> pvs
               | include
-              | _WS* EOL    -> blank_line
+              | pv+                  -> pvs
+              | _WS* EOL             -> blank_line
 
 _WS: /[ \t]/
 EOL: "\r\n"
@@ -31,7 +31,7 @@ include: INCLUDE_TOKEN _WS+ filenames _WS* EOL
 PROVIDER: "ca"
         | "pva"
 
-description_group: description description_item*
+description_group: description description_item+
 ?description_item: pv
                  | comment
 

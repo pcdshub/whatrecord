@@ -33,9 +33,15 @@ def test_warnings():
     fn = conftest.MODULE_PATH / "epicsarch" / "test.txt"
     parsed = epicsarch.LclsEpicsArchFile.from_file(fn)
 
+    from ..format import FormatContext
+
+    ctx = FormatContext()
+    print(ctx.render_object(parsed, "console"))
+
     types = [warning.type_ for warning in parsed.warnings]
 
     assert set(types) == {
+        "duplicate_alias",
         "duplicate_pv",
         "alias_is_pv",
         "pv_is_alias",
@@ -46,6 +52,6 @@ def test_warnings():
     warning_texts = [warning.text for warning in parsed.warnings]
     assert any("Duplicate pvname: pvname5" in text for text in warning_texts)
     assert any("Alias name is a PV: pvname5" in text for text in warning_texts)
-    assert any("PV name matches alias: descC" in text for text in warning_texts)
+    assert any("PV name matches alias: descB" in text for text in warning_texts)
     assert any("missing" in text for text in warning_texts)
     assert any("Recursively included" in text for text in warning_texts)
