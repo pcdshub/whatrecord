@@ -230,7 +230,7 @@ def build_database_relations(
             # field1.context = rec1.context[:1] + field1.context
 
             if "." in link:
-                link, field2 = link.split(".")
+                link, field2 = link.split(".", 1)
             elif field1.name == "FLNK":
                 field2 = "PROC"
             else:
