@@ -26,7 +26,7 @@ DESC_TEXT: /[a-z_][a-z_0-9]*/i
 description: DESC_PREFIX _WS* DESC_TEXT _WS* EOL
 filenames: FILENAME (FILE_SEPARATOR FILENAME)*
 
-include: INCLUDE_TOKEN _WS+ filenames _WS* EOL
+include: INCLUDE_TOKEN _WS* filenames _WS* EOL
 
 PROVIDER: "ca"
         | "pva"
@@ -36,7 +36,7 @@ description_group: description description_item+
                  | comment
 
 pv: _WS* pvname (_WS+ PROVIDER)? _WS* EOL
-pvname: /[^#\*\s]\S+/
+pvname: /[^#\*\s<]\S+/
 
 comment: COMMENT_TOKEN comment_text? EOL
 comment_text: /[^\*][^\r\n]*/

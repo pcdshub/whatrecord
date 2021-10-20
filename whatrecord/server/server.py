@@ -885,6 +885,16 @@ def _new_server_state(
             )
         )
 
+    if "epicsarch" in settings.PLUGINS:
+        plugins.append(
+            ServerPluginSpec(
+                name="epicsarch",
+                module="whatrecord.plugins.epicsarch",
+                executable=None,
+                after_iocs=False,
+            )
+        )
+
     return ServerState(
         startup_scripts=scripts,
         script_loaders=script_loader,

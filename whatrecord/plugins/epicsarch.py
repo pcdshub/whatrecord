@@ -19,6 +19,7 @@ from .. import transformer
 from ..common import AnyPath, FullLoadContext, StringWithContext
 from ..db import split_record_and_field
 from ..server.common import PluginResults
+from ..util import get_bytes_sha256
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class LclsEpicsArchFile:
     aliases: Dict[str, str]
     warnings: List[Warning]
     filename: Optional[pathlib.Path] = None
+    loaded_files: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_string(
@@ -83,9 +85,8 @@ class LclsEpicsArchFile:
             debug=debug,
         )
 
-        # return grammar.parse(contents + "\n")
         transformer_ = _EpicsArchTransformer(
-            cls, filename, grammar, context=context
+            cls, filename, contents, grammar, context=context
         )
         return transformer_.transform(grammar.parse(contents + "\n"))
 
@@ -128,6 +129,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
     cls: Type[LclsEpicsArchFile]
     fn: str
     _load_context: FullLoadContext
+    _loaded_files: Dict[str, str]
     _path: pathlib.Path
     _pvs: Dict[str, DaqPV]
     _aliases: Dict[str, DaqPV]
@@ -139,6 +141,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
         self,
         cls,
         fn: Optional[pathlib.Path],
+        raw_contents: str,
         grammar: lark.Grammar,
         context: Optional[FullLoadContext] = None,
         visit_tokens=False,
@@ -146,6 +149,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
         super().__init__(visit_tokens=visit_tokens)
         self.fn = str(fn)
         self.cls = cls
+        self._loaded_files = {}
         self._load_context = context or ()
         self._aliases = {}
         self._comments = []
@@ -154,12 +158,20 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
         self._pvs = {}
         self._warnings = []
 
+        if not fn:
+            return
+
+        self._loaded_files[str(fn)] = get_bytes_sha256(
+            raw_contents.encode("utf-8")
+        )
+
     def archfile(self, *entries):
         return self.cls(
             pvs=self._pvs,
             filename=pathlib.Path(self.fn).resolve(),
             warnings=self._warnings,
             aliases=self._aliases,
+            loaded_files=self._loaded_files,
         )
 
     pvname = transformer.pass_through
@@ -242,7 +254,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
         if pv.name not in self._pvs:
             self._pvs[pv.name] = pv
             # Tack on our load context
-            pv.context = self._load_context + pv.context
+            pv.context = self._load_context[-1:] + pv.context
 
         if pv.alias:
             self._aliases[pv.alias] = pv.name
@@ -293,10 +305,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             try:
                 included = self.cls.from_file(
                     filename,
-                    context=(
-                        self._load_context +
-                        transformer.context_from_token(self.fn, include_token)
-                    )
+                    context=self._load_context + include_ctx,
                 )
             except lark.exceptions.LarkError as ex:
                 self._warnings.append(
@@ -320,6 +329,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
                 self._warnings.extend(included.warnings)
                 for pv in included.pvs.values():
                     self._add_pv(pv, updating=False)
+                self._loaded_files.update(included.loaded_files)
 
         def blank_line(self, *_):
             ...
@@ -332,6 +342,7 @@ def main(
     by_filename = {}
     record_to_file = {}
     execution_info = {}
+    files_to_monitor = {}
     for filename in sorted(filenames):
         try:
             archfile = LclsEpicsArchFile.from_file(filename)
@@ -341,6 +352,7 @@ def main(
             )
             continue
 
+        files_to_monitor.update(archfile.loaded_files)
         filename = str(filename)
         by_filename[filename] = archfile
         for pv in sorted(archfile.pvs):
@@ -348,7 +360,7 @@ def main(
             record_to_file.setdefault(record, []).append(filename)
 
     return LclsEpicsArchPluginResults(
-        files_to_monitor={},
+        files_to_monitor=files_to_monitor,
         record_to_metadata_keys=record_to_file,
         metadata={},
         metadata_by_key=by_filename,

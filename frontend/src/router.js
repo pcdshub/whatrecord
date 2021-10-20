@@ -10,8 +10,12 @@ import ServerLogView from "./views/logs.vue";
 import PVRelationsView from "./views/pv_relations.vue";
 import GatewayView from "./views/gateway.vue";
 import DuplicateView from "./views/duplicates.vue";
+import LclsEpicsArchView from "./views/lcls_epicsarch.vue";
 
-import { happi_enabled, twincat_pytmc_enabled, netconfig_enabled } from "./settings.js";
+import {
+    happi_enabled, twincat_pytmc_enabled, netconfig_enabled,
+    epicsarch_enabled
+} from "./settings.js";
 
 let routes = [
   {
@@ -76,6 +80,17 @@ if (netconfig_enabled) {
     name: "netconfig",
     path: "/netconfig/:item_name?",
     component: NetconfigView,
+    props: (route) => ({
+      item_name: route.params.item_name || null,
+    }),
+  });
+}
+
+if (epicsarch_enabled) {
+  routes.push({
+    name: "epicsarch",
+    path: "/epicsarch/:selected_file?",
+    component: LclsEpicsArchView,
     props: (route) => ({
       item_name: route.params.item_name || null,
     }),
