@@ -2,10 +2,10 @@
 
 archfile: archfile_entry*
 
-archfile_entry: description_group
+archfile_entry: description
               | comment
               | include
-              | pv+                  -> pvs
+              | pv
               | _WS* EOL             -> blank_line
 
 _WS: /[ \t]/
@@ -30,10 +30,6 @@ include: INCLUDE_TOKEN _WS* filenames _WS* EOL
 
 PROVIDER: "ca"
         | "pva"
-
-description_group: description description_item+
-?description_item: pv
-                 | comment
 
 pv: _WS* pvname (_WS+ PROVIDER)? _WS* EOL
 pvname: /[^#\*\s<]\S+/

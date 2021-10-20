@@ -48,7 +48,26 @@
         </DataTable>
       </div>
       <div id="epicsarch-right" class="column">
-        {{ file_warnings }}
+        <details v-if="file_warnings">
+          <summary>Warnings ({{ file_warnings.length }})</summary>
+          <template v-for="warning in file_warnings">
+            <dictionary-table
+              :dict="warning"
+              :cls="'metadata'"
+              :skip_keys="[]"
+              :key="warning.context"
+              v-if="file_warnings"
+            />
+          </template>
+        </details>
+        <details v-if="file_info?.loaded_files">
+          <summary>Loaded files ({{ Object.keys(file_info.loaded_files).length }})</summary>
+          <ul>
+            <li v-for="file in Object.keys(file_info.loaded_files)" :key="file">
+              <script-context-link :context="[[file, 0]]" prefix="" />
+            </li>
+          </ul>
+        </details>
         <DataTable
           :value="file_info.pvs"
           dataKey="record.name"
@@ -181,11 +200,7 @@ export default {
     },
 
     file_warnings() {
-      const filename = this.selected_file?.filename;
-      if (!this.epicsarch_info_ready || !filename) {
-        return [];
-      }
-      return this.epicsarch_info.execution_info[filename] ?? [];
+      return this.file_info?.warnings || [];
     },
     file_info() {
       const filename = this.selected_file?.filename;
@@ -198,6 +213,10 @@ export default {
       const metadata = this.epicsarch_info.metadata_by_key[filename];
       return {
         pvs: Object.values(metadata.pvs),
+        warnings: metadata.warnings,
+        loaded_files: metadata.loaded_files,
+        aliases: metadata.aliases,
+        filename: metadata.filename,
       }
     },
 

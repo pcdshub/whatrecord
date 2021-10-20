@@ -1,4 +1,5 @@
 import pprint
+import textwrap
 
 import apischema
 import pytest
@@ -55,3 +56,15 @@ def test_warnings():
     assert any("PV name matches alias: descB" in text for text in warning_texts)
     assert any("missing" in text for text in warning_texts)
     assert any("Recursively included" in text for text in warning_texts)
+
+
+def test_empty_section():
+    epicsarch.LclsEpicsArchFile.from_string(
+        textwrap.dedent(
+            """\
+            #*desc
+            #*desc2
+            pv
+            """
+        )
+    )

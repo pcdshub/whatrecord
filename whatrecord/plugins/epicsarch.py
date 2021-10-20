@@ -16,10 +16,10 @@ import apischema
 import lark
 
 from .. import transformer
-from ..common import AnyPath, FullLoadContext, StringWithContext
+from ..common import AnyPath, FullLoadContext, LoadContext, StringWithContext
 from ..db import split_record_and_field
 from ..server.common import PluginResults
-from ..util import get_bytes_sha256
+from ..util import get_bytes_sha256, get_file_sha256
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class Comment:
 
 @dataclass
 class Warning:
+    """epicsArch-format warning."""
     context: FullLoadContext
     type_: str
     text: str
@@ -48,6 +49,7 @@ class Warning:
 
 @dataclass
 class DaqPV:
+    """A single PV configured for storage in the DAQ/logbook."""
     context: FullLoadContext
     name: str
     alias: str = ""
@@ -136,6 +138,8 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
     _comments: List[Comment]
     _warnings: List[Warning]
     _grammar: lark.Grammar
+    _description: Optional[StringWithContext]
+    _description_index: int
 
     def __init__(
         self,
@@ -157,6 +161,8 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
         self._path = fn.resolve() if fn else pathlib.Path(".")
         self._pvs = {}
         self._warnings = []
+        self._description = None
+        self._description_index = 0
 
         if not fn:
             return
@@ -198,24 +204,44 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             provider=str(provider),
         )
 
-        self._add_pv(pv, updating=False)
+        if self._description:
+            self._description_index += 1
+            if self._description_index > 1:
+                # NOTE: the old daq docs indicate it appended "-{pv}" on the
+                # description... but the new source does this:
+                pv.alias = f"{self._description}_{self._description_index}"
+            else:
+                pv.alias = self._description
+
+        pv.comments = list(self._comments)
+        self._comments = []
+        self._add_pv(pv)
         return pv
 
     def description(self, desc_prefix, desc_text, _):
         """DESC_PREFIX _WS* DESC_TEXT EOL"""
-        return StringWithContext(
+        self._description = StringWithContext(
             desc_text,
             context=transformer.context_from_token(self.fn, desc_prefix)
         )
+        self._description_index = 0
 
     pvs = transformer.tuple_args
 
-    def _add_pv(self, pv: DaqPV, updating: bool = False):
-        if pv.name in self._pvs and not updating:
+    def _add_pv(self, pv: DaqPV):
+        def combine_contexts(*contexts: FullLoadContext) -> FullLoadContext:
+            result = []
+            for ctx in contexts:
+                for part in ctx:
+                    if part not in result:
+                        result.append(part)
+            return result
+
+        if pv.name in self._pvs:
             old_pv = self._pvs[pv.name]
             self._warnings.append(
                 Warning(
-                    context=pv.context,
+                    context=combine_contexts(pv.context, old_pv.context),
                     type_="duplicate_pv",
                     text=f"Duplicate pvname: {pv.name} {old_pv.context}"
                 )
@@ -225,7 +251,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             old_pv = self._pvs[self._aliases[pv.alias]]
             self._warnings.append(
                 Warning(
-                    context=pv.context,
+                    context=combine_contexts(pv.context, old_pv.context),
                     type_="duplicate_alias",
                     text=f"Duplicate alias: {pv.alias} {old_pv.context}",
                 )
@@ -235,7 +261,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             old_pv = self._pvs[pv.alias]
             self._warnings.append(
                 Warning(
-                    context=pv.context,
+                    context=combine_contexts(pv.context, old_pv.context),
                     type_="alias_is_pv",
                     text=f"Alias name is a PV: {pv.alias} {old_pv.context}",
                 )
@@ -245,7 +271,7 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             old_pv = self._pvs[self._aliases[pv.name]]
             self._warnings.append(
                 Warning(
-                    context=pv.context,
+                    context=combine_contexts(pv.context, old_pv.context),
                     type_="pv_is_alias",
                     text=f"PV name matches alias: {pv.name} {old_pv.context}",
                 )
@@ -258,26 +284,6 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
 
         if pv.alias:
             self._aliases[pv.alias] = pv.name
-
-    def description_group(self, description, *items):
-        if not items:
-            return
-
-        pvs = [item for item in items if isinstance(item, DaqPV)]
-        # TODO
-        # comments = [item for item in items if isinstance(item, Comment)]
-        for idx, pv in enumerate(pvs, 1):
-            if idx > 1:
-                # NOTE: the old daq docs indicate it appended "-{pv}" on the
-                # description... but the new source does this:
-                pv.alias = f"{description}_{idx}"
-            else:
-                pv.alias = description
-
-            pv.comments = list(self._comments)
-            self._add_pv(pv, updating=True)
-
-        self._comments = []
 
     def filenames(self, *filenames):
         return filenames
@@ -308,15 +314,22 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
                     context=self._load_context + include_ctx,
                 )
             except lark.exceptions.LarkError as ex:
+                line = getattr(ex, "line", 0)
+                if not isinstance(line, int):
+                    line = 0
                 self._warnings.append(
                     Warning(
-                        context=include_ctx,
+                        context=include_ctx + (LoadContext(str(filename), line), ),
                         type_="bad_file",
                         text=(
                             f"Failed to parse {filename}: {ex.__class__.__name__} {ex}"
                         )
                     )
                 )
+                try:
+                    self._loaded_files[str(filename)] = get_file_sha256(filename)
+                except Exception:
+                    ...
             except FileNotFoundError:
                 self._warnings.append(
                     Warning(
@@ -328,11 +341,11 @@ class _EpicsArchTransformer(lark.visitors.Transformer):
             else:
                 self._warnings.extend(included.warnings)
                 for pv in included.pvs.values():
-                    self._add_pv(pv, updating=False)
+                    self._add_pv(pv)
                 self._loaded_files.update(included.loaded_files)
 
         def blank_line(self, *_):
-            ...
+            self._description = None
 
 
 def main(
@@ -347,10 +360,20 @@ def main(
         try:
             archfile = LclsEpicsArchFile.from_file(filename)
         except Exception as ex:
-            execution_info[str(filename)] = (
-                f"Failed to load: {ex.__class__.__name__} {ex}"
+            archfile = LclsEpicsArchFile(
+                pvs={},
+                aliases={},
+                filename=pathlib.Path(filename),
+                warnings=[
+                    Warning(
+                        context=(LoadContext(str(filename), 0), ),
+                        type_="bad_file",
+                        text=(
+                            f"Failed to parse {filename}: {ex.__class__.__name__} {ex}"
+                        )
+                    )
+                ],
             )
-            continue
 
         files_to_monitor.update(archfile.loaded_files)
         filename = str(filename)
