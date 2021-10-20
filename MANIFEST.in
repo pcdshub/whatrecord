@@ -7,5 +7,6 @@ include versioneer.py
 
 recursive-include src/_whatrecord *.pyx
 recursive-include whatrecord/grammar *.lark
+recursive-include whatrecord/tests/epicsarch/ *.txt
 recursive-include whatrecord/tests *.db *.cmd *.dbd *.proto *.pvlist *.acf t1-*.txt *.st LICENSE
 recursive-include whatrecord/tests *.substitutions *.substitutions.expanded

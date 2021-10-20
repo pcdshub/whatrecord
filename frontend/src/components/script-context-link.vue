@@ -1,7 +1,7 @@
 <template>
   <div class="context">
     <template v-for="[name, line] in context" :key="name + line">
-      &gt;
+      {{ prefix }}
       <script-context-one-link :name="name" :line="line" :short="short" />
       <br />
     </template>
@@ -16,6 +16,10 @@ export default {
   props: {
     context: Array,
     short: Number,
+    prefix: {
+      type: String,
+      default: ">",
+    },
   },
   components: {
     ScriptContextOneLink,
