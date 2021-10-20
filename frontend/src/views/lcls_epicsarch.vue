@@ -113,7 +113,17 @@
               />
             </template>
           </Column>
-          <Column field="alias" header="Alias" :sortable="true" style="width: 30%"/>
+          <Column field="alias" header="Alias" :sortable="true" style="width: 30%">
+            <template #filter="{ filterModel, filterCallback }">
+              <InputText
+                type="text"
+                v-model="filterModel.value"
+                @keydown.enter="filterCallback()"
+                class="p-column-filter"
+                :placeholder="`Filter by alias`"
+              />
+            </template>
+          </Column>
           <Column field="context" header="Context" :sortable="true" style="width: 30%">
             <template #body="{ data }">
               <script-context-link :context="data.context" :short="3" />
