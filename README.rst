@@ -82,3 +82,63 @@ Requirements:
 Build requirements:
 * cython
 * epicscorelibs
+
+Frontend Screenshots
+--------------------
+
+Search for records and view relationships:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_1.png
+
+View StreamDevice protocol information:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_2.png
+
+See where your qsrv pvAccess keys come from:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_3.png
+
+See access security settings:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_4.png
+
+View all of your IOCs in one place and browse their records by type:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_5.png
+
+View inter-IOC record relationships:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_6.png
+
+View all of your ophyd/happi devices and their relevant PVs:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_7.png
+
+View LDAP-provided settings:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_8.png
+
+(LCLS-specific) View epicsArch DAQ PVs:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_9.png
+
+View gateway PVList configurations:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_10.png
+
+View record duplicates:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_11.png
+
+View API server logs:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_12.png
+
+See per-parameter values:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_13.png
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_15.png
+
+See database lint:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_14.png
