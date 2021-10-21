@@ -8,6 +8,7 @@ pytest-aiohttp
 
 # docs-related dependencies:
 mkdocs
+mkdocs-autorefs
 mkdocs-material
 mkdocstrings
 pytkdocs[numpy-style]

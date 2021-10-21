@@ -1,5 +1,5 @@
 """
-"whatrec iocmanager_loader" is used to import IOC configuration information
+"whatrecord iocmanager-loader" is used to import IOC configuration information
 from SLAC PCDS IocManager-format configuration files.
 """
 

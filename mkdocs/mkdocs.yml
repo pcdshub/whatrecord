@@ -9,6 +9,7 @@ theme:
   features:
   - navigation.tabs
   - navigation.top
+  - toc.integrate
   palette:
   - media: "(prefers-color-scheme: light)"
     scheme: default
@@ -29,6 +30,7 @@ extra_css:
 - css/mkdocstrings.css
 
 plugins:
+- autorefs
 - search
 - mkdocstrings:
     handlers:

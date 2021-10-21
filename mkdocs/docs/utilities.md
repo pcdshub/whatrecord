@@ -1,14 +1,23 @@
 # Shared / Utilities
 
-## Usage
+## Macros
 
-## API
+EPICS-compliant macro parsing by way of a Cython wrapper of macLib.
+
+::: whatrecord.macro
+
+## PV Graphing
+
+::: whatrecord.graph
+
+## Shared
 
 ::: whatrecord.common
+
+## Miscellaneous
+
 ::: whatrecord.cache
 ::: whatrecord.format
-::: whatrecord.graph
 ::: whatrecord.graphql
-::: whatrecord.macro
 ::: whatrecord.settings
 ::: whatrecord.util
