@@ -7,4 +7,13 @@ pytest
 pytest-aiohttp
 
 # docs-related dependencies:
-doctr
+mkdocs
+mkdocs-autorefs
+mkdocs-material
+mkdocstrings
+pytkdocs[numpy-style]
+
+# plugin dependencies
+happi
+python-ldap
+pytmc

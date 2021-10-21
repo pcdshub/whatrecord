@@ -1,0 +1,65 @@
+site_name: whatrecord
+site_author: SLAC National Accelerator Laboratory
+copyright: (C) 2021 SLAC National Accelerator Laboratory
+
+theme:
+  name: "material"
+  icon:
+    logo: material/currency-sign
+  features:
+  - navigation.tabs
+  - navigation.top
+  - toc.integrate
+  palette:
+  - media: "(prefers-color-scheme: light)"
+    scheme: default
+    primary: lightblue
+    accent: purple
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to dark mode
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    primary: black
+    accent: lime
+    toggle:
+      icon: material/weather-night
+      name: Switch to light mode
+
+extra_css:
+- css/mkdocstrings.css
+
+plugins:
+- autorefs
+- search
+- mkdocstrings:
+    handlers:
+      python:
+        setup_commands:
+          - import sys; sys.path.insert(0, '..')
+        selection:
+          docstring_style: numpy
+        rendering:
+          inherited_members: false
+          show_root_heading: true
+          show_root_toc_entry: true
+          show_root_full_path: true
+          show_object_full_path: true
+          show_category_heading: true
+          show_signature_annotations: true
+          heading_level: 3
+          members: true
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://lark-parser.readthedocs.io/en/latest/objects.inv
+
+nav:
+  - 'index.md'
+  - 'parsers.md'
+  - 'cli.md'
+  - 'server_client.md'
+  - 'plugins.md'
+  - 'utilities.md'
+  - 'iocsh.md'
+  - 'lcls.md'
+  - 'tests.md'
