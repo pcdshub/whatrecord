@@ -23,6 +23,7 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
 
 
 class DatabaseLoadFailure(Exception):
+    """Database load failure."""
     ...
 
 
@@ -166,6 +167,7 @@ class LinterResults:
 
 @dataclass
 class _TransformerState:
+    """Transformer state for database parsing."""
     lint: Optional[LinterResults] = field(default_factory=LinterResults)
     _record: Optional[RecordInstance] = None
     _record_type: Optional[RecordType] = None
@@ -540,55 +542,58 @@ class Database:
 
     Attributes
     ----------
-    standalone_aliases
+    standalone_aliases :
         Standalone aliases are those defined outside of the record body; this
         may only be useful for faithfully reconstructing the Database according
         to its original source code.  Keyed on alias to actual record name.
 
-    aliases
+    aliases :
         Alias name to record name.
 
-    paths
-    addpaths
+    paths :
         The path command specifies the current search path for use when loading
         database and database definition files. The addpath appends directory
         names to the current path. The path is used to locate the initial
         database file and included files. An empty dir at the beginning,
         middle, or end of a non-empty path string means the current directory.
 
-    breaktables
+    addpaths :
+        See 'paths' above.
+
+    breaktables :
         Breakpoint table (look-up table) of raw-to-engineering values.
 
-    comments
+    comments :
         Comments encountered while parsing the database.
 
-    devices
+    devices :
         Device support declarations (dset).
 
-    drivers
+    drivers :
         Driver declarations (drvet).
 
-    functions
+    functions :
         Exported C function names.
 
-    includes
+    includes :
         Inline inclusion. Not supported just yet.
 
-    links
+    links :
+        Links.
 
-    menus
+    menus :
         Named value enumerations (enums).
 
-    records
+    records :
         Record name to RecordInstance.
 
-    record_types
+    record_types :
         Record type name to RecordType.
 
-    registrars
+    registrars :
         Exported registrar function name.
 
-    variables
+    variables :
         IOC shell variables.
     """
 

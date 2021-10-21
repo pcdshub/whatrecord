@@ -1,0 +1,5 @@
+# Tests
+
+## API
+
+::: whatrecord.tests

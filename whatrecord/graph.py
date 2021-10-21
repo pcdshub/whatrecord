@@ -50,10 +50,18 @@ async def async_render(
 
     Raises
     ------
-    ValueError: If ``engine``, ``format``, ``renderer``, or ``formatter`` are not known.
-    graphviz.RequiredArgumentError: If ``formatter`` is given but ``renderer`` is None.
-    graphviz.ExecutableNotFound: If the Graphviz executable is not found.
-    subprocess.CalledProcessError: If the exit status is non-zero.
+    ValueError
+        If ``engine``, ``format``, ``renderer``, or ``formatter`` are not
+        known.
+
+    graphviz.RequiredArgumentError
+        If ``formatter`` is given but ``renderer`` is None.
+
+    graphviz.ExecutableNotFound
+        If the Graphviz executable is not found.
+
+    subprocess.CalledProcessError
+        If the exit status is non-zero.
 
     Notes
     -----
@@ -129,11 +137,20 @@ class AsyncDigraph(gv.Digraph):
 
         Raises
         ------
-        ValueError: If ``format``, ``renderer``, or ``formatter`` are not known.
-        graphviz.RequiredArgumentError: If ``formatter`` is given but ``renderer`` is None.
-        graphviz.ExecutableNotFound: If the Graphviz executable is not found.
-        subprocess.CalledProcessError: If the exit status is non-zero.
-        RuntimeError: If viewer opening is requested but not supported.
+        ValueError
+            If ``format``, ``renderer``, or ``formatter`` are not known.
+
+        graphviz.RequiredArgumentError
+            If ``formatter`` is given but ``renderer`` is None.
+
+        graphviz.ExecutableNotFound
+            If the Graphviz executable is not found.
+
+        subprocess.CalledProcessError
+            If the exit status is non-zero.
+
+        RuntimeError
+            If viewer opening is requested but not supported.
 
         Notes
         -----
@@ -448,7 +465,7 @@ def find_record_links(database, starting_records, check_all=True, relations=None
         if not provided.
 
     Yields
-    -------
+    ------
     link_info : LinkInfo
         Link info
     """
