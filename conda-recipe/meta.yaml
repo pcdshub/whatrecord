@@ -12,19 +12,19 @@ build:
 
 requirements:
     build:
-      - python >=3.7
+      - python >=3.9
       - setuptools
       - epicscorelibs
       - setuptools_dso
       - cython
     run:
-      - python >=3.7
+      - python >=3.9
       - aiohttp
       - graphviz
       - python-graphviz
       - jinja2
       - lark-parser
-      - apischema
+      - apischema <0.16
 
 test:
     imports:
