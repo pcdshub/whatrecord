@@ -1,5 +1,5 @@
 aiohttp
-apischema[graphql]
+apischema[graphql]<0.16
 graphviz
 jinja2
 lark-parser
