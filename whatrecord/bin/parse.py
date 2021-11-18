@@ -52,6 +52,12 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
+        "--v3",
+        action="store_true",
+        help="Use V3 database grammar instead of V4 where possible"
+    )
+
+    parser.add_argument(
         "--dbd",
         type=str,
         help="The dbd file, if parsing a database",
@@ -118,6 +124,7 @@ def parse(
     use_gdb: bool = False,
     format: Optional[FileFormat] = None,
     expand: bool = False,
+    v3: bool = False,
 ) -> ParseResult:
     """
     Generically parse either a startup script or a database file.
@@ -144,6 +151,9 @@ def parse(
 
     expand : bool, optional
         Expand a substitutions file.
+
+    v3 : bool, optional
+        Use V3 database grammar where applicable.
     """
     standin_directories = standin_directories or {}
 
@@ -157,10 +167,12 @@ def parse(
 
     if format in (FileFormat.database, FileFormat.database_definition):
         if format == FileFormat.database_definition or not dbd:
-            return Database.from_file(filename, macro_context=macro_context)
+            return Database.from_file(
+                filename, macro_context=macro_context, version=3 if v3 else 4
+            )
         return LinterResults.from_database_file(
-            db=filename,
-            dbd=Database.from_file(dbd),
+            db_filename=filename,
+            dbd=Database.from_file(dbd, version=3 if v3 else 4),
             macro_context=macro_context
         )
 
@@ -191,6 +203,7 @@ def parse(
             macro_context=macro_context,
             dbd=Database.from_file(dbd) if dbd is not None else None,
             filename=filename,
+            version=3 if v3 else 4,
         )
 
     if format == FileFormat.state_notation:
@@ -225,6 +238,7 @@ def parse_from_cli_args(
     use_gdb: bool = False,
     format: Optional[str] = None,
     expand: bool = False,
+    v3: bool = False,
 ) -> ParseResult:
     """
     Generically parse either a startup script or a database file.
@@ -248,6 +262,9 @@ def parse_from_cli_args(
 
     expand : bool, optional
         Expand a substitutions file.
+
+    v3 : bool, optional
+        Use V3 database grammar where applicable.
     """
     standin_directories = dict(
         path.split("=", 1) for path in standin_directory or ""
@@ -270,6 +287,7 @@ def parse_from_cli_args(
         use_gdb=use_gdb,
         format=FileFormat(format) if format is not None else None,
         expand=expand,
+        v3=v3,
     )
 
 
@@ -283,6 +301,7 @@ def main(
     format: Optional[str] = None,
     expand: bool = False,
     friendly_format: str = "console",
+    v3: bool = False,
 ):
     result = parse_from_cli_args(
         filename=filename,
@@ -292,6 +311,7 @@ def main(
         use_gdb=use_gdb,
         format=format,
         expand=expand,
+        v3=v3,
     )
 
     if friendly:

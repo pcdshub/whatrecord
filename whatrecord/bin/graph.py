@@ -33,9 +33,10 @@ def build_arg_parser(parser=None):
     parser.formatter_class = argparse.RawTextHelpFormatter
 
     parser.add_argument(
-        'filename',
+        "filenames",
         type=str,
-        help="Startup script filename"
+        nargs="+",
+        help="Script or database filename(s)"
     )
 
     parser.add_argument(
@@ -46,6 +47,12 @@ def build_arg_parser(parser=None):
             "The file format.  For files that lack a recognized extension or "
             "are otherwise misidentified by whatrecord."
         ),
+    )
+
+    parser.add_argument(
+        "--v3",
+        action="store_true",
+        help="Use V3 database grammar instead of V4 where possible"
     )
 
     parser.add_argument(
@@ -103,8 +110,38 @@ def build_arg_parser(parser=None):
     return parser
 
 
+def _combine_databases(*items: Database) -> Database:
+    for item in items:
+        if not isinstance(item, Database):
+            raise ValueError(f"Expected Database, got {type(item)}")
+
+    db = items[0]
+    for item in items[1:]:
+        for record, instance in item.records.items():
+            existing_record = db.records.get(record, None)
+            if not existing_record:
+                db.records[record] = instance
+            else:
+                existing_record.info.update(instance.info)
+                existing_record.metadata.update(instance.metadata)
+                existing_record.fields.update(instance.fields)
+                existing_record.aliases = list(
+                    sorted(set(existing_record.aliases + instance.aliases))
+                )
+                if existing_record.record_type != instance.record_type:
+                    logger.warning(
+                        "Record type mismatch in provided database files: "
+                        "%s %s %s",
+                        record, instance.record_type, existing_record.record_type
+                    )
+
+        db.record_types.update(item.record_types or {})
+
+    return db
+
+
 def main(
-    filename: AnyPath,
+    filenames: List[AnyPath],
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
@@ -115,18 +152,30 @@ def main(
     friendly_format: str = "console",
     highlight: Optional[List[str]] = None,
     only: Optional[List[str]] = None,
+    v3: bool = False,
 ):
     highlight = highlight or []
     only = only or []
-    result = parse_from_cli_args(
-        filename=filename,
-        dbd=dbd,
-        standin_directory=standin_directory,
-        macros=macros,
-        use_gdb=use_gdb,
-        format=format,
-        expand=expand,
-    )
+
+    databases_only = len(filenames) > 1
+    results = [
+        parse_from_cli_args(
+            filename=filename,
+            dbd=dbd,
+            standin_directory=standin_directory,
+            macros=macros,
+            use_gdb=use_gdb,
+            format=format,
+            expand=expand,
+            v3=v3,
+        )
+        for filename in filenames
+    ]
+
+    if databases_only:
+        result = _combine_databases(*results)
+    else:
+        result, = results
 
     if isinstance(result, (LoadedIoc, Database)):
         if isinstance(result, LoadedIoc):
