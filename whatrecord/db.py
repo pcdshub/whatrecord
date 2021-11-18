@@ -638,6 +638,7 @@ class Database:
             parser="lalr",
             lexer_callbacks={"COMMENT": comments.append},
             transformer=_DatabaseTransformer(filename, dbd=dbd, lint=lint),
+            maybe_placeholders=False,
             # Per-user `gettempdir` caching of the LALR grammar analysis way of
             # passing ``True`` here:
             cache=True,
