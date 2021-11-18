@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 # from ..access_security import AccessSecurityConfig
 from ..common import AnyPath, RecordInstance  # , FileFormat, IocMetadata
-from ..db import Database
+from ..db import Database, LinterResults
 # from ..dbtemplate import TemplateSubstitution
 # from ..format import FormatContext
 # from ..gateway import PVList as GatewayPVList
@@ -112,7 +112,7 @@ def build_arg_parser(parser=None):
 
 def _combine_databases(*items: Database) -> Database:
     for item in items:
-        if not isinstance(item, Database):
+        if not isinstance(item, (Database, LinterResults)):
             raise ValueError(f"Expected Database, got {type(item)}")
 
     db = items[0]
@@ -177,11 +177,16 @@ def main(
     else:
         result, = results
 
-    if isinstance(result, (LoadedIoc, Database)):
+    if isinstance(result, (LinterResults, LoadedIoc, Database)):
         if isinstance(result, LoadedIoc):
             database = result.shell_state.database
-            record_types = result.shell_state.database_definition.record_types
+            defn = result.shell_state.database_definition
+            record_types = defn.record_types if defn else None
             aliases = result.shell_state.aliases
+        elif isinstance(result, LinterResults):
+            database = result.records
+            record_types = result.record_types
+            aliases = {}
         else:
             database = result.records
             record_types = result.record_types
