@@ -606,6 +606,64 @@ def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
 
 
 LINK_TYPES = {"DBF_INLINK", "DBF_OUTLINK", "DBF_FWDLINK"}
+COMMON_LINK_FIELDS = ("FLNK", "SDIS", "TSEL")
+
+# Generate by way of: Database.field_names_by_type(LINK_TYPES)
+# Used when database definition files are not loaded; may not be complete
+# or 100% accurate depending on EPICS version.
+LINK_FIELDS_BY_RECORD = {
+    "aSub": ("FLNK", "INPA", "INPB", "INPC", "INPD", "INPE", "INPF", "INPG",
+             "INPH", "INPI", "INPJ", "INPK", "INPL", "INPM", "INPN", "INPO",
+             "INPP", "INPQ", "INPR", "INPS", "INPT", "INPU", "OUTA", "OUTB",
+             "OUTC", "OUTD", "OUTE", "OUTF", "OUTG", "OUTH", "OUTI", "OUTJ",
+             "OUTK", "OUTL", "OUTM", "OUTN", "OUTO", "OUTP", "OUTQ", "OUTR",
+             "OUTS", "OUTT", "OUTU", "SDIS", "SUBL", "TSEL"),
+    "aai": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "aao": ("FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "ai": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "ao": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "bi": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "bo": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "calc": ("FLNK", "INPA", "INPB", "INPC", "INPD", "INPE", "INPF", "INPG",
+             "INPH", "INPI", "INPJ", "INPK", "INPL", "SDIS", "TSEL"),
+    "calcout": ("FLNK", "INPA", "INPB", "INPC", "INPD", "INPE", "INPF", "INPG",
+                "INPH", "INPI", "INPJ", "INPK", "INPL", "OUT", "SDIS", "TSEL"),
+    "compress": ("FLNK", "INP", "SDIS", "TSEL"),
+    "dfanout": ("DOL", "FLNK", "OUTA", "OUTB", "OUTC", "OUTD", "OUTE", "OUTF",
+                "OUTG", "OUTH", "SDIS", "SELL", "TSEL"),
+    "event": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "fanout": ("FLNK", "LNK0", "LNK1", "LNK2", "LNK3", "LNK4", "LNK5", "LNK6",
+               "LNK7", "LNK8", "LNK9", "LNKA", "LNKB", "LNKC", "LNKD", "LNKE",
+               "LNKF", "SDIS", "SELL", "TSEL"),
+    "histogram": ("FLNK", "SDIS", "SIML", "SIOL", "SVL", "TSEL"),
+    "int64in": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "int64out": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "longin": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "longout": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "lsi": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "lso": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "mbbi": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "mbbiDirect": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "mbbo": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "mbboDirect": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "permissive": ("FLNK", "SDIS", "TSEL"),
+    "printf": ("FLNK", "INP0", "INP1", "INP2", "INP3", "INP4", "INP5", "INP6",
+               "INP7", "INP8", "INP9", "OUT", "SDIS", "TSEL"),
+    "sel": ("FLNK", "INPA", "INPB", "INPC", "INPD", "INPE", "INPF", "INPG",
+            "INPH", "INPI", "INPJ", "INPK", "INPL", "NVL", "SDIS", "TSEL"),
+    "seq": ("DOL0", "DOL1", "DOL2", "DOL3", "DOL4", "DOL5", "DOL6", "DOL7",
+            "DOL8", "DOL9", "DOLA", "DOLB", "DOLC", "DOLD", "DOLE", "DOLF",
+            "FLNK", "LNK0", "LNK1", "LNK2", "LNK3", "LNK4", "LNK5", "LNK6",
+            "LNK7", "LNK8", "LNK9", "LNKA", "LNKB", "LNKC", "LNKD", "LNKE",
+            "LNKF", "SDIS", "SELL", "TSEL"),
+    "state": ("FLNK", "SDIS", "TSEL"),
+    "stringin": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL"),
+    "stringout": ("DOL", "FLNK", "OUT", "SDIS", "SIML", "SIOL", "TSEL"),
+    "sub": ("FLNK", "INPA", "INPB", "INPC", "INPD", "INPE", "INPF", "INPG",
+            "INPH", "INPI", "INPJ", "INPK", "INPL", "SDIS", "TSEL"),
+    "subArray": ("FLNK", "INP", "SDIS", "TSEL"),
+    "waveform": ("FLNK", "INP", "SDIS", "SIML", "SIOL", "TSEL")
+}
 
 
 @dataclass
@@ -767,13 +825,49 @@ record("{{record_type}}", "{{name}}") {
     def get_links(
         self,
     ) -> Generator[Tuple[RecordField, str, Tuple[str, ...]], None, None]:
-        """Get all links."""
+        """
+        Get all links.
+
+        Yields
+        ------
+        field : RecordField
+        link_text: str
+        link_info: str
+        """
         for fld in self.get_fields_of_type(*LINK_TYPES):
             try:
                 link, info = get_link_information(fld.value)
             except ValueError:
                 continue
             yield fld, link, info
+
+    def get_common_links(
+        self,
+    ) -> Generator[Tuple[RecordField, str, Tuple[str, ...]], None, None]:
+        """
+        Without using a database definition, try to find links.
+
+        This differs from ``get_links`` in that the other method requires
+        a dbd file to be loaded, whereas this will use a simple - but possibly
+        inaccurate - map of of record type to link fields.
+
+        Yields
+        ------
+        field : RecordField
+        link_text: str
+        link_info: str
+        """
+        if self.is_pva:
+            return
+
+        for name in LINK_FIELDS_BY_RECORD.get(self.record_type, COMMON_LINK_FIELDS):
+            fld = self.fields.get(name, None)
+            if fld is not None:
+                try:
+                    link, info = get_link_information(fld.value)
+                except ValueError:
+                    continue
+                yield fld, link, info
 
     def to_summary(self) -> RecordInstanceSummary:
         """Return a summarized version of the record instance."""

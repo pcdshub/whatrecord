@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import pathlib
 from dataclasses import field
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple, Union
 
 import apischema
 import lark
@@ -694,3 +694,26 @@ class Database:
                 version=version,
                 lint=lint,
             )
+
+    def field_names_by_type(
+        self, field_types: List[str]
+    ) -> Dict[str, FrozenSet[str]]:
+        """
+        Generate dictionary of record type to frozenset of field names.
+
+        This can be used in scenarios where database definition files are
+        unavailable and link information is requested.
+
+        Parameters
+        ----------
+        field_types : list of str
+            Field types to look for.
+        """
+        by_rtype = {}
+        for rtype, info in sorted(self.record_types.items()):
+            by_rtype[rtype] = frozenset(
+                field.name
+                for field in info.fields.values()
+                if field.type in field_types
+            )
+        return by_rtype
