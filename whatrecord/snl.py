@@ -378,7 +378,9 @@ class SequencerProgram:
             "snl.lark",
             search_paths=("grammar",),
             parser="earley",
-            lexer_callbacks={"COMMENT": comments.append},
+            # TODO: alternative comment finding method
+            # lexer_callbacks={"COMMENT": comments.append},
+            maybe_placeholders=False,
             propagate_positions=True,
             debug=debug,
         )

@@ -82,7 +82,8 @@ class StreamProtocol:
             "streamdevice.lark",
             search_paths=("grammar", ),
             parser="earley",
-            lexer_callbacks={"COMMENT": comments.append},
+            maybe_placeholders=False,
+            # lexer_callbacks={"COMMENT": comments.append},
         )
 
         proto = _ProtocolTransformer(cls, filename).transform(

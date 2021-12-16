@@ -53,6 +53,7 @@ class AutosaveRestoreFile:
             "autosave_save.lark",
             search_paths=("grammar", ),
             parser="earley",
+            maybe_placeholders=False,
             propagate_positions=True,
         )
 

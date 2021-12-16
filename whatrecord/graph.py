@@ -209,7 +209,7 @@ def is_supported_link(link: str) -> bool:
 def build_database_relations(
     database: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
-    aliases: Optional[Dict[str, str]] = None
+    aliases: Optional[Dict[str, str]] = None,
 ) -> PVRelations:
     """
     Build a dictionary of PV relationships.
@@ -240,7 +240,14 @@ def build_database_relations(
 
     # TODO: alias handling?
     for rec1 in database.values():
-        for field1, link, info in rec1.get_links():
+        if record_types:
+            # Use links as defined in the database definition
+            rec1_links = rec1.get_links()
+        else:
+            # Fall back to static list of link fields
+            rec1_links = rec1.get_common_links()
+
+        for field1, link, info in rec1_links:
             # TODO: copied without thinking about implications
             # due to the removal of st.cmd context as an attempt to reduce
             field1 = copy.deepcopy(field1)
@@ -509,17 +516,18 @@ def find_record_links(database, starting_records, check_all=True, relations=None
 
 
 def graph_links(
-    database,
-    starting_records,
-    graph=None,
-    engine="dot",
-    header_format='record({rtype}, "{name}")',
-    field_format='{field:>4s}: "{value}"',
-    sort_fields=True,
-    text_format=None,
-    show_empty=False,
-    font_name="Courier",
-    relations=None,
+    database: Dict[str, RecordInstance],
+    starting_records: List[str],
+    graph: Optional[gv.Digraph] = None,
+    engine: str = "dot",
+    header_format: str = 'record({rtype}, "{name}")',
+    field_format: str = '{field:>4s}: "{value}"',
+    text_format: Optional[str] = None,
+    sort_fields: bool = True,
+    show_empty: bool = False,
+    font_name: str = "Courier",
+    relations: Optional[PVRelations] = None,
+    record_types: Optional[Dict[str, RecordType]] = None,
 ):
     """
     Create a graphviz digraph of record links.
@@ -550,6 +558,10 @@ def graph_links(
     relations : dict, optional
         Pre-built PV relationship dictionary.  Generated from database
         if not provided.
+    record_types : dict, optional
+        The database definitions to use for fields that are not defined in the
+        database file.  Dictionary of record type name to RecordType.  Only
+        used for determining script relations if not specified.
 
     Returns
     -------
@@ -561,6 +573,11 @@ def graph_links(
     edges = []
     nodes = {}
     existing_edges = set()
+
+    if relations is None:
+        relations = build_database_relations(
+            database, record_types=record_types
+        )
 
     if graph is None:
         graph = AsyncDigraph(format="pdf")
@@ -709,16 +726,14 @@ def build_script_relations(
 
 
 def graph_script_relations(
-    database,
-    limit_to_records=None,
-    graph=None,
-    engine="dot",
-    header_format='record({rtype}, "{name}")',
-    field_format='{field:>4s}: "{value}"',
-    text_format=None,
-    font_name="Courier",
-    relations=None,
-    script_relations=None,
+    database: Dict[str, RecordInstance],
+    limit_to_records: Optional[List[str]] = None,
+    graph: Optional[gv.Digraph] = None,
+    engine: str = "dot",
+    font_name: str = "Courier",
+    relations: Optional[PVRelations] = None,
+    script_relations: Optional[ScriptPVRelations] = None,
+    record_types: Optional[Dict[str, RecordType]] = None,
 ):
     """
     Create a graphviz digraph of script links (i.e., inter-IOC record links).
@@ -745,6 +760,10 @@ def graph_script_relations(
     script_relations : dict, optional
         Pre-built script relationship dictionary.  Generated from database if
         not provided.
+    record_types : dict, optional
+        The database definitions to use for fields that are not defined in the
+        database file.  Dictionary of record type name to RecordType.  Only
+        used for determining script relations if not specified.
 
     Returns
     -------
@@ -758,7 +777,10 @@ def graph_script_relations(
 
     if script_relations is None:
         if relations is None:
-            relations = build_database_relations(database)
+            relations = build_database_relations(
+                database,
+                record_types=record_types,
+            )
 
         script_relations = build_script_relations(
             database, relations,

@@ -2,4 +2,4 @@ aiohttp
 apischema[graphql]<0.16
 graphviz
 jinja2
-lark-parser
+lark-parser<1.0

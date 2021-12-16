@@ -344,6 +344,7 @@ class AccessSecurityConfig:
             parser="lalr",
             lexer_callbacks={"COMMENT": add_comment},
             transformer=_AcfTransformer(filename, contents_hash, comments),
+            maybe_placeholders=False,
         )
 
         return grammar.parse(contents)

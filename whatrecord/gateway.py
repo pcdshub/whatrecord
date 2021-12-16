@@ -249,6 +249,7 @@ class PVList:
             "gateway.lark",
             search_paths=("grammar", ),
             parser="lalr",
+            maybe_placeholders=False,
             lexer_callbacks={"COMMENT": add_comment},
             transformer=_PVListTransformer(filename, contents_hash, comments),
         )

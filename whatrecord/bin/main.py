@@ -16,7 +16,7 @@ import whatrecord
 DESCRIPTION = __doc__
 RETURN_VALUE = None
 
-MODULES = ("server", "iocmanager_loader", "info", "lint", "parse")
+MODULES = ("server", "iocmanager_loader", "info", "lint", "parse", "graph")
 
 
 def _try_import(module):

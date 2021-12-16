@@ -266,7 +266,9 @@ class TemplateSubstitution:
             grammar_filename,
             search_paths=("grammar",),
             parser="earley",
-            lexer_callbacks={"COMMENT": comments.append},
+            # TODO: This is unsupported in lark:
+            # lexer_callbacks={"COMMENT": comments.append},
+            maybe_placeholders=False,
             propagate_positions=True,
         )
 
