@@ -12,7 +12,7 @@ import json
 import logging
 import typing
 from dataclasses import dataclass
-from typing import Dict, Generator, List, Tuple, TypeVar, Union
+from typing import Dict, Generator, List, Tuple, Type, TypeVar, Union
 
 import apischema
 
@@ -210,7 +210,7 @@ def patch_and_use_dummy_shim():
 
 def find_signals(
     criteria: CriteriaDict,
-    signal_class: T,
+    signal_class: Type[T],
 ) -> Generator[Tuple[OphydObject, T], None, None]:
     """
     Find all signal metadata that match the given criteria.
@@ -367,11 +367,16 @@ def main(search_criteria: str, pretty: bool = False):
             md = results.metadata_by_key[happi_md.name]
             if "_whatrecord" not in md:
                 md["_whatrecord"] = {"records": []}
+            if sig.root is not root:
+                # TODO: this would not work for nested GroupDevice components.
+                dotted_name = ".".join((sig.root.attr_name, sig.dotted_name))
+            else:
+                dotted_name = sig.dotted_name
             md["_whatrecord"]["records"].append(
                 HappiRecordInfo(
                     name=record,
                     kind=str(sig.kind),
-                    signal=sig.dotted_name,
+                    signal=dotted_name,
                 )
             )
 
