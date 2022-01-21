@@ -6,3 +6,10 @@ requires = [
     "setuptools_dso",
     "wheel",
 ]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "whatrecord/tests",
+]
+asyncio_mode = "auto"
