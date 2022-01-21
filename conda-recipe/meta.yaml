@@ -24,7 +24,7 @@ requirements:
       - python-graphviz
       - jinja2
       - lark-parser <1.0
-      - apischema <0.16
+      - apischema
 
 test:
     imports:
