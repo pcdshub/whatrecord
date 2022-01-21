@@ -12,13 +12,13 @@ build:
 
 requirements:
     build:
-      - python >=3.9
+      - python {{PY_VER}}*,>=3.9
       - setuptools
       - epicscorelibs
       - setuptools_dso
       - cython
     run:
-      - python >=3.9
+      - python {{PY_VER}}*,>=3.9
       - aiohttp
       - graphviz
       - python-graphviz
