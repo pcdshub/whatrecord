@@ -84,10 +84,10 @@ def test_breaktable(version):
 """,
         version=version
     )
-    assert db.breaktables["typeAttenLength"] == (
+    assert db.breaktables["typeAttenLength"] == [
         '0.8', '0.18', '0.9', '0.25', '8.0', '150.13', '8.5', '174.81', '9.0',
         '204.32'
-    )
+    ]
     apischema.deserialize(Database, apischema.serialize(db))
 
 

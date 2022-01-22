@@ -298,7 +298,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         self.db.variables[name] = value
 
     def breaktable(self, _, name, values):
-        self.db.breaktables[name] = values
+        self.db.breaktables[name] = list(values)
 
     break_head = transformer.pass_through
     break_body = transformer.pass_through
@@ -601,7 +601,7 @@ class Database:
     aliases: Dict[str, str] = field(default_factory=dict)
     paths: List[str] = field(default_factory=list)
     addpaths: List[str] = field(default_factory=list)
-    breaktables: Dict[str, Tuple[str]] = field(default_factory=dict)
+    breaktables: Dict[str, List[str]] = field(default_factory=dict)
     comments: List[str] = field(default_factory=list)
     devices: List[DatabaseDevice] = field(default_factory=list)
     drivers: List[str] = field(default_factory=list)
