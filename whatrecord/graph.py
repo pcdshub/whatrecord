@@ -72,8 +72,8 @@ async def async_render(
     # Adapted from graphviz under the MIT License (MIT) Copyright (c) 2013-2020
     # Sebastian Bank
     dirname, filename = os.path.split(filepath)
-
     cmd, rendered = gv.backend.command(engine, format, filename, renderer, formatter)
+
     if dirname:
         cwd = dirname
         rendered = os.path.join(dirname, rendered)
@@ -190,7 +190,6 @@ class LinkInfo:
     field1: RecordField
     record2: RecordInstance
     field2: RecordField
-    # info: Tuple[str, ...]
     info: List[str]
 
 
@@ -583,9 +582,9 @@ def graph_links(
         graph = AsyncDigraph(format="pdf")
 
     if font_name is not None:
-        graph.attr("graph", dict(fontname=font_name))
-        graph.attr("node", dict(fontname=font_name))
-        graph.attr("edge", dict(fontname=font_name))
+        graph.attr("graph", fontname=font_name)
+        graph.attr("node", fontname=font_name)
+        graph.attr("edge", fontname=font_name)
 
     if engine is not None:
         graph.engine = engine
@@ -594,7 +593,7 @@ def graph_links(
     if text_format is None:
         text_format = f"""<b>{{header}}</b>{newline}{newline}{{field_lines}}"""
 
-    # graph.attr("node", {"shape": "record"})
+    # graph.attr("node", shape="record")
 
     def new_node(rec, field=""):
         nonlocal node_id
@@ -722,7 +721,13 @@ def build_script_relations(
                 by_script[owner2][owner1].add(rec2_name)
                 by_script[owner1][owner2].add(rec1_name)
 
-    return by_script
+    return {
+        owner1: {
+            owner2: list(items)
+            for owner2, items in owner2s.items()
+        }
+        for owner1, owner2s in by_script.items()
+    }
 
 
 def graph_script_relations(
@@ -792,9 +797,9 @@ def graph_script_relations(
         graph = AsyncDigraph(format="pdf")
 
     if font_name is not None:
-        graph.attr("graph", dict(fontname=font_name))
-        graph.attr("node", dict(fontname=font_name))
-        graph.attr("edge", dict(fontname=font_name))
+        graph.attr("graph", fontname=font_name)
+        graph.attr("node", fontname=font_name)
+        graph.attr("edge", fontname=font_name)
 
     if engine is not None:
         graph.engine = engine

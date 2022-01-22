@@ -4,7 +4,7 @@ import collections
 import pathlib
 import shlex
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, Union
+from typing import Optional, Sequence, Union
 
 import lark
 
@@ -23,20 +23,20 @@ class Expression:
     context: FullLoadContext
 
 
-OptionalExpression = Optional[Union[Expression, Tuple[Expression, ...]]]
+OptionalExpression = Optional[Union[Expression, Sequence[Expression]]]
 
 
 @dataclass
 class Assignment(Definition):
     variable: str
-    value: Optional[Union[str, Tuple[str, ...]]] = None
+    value: Optional[Union[str, Sequence[str]]] = None
     subscript: Optional[int] = None
 
 
 @dataclass
 class AbstractDeclarator:
     context: FullLoadContext
-    params: Tuple[ParameterDeclarator, ...] = field(default_factory=tuple)
+    params: Sequence[ParameterDeclarator] = field(default_factory=list)
     modifier: Optional[str] = None
     subscript: Optional[int] = None
 
@@ -72,12 +72,12 @@ class Sync(Definition):
 @dataclass
 class Declaration(Definition):
     type: Optional[Type] = None
-    declarators: Optional[Tuple[Declarator, ...]] = field(default_factory=tuple)
+    declarators: Optional[Sequence[Declarator]] = field(default_factory=list)
 
 
 @dataclass
 class ForeignDeclaration(Declaration):
-    names: Tuple[str, ...] = field(default_factory=tuple)
+    names: Sequence[str] = field(default_factory=list)
 
 
 @dataclass
@@ -106,8 +106,8 @@ class ParameterDeclarator:
 class State:
     context: FullLoadContext
     name: str
-    definitions: Tuple[Definition, ...] = field(default_factory=tuple)
-    transitions: Tuple[Transition, ...] = field(default_factory=tuple)
+    definitions: Sequence[Definition] = field(default_factory=list)
+    transitions: Sequence[Transition] = field(default_factory=list)
     entry: Optional[Block] = None
     exit: Optional[Block] = None
 
@@ -116,8 +116,8 @@ class State:
 class StateSet:
     context: FullLoadContext
     name: str
-    definitions: Tuple[Definition, ...] = field(default_factory=tuple)
-    states: Tuple[State, ...] = field(default_factory=tuple)
+    definitions: Sequence[Definition] = field(default_factory=list)
+    states: Sequence[State] = field(default_factory=list)
 
 
 @dataclass
@@ -136,8 +136,8 @@ class ExitTransition(Transition):
 @dataclass
 class Block:
     context: FullLoadContext
-    definitions: Tuple[Definition, ...] = field(default_factory=tuple)
-    statements: Tuple[Statement, ...] = field(default_factory=tuple)
+    definitions: Sequence[Definition] = field(default_factory=list)
+    statements: Sequence[Statement] = field(default_factory=list)
 
 
 @dataclass
@@ -213,7 +213,7 @@ class CCode(Definition):
 @dataclass
 class StructDef(Definition):
     name: str
-    members: Tuple[Union[StructMember, CCode], ...] = field(default_factory=tuple)
+    members: Sequence[Union[StructMember, CCode]] = field(default_factory=list)
 
 
 @dataclass
@@ -232,8 +232,8 @@ class InitExpression(Expression):
 
     # TODO: may be improved?
     context: FullLoadContext
-    expressions: Tuple[Union[InitExpression, Expression], ...] = field(
-        default_factory=tuple
+    expressions: Sequence[Union[InitExpression, Expression]] = field(
+        default_factory=list
     )
     type: Optional[Type] = None
 
@@ -307,7 +307,7 @@ class ParenthesisExpression(Expression):
 @dataclass
 class ExpressionWithArguments(Expression):
     expression: Expression
-    arguments: Tuple[Expression, ...] = field(default_factory=tuple)
+    arguments: Sequence[Expression] = field(default_factory=list)
 
 
 @dataclass
@@ -317,11 +317,11 @@ class SequencerProgram:
     context: FullLoadContext
     name: str
     params: Optional[str]
-    initial_definitions: Tuple[Definition, ...] = field(default_factory=tuple)
+    initial_definitions: Sequence[Definition] = field(default_factory=list)
     entry: Optional[Block] = None
-    state_sets: Tuple[StateSet, ...] = field(default_factory=tuple)
+    state_sets: Sequence[StateSet] = field(default_factory=list)
     exit: Optional[Block] = None
-    final_definitions: Tuple[Definition, ...] = field(default_factory=tuple)
+    final_definitions: Sequence[Definition] = field(default_factory=list)
 
     @staticmethod
     def preprocess(code: str, search_path: Optional[AnyPath] = None) -> str:
@@ -440,11 +440,11 @@ class _ProgramTransformer(lark.visitors.Transformer):
         program_token: lark.Token,
         name: lark.Token,
         program_param: Optional[str],
-        initial_defns: Tuple[Definition, ...],
+        initial_defns: Sequence[Definition],
         entry: Block,
-        state_sets: Tuple[StateSet, ...],
+        state_sets: Sequence[StateSet],
         exit: Block,
-        final_defns: Tuple[Definition, ...],
+        final_defns: Sequence[Definition],
     ):
         """
         PROGRAM NAME program_param initial_defns entry state_sets exit final_defns
@@ -774,9 +774,9 @@ class _ProgramTransformer(lark.visitors.Transformer):
         state_token,
         name: lark.Token,
         _,
-        definitions: Tuple[Definition, ...],
+        definitions: Sequence[Definition],
         entry: Block,
-        transitions: Tuple[Transition, ...],
+        transitions: Sequence[Transition],
         exit: Block,
         __,
     ):
@@ -989,7 +989,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         expression: Expression,
         tok: lark.Token,
-        arguments: Tuple[Expression, ...],
+        arguments: Sequence[Expression],
         _,
     ):
         return ExpressionWithArguments(

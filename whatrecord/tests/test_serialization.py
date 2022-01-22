@@ -101,7 +101,7 @@ init_args_by_type = {
     FullLoadContext: [LoadContext("test", 1)],
     LoadContext: LoadContext("test", 1),
     dict: {},
-    float: 10,
+    float: 10.,
     int: 10,
     list: [],
     re.Pattern: re.compile("abc"),
@@ -148,7 +148,7 @@ def try_to_instantiate(cls):
 @all_dataclasses
 def test_serialize(cls):
     instance = try_to_instantiate(cls)
-    serialized = apischema.serialize(instance)
+    serialized = apischema.serialize(cls, instance)
     print(cls)
     print("Serialized:")
     print(serialized)
