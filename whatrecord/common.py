@@ -889,7 +889,7 @@ class AsynPortBase:
         # Deserializers stack directly as a Union
         apischema.deserializer(
             apischema.conversions.Conversion(
-                apischema.conversions.identity, source=cls, target=AsynPortBase
+                apischema.identity, source=cls, target=AsynPortBase
             )
         )
 
@@ -900,7 +900,7 @@ class AsynPortBase:
         )
         apischema.serializer(
             apischema.conversions.Conversion(
-                apischema.conversions.identity,
+                apischema.identity,
                 source=AsynPortBase,
                 target=AsynPortBase._union,
                 inherited=False,
