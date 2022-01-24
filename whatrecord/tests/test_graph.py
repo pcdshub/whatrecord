@@ -48,14 +48,14 @@ def test_simple_graph():
         (
             database["record_a"].fields["INP"],
             database["record_b"].fields["VAL"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
     assert relations["record_b"]["record_a"] == [
         (
             database["record_b"].fields["VAL"],
             database["record_a"].fields["INP"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
     assert relations["record_b"]["record_c"] == [
@@ -65,7 +65,7 @@ def test_simple_graph():
                 dtype='unknown', name='VAL', value='(unknown-record)',
                 context=(LoadContext("unknown", 0), ),
             ),
-            ("CA", ),
+            ["CA"],
         ),
     ]
 
@@ -103,14 +103,14 @@ def test_combine_relations():
         (
             database_1["record_a"].fields["INP"],
             database_1["record_b"].fields["VAL"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
     assert relations["record_b"]["record_a"] == [
         (
             database_1["record_b"].fields["VAL"],
             database_1["record_a"].fields["INP"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
     assert relations["record_b"]["record_c"] == [
@@ -121,28 +121,28 @@ def test_combine_relations():
             #     context=(LoadContext("unknown", 0), ),
             # ),
             database_2["record_c"].fields["VAL"],
-            ("CA", ),
+            ["CA"],
         ),
     ]
     assert relations["record_c"]["record_d"] == [
         (
             database_2["record_c"].fields["OUT"],
             database_2["record_d"].fields["INP"],
-            (),
+            [],
         ),
     ]
     assert relations["record_d"]["record_c"] == [
         (
             database_2["record_d"].fields["INP"],
             database_2["record_c"].fields["OUT"],
-            (),
+            [],
         ),
     ]
     assert relations["record_e"]["record_a"] == [
         (
             database_2["record_e"].fields["INP"],
             database_1["record_a"].fields["VAL"],
-            ("CP", ),
+            ["CP"],
         ),
     ]
 
@@ -163,7 +163,7 @@ def test_with_unset_field(dbd: Database):
                 value="",
                 context=(LoadContext("the.dbd", 17),),
             ),
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
 
@@ -183,7 +183,7 @@ def test_with_invalid_field(dbd: Database):
                 value="(invalid-field)",
                 context=(LoadContext("unknown", 0),),
             ),
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
 
@@ -203,7 +203,7 @@ def test_with_weird_record_type(dbd: Database):
                 value="(invalid-record-type)",
                 context=(LoadContext("unknown", 0),),
             ),
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
 
@@ -221,7 +221,7 @@ def test_with_alias(dbd: Database):
         (
             database_1["record_a"].fields["INP"],
             database_1["record_b"].fields["VAL"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
 
@@ -274,14 +274,14 @@ def test_combine_with_alias(dbd: Database):
         (
             database_1["record_a"].fields["INP"],
             database_1["record_b"].fields["VAL"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
     assert relations["record_b"]["record_a"] == [
         (
             database_1["record_b"].fields["VAL"],
             database_1["record_a"].fields["INP"],
-            ("CPP", "MS"),
+            ["CPP", "MS"],
         ),
     ]
     assert relations["record_b"]["record_c"] == [
@@ -292,41 +292,41 @@ def test_combine_with_alias(dbd: Database):
             #     context=(LoadContext("unknown", 0), ),
             # ),
             database_2["record_c"].fields["VAL"],
-            ("CA", ),
+            ["CA"],
         ),
     ]
     assert relations["record_c"]["record_d"] == [
         (
             database_2["record_c"].fields["OUT"],
             database_2["record_d"].fields["INP"],
-            (),
+            [],
         ),
     ]
     assert relations["record_d"]["record_c"] == [
         (
             database_2["record_d"].fields["INP"],
             database_2["record_c"].fields["OUT"],
-            (),
+            [],
         ),
     ]
     assert relations["record_d"]["record_a"] == [
         (
             database_2["record_d"].fields["INP"],
             database_1["record_a"].fields["VAL"],
-            (),
+            [],
         ),
     ]
     assert relations["record_e"]["record_a"] == [
         (
             database_2["record_e"].fields["INP"],
             database_1["record_a"].fields["VAL"],
-            ("CP", ),
+            ["CP"],
         ),
     ]
     assert relations["record_a"]["record_e"] == [
         (
             database_1["record_a"].fields["VAL"],
             database_2["record_e"].fields["INP"],
-            ("CP", ),
+            ["CP"],
         ),
     ]

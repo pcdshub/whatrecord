@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import (Any, Callable, ClassVar, Dict, Generator, List, Optional,
-                    Tuple, Union)
+                    Sequence, Tuple, Union)
 
 import apischema
 import lark
@@ -74,17 +74,17 @@ class LoadContext:
 
     @apischema.serializer
     @property
-    def as_tuple(self) -> Tuple[str, int]:
-        return (self.name, self.line)
+    def as_tuple(self) -> Sequence[Union[str, int]]:
+        return [self.name, self.line]
 
 
 @apischema.deserializer
-def _load_context_from_tuple(items: Tuple[str, int]) -> LoadContext:
+def _load_context_from_tuple(items: Sequence[Union[str, int]]) -> LoadContext:
     return LoadContext(*items)
 
 
 # FullLoadContext = Tuple[LoadContext, ...]
-FullLoadContext = List[LoadContext]
+FullLoadContext = Sequence[LoadContext]
 IocInfoDict = Dict[str, Union[str, Dict[str, str], List[str]]]
 AnyPath = Union[str, pathlib.Path]
 
@@ -571,7 +571,7 @@ ScriptPVRelations = Dict[
 ]
 
 
-def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
+def get_link_information(link_str: str) -> Tuple[str, List[str]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
     if isinstance(link_str, dict):
         # Oh, PVA...
@@ -601,7 +601,7 @@ def get_link_information(link_str: str) -> Tuple[str, Tuple[str, ...]]:
     else:
         raise ValueError("float link")
 
-    link_details = tuple(additional_info.split(" ")) if additional_info else ()
+    link_details = additional_info.split()
     return link_str, link_details
 
 
@@ -674,7 +674,7 @@ class RecordInstanceSummary:
     name: str
     record_type: str
     # fields: Dict[str, RecordField]
-    info: Dict[str, str] = field(default_factory=dict)
+    info: Dict[StringWithContext, Any] = field(default_factory=dict)
     # metadata: Dict[str, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
     # is_grecord: bool = False
@@ -889,7 +889,7 @@ class AsynPortBase:
         # Deserializers stack directly as a Union
         apischema.deserializer(
             apischema.conversions.Conversion(
-                apischema.conversions.identity, source=cls, target=AsynPortBase
+                apischema.identity, source=cls, target=AsynPortBase
             )
         )
 
@@ -900,7 +900,7 @@ class AsynPortBase:
         )
         apischema.serializer(
             apischema.conversions.Conversion(
-                apischema.conversions.identity,
+                apischema.identity,
                 source=AsynPortBase,
                 target=AsynPortBase._union,
                 inherited=False,
