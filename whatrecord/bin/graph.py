@@ -117,25 +117,7 @@ def _combine_databases(*items: Database) -> Database:
 
     db = items[0]
     for item in items[1:]:
-        for record, instance in item.records.items():
-            existing_record = db.records.get(record, None)
-            if not existing_record:
-                db.records[record] = instance
-            else:
-                existing_record.info.update(instance.info)
-                existing_record.metadata.update(instance.metadata)
-                existing_record.fields.update(instance.fields)
-                existing_record.aliases = list(
-                    sorted(set(existing_record.aliases + instance.aliases))
-                )
-                if existing_record.record_type != instance.record_type:
-                    logger.warning(
-                        "Record type mismatch in provided database files: "
-                        "%s %s %s",
-                        record, instance.record_type, existing_record.record_type
-                    )
-
-        db.record_types.update(item.record_types or {})
+        db.append(item)
 
     return db
 

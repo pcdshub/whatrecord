@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import pathlib
 from dataclasses import field
@@ -14,6 +15,8 @@ from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterWarning,
                      RecordType, RecordTypeField, StringWithContext, dataclass)
 from .macro import MacroContext
 from .transformer import context_from_token
+
+logger = logging.getLogger(__name__)
 
 
 def split_record_and_field(pvname) -> Tuple[str, str]:
@@ -718,3 +721,46 @@ class Database:
                 if field.type in field_types
             )
         return by_rtype
+
+    def append(self, other: Database):
+        """
+        Append the other database, best-effort updating existing entries.
+
+        This is not likely to do everything correctly (TODO).
+        """
+        for record, instance in other.records.items():
+            existing_record = self.records.get(record, None)
+            if not existing_record:
+                self.records[record] = instance
+                continue
+
+            existing_record.update(instance)
+
+        for group, instance in other.pva_groups.items():
+            existing_group = self.pva_groups.get(group, None)
+            if not existing_group:
+                self.pva_groups[group] = instance
+                continue
+
+            existing_group.update(instance)
+
+        def _update_list(this, other):
+            this.extend([v for v in other if v not in this])
+
+        self.standalone_aliases.update(other.standalone_aliases)
+        self.aliases.update(other.aliases)
+        _update_list(self.paths, other.paths)
+        _update_list(self.addpaths, other.addpaths)
+        self.breaktables.update(other.breaktables)
+        _update_list(self.comments, other.comments)
+        _update_list(self.devices, other.devices)
+        _update_list(self.drivers, other.drivers)
+        _update_list(self.functions, other.functions)
+        _update_list(self.includes, other.includes)
+        self.links.update(other.links)
+        self.menus.update(other.menus)
+        # self.records.update(other.records)
+        # self.pva_groups.update(other.pva_groups)
+        self.record_types.update(other.record_types or {})
+        _update_list(self.registrars, other.registrars)
+        self.variables.update(other.variables)
