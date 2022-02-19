@@ -54,6 +54,8 @@ def test_parse(program_filename):
     serialized = apischema.serialize(program)
     # pprint.pprint(serialized)
     apischema.deserialize(SequencerProgram, serialized)
+    # deserialized = apischema.deserialize(SequencerProgram, serialized)
+    # assert deserialized == program
 
 
 @pytest.mark.parametrize(

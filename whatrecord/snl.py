@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import collections
+import logging
 import pathlib
 import shlex
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
+import graphviz as gv
 import lark
 
 from . import transformer
 from .common import AnyPath, FullLoadContext
+from .graph import AsyncDigraph
 from .transformer import context_from_token
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -220,6 +225,17 @@ class StructDef(Definition):
 class Variable(Expression):
     name: str
 
+    def __str__(self) -> str:
+        return self.name
+
+
+def _optional_expression_to_string(expr: OptionalExpression) -> str:
+    if expr is None:
+        return ""
+    if isinstance(expr, Sequence):
+        return ", ".join(str(item) for item in expr)
+    return str(expr)
+
 
 @dataclass
 class InitExpression(Expression):
@@ -243,17 +259,26 @@ class Literal(Expression):
     type: str
     value: str
 
+    def __str__(self) -> str:
+        return self.value
+
 
 @dataclass
 class UnaryPrefixExpression(Expression):
     operator: str
     expression: Expression
 
+    def __str__(self) -> str:
+        return f"{self.operator}{self.expression}"
+
 
 @dataclass
 class UnaryPostfixExpression(Expression):
     expression: Expression
     operator: str
+
+    def __str__(self) -> str:
+        return f"{self.expression}{self.operator}"
 
 
 @dataclass
@@ -262,11 +287,17 @@ class BinaryOperatorExpression(Expression):
     operator: str
     right: Expression
 
+    def __str__(self) -> str:
+        return f"{self.left} {self.operator} {self.right}"
+
 
 @dataclass
 class TypeCastExpression(Expression):
     type: Type
     expression: Expression
+
+    def __str__(self) -> str:
+        return f"{self.type}({self.expression})"
 
 
 @dataclass
@@ -275,6 +306,9 @@ class TernaryExpression(Expression):
     if_true: Expression
     if_false: Expression
 
+    def __str__(self) -> str:
+        return f"{self.condition} ? {self.if_true} : {self.if_false}"
+
 
 @dataclass
 class MemberExpression(Expression):
@@ -282,10 +316,18 @@ class MemberExpression(Expression):
     member: str
     dereference: bool  # True = ->, False = .
 
+    def __str__(self) -> str:
+        if self.dereference:
+            return f"{self.parent}->{self.member}"
+        return f"{self.parent}.{self.member}"
+
 
 @dataclass
 class SizeofExpression(Expression):
     type: Type
+
+    def __str__(self) -> str:
+        return f"sizeof({self.type})"
 
 
 @dataclass
@@ -303,11 +345,18 @@ class BracketedExpression(Expression):
 class ParenthesisExpression(Expression):
     expression: Expression
 
+    def __str__(self) -> str:
+        return f"({self.expression})"
+
 
 @dataclass
 class ExpressionWithArguments(Expression):
     expression: Expression
     arguments: OptionalExpression = None
+
+    def __str__(self) -> str:
+        args = _optional_expression_to_string(self.arguments)
+        return f"{self.expression}({args})"
 
 
 @dataclass
@@ -421,6 +470,123 @@ class SequencerProgram:
         """
         with open(fn, "rt") as fp:
             return cls.from_string(fp.read(), filename=fn)
+
+    def as_graph(
+        self,
+        graph: Optional[gv.Digraph] = None,
+        engine: str = "dot",
+        font_name: str = "Courier",
+        highlight_states: Optional[List[str]] = None,
+    ):
+        """
+        Create a graphviz digraph of script links (i.e., inter-IOC record links).
+
+        Parameters
+        ----------
+        graph : graphviz.Graph, optional
+            Graph instance to use. New one created if not specified.
+        engine : str, optional
+            Graphviz engine (dot, fdp, etc)
+
+        Returns
+        -------
+        nodes: dict
+        edges: dict
+        graph : graphviz.Digraph
+        """
+        node_id = 0
+        edges = []
+        nodes = {}
+
+        highlight_states = highlight_states or []
+        if graph is None:
+            graph = AsyncDigraph(format="pdf")
+
+        if font_name is not None:
+            graph.attr("graph", fontname=font_name)
+            graph.attr("node", fontname=font_name)
+            graph.attr("edge", fontname=font_name)
+
+        if engine is not None:
+            graph.engine = engine
+
+        newline = '<br align="center"/>'
+
+        def new_node(label, text=None):
+            nonlocal node_id
+            if label in nodes:
+                return nodes[label]
+            node_id += 1
+            nodes[label] = dict(
+                id=str(node_id),
+                text=text or [label],
+                label=label
+            )
+            logger.debug("Created node %s", label)
+            return node_id
+
+        new_node(
+            "_Entry_",
+            [
+                "(Startup)"
+                if self.entry is None else
+                "Entry block"
+            ]
+        )
+
+        new_node(
+            "_Exit_",
+            [
+                "(Exit)"
+                if self.exit is None else
+                "Exit block"
+            ]
+        )
+
+        for state_set in self.state_sets:
+            for state in state_set.states:
+                qualified_name = f"{state_set.name}.{state.name}"
+                new_node(qualified_name)
+
+                for transition in state.transitions:
+                    label = _optional_expression_to_string(transition.condition)
+                    edges.append(
+                        (
+                            qualified_name,
+                            f"{state_set.name}.{transition.target_state}",
+                            dict(label=label),
+                        )
+                    )
+                # TODO
+                # if state.entry is not None:
+                #     new_node(qualified_name)
+
+        if self.state_sets and self.state_sets[0].states:
+            first_ss = self.state_sets[0]
+            edges.append(
+                (
+                    "_Entry_",
+                    f"{first_ss.name}.{first_ss.states[0].name}",
+                    {}
+                )
+            )
+            self.state_sets[0].states[0].name
+
+        for name, node in sorted(nodes.items()):
+            text = newline.join(node["text"])
+            graph.node(
+                node["id"],
+                label="< {} >".format(text),
+                shape="box3d" if name in highlight_states else "rectangle",
+                fillcolor="bisque" if name in highlight_states else "white",
+                style="filled",
+            )
+
+        # add all of the edges between graphs
+        for src, dest, options in edges:
+            graph.edge(nodes[src]["id"], nodes[dest]["id"], **options)
+
+        return nodes, edges, graph
 
 
 @lark.visitors.v_args(inline=True)

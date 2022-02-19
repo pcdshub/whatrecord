@@ -8,17 +8,11 @@ import logging
 import re
 from typing import Dict, List, Optional
 
-# from ..access_security import AccessSecurityConfig
 from ..common import AnyPath, RecordInstance  # , FileFormat, IocMetadata
 from ..db import Database, LinterResults
-# from ..dbtemplate import TemplateSubstitution
-# from ..format import FormatContext
-# from ..gateway import PVList as GatewayPVList
 from ..graph import build_database_relations, graph_links
-# from ..macro import MacroContext
 from ..shell import LoadedIoc
-# from ..snl import SequencerProgram
-# from ..streamdevice import StreamProtocol
+from ..snl import SequencerProgram
 from .parse import parse_from_cli_args
 
 logger = logging.getLogger(__name__)
@@ -190,13 +184,18 @@ def main(
             record_types=record_types,
             aliases=aliases,
         )
-        node, edges, graph = graph_links(
+        nodes, edges, graph = graph_links(
             database=database,
             starting_records=starting_records,
             relations=relations,
         )
-        print(graph.source)
+    elif isinstance(result, SequencerProgram):
+        nodes, edges, graph = result.as_graph()
     else:
         raise RuntimeError(
             f"Sorry, graph isn't supported yet for {result.__class__.__name__}"
         )
+
+    print(graph.source)
+    logger.debug("Nodes: %s", nodes)
+    logger.debug("Edges: %s", edges)
