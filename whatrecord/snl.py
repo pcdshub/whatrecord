@@ -307,7 +307,7 @@ class ParenthesisExpression(Expression):
 @dataclass
 class ExpressionWithArguments(Expression):
     expression: Expression
-    arguments: Sequence[Expression] = field(default_factory=list)
+    arguments: OptionalExpression = None
 
 
 @dataclass
@@ -380,7 +380,7 @@ class SequencerProgram:
             parser="earley",
             # TODO: alternative comment finding method
             # lexer_callbacks={"COMMENT": comments.append},
-            maybe_placeholders=False,
+            maybe_placeholders=True,
             propagate_positions=True,
             debug=debug,
         )
@@ -807,18 +807,18 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         when: lark.Token,
         _,
-        condition: Expression,
+        condition: OptionalExpression,
         __,
         block: Block,
         ___,
         state: lark.Token,
     ):
         """
-        WHEN LPAREN condition RPAREN block STATE NAME
+        WHEN LPAREN [ condition ] RPAREN block STATE NAME
         """
         return Transition(
             context=context_from_token(self.fn, when),
-            condition=condition[0] if condition else None,
+            condition=condition,
             block=block,
             target_state=str(state),
         )
@@ -827,7 +827,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self, when: lark.Token, _, condition: Expression, __, block: Block, ___
     ):
         """
-        WHEN LPAREN condition RPAREN block EXIT
+        WHEN LPAREN [ condition ] RPAREN block EXIT
         """
         return ExitTransition(
             context=context_from_token(self.fn, when),
@@ -932,7 +932,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         statement: Statement,
     ):
         """
-        FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+        FOR LPAREN [ comma_expr ] SEMICOLON [ comma_expr ] SEMICOLON [ comma_expr ] RPAREN statement
         """
         return ForStatement(
             context=context_from_token(self.fn, for_token),
@@ -989,7 +989,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         expression: Expression,
         tok: lark.Token,
-        arguments: Sequence[Expression],
+        arguments: OptionalExpression,
         _,
     ):
         return ExpressionWithArguments(
@@ -1037,18 +1037,19 @@ class _ProgramTransformer(lark.visitors.Transformer):
     def literal_expr(self, item):
         child = item.children[0]
         if isinstance(child, lark.Token):
+            context = context_from_token(self.fn, child)
             value = str(child)
         else:
+            context = context_from_token(self.fn, child.children[0])
             value = "".join(child.children)
         return Literal(
-            context=context_from_token(self.fn, item),
+            context=context,
             type=item.data,
             # [Tree('variable', [Token('NAME', 'seq_test_init')])]
             value=value,
         )
 
     comma_expr = transformer.tuple_args
-    opt_expr = transformer.pass_through
 
     args = transformer.tuple_args
 

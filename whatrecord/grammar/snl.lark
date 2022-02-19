@@ -212,9 +212,9 @@ syncq: SYNCQ variable opt_subscript to event_flag syncq_size SEMICOLON -> syncq_
 event_flag: NAME
 variable: NAME
 
-syncq_size: INTCON?
+?syncq_size: INTCON?
 
-opt_subscript: subscript?
+?opt_subscript: subscript?
 
 subscript: LBRACKET INTCON RBRACKET
 
@@ -333,11 +333,9 @@ exit: (EXIT block)?
 
 transitions: transition+
 
-transition: WHEN LPAREN condition RPAREN block STATE NAME
-          | WHEN LPAREN condition RPAREN block EXIT        -> transition_exit
+transition: WHEN LPAREN [ comma_expr ] RPAREN block STATE NAME
+          | WHEN LPAREN [ comma_expr ] RPAREN block EXIT        -> transition_exit
 // | WHEN LPAREN condition RPAREN block error // report("expected 'state' or 'exit'\n");
-
-condition: opt_expr
 
 block: LBRACE block_defns statements RBRACE
 
@@ -352,20 +350,20 @@ statements: statement*
 
 statement: BREAK SEMICOLON                              -> break_statement
          | CONTINUE SEMICOLON                           -> continue_statement
-         | RETURN opt_expr SEMICOLON                    -> return_statement
+         | RETURN [ comma_expr ] SEMICOLON              -> return_statement
          | STATE NAME SEMICOLON                         -> state_statement
          | c_code
          | block
          | if_statement
          | WHILE LPAREN comma_expr RPAREN statement     -> while_statement
          | for_statement
-         | opt_expr SEMICOLON                           -> expr_statement
+         | [ comma_expr ] SEMICOLON                     -> expr_statement
 //       | error SEMICOLON(t).
 
 
-if_statement: IF LPAREN comma_expr RPAREN statement (ELSE statement)?
+if_statement: IF LPAREN comma_expr RPAREN statement ( ELSE statement )?
 
-for_statement: FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+for_statement: FOR LPAREN [ comma_expr ] SEMICOLON [ comma_expr ] SEMICOLON [ comma_expr ] RPAREN statement
 
 // Expressions
 
@@ -373,8 +371,8 @@ for_statement: FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN 
 // Comma separated lists of 'expr' can be: function arguments (non-terminal
 // 'args')and applications of the comma operator (non-terminal 'comma_expr').
 
-floating_point_literal: FPCON
-integer_literal: INTCON
+?floating_point_literal: FPCON
+?integer_literal: INTCON
 
 // Atomic
 ?expr: literal_expr
@@ -444,11 +442,9 @@ binary_operator_expr: expr SUB expr  // Binary Operators, left-to-right
 // Comma, left-to-right
 comma_expr: _comma_separated{expr}
 
-opt_expr: comma_expr?
-
 // Function arguments
-// Syntactically the same as opt_expr but interpreted differently.
-args: _comma_separated{expr}?
+// Syntactically the same as an optional expression but interpreted differently.
+args: [ _comma_separated{expr} ]
 
 string: STRCON
 member: NAME
