@@ -527,7 +527,7 @@ def graph_links(
     font_name: str = "Courier",
     relations: Optional[PVRelations] = None,
     record_types: Optional[Dict[str, RecordType]] = None,
-):
+) -> Tuple[dict, list, gv.Digraph]:
     """
     Create a graphviz digraph of record links.
 
@@ -565,7 +565,7 @@ def graph_links(
     Returns
     -------
     nodes: dict
-    edges: dict
+    edges: list
     graph : AsyncDigraph
     """
     node_id = 0

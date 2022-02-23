@@ -9,11 +9,11 @@ import pathlib
 import re
 import shutil
 import tempfile
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import graphviz as gv
 
-from ..common import AnyPath, RecordInstance  # , FileFormat, IocMetadata
+from ..common import AnyPath
 from ..db import Database, LinterResults
 from ..graph import build_database_relations, graph_links
 from ..shell import LoadedIoc
@@ -109,18 +109,6 @@ def build_arg_parser(parser=None):
     return parser
 
 
-def _combine_databases(*items: Database) -> Database:
-    for item in items:
-        if not isinstance(item, (Database, LinterResults)):
-            raise ValueError(f"Expected Database, got {type(item)}")
-
-    db = items[0]
-    for item in items[1:]:
-        db.append(item)
-
-    return db
-
-
 def render_graph_to_file(
     graph: gv.Digraph, default_format: str = "png", filename: Optional[str] = None
 ):
@@ -144,43 +132,36 @@ def render_graph_to_file(
 DatabaseItem = Union[LinterResults, LoadedIoc, Database]
 
 
+def _records_by_patterns(
+    database: Database,
+    patterns: List[str],
+) -> List[str]:
+    return [
+        rec.name
+        for rec in database.records.values()
+        if any(
+            re.search(pattern, rec.name)
+            for pattern in patterns
+        )
+    ]
+
+
 def get_database_graph(
     *loaded_items: DatabaseItem,
     highlight: Optional[List[str]] = None,
-) -> Tuple[dict, dict, gv.Digraph]:
-    combined = _combine_databases(*loaded_items)
-    if isinstance(combined, LoadedIoc):
-        database = combined.shell_state.database
-        defn = combined.shell_state.database_definition
-        record_types = defn.record_types if defn else None
-        aliases = combined.shell_state.aliases
-    elif isinstance(combined, LinterResults):
-        database = combined.records
-        record_types = combined.record_types
-        aliases = {}
-    else:
-        database = combined.records
-        record_types = combined.record_types
-        aliases = combined.aliases
-
-    def records_by_patterns(patterns: List[str]) -> Dict[str, RecordInstance]:
-        return {
-            rec.name: rec
-            for rec in database.values()
-            if any(
-                re.search(pattern, rec.name)
-                for pattern in highlight
-            )
-        }
-
-    starting_records = records_by_patterns(highlight) if highlight else []
+) -> Tuple[dict, list, gv.Digraph]:
+    """
+    Get a database graph from a number of database items.
+    """
+    database = Database.from_multiple(*loaded_items)
+    starting_records = _records_by_patterns(database, highlight) if highlight else []
     relations = build_database_relations(
-        database=database,
-        record_types=record_types,
-        aliases=aliases,
+        database=database.records,
+        record_types=database.record_types or {},
+        aliases=database.aliases or {},
     )
     return graph_links(
-        database=database,
+        database=database.records,
         starting_records=starting_records,
         relations=relations,
     )
@@ -222,9 +203,7 @@ def main(
     )
 
     if databases_only:
-        nodes, edges, graph = get_database_graph(
-            *loaded_items, highlight=highlight
-        )
+        nodes, edges, graph = get_database_graph(*loaded_items, highlight=highlight)
     else:
         try:
             item, = loaded_items

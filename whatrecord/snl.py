@@ -14,7 +14,6 @@ import lark
 
 from . import transformer
 from .common import AnyPath, FullLoadContext
-from .graph import AsyncDigraph
 from .transformer import context_from_token
 
 logger = logging.getLogger(__name__)
@@ -749,6 +748,7 @@ class SequencerProgramGraph:
         format :
             The output format used for rendering (``'pdf'``, ``'png'``, ...).
         """
+        from .graph import AsyncDigraph
         graph = graph or AsyncDigraph(format=format)
 
         if engine is not None:

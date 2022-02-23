@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import pathlib
+import typing
 from dataclasses import field
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple, Union
 
@@ -15,6 +16,9 @@ from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterWarning,
                      RecordType, RecordTypeField, StringWithContext, dataclass)
 from .macro import MacroContext
 from .transformer import context_from_token
+
+if typing.TYPE_CHECKING:
+    from .shell import LoadedIoc, ShellState
 
 logger = logging.getLogger(__name__)
 
@@ -95,10 +99,13 @@ class LinterResults:
         if dbd and not isinstance(dbd, Database):
             raise ValueError("dbd should be a Database instance")
 
-        db = Database.from_string(
+        # The following fills `lint`, for better or worse
+        database = Database.from_string(
             db, dbd=dbd, macro_context=macro_context, version=version,
             lint=lint, filename=db_filename
         )
+        lint.db = database
+        lint.dbd = dbd
         lint.macros = dict(macro_context or {})
         return lint
 
@@ -722,45 +729,81 @@ class Database:
             )
         return by_rtype
 
+    def add_or_update_record(self, record: RecordInstance):
+        """
+        Update (or add) records given a dictionary of records.
+        """
+        if record.is_pva:
+            existing_record = self.pva_groups.get(record.name, None)
+        else:
+            existing_record = self.records.get(record.name, None)
+
+        if not existing_record:
+            self.records[record.name] = record
+        else:
+            existing_record.update(record)
+
     def append(self, other: Database):
         """
         Append the other database, best-effort updating existing entries.
 
         This is not likely to do everything correctly (TODO).
         """
-        for record, instance in other.records.items():
-            existing_record = self.records.get(record, None)
-            if not existing_record:
-                self.records[record] = instance
-                continue
+        for instance in other.records.values():
+            self.add_or_update_record(instance)
 
-            existing_record.update(instance)
-
-        for group, instance in other.pva_groups.items():
-            existing_group = self.pva_groups.get(group, None)
-            if not existing_group:
-                self.pva_groups[group] = instance
-                continue
-
-            existing_group.update(instance)
+        for instance in other.pva_groups.values():
+            self.add_or_update_record(instance)
 
         def _update_list(this, other):
             this.extend([v for v in other if v not in this])
 
-        self.standalone_aliases.update(other.standalone_aliases)
-        self.aliases.update(other.aliases)
-        _update_list(self.paths, other.paths)
         _update_list(self.addpaths, other.addpaths)
-        self.breaktables.update(other.breaktables)
         _update_list(self.comments, other.comments)
         _update_list(self.devices, other.devices)
         _update_list(self.drivers, other.drivers)
         _update_list(self.functions, other.functions)
         _update_list(self.includes, other.includes)
+        _update_list(self.paths, other.paths)
+        _update_list(self.registrars, other.registrars)
+        self.aliases.update(other.aliases)
+        self.breaktables.update(other.breaktables)
         self.links.update(other.links)
         self.menus.update(other.menus)
-        # self.records.update(other.records)
-        # self.pva_groups.update(other.pva_groups)
         self.record_types.update(other.record_types or {})
-        _update_list(self.registrars, other.registrars)
+        self.standalone_aliases.update(other.standalone_aliases)
         self.variables.update(other.variables)
+
+    @classmethod
+    def from_multiple(cls, *items: _DatabaseSource) -> Database:
+        """
+        Create a Database instance from multiple sources, including:
+
+        * Other Database instances
+        * LinterResults
+        * LoadedIoc
+        * ShellState
+        """
+        from .shell import LoadedIoc, ShellState
+
+        db = cls()
+
+        for item in items:
+            if isinstance(item, Database):
+                db.append(item)
+            elif isinstance(item, LinterResults):
+                if item.db is not None:
+                    db.append(item.db)
+            elif isinstance(item, (LoadedIoc, ShellState)):
+                state = item.shell_state if isinstance(item, LoadedIoc) else item
+                new_records = list(state.database.values()) + list(state.pva_database.values())
+                for record in new_records:
+                    db.add_or_update_record(record)
+                db.aliases.update(state.aliases)
+            else:
+                raise ValueError(f"Expected {_DatabaseSource}, got {type(item)}")
+
+        return db
+
+
+_DatabaseSource = Union["LoadedIoc", "ShellState", Database, LinterResults]
