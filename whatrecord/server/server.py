@@ -384,13 +384,12 @@ class ServerState:
 
         if not pv_names:
             return graphviz.Digraph()
-        _, _, digraph = graph.graph_script_relations(
+        gr = graph.graph_script_relations(
             database=self.database,
             limit_to_records=pv_names,
-            font_name="Courier",
             script_relations=self.script_relations,
         )
-        return digraph
+        return gr.to_digraph(font_name="Courier")
 
     def get_ioc_to_pvs(self, pv_names: Tuple[str, ...]) -> Dict[str, List[str]]:
         ioc_to_pvs = {}

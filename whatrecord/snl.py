@@ -641,32 +641,10 @@ class SequencerProgramGraph(_GraphHelper):
                 label=f"(Line {transition.context[-1].line})",
             )
 
-    def to_digraph(
-        self,
-        graph: Optional[gv.Digraph] = None,
-        engine: str = "dot",
-        font_name: Optional[str] = "Courier",
-        format: str = "pdf",
-    ) -> gv.Digraph:
-        """
-        Create a graphviz digraph.
-
-        Parameters
-        ----------
-        graph : graphviz.Graph, optional
-            Graph instance to use.  New one created if not specified.
-        engine : str, optional
-            Graphviz engine (dot, fdp, etc).
-        font_name : str, optional
-            Font name to use for all nodes and edges.
-        format :
-            The output format used for rendering (``'pdf'``, ``'png'``, ...).
-        """
+    def _ready_for_digraph(self, graph: gv.Digraph):
+        """Hook when the user calls ``to_digraph``."""
         for node in self.nodes.values():
             node.highlighted = node.label in self.highlight_states
-        return super().to_digraph(
-            graph=graph, engine=engine, font_name=font_name, format=format
-        )
 
     def _add_transition(
         self,
