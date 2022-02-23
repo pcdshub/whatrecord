@@ -1169,8 +1169,9 @@ def remove_redundant_context(full_context: FullLoadContext) -> FullLoadContext:
         else:
             zero_line_files.remove(file)
 
-    return tuple(
-        ctx
-        for ctx in full_context
-        if ctx.name not in zero_line_files or ctx.line > 0
-    )
+    new_context = []
+    for ctx in full_context:
+        is_specific = ctx.name not in zero_line_files or ctx.line > 0
+        if is_specific and ctx not in new_context:
+            new_context.append(ctx)
+    return tuple(new_context)
