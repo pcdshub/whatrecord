@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import collections
-import html
 import logging
 import pathlib
 import shlex
 import textwrap
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Union
 
 import graphviz as gv
 import lark
 
 from . import transformer
 from .common import AnyPath, FullLoadContext
+from .graph import _GraphHelper
 from .transformer import context_from_token
 
 logger = logging.getLogger(__name__)
@@ -567,27 +567,7 @@ class ExpressionWithArguments(Expression):
         return f"{self.expression}({self.arguments or ''})"
 
 
-@dataclass
-class _SequencerProgramGraphNode:
-    #: The integer ID of the node
-    id: str
-    #: The node label
-    label: str
-    #: The text to show in the node
-    text: str
-
-
-@dataclass
-class _SequencerProgramGraphEdge:
-    #: The integer ID of the node
-    source: _SequencerProgramGraphNode
-    #: The node label
-    destination: _SequencerProgramGraphNode
-    #: The text to show in the node
-    options: dict
-
-
-class SequencerProgramGraph:
+class SequencerProgramGraph(_GraphHelper):
     """
     A graph for a SequencerProgram.
 
@@ -603,11 +583,6 @@ class SequencerProgramGraph:
         Include code, where relevant, in nodes.
     """
 
-    shapes: Tuple[str, str] = ("rectangle", "box3d")
-    fill_colors: Tuple[str, str] = ("white", "bisque")
-    newline: str = '<br align="left"/>'
-    nodes: Dict[str, _SequencerProgramGraphNode]
-    edges: List[_SequencerProgramGraphEdge]
     _entry_label: str = "_Entry_"
     _exit_label: str = "_Exit_"
 
@@ -617,46 +592,11 @@ class SequencerProgramGraph:
         highlight_states: Optional[List[str]] = None,
         include_code: bool = False,
     ):
-        self._node_id = 0
-        self.nodes = {}
-        self.edges = []
+        super().__init__()
         self.include_code = include_code
         self.highlight_states = highlight_states or []
         if program is not None:
             self.add_program(program)
-
-    def get_node(
-        self, label: str, text: Optional[str] = None
-    ) -> _SequencerProgramGraphNode:
-        """Create a new node in the graph."""
-        if label not in self.nodes:
-            self._node_id += 1
-            self.nodes[label] = _SequencerProgramGraphNode(
-                id=str(self._node_id),
-                text=text or label,
-                label=label
-            )
-            logger.debug("Created node %s", label)
-
-        self.nodes[label].text = text or self.nodes[label].text
-        return self.nodes[label]
-
-    def add_edge(
-        self,
-        source: str,
-        destination: str,
-        **options
-    ) -> _SequencerProgramGraphEdge:
-        """Create a new edge in the graph."""
-        edge = _SequencerProgramGraphEdge(
-            self.get_node(source),
-            self.get_node(destination),
-            options
-        )
-        self.edges.append(
-            edge
-        )
-        return edge
 
     def add_program(self, program: SequencerProgram):
         """Add a program to the graph."""
@@ -701,6 +641,19 @@ class SequencerProgramGraph:
                 label=f"(Line {transition.context[-1].line})",
             )
 
+    def to_digraph(
+        self,
+        graph: Optional[gv.Digraph] = None,
+        engine: str = "dot",
+        font_name: Optional[str] = "Courier",
+        format: str = "pdf",
+    ) -> gv.Digraph:
+        for node in self.nodes.values():
+            node.highlighted = node.label in self.highlight_states
+        return super().to_digraph(
+            graph=graph, engine=engine, font_name=font_name, format=format
+        )
+
     def _add_transition(
         self,
         program: SequencerProgram,
@@ -726,60 +679,6 @@ class SequencerProgramGraph:
         self.get_node(transition_node, text=transition_text)
         self.add_edge(state_qualified_name, transition_node, label=label)
         self.add_edge(transition_node, target_state)
-
-    def to_digraph(
-        self,
-        graph: Optional[gv.Digraph] = None,
-        engine: str = "dot",
-        font_name: Optional[str] = "Courier",
-        format: str = "pdf",
-    ) -> gv.Digraph:
-        """
-        Create a graphviz digraph.
-
-        Parameters
-        ----------
-        graph : graphviz.Graph, optional
-            Graph instance to use.  New one created if not specified.
-        engine : str, optional
-            Graphviz engine (dot, fdp, etc).
-        font_name : str, optional
-            Font name to use for all nodes and edges.
-        format :
-            The output format used for rendering (``'pdf'``, ``'png'``, ...).
-        """
-        from .graph import AsyncDigraph
-        graph = graph or AsyncDigraph(format=format)
-
-        if engine is not None:
-            graph.engine = engine
-
-        if font_name is not None:
-            graph.attr("graph", fontname=font_name)
-            graph.attr("node", fontname=font_name)
-            graph.attr("edge", fontname=font_name)
-
-        for node in self.nodes.values():
-            text = self.newline.join(node.text.splitlines())
-            highlighted = node.label in self.highlight_states
-            graph.node(
-                node.id,
-                label="< {} >".format(text),
-                shape=self.shapes[highlighted],
-                fillcolor=self.fill_colors[highlighted],
-                style="filled",
-            )
-
-        # add all of the edges between graphs
-        for edge in self.edges:
-            graph.edge(edge.source.id, edge.destination.id, **edge.options)
-        return graph
-
-    @staticmethod
-    def clean_code(obj):
-        """Clean C-like code for graphviz."""
-        code = str(obj or "").strip("{}")
-        return html.escape(textwrap.dedent(code).strip(" \n"))
 
     def get_code(self, obj, default: str = ""):
         """Get code for a node/edge."""

@@ -1,187 +1,149 @@
 import ast
-import asyncio
 import collections
 import copy
+import dataclasses
 import html
 import logging
-import os
+import textwrap
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import graphviz as gv
 
 from .common import (FullLoadContext, LoadContext, PVRelations,
-                     ScriptPVRelations, dataclass)
+                     ScriptPVRelations)
 from .db import RecordField, RecordInstance, RecordType
+from .gv_compat import AsyncDigraph
 
 logger = logging.getLogger(__name__)
 
 # TODO: refactor this to not be graphviz-dependent; instead return node/link
 # information in terms of dataclasses
 
-# NOTE: the following is borrowed from pygraphviz, reimplemented to allow
-# for asyncio compatibility
+
+@dataclass
+class GraphNode:
+    #: The integer ID of the node
+    id: str
+    #: The node label
+    label: str
+    #: The text to show in the node
+    text: str
+    #: Options to pass to graphviz.
+    options: dict = dataclasses.field(default_factory=dict)
+    #: Highlight the node in the graph?
+    highlighted: bool = False
 
 
-async def async_render(
-    engine, format, filepath, renderer=None, formatter=None, quiet=False
-):
+@dataclass
+class GraphEdge:
+    #: The source node.
+    source: GraphNode
+    #: The destination node.
+    destination: GraphNode
+    #: Options to pass to graphviz.
+    options: dict = dataclasses.field(default_factory=dict)
+
+
+class _GraphHelper:
     """
-    Async Render file with Graphviz ``engine`` into ``format``,  return result
-    filename.
-
-    Parameters
-    ----------
-    engine :
-        The layout commmand used for rendering (``'dot'``, ``'neato'``, ...).
-    format :
-        The output format used for rendering (``'pdf'``, ``'png'``, ...).
-    filepath :
-        Path to the DOT source file to render.
-    renderer :
-        The output renderer used for rendering (``'cairo'``, ``'gd'``, ...).
-    formatter :
-        The output formatter used for rendering (``'cairo'``, ``'gd'``, ...).
-    quiet : bool
-        Suppress ``stderr`` output from the layout subprocess.
-
-    Returns
-    -------
-    The (possibly relative) path of the rendered file.
-
-    Raises
-    ------
-    ValueError
-        If ``engine``, ``format``, ``renderer``, or ``formatter`` are not
-        known.
-
-    graphviz.RequiredArgumentError
-        If ``formatter`` is given but ``renderer`` is None.
-
-    graphviz.ExecutableNotFound
-        If the Graphviz executable is not found.
-
-    subprocess.CalledProcessError
-        If the exit status is non-zero.
-
-    Notes
-    -----
-    The layout command is started from the directory of ``filepath``, so that
-    references to external files (e.g. ``[image=...]``) can be given as paths
-    relative to the DOT source file.
+    A base class for helping build graphviz digraphs.
     """
-    # Adapted from graphviz under the MIT License (MIT) Copyright (c) 2013-2020
-    # Sebastian Bank
-    dirname, filename = os.path.split(filepath)
-    cmd, rendered = gv.backend.command(engine, format, filename, renderer, formatter)
 
-    if dirname:
-        cwd = dirname
-        rendered = os.path.join(dirname, rendered)
-    else:
-        cwd = None
+    shapes: Tuple[str, str] = ("rectangle", "box3d")
+    fill_colors: Tuple[str, str] = ("white", "bisque")
+    newline: str = '<br align="left"/>'
+    nodes: Dict[str, GraphNode]
+    edges: List[GraphEdge]
 
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=cwd,
-    )
+    def __init__(self):
+        self._node_id = 0
+        self.nodes = {}
+        self.edges = []
 
-    (stdout, stderr) = await proc.communicate()
-    if proc.returncode:
-        raise gv.backend.CalledProcessError(
-            proc.returncode, cmd, output=stdout, stderr=stderr
-        )
-    return rendered
+    def get_node(
+        self, label: str, text: Optional[str] = None
+    ) -> GraphNode:
+        """Create a new node in the graph."""
+        if label not in self.nodes:
+            self._node_id += 1
+            self.nodes[label] = GraphNode(
+                id=str(self._node_id),
+                text=text or label,
+                label=label
+            )
+            logger.debug("Created node %s", label)
 
+        self.nodes[label].text = text or self.nodes[label].text
+        return self.nodes[label]
 
-class AsyncDigraph(gv.Digraph):
-    async def async_render(
+    def add_edge(
         self,
-        filename=None,
-        directory=None,
-        view=False,
-        cleanup=False,
-        format=None,
-        renderer=None,
-        formatter=None,
-        quiet=False,
-        quiet_view=False,
-    ):
+        source: str,
+        destination: str,
+        **options
+    ) -> GraphEdge:
+        """Create a new edge in the graph."""
+        edge = GraphEdge(
+            self.get_node(source),
+            self.get_node(destination),
+            options
+        )
+        self.edges.append(edge)
+        return edge
+
+    def to_digraph(
+        self,
+        graph: Optional[gv.Digraph] = None,
+        engine: str = "dot",
+        font_name: Optional[str] = "Courier",
+        format: str = "pdf",
+    ) -> gv.Digraph:
         """
-        Save the source to file and render with the Graphviz engine.
+        Create a graphviz digraph.
 
         Parameters
         ----------
-        filename :
-            Filename for saving the source (defaults to ``name`` + ``'.gv'``)
-        directory :
-            (Sub)directory for source saving and rendering.
-        view (bool) :
-            Open the rendered result with the default application.
-        cleanup (bool) :
-            Delete the source file after rendering.
+        graph : graphviz.Graph, optional
+            Graph instance to use.  New one created if not specified.
+        engine : str, optional
+            Graphviz engine (dot, fdp, etc).
+        font_name : str, optional
+            Font name to use for all nodes and edges.
         format :
-            The output format used for rendering (``'pdf'``, ``'png'``, etc.).
-        renderer :
-            The output renderer used for rendering (``'cairo'``, ``'gd'``, ...).
-        formatter :
-            The output formatter used for rendering (``'cairo'``, ``'gd'``, ...).
-        quiet (bool) :
-            Suppress ``stderr`` output from the layout subprocess.
-        quiet_view (bool) :
-            Suppress ``stderr`` output from the viewer process;
-           implies ``view=True``, ineffective on Windows.
-        Returns:
-            The (possibly relative) path of the rendered file.
-
-        Raises
-        ------
-        ValueError
-            If ``format``, ``renderer``, or ``formatter`` are not known.
-
-        graphviz.RequiredArgumentError
-            If ``formatter`` is given but ``renderer`` is None.
-
-        graphviz.ExecutableNotFound
-            If the Graphviz executable is not found.
-
-        subprocess.CalledProcessError
-            If the exit status is non-zero.
-
-        RuntimeError
-            If viewer opening is requested but not supported.
-
-        Notes
-        -----
-        The layout command is started from the directory of ``filepath``, so that
-        references to external files (e.g. ``[image=...]``) can be given as paths
-        relative to the DOT source file.
+            The output format used for rendering (``'pdf'``, ``'png'``, ...).
         """
-        # Adapted from graphviz under the MIT License (MIT) Copyright (c) 2013-2020
-        # Sebastian Bank
-        filepath = self.save(filename, directory)
+        graph = graph or AsyncDigraph(format=format)
 
-        if format is None:
-            format = self._format
+        if engine is not None:
+            graph.engine = engine
 
-        rendered = await async_render(
-            self._engine,
-            format,
-            filepath,
-            renderer=renderer,
-            formatter=formatter,
-            quiet=quiet,
-        )
+        if font_name is not None:
+            graph.attr("graph", fontname=font_name)
+            graph.attr("node", fontname=font_name)
+            graph.attr("edge", fontname=font_name)
 
-        if cleanup:
-            logger.debug("delete %r", filepath)
-            os.remove(filepath)
+        for node in self.nodes.values():
+            text = self.newline.join(node.text.splitlines())
+            graph.node(
+                node.id,
+                label="< {} >".format(text),
+                shape=self.shapes[node.highlighted],
+                fillcolor=self.fill_colors[node.highlighted],
+                style="filled",
+                **node.options
+            )
 
-        if quiet_view or view:
-            self._view(rendered, self._format, quiet_view)
+        # add all of the edges between graphs
+        for edge in self.edges:
+            graph.edge(edge.source.id, edge.destination.id, **edge.options)
+        return graph
 
-        return rendered
+    @staticmethod
+    def clean_code(obj):
+        """Clean C-like code for graphviz."""
+        code = str(obj or "").strip("{}")
+        return html.escape(textwrap.dedent(code).strip(" \n"))
 
 
 @dataclass
