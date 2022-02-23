@@ -227,13 +227,13 @@ init_declarators: _comma_separated{init_declarator}
 init_declarator: declarator (EQUAL init_expr)?
 
 declarator: variable
-          | declarator LPAREN param_decls RPAREN   -> declarator_decls
-          | declarator subscript                   -> declarator_subscript
-          | LPAREN declarator RPAREN               -> declarator_paren
-          | ASTERISK declarator                    -> declarator_deref
-          | CONST declarator                       -> declarator_const
+          | declarator LPAREN [ param_decls ] RPAREN   -> declarator_decls
+          | declarator subscript                       -> declarator_subscript
+          | LPAREN declarator RPAREN                   -> declarator_paren
+          | ASTERISK declarator                        -> declarator_deref
+          | CONST declarator                           -> declarator_const
 
-param_decls: _comma_separated{param_decl}?
+param_decls: _comma_separated{param_decl}
 
 // Allow parameter declaration with or without identifier
 param_decl: basetype declarator
@@ -282,8 +282,8 @@ type_expr: basetype abs_decl?
 
 // abstract_declarator
 abs_decl: abs_decl_mod
-        | abs_decl? subscript                  -> abs_decl_subscript
-        | abs_decl? LPAREN param_decls RPAREN  -> abs_decl_params
+        | [ abs_decl ] subscript                      -> abs_decl_subscript
+        | [ abs_decl ] LPAREN [ param_decls ] RPAREN  -> abs_decl_params
 
 // abstract declarator with some modification (), *, const
 abs_decl_mod: LPAREN abs_decl RPAREN
@@ -377,9 +377,9 @@ for_statement: FOR LPAREN [ comma_expr ] SEMICOLON [ comma_expr ] SEMICOLON [ co
 // Atomic
 ?expr: literal_expr
      | LPAREN comma_expr RPAREN       -> parenthesized_expr
-     | expr LPAREN args RPAREN        -> expr_with_args
+     | expr LPAREN [ comma_expr ] RPAREN        -> expr_with_args
      | expr LBRACKET expr RBRACKET    -> bracket_expr
-     | EXIT LPAREN args RPAREN        -> exit_expr
+     | EXIT LPAREN [ comma_expr ] RPAREN        -> exit_expr
      | SIZEOF LPAREN type_expr RPAREN -> sizeof
      | member_expr
      | unary_postfix_expr
@@ -443,8 +443,6 @@ binary_operator_expr: expr SUB expr  // Binary Operators, left-to-right
 comma_expr: _comma_separated{expr}
 
 // Function arguments
-// Syntactically the same as an optional expression but interpreted differently.
-args: [ _comma_separated{expr} ]
 
 string: STRCON
 member: NAME

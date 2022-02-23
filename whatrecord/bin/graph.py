@@ -5,8 +5,13 @@ whatrecord-supported file types.
 
 import argparse
 import logging
+import pathlib
 import re
-from typing import Dict, List, Optional
+import shutil
+import tempfile
+from typing import Dict, List, Optional, Tuple, Union
+
+import graphviz as gv
 
 from ..common import AnyPath, RecordInstance  # , FileFormat, IocMetadata
 from ..db import Database, LinterResults
@@ -44,6 +49,13 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
+        "-o", "--output",
+        type=str,
+        required=False,
+        help="Output file to write to.  Defaults to standard output.",
+    )
+
+    parser.add_argument(
         "--v3",
         action="store_true",
         help="Use V3 database grammar instead of V4 where possible"
@@ -69,19 +81,6 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "--friendly",
-        action="store_true",
-        help="Output Python object representation instead of JSON",
-    )
-
-    parser.add_argument(
-        "--friendly-format",
-        type=str,
-        default="console",
-        help="Output Python object representation instead of JSON",
-    )
-
-    parser.add_argument(
         '--use-gdb',
         action="store_true",
         help="Use metadata derived from the script binary",
@@ -101,6 +100,12 @@ def build_arg_parser(parser=None):
         help="Highlight the provided regular expression matches",
     )
 
+    parser.add_argument(
+        "--code",
+        action="store_true",
+        help="Include code information in graph, where applicable"
+    )
+
     return parser
 
 
@@ -116,25 +121,88 @@ def _combine_databases(*items: Database) -> Database:
     return db
 
 
+def render_graph_to_file(
+    graph: gv.Digraph, default_format: str = "png", filename: Optional[str] = None
+):
+    if filename is None:
+        print(graph.source)
+        return
+
+    output_extension = pathlib.Path(filename).suffix
+    format = output_extension.lstrip(".").lower() or default_format
+    if format == "dot":
+        with open(filename, "wt") as fp:
+            print(graph.source, file=fp)
+    else:
+        with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
+            rendered_filename = graph.render(
+                source_file.name, format=format
+            )
+        shutil.copyfile(rendered_filename, filename)
+
+
+DatabaseItem = Union[LinterResults, LoadedIoc, Database]
+
+
+def get_database_graph(
+    *loaded_items: DatabaseItem,
+    highlight: Optional[List[str]] = None,
+) -> Tuple[dict, dict, gv.Digraph]:
+    combined = _combine_databases(*loaded_items)
+    if isinstance(combined, LoadedIoc):
+        database = combined.shell_state.database
+        defn = combined.shell_state.database_definition
+        record_types = defn.record_types if defn else None
+        aliases = combined.shell_state.aliases
+    elif isinstance(combined, LinterResults):
+        database = combined.records
+        record_types = combined.record_types
+        aliases = {}
+    else:
+        database = combined.records
+        record_types = combined.record_types
+        aliases = combined.aliases
+
+    def records_by_patterns(patterns: List[str]) -> Dict[str, RecordInstance]:
+        return {
+            rec.name: rec
+            for rec in database.values()
+            if any(
+                re.search(pattern, rec.name)
+                for pattern in highlight
+            )
+        }
+
+    starting_records = records_by_patterns(highlight) if highlight else []
+    relations = build_database_relations(
+        database=database,
+        record_types=record_types,
+        aliases=aliases,
+    )
+    return graph_links(
+        database=database,
+        starting_records=starting_records,
+        relations=relations,
+    )
+
+
 def main(
     filenames: List[AnyPath],
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
-    friendly: bool = False,
     use_gdb: bool = False,
     format: Optional[str] = None,
     expand: bool = False,
-    friendly_format: str = "console",
     highlight: Optional[List[str]] = None,
-    only: Optional[List[str]] = None,
     v3: bool = False,
+    output: Optional[str] = None,
+    code: bool = False,
 ):
     highlight = highlight or []
-    only = only or []
 
     databases_only = len(filenames) > 1
-    results = [
+    loaded_items = [
         parse_from_cli_args(
             filename=filename,
             dbd=dbd,
@@ -148,54 +216,34 @@ def main(
         for filename in filenames
     ]
 
+    databases_only = all(
+        isinstance(item, (LinterResults, LoadedIoc, Database))
+        for item in loaded_items
+    )
+
     if databases_only:
-        result = _combine_databases(*results)
+        nodes, edges, graph = get_database_graph(
+            *loaded_items, highlight=highlight
+        )
     else:
-        result, = results
+        try:
+            item, = loaded_items
+        except ValueError:
+            raise RuntimeError(
+                "Sorry, multiple database files are supported but only "
+                "single files for other formats."
+            )
 
-    if isinstance(result, (LinterResults, LoadedIoc, Database)):
-        if isinstance(result, LoadedIoc):
-            database = result.shell_state.database
-            defn = result.shell_state.database_definition
-            record_types = defn.record_types if defn else None
-            aliases = result.shell_state.aliases
-        elif isinstance(result, LinterResults):
-            database = result.records
-            record_types = result.record_types
-            aliases = {}
+        if isinstance(item, SequencerProgram):
+            snl_graph = item.as_graph(include_code=code)
+            nodes = snl_graph.nodes
+            edges = snl_graph.edges
+            graph = snl_graph.to_digraph()
         else:
-            database = result.records
-            record_types = result.record_types
-            aliases = result.aliases
+            raise RuntimeError(
+                f"Sorry, graph isn't supported yet for {item.__class__.__name__}"
+            )
 
-        def records_by_patterns(patterns: List[str]) -> Dict[str, RecordInstance]:
-            return {
-                rec.name: rec
-                for rec in database.values()
-                if any(
-                    re.search(pattern, rec.name)
-                    for pattern in highlight
-                )
-            }
-
-        starting_records = records_by_patterns(highlight) if highlight else []
-        relations = build_database_relations(
-            database=database,
-            record_types=record_types,
-            aliases=aliases,
-        )
-        nodes, edges, graph = graph_links(
-            database=database,
-            starting_records=starting_records,
-            relations=relations,
-        )
-    elif isinstance(result, SequencerProgram):
-        nodes, edges, graph = result.as_graph()
-    else:
-        raise RuntimeError(
-            f"Sorry, graph isn't supported yet for {result.__class__.__name__}"
-        )
-
-    print(graph.source)
+    render_graph_to_file(graph, filename=output)
     logger.debug("Nodes: %s", nodes)
     logger.debug("Edges: %s", edges)
