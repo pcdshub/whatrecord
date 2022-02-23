@@ -55,16 +55,34 @@ class Assignment(Definition):
 
 
 @dataclass
-class AbstractDeclarator:
+class AbstractDeclaratorModifier:
     context: FullLoadContext
-    params: Sequence[ParameterDeclarator] = field(default_factory=list)
-    modifier: Optional[str] = None
-    subscript: Optional[int] = None
+    modifier: str
+    decl: Optional[AbstractDeclarator] = None
 
     def __str__(self) -> str:
-        raise NotImplementedError("TODO: abstractdeclarator cleanup")
-        # params = ", ".join(str(param) for param in self.params)
-        # return f"({params})"
+        if self.modifier == "(":  # )
+            return f"({self.decl})"
+        if self.modifier == "*":
+            return f"*{self.decl or ''}"
+        return f"{self.modifier} {self.decl or ''}"
+
+
+@dataclass
+class AbstractDeclarator:
+    context: FullLoadContext
+    params: Optional[Sequence[ParameterDeclarator]] = None
+    subscript: Optional[str] = None
+    inner_decl: Optional[AbstractDeclarator] = None
+
+    def __str__(self) -> str:
+        prefix = f"{str(self.inner_decl).strip()} " if self.inner_decl is not None else ""
+        if self.subscript is not None:
+            return f"{prefix}{self.subscript}"
+        if self.params is not None:
+            params = ", ".join(str(param) for param in self.params)
+            return f"{prefix}({params})"
+        return prefix.strip()
 
 
 @dataclass
@@ -1113,40 +1131,45 @@ class _ProgramTransformer(lark.visitors.Transformer):
         basetype.abstract = abs_decl
         return basetype
 
-    def abs_decl_mod(self, token, abs_decl=None, *_):
+    def abs_decl_mod(
+        self, token: lark.Token, abs_decl: Optional[AbstractDeclarator] = None, *_
+    ):
         """
         LPAREN abs_decl RPAREN
-        ASTERISK abs_decl?
-        CONST abs_decl?
+        ASTERISK [ abs_decl ]
+        CONST [ abs_decl ]
         """
-        if abs_decl is not None:
-            abs_decl.modifier = str(token)
-            return abs_decl
+        return AbstractDeclaratorModifier(
+            context=context_from_token(self.fn, token),
+            modifier=str(token),
+            decl=abs_decl,
+        )
 
-        return token
-
-    def abs_decl_subscript(self, abs_decl, subscript):
-        # TODO I think these may be wrong
-        if abs_decl is None:
-            return AbstractDeclarator(
-                context=context_from_token(self.fn, subscript),
-                subscript=str(subscript),
-            )
-
-        abs_decl.subscript = subscript
-        return abs_decl
-
-    def abs_decl_params(self, abs_decl, lparen, param_decls, rparen):
+    def abs_decl_subscript(
+        self, abs_decl: Optional[AbstractDeclarator], subscript: lark.Token
+    ):
         """
-        abs_decl? LPAREN param_decls RPAREN
+        [ abs_decl ] subscript
         """
-        # TODO I think these may be wrong
-        if abs_decl is not None:
-            abs_decl.params = param_decls
-            return abs_decl
+        return AbstractDeclarator(
+            context=context_from_token(self.fn, subscript),
+            inner_decl=abs_decl,
+            subscript=str(subscript),
+        )
 
+    def abs_decl_params(
+        self,
+        abs_decl: Optional[AbstractDeclarator],
+        lparen: lark.Token,
+        param_decls: Optional[Sequence[ParameterDeclarator]],
+        *_
+    ):
+        """
+        [ abs_decl ] LPAREN param_decls RPAREN
+        """
         return AbstractDeclarator(
             context=context_from_token(self.fn, lparen),
+            inner_decl=abs_decl,
             params=param_decls,
         )
 

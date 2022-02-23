@@ -281,14 +281,14 @@ basetype: _prim_type
 type_expr: basetype abs_decl?
 
 // abstract_declarator
-abs_decl: abs_decl_mod
-        | [ abs_decl ] subscript                      -> abs_decl_subscript
-        | [ abs_decl ] LPAREN [ param_decls ] RPAREN  -> abs_decl_params
+?abs_decl: abs_decl_mod
+         | [ abs_decl ] subscript                      -> abs_decl_subscript
+         | [ abs_decl ] LPAREN [ param_decls ] RPAREN  -> abs_decl_params
 
 // abstract declarator with some modification (), *, const
 abs_decl_mod: LPAREN abs_decl RPAREN
-            | ASTERISK abs_decl?
-            | CONST abs_decl?
+            | ASTERISK [ abs_decl ]
+            | CONST [ abs_decl ]
 
 // not supported: empty brackets, empty parameter list
 // abs_decl: LBRACKET RBRACKET
