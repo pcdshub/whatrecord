@@ -279,13 +279,22 @@ def parse_from_cli_args(
             ioc_metadata
         )
 
+    try:
+        format = FileFormat(format) if format is not None else None
+    except ValueError:
+        options = [fmt.name for fmt in list(FileFormat)]
+        raise ValueError(
+            f"{format!r} is not a valid FileFormat. Options include: "
+            f"{options}"
+        )
+
     return parse(
         filename,
         dbd=dbd,
         standin_directories=standin_directories,
         macros=macros,
         use_gdb=use_gdb,
-        format=FileFormat(format) if format is not None else None,
+        format=format,
         expand=expand,
         v3=v3,
     )
