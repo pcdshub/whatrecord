@@ -3,22 +3,23 @@
 whatrecord-supported file types.
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
+import pathlib
 import re
-from typing import Dict, List, Optional
+import shutil
+import tempfile
+from typing import List, Optional, Union
 
-# from ..access_security import AccessSecurityConfig
-from ..common import AnyPath, RecordInstance  # , FileFormat, IocMetadata
+import graphviz as gv
+
+from ..common import AnyPath
 from ..db import Database, LinterResults
-# from ..dbtemplate import TemplateSubstitution
-# from ..format import FormatContext
-# from ..gateway import PVList as GatewayPVList
-from ..graph import build_database_relations, graph_links
-# from ..macro import MacroContext
+from ..graph import RecordLinkGraph, build_database_relations, graph_links
 from ..shell import LoadedIoc
-# from ..snl import SequencerProgram
-# from ..streamdevice import StreamProtocol
+from ..snl import SequencerProgram
 from .parse import parse_from_cli_args
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,13 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
+        "-o", "--output",
+        type=str,
+        required=False,
+        help="Output file to write to.  Defaults to standard output.",
+    )
+
+    parser.add_argument(
         "--v3",
         action="store_true",
         help="Use V3 database grammar instead of V4 where possible"
@@ -75,19 +83,6 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "--friendly",
-        action="store_true",
-        help="Output Python object representation instead of JSON",
-    )
-
-    parser.add_argument(
-        "--friendly-format",
-        type=str,
-        default="console",
-        help="Output Python object representation instead of JSON",
-    )
-
-    parser.add_argument(
         '--use-gdb',
         action="store_true",
         help="Use metadata derived from the script binary",
@@ -107,37 +102,71 @@ def build_arg_parser(parser=None):
         help="Highlight the provided regular expression matches",
     )
 
+    parser.add_argument(
+        "--code",
+        action="store_true",
+        help="Include code information in graph, where applicable"
+    )
+
     return parser
 
 
-def _combine_databases(*items: Database) -> Database:
-    for item in items:
-        if not isinstance(item, (Database, LinterResults)):
-            raise ValueError(f"Expected Database, got {type(item)}")
+def render_graph_to_file(
+    graph: gv.Digraph, default_format: str = "png", filename: Optional[str] = None
+):
+    if filename is None:
+        print(graph.source)
+        return
 
-    db = items[0]
-    for item in items[1:]:
-        for record, instance in item.records.items():
-            existing_record = db.records.get(record, None)
-            if not existing_record:
-                db.records[record] = instance
-            else:
-                existing_record.info.update(instance.info)
-                existing_record.metadata.update(instance.metadata)
-                existing_record.fields.update(instance.fields)
-                existing_record.aliases = list(
-                    sorted(set(existing_record.aliases + instance.aliases))
-                )
-                if existing_record.record_type != instance.record_type:
-                    logger.warning(
-                        "Record type mismatch in provided database files: "
-                        "%s %s %s",
-                        record, instance.record_type, existing_record.record_type
-                    )
+    output_extension = pathlib.Path(filename).suffix
+    format = output_extension.lstrip(".").lower() or default_format
+    if format == "dot":
+        with open(filename, "wt") as fp:
+            print(graph.source, file=fp)
+    else:
+        with tempfile.NamedTemporaryFile(suffix=f".{format}") as source_file:
+            rendered_filename = graph.render(
+                source_file.name, format=format
+            )
+        shutil.copyfile(rendered_filename, filename)
 
-        db.record_types.update(item.record_types or {})
 
-    return db
+DatabaseItem = Union[LinterResults, LoadedIoc, Database]
+
+
+def _records_by_patterns(
+    database: Database,
+    patterns: List[str],
+) -> List[str]:
+    return [
+        rec.name
+        for rec in database.records.values()
+        if any(
+            re.search(pattern, rec.name)
+            for pattern in patterns
+        )
+    ]
+
+
+def get_database_graph(
+    *loaded_items: DatabaseItem,
+    highlight: Optional[List[str]] = None,
+) -> RecordLinkGraph:
+    """
+    Get a database graph from a number of database items.
+    """
+    database = Database.from_multiple(*loaded_items)
+    starting_records = _records_by_patterns(database, highlight) if highlight else []
+    relations = build_database_relations(
+        database=database.records,
+        record_types=database.record_types or {},
+        aliases=database.aliases or {},
+    )
+    return graph_links(
+        database=database.records,
+        starting_records=starting_records,
+        relations=relations,
+    )
 
 
 def main(
@@ -145,20 +174,18 @@ def main(
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
-    friendly: bool = False,
     use_gdb: bool = False,
     format: Optional[str] = None,
     expand: bool = False,
-    friendly_format: str = "console",
     highlight: Optional[List[str]] = None,
-    only: Optional[List[str]] = None,
     v3: bool = False,
+    output: Optional[str] = None,
+    code: bool = False,
 ):
     highlight = highlight or []
-    only = only or []
 
     databases_only = len(filenames) > 1
-    results = [
+    loaded_items = [
         parse_from_cli_args(
             filename=filename,
             dbd=dbd,
@@ -172,49 +199,30 @@ def main(
         for filename in filenames
     ]
 
+    databases_only = all(
+        isinstance(item, (LinterResults, LoadedIoc, Database))
+        for item in loaded_items
+    )
+
     if databases_only:
-        result = _combine_databases(*results)
+        graph = get_database_graph(*loaded_items, highlight=highlight)
     else:
-        result, = results
+        try:
+            item, = loaded_items
+        except ValueError:
+            raise RuntimeError(
+                "Sorry, multiple database files are supported but only "
+                "single files for other formats."
+            )
 
-    if isinstance(result, (LinterResults, LoadedIoc, Database)):
-        if isinstance(result, LoadedIoc):
-            database = result.shell_state.database
-            defn = result.shell_state.database_definition
-            record_types = defn.record_types if defn else None
-            aliases = result.shell_state.aliases
-        elif isinstance(result, LinterResults):
-            database = result.records
-            record_types = result.record_types
-            aliases = {}
+        if isinstance(item, SequencerProgram):
+            graph = item.as_graph(include_code=code)
         else:
-            database = result.records
-            record_types = result.record_types
-            aliases = result.aliases
+            raise RuntimeError(
+                f"Sorry, graph isn't supported yet for {item.__class__.__name__}"
+            )
 
-        def records_by_patterns(patterns: List[str]) -> Dict[str, RecordInstance]:
-            return {
-                rec.name: rec
-                for rec in database.values()
-                if any(
-                    re.search(pattern, rec.name)
-                    for pattern in highlight
-                )
-            }
-
-        starting_records = records_by_patterns(highlight) if highlight else []
-        relations = build_database_relations(
-            database=database,
-            record_types=record_types,
-            aliases=aliases,
-        )
-        node, edges, graph = graph_links(
-            database=database,
-            starting_records=starting_records,
-            relations=relations,
-        )
-        print(graph.source)
-    else:
-        raise RuntimeError(
-            f"Sorry, graph isn't supported yet for {result.__class__.__name__}"
-        )
+    gv_graph = graph.to_digraph()
+    logger.debug("Nodes: %s", graph.nodes)
+    logger.debug("Edges: %s", graph.edges)
+    render_graph_to_file(gv_graph, filename=output)

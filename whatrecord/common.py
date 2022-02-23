@@ -873,6 +873,45 @@ record("{{record_type}}", "{{name}}") {
         """Return a summarized version of the record instance."""
         return RecordInstanceSummary.from_record_instance(self)
 
+    def update(self, other: RecordInstance) -> List[LinterMessage]:
+        """
+        Update this record instance with another.
+
+        TODO: This may not do exactly what an IOC would do.
+        TODO: Return type?
+        """
+        if other.is_pva != self.is_pva:
+            return [
+                LinterError(
+                    name="combine_pva_and_v3",
+                    line=0,
+                    message="Cannot combine PVA group with V3 record"
+                )
+            ]
+        self.context = remove_redundant_context(
+            tuple(self.context) + tuple(other.context)
+        )
+        self.info.update(other.info)
+        self.metadata.update(other.metadata)
+        self.fields.update(other.fields)
+        self.aliases.extend(
+            [alias for alias in other.aliases if alias not in self.aliases]
+        )
+
+        if self.record_type != other.record_type:
+            return [
+                LinterError(
+                    name="record_type_mismatch",
+                    line=0,
+                    message=(
+                        f"Record type mismatch in provided database files: "
+                        f"{self.name} {self.record_type} {other.record_type}"
+                    ),
+                )
+            ]
+
+        return []
+
 
 class AsynPortBase:
     """
@@ -1130,8 +1169,9 @@ def remove_redundant_context(full_context: FullLoadContext) -> FullLoadContext:
         else:
             zero_line_files.remove(file)
 
-    return tuple(
-        ctx
-        for ctx in full_context
-        if ctx.name not in zero_line_files or ctx.line > 0
-    )
+    new_context = []
+    for ctx in full_context:
+        is_specific = ctx.name not in zero_line_files or ctx.line > 0
+        if is_specific and ctx not in new_context:
+            new_context.append(ctx)
+    return tuple(new_context)

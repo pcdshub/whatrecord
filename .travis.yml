@@ -35,6 +35,7 @@ addons:
     update: true
     packages:
       - gdb
+      - graphviz
 
 jobs:
   include:

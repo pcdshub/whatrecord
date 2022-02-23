@@ -8,7 +8,7 @@ from . import conftest
 
 @conftest.startup_scripts
 def test_graph_smoke_startup_script(startup_script):
-    main(filenames=[startup_script])
+    main(filenames=[startup_script], highlight=[".*"])
 
 
 @pytest.mark.parametrize(
@@ -23,7 +23,7 @@ def test_graph_db(with_dbd):
         dbd_path = str(conftest.MODULE_PATH / "iocs" / "softIoc.dbd")
     else:
         dbd_path = None
-    main(filenames=[db_path], dbd=dbd_path)
+    main(filenames=[db_path], dbd=dbd_path, highlight=[".*"])
 
 
 @pytest.mark.parametrize(
@@ -41,4 +41,4 @@ def test_graph_multiple_db(with_dbd):
         dbd_path = str(conftest.MODULE_PATH / "iocs" / "softIoc.dbd")
     else:
         dbd_path = None
-    main(filenames=db_paths, dbd=dbd_path)
+    main(filenames=db_paths, dbd=dbd_path, highlight=[".*"])

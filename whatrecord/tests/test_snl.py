@@ -16,23 +16,25 @@ if additional_files.exists():
         SNL_FILES.append(pathlib.Path(additional))
 
 
-snl_filenames = pytest.mark.parametrize(
-    "program_filename",
-    [
-        pytest.param(
-            program_filename,
-            id="/".join(program_filename.parts[-2:])
-        )
-        for program_filename in SNL_FILES
-    ]
+SNL_IDS = [
+    "/".join(program_filename.parts[-2:])
+    for program_filename in SNL_FILES
+]
+
+
+@pytest.fixture(
+    params=SNL_FILES,
+    ids=SNL_IDS,
 )
+def snl_filename(request) -> pathlib.Path:
+    return request.param
 
 
-@snl_filenames
-def test_parse(program_filename):
-    with open(program_filename, "rt") as fp:
+@pytest.fixture
+def snl_program(snl_filename) -> SequencerProgram:
+    with open(snl_filename, "rt") as fp:
         source = SequencerProgram.preprocess(
-            fp.read(), search_path=program_filename.parent
+            fp.read(), search_path=snl_filename.parent
         )
     has_program = any(
         line.startswith("program")
@@ -44,16 +46,35 @@ def test_parse(program_filename):
             "(perhaps it's meant to be included from another?)"
         )
 
-    program = SequencerProgram.from_file(program_filename)
+    return SequencerProgram.from_file(snl_filename)
 
+
+def test_parse(snl_program: SequencerProgram):
     # from ..format import FormatContext
     # ctx = FormatContext()
     # print(ctx.render_object(program, "console"))
-    print(program)
+    print(snl_program)
 
-    serialized = apischema.serialize(program)
+    serialized = apischema.serialize(snl_program)
     # pprint.pprint(serialized)
     apischema.deserialize(SequencerProgram, serialized)
+    # deserialized = apischema.deserialize(SequencerProgram, serialized)
+    # assert deserialized == snl_program
+
+    round_trip = str(snl_program)
+    print("Round-tripped to")
+    print(round_trip)
+    assert "(context=(" not in round_trip
+    assert "(Tree=(" not in round_trip
+    assert "(Token=(" not in round_trip
+
+
+def test_graph(snl_filename: pathlib.Path, snl_program: SequencerProgram):
+    graph = snl_program.as_graph()
+    digraph = graph.to_digraph()
+
+    from ..bin.graph import render_graph_to_file
+    render_graph_to_file(digraph, filename=f"{snl_filename}.pdf")
 
 
 @pytest.mark.parametrize(

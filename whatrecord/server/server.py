@@ -384,13 +384,12 @@ class ServerState:
 
         if not pv_names:
             return graphviz.Digraph()
-        _, _, digraph = graph.graph_script_relations(
+        gr = graph.graph_script_relations(
             database=self.database,
             limit_to_records=pv_names,
-            font_name="Courier",
             script_relations=self.script_relations,
         )
-        return digraph
+        return gr.to_digraph(font_name="Courier")
 
     def get_ioc_to_pvs(self, pv_names: Tuple[str, ...]) -> Dict[str, List[str]]:
         ioc_to_pvs = {}
@@ -430,13 +429,13 @@ class ServerState:
 
         if not pv_names:
             return graphviz.Digraph()
-        _, _, digraph = graph.graph_links(
+        gr = graph.graph_links(
             database=self.database,
-            starting_records=pv_names,
+            starting_records=list(pv_names),
             sort_fields=True,
-            font_name="Courier",
             relations=self.container.pv_relations,
         )
+        digraph = gr.to_digraph(font_name="Courier")
         return digraph
 
     def clear_cache(self):

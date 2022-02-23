@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import collections
+import logging
 import pathlib
 import shlex
+import textwrap
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
+import graphviz as gv
 import lark
 
 from . import transformer
 from .common import AnyPath, FullLoadContext
+from .graph import _GraphHelper
 from .transformer import context_from_token
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -23,22 +29,60 @@ class Expression:
     context: FullLoadContext
 
 
-OptionalExpression = Optional[Union[Expression, Sequence[Expression]]]
+@dataclass
+class CommaSeparatedExpressions(Expression):
+    expressions: List[Expression]
+
+    def __str__(self) -> str:
+        return ", ".join(str(item) for item in self.expressions)
+
+
+OptionalExpression = Optional[Union[Expression, CommaSeparatedExpressions]]
 
 
 @dataclass
 class Assignment(Definition):
     variable: str
     value: Optional[Union[str, Sequence[str]]] = None
-    subscript: Optional[int] = None
+    subscript: Optional[str] = None
+
+    def __str__(self) -> str:
+        if isinstance(self.value, tuple):
+            value = "{ " + ", ".join(str(s) for s in self.value) + "}"
+        else:
+            value = str(self.value)
+        return f"{self.variable}{self.subscript or ''} = {value};"
+
+
+@dataclass
+class AbstractDeclaratorModifier:
+    context: FullLoadContext
+    modifier: str
+    decl: Optional[AbstractDeclarator] = None
+
+    def __str__(self) -> str:
+        if self.modifier == "(":  # )
+            return f"({self.decl})"
+        if self.modifier == "*":
+            return f"*{self.decl or ''}"
+        return f"{self.modifier} {self.decl or ''}"
 
 
 @dataclass
 class AbstractDeclarator:
     context: FullLoadContext
-    params: Sequence[ParameterDeclarator] = field(default_factory=list)
-    modifier: Optional[str] = None
-    subscript: Optional[int] = None
+    params: Optional[Sequence[ParameterDeclarator]] = None
+    subscript: Optional[str] = None
+    inner_decl: Optional[AbstractDeclarator] = None
+
+    def __str__(self) -> str:
+        prefix = f"{str(self.inner_decl).strip()} " if self.inner_decl is not None else ""
+        if self.subscript is not None:
+            return f"{prefix}{self.subscript}"
+        if self.params is not None:
+            params = ", ".join(str(param) for param in self.params)
+            return f"{prefix}({params})"
+        return prefix.strip()
 
 
 @dataclass
@@ -47,17 +91,27 @@ class Type:
     name: str
     abstract: Optional[AbstractDeclarator] = None
 
+    def __str__(self) -> str:
+        return f"{self.abstract or ''}{self.name}"
+
 
 @dataclass
 class Monitor(Definition):
     variable: str
     subscript: Optional[int]
 
+    def __str__(self) -> str:
+        return f"monitor {self.variable}{self.subscript or ''};"
+
 
 @dataclass
 class Option(Definition):
     name: str
     enable: bool
+
+    def __str__(self) -> str:
+        plus = "+" if self.enable else "-"
+        return f"option {plus}{self.name};"
 
 
 @dataclass
@@ -68,31 +122,59 @@ class Sync(Definition):
     event_flag: Optional[str] = None
     queue_size: Optional[int] = None
 
+    def __str__(self) -> str:
+        subscript = str(self.subscript or "")
+        variable = f"{self.variable}{subscript}"
+        event_flag = f" to {self.event_flag}" if self.event_flag else ""
+        if self.queued:
+            return f"syncq {variable}{event_flag} {self.queue_size or ''};"
+
+        return f"sync {variable}{event_flag};"
+
 
 @dataclass
 class Declaration(Definition):
     type: Optional[Type] = None
     declarators: Optional[Sequence[Declarator]] = field(default_factory=list)
 
+    def __str__(self) -> str:
+        declarators = ", ".join(str(decl) for decl in self.declarators or [])
+        return f"{self.type} {declarators};"
+
 
 @dataclass
 class ForeignDeclaration(Declaration):
     names: Sequence[str] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        names = ", ".join(self.names)
+        return f"foreign {names};"
 
 
 @dataclass
 class Declarator:
     context: FullLoadContext
     object: Union[Declarator, Variable]
-    params: OptionalExpression = None
+    params: Optional[List[ParameterDeclarator]] = None
     value: Optional[Expression] = None
     modifier: Optional[str] = None
     subscript: Optional[int] = None
 
-
-@dataclass
-class Parameter:
-    context: FullLoadContext
+    def __str__(self) -> str:
+        if self.modifier == "()":
+            decl = f"({self.object})"
+        elif self.modifier:
+            decl = f"{self.modifier}{self.object}"
+        elif self.subscript:
+            decl = f"{self.object}{self.subscript}"
+        elif self.params:
+            params = ", ".join(str(param) for param in self.params)
+            decl = f"{self.object}({params})"
+        else:
+            decl = str(self.object)
+        if self.value:
+            return f"{decl} = {self.value}"
+        return f"{decl}"
 
 
 @dataclass
@@ -100,6 +182,11 @@ class ParameterDeclarator:
     context: FullLoadContext
     type: Type
     declarator: Optional[Declarator] = None
+
+    def __str__(self) -> str:
+        if self.declarator:
+            return f"{self.type} {self.declarator}"
+        return str(self.type)
 
 
 @dataclass
@@ -110,6 +197,28 @@ class State:
     transitions: Sequence[Transition] = field(default_factory=list)
     entry: Optional[Block] = None
     exit: Optional[Block] = None
+    code_transitions: List[StateStatement] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        definitions = "\n".join(
+            str(defn)
+            for defn in self.definitions
+        )
+        transitions = "\n".join(
+            str(transition)
+            for transition in self.transitions
+        )
+        return "\n".join(
+            line for line in (
+                f"state {self.name}" + " {",
+                str(self.entry or ""),
+                textwrap.indent(definitions, " " * 4),
+                textwrap.indent(transitions, " " * 4),
+                str(self.exit or ""),
+                "}",
+            )
+            if line
+        )
 
 
 @dataclass
@@ -119,6 +228,24 @@ class StateSet:
     definitions: Sequence[Definition] = field(default_factory=list)
     states: Sequence[State] = field(default_factory=list)
 
+    def __str__(self) -> str:
+        definitions = "\n".join(
+            str(defn)
+            for defn in self.definitions
+        )
+        states = "\n".join(
+            str(state)
+            for state in self.states
+        )
+        return "\n".join(
+            (
+                f"ss {self.name}" + " {",
+                textwrap.indent(definitions, " " * 4),
+                textwrap.indent(states, " " * 4),
+                "}",
+            )
+        )
+
 
 @dataclass
 class Transition:
@@ -126,6 +253,22 @@ class Transition:
     block: Block
     target_state: Optional[str] = None
     condition: OptionalExpression = None
+
+    def __str__(self) -> str:
+        state = (
+            f"state {self.target_state}"
+            if self.target_state
+            else
+            "exit"
+        )
+        return "\n".join(
+            line for line in (
+                f"when ({self.condition or ''})" + " {",
+                str(self.block),
+                "}" + f" {state}",
+            )
+            if line
+        )
 
 
 @dataclass
@@ -139,6 +282,30 @@ class Block:
     definitions: Sequence[Definition] = field(default_factory=list)
     statements: Sequence[Statement] = field(default_factory=list)
 
+    def __str__(self) -> str:
+        definitions = textwrap.indent(
+            "\n".join(
+                str(defn)
+                for defn in self.definitions
+            ),
+            prefix="    ",
+        )
+        statements = textwrap.indent(
+            "\n".join(
+                str(statement)
+                for statement in self.statements
+            ),
+            prefix="    ",
+        )
+        return "\n".join(
+            (
+                "{",
+                definitions,
+                statements,
+                "}",
+            )
+        )
+
 
 @dataclass
 class Statement:
@@ -147,28 +314,41 @@ class Statement:
 
 @dataclass
 class BreakStatement(Statement):
-    ...
+    def __str__(self) -> str:
+        return "break;"
 
 
 @dataclass
 class ContinueStatement(Statement):
-    ...
+    def __str__(self) -> str:
+        return "continue;"
 
 
 @dataclass
 class ReturnStatement(Statement):
     value: Optional[Expression] = None
 
+    def __str__(self) -> str:
+        if self.value is not None:
+            return f"return {self.value};"
+        return "return;"
+
 
 @dataclass
 class StateStatement(Statement):
     name: str
 
+    def __str__(self) -> str:
+        return f"state {self.name};"
+
 
 @dataclass
 class WhileStatement(Statement):
-    condition: OptionalExpression
+    condition: CommaSeparatedExpressions
     body: Statement
+
+    def __str__(self) -> str:
+        return f"while ({self.condition}) " + str(self.body).lstrip()
 
 
 @dataclass
@@ -178,17 +358,45 @@ class ForStatement(Statement):
     increment: OptionalExpression
     statement: Statement
 
+    def __str__(self) -> str:
+        return (
+            f"for ({self.init or ''}; {self.condition or ''}; {self.increment or ''}) " +
+            str(self.statement).lstrip()
+        )
+
 
 @dataclass
 class ExpressionStatement(Statement):
-    expression: Expression
+    expression: CommaSeparatedExpressions
+
+    def __str__(self) -> str:
+        return f"{self.expression};"
 
 
 @dataclass
 class IfStatement(Statement):
-    condition: Expression
+    condition: CommaSeparatedExpressions
     body: Statement
     else_body: Optional[Statement] = None
+
+    def __str__(self) -> str:
+        else_clause = "\n".join(
+            (
+                "\nelse {",
+                textwrap.indent(str(self.else_body), " " * 4),
+                "}",
+            )
+            if self.else_body else ""
+        )
+
+        return "\n".join(
+            (
+                f"if ({self.condition}) " + " {",
+                textwrap.indent(str(self.body), " " * 4),
+                else_clause,
+                "}",
+            )
+        )
 
 
 @dataclass
@@ -197,28 +405,52 @@ class FuncDef(Definition):
     declarator: Declarator
     block: Block
 
+    def __str__(self) -> str:
+        return f"{self.type} {self.declarator};"
+
 
 @dataclass
-class StructMember:
+class StructMemberDecl:
     context: FullLoadContext
     type: Type
     declarator: Declarator
+
+    def __str__(self) -> str:
+        return f"{self.type} {self.declarator};"
 
 
 @dataclass
 class CCode(Definition):
     code: str
 
+    def __str__(self) -> str:
+        return self.code
+
 
 @dataclass
 class StructDef(Definition):
     name: str
-    members: Sequence[Union[StructMember, CCode]] = field(default_factory=list)
+    members: Sequence[Union[StructMemberDecl, CCode]] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        members = "\n".join(
+            str(member) for member in self.members
+        )
+        return "\n".join(
+            (
+                f"struct {self.name}" + " {",
+                textwrap.indent(members, " " * 4),
+                "}",
+            )
+        )
 
 
 @dataclass
 class Variable(Expression):
     name: str
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass
@@ -237,11 +469,19 @@ class InitExpression(Expression):
     )
     type: Optional[Type] = None
 
+    def __str__(self) -> str:
+        exprs = ", ".join(str(expr or '') for expr in self.expressions)
+        type_prefix = f"({self.type}) " if self.type else ""
+        return f"{type_prefix}{{ {exprs} }}"
+
 
 @dataclass
 class Literal(Expression):
     type: str
     value: str
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass
@@ -249,11 +489,17 @@ class UnaryPrefixExpression(Expression):
     operator: str
     expression: Expression
 
+    def __str__(self) -> str:
+        return f"{self.operator}{self.expression}"
+
 
 @dataclass
 class UnaryPostfixExpression(Expression):
     expression: Expression
     operator: str
+
+    def __str__(self) -> str:
+        return f"{self.expression}{self.operator}"
 
 
 @dataclass
@@ -262,11 +508,17 @@ class BinaryOperatorExpression(Expression):
     operator: str
     right: Expression
 
+    def __str__(self) -> str:
+        return f"{self.left} {self.operator} {self.right}"
+
 
 @dataclass
 class TypeCastExpression(Expression):
     type: Type
     expression: Expression
+
+    def __str__(self) -> str:
+        return f"{self.type}({self.expression})"
 
 
 @dataclass
@@ -275,6 +527,9 @@ class TernaryExpression(Expression):
     if_true: Expression
     if_false: Expression
 
+    def __str__(self) -> str:
+        return f"{self.condition} ? {self.if_true} : {self.if_false}"
+
 
 @dataclass
 class MemberExpression(Expression):
@@ -282,15 +537,26 @@ class MemberExpression(Expression):
     member: str
     dereference: bool  # True = ->, False = .
 
+    def __str__(self) -> str:
+        if self.dereference:
+            return f"{self.parent}->{self.member}"
+        return f"{self.parent}.{self.member}"
+
 
 @dataclass
 class SizeofExpression(Expression):
     type: Type
 
+    def __str__(self) -> str:
+        return f"sizeof({self.type})"
+
 
 @dataclass
 class ExitExpression(Expression):
-    expression: Expression
+    args: OptionalExpression
+
+    def __str__(self) -> str:
+        return f"exit({self.args or ''})"
 
 
 @dataclass
@@ -298,16 +564,147 @@ class BracketedExpression(Expression):
     outer: Expression
     inner: Expression
 
+    def __str__(self) -> str:
+        return f"{self.outer}[{self.inner}]"
+
 
 @dataclass
 class ParenthesisExpression(Expression):
     expression: Expression
 
+    def __str__(self) -> str:
+        return f"({self.expression})"
+
 
 @dataclass
 class ExpressionWithArguments(Expression):
     expression: Expression
-    arguments: Sequence[Expression] = field(default_factory=list)
+    arguments: OptionalExpression = None
+
+    def __str__(self) -> str:
+        return f"{self.expression}({self.arguments or ''})"
+
+
+class SequencerProgramGraph(_GraphHelper):
+    """
+    A graph for a SequencerProgram.
+
+    Parameters
+    ----------
+    program : SequencerProgram, optional
+        A program to add.
+
+    highlight_states : list of str, optional
+        List of state names to highlight.
+
+    include_code : bool, optional
+        Include code, where relevant, in nodes.
+    """
+
+    _entry_label: str = "_Entry_"
+    _exit_label: str = "_Exit_"
+
+    def __init__(
+        self,
+        program: Optional[SequencerProgram] = None,
+        highlight_states: Optional[List[str]] = None,
+        include_code: bool = False,
+    ):
+        super().__init__()
+        self.include_code = include_code
+        self.highlight_states = highlight_states or []
+        if program is not None:
+            self.add_program(program)
+
+    def add_program(self, program: SequencerProgram):
+        """Add a program to the graph."""
+        for state_set in program.state_sets:
+            for state in state_set.states:
+                self._add_state(program, state_set, state)
+
+        # Only add entry/exit labels if there's an edge
+        if self._entry_label in self.nodes:
+            self.get_node(
+                self._entry_label,
+                self.get_code(program.entry, "(Startup)")
+            )
+
+        if self._exit_label in self.nodes:
+            self.get_node(
+                self._exit_label,
+                self.get_code(program.exit, "(Exit)")
+            )
+
+    def _add_state(self, program: SequencerProgram, state_set: StateSet, state: State):
+        """Add a state set's state to the graph."""
+        qualified_name = f"{state_set.name}.{state.name}"
+        self.get_node(
+            qualified_name,
+            text="\n".join(self._get_state_node_text(state_set, state)),
+        )
+
+        if state_set.states[0] is state:
+            self.add_edge(
+                self._entry_label,
+                qualified_name,
+            )
+
+        for transition in state.transitions:
+            self._add_transition(program, state_set, state, transition)
+
+        for transition in state.code_transitions:
+            self.add_edge(
+                qualified_name,
+                f"{state_set.name}.{transition.name}",
+                label=f"(Line {transition.context[-1].line})",
+            )
+
+    def _ready_for_digraph(self, graph: gv.Digraph):
+        """Hook when the user calls ``to_digraph``."""
+        for node in self.nodes.values():
+            node.highlighted = node.label in self.highlight_states
+
+    def _add_transition(
+        self,
+        program: SequencerProgram,
+        state_set: StateSet,
+        state: State,
+        transition: Transition,
+    ):
+        """Add a state set's state transition to the graph."""
+        state_qualified_name = f"{state_set.name}.{state.name}"
+        label = str(transition.condition or "")
+        transition_text = self.get_code(transition.block)
+        target_state = (
+            f"{state_set.name}.{transition.target_state}"
+            if transition.target_state
+            else self._exit_label
+        )
+        if not self.include_code or not transition_text:
+            self.add_edge(state_qualified_name, target_state, label=label)
+            return
+
+        transition_idx = state.transitions.index(transition)
+        transition_node = f"{state_qualified_name}.{transition_idx}"
+        self.get_node(transition_node, text=transition_text)
+        self.add_edge(state_qualified_name, transition_node, label=label)
+        self.add_edge(transition_node, target_state)
+
+    def get_code(self, obj, default: str = ""):
+        """Get code for a node/edge."""
+        if self.include_code and obj is not None:
+            return self.clean_code(str(obj)) or default
+        return default
+
+    def _get_state_node_text(self, state_set: StateSet, state: State):
+        yield f"<b>{state_set.name}.{state.name}</b>"
+        if self.include_code:
+            if state.entry is not None:
+                yield "<u>Entry</u>"
+                yield self.clean_code(state.entry)
+            if state.exit is not None:
+                yield "<u>Exit</u>"
+                yield self.clean_code(state.exit)
 
 
 @dataclass
@@ -322,6 +719,32 @@ class SequencerProgram:
     state_sets: Sequence[StateSet] = field(default_factory=list)
     exit: Optional[Block] = None
     final_definitions: Sequence[Definition] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        initial_definitions = "\n".join(
+            str(defn)
+            for defn in self.initial_definitions
+        )
+        final_definitions = "\n".join(
+            str(defn)
+            for defn in self.final_definitions
+        )
+        state_sets = "\n\n".join(
+            str(state_set)
+            for state_set in self.state_sets
+        )
+        param = f"({self.params})" if self.params else ""
+        return "\n\n".join(
+            line for line in (
+                f"program {self.name}{param}",
+                initial_definitions,
+                str(self.entry or ""),
+                state_sets,
+                str(self.exit or ""),
+                final_definitions,
+            )
+            if line
+        )
 
     @staticmethod
     def preprocess(code: str, search_path: Optional[AnyPath] = None) -> str:
@@ -380,7 +803,7 @@ class SequencerProgram:
             parser="earley",
             # TODO: alternative comment finding method
             # lexer_callbacks={"COMMENT": comments.append},
-            maybe_placeholders=False,
+            maybe_placeholders=True,
             propagate_positions=True,
             debug=debug,
         )
@@ -422,6 +845,16 @@ class SequencerProgram:
         with open(fn, "rt") as fp:
             return cls.from_string(fp.read(), filename=fn)
 
+    def as_graph(self, **kwargs) -> SequencerProgramGraph:
+        """
+        Create a graphviz digraph of the state notation diagram.
+
+        Returns
+        -------
+        graph : SequencerProgramGraph
+        """
+        return SequencerProgramGraph(self, **kwargs)
+
 
 @lark.visitors.v_args(inline=True)
 class _ProgramTransformer(lark.visitors.Transformer):
@@ -431,9 +864,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
         self.fn = str(fn)
         self.cls = cls
-
-    # def __default__(self, data, children, meta):
-    #     raise RuntimeError(f"Unhandled {data}")
+        self._code_transitions = []
 
     def program(
         self,
@@ -696,48 +1127,49 @@ class _ProgramTransformer(lark.visitors.Transformer):
             name=" ".join(type_info),
         )
 
-    def type_expr(self, basetype, abs_decl=None):
+    def type_expr(self, basetype: Type, abs_decl: Optional[AbstractDeclarator] = None):
         basetype.abstract = abs_decl
         return basetype
 
-    def abs_decl_mod(self, token, abs_decl=None, *_):
+    def abs_decl_mod(
+        self, token: lark.Token, abs_decl: Optional[AbstractDeclarator] = None, *_
+    ):
         """
         LPAREN abs_decl RPAREN
-        ASTERISK abs_decl?
-        CONST abs_decl?
+        ASTERISK [ abs_decl ]
+        CONST [ abs_decl ]
         """
-        if abs_decl is not None:
-            abs_decl.modifier = str(token)
-            return abs_decl
+        return AbstractDeclaratorModifier(
+            context=context_from_token(self.fn, token),
+            modifier=str(token),
+            decl=abs_decl,
+        )
 
-        return token
-
-    def abs_decl_subscript(self, *args):
-        # TODO I think these may be wrong
-        if len(args) == 1:
-            (subscript,) = args
-            return AbstractDeclarator(
-                context=context_from_token(self.fn, subscript),
-                subscript=str(subscript),
-            )
-
-        decl, subscript = args
-        decl.subscript = subscript
-        return decl
-
-    def abs_decl_params(self, *args):
+    def abs_decl_subscript(
+        self, abs_decl: Optional[AbstractDeclarator], subscript: lark.Token
+    ):
         """
-        abs_decl? LPAREN param_decls RPAREN
+        [ abs_decl ] subscript
         """
-        # TODO I think these may be wrong
-        if len(args) == 4:
-            abs_decl, lparen, param_decls, _ = args
-            abs_decl.params = param_decls
-            return abs_decl
+        return AbstractDeclarator(
+            context=context_from_token(self.fn, subscript),
+            inner_decl=abs_decl,
+            subscript=str(subscript),
+        )
 
-        lparen, param_decls, _ = args
+    def abs_decl_params(
+        self,
+        abs_decl: Optional[AbstractDeclarator],
+        lparen: lark.Token,
+        param_decls: Optional[Sequence[ParameterDeclarator]],
+        *_
+    ):
+        """
+        [ abs_decl ] LPAREN param_decls RPAREN
+        """
         return AbstractDeclarator(
             context=context_from_token(self.fn, lparen),
+            inner_decl=abs_decl,
             params=param_decls,
         )
 
@@ -783,6 +1215,8 @@ class _ProgramTransformer(lark.visitors.Transformer):
         """
         STATE NAME LBRACE state_defns entry? transitions exit? RBRACE
         """
+        code_transitions = list(self._code_transitions)
+        self._code_transitions = []
         return State(
             context=context_from_token(self.fn, state_token),
             name=str(name),
@@ -790,6 +1224,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
             entry=entry,
             transitions=transitions,
             exit=exit,
+            code_transitions=code_transitions,
         )
 
     state_defns = transformer.tuple_args
@@ -807,18 +1242,18 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         when: lark.Token,
         _,
-        condition: Expression,
+        condition: OptionalExpression,
         __,
         block: Block,
         ___,
         state: lark.Token,
     ):
         """
-        WHEN LPAREN condition RPAREN block STATE NAME
+        WHEN LPAREN [ condition ] RPAREN block STATE NAME
         """
         return Transition(
             context=context_from_token(self.fn, when),
-            condition=condition[0] if condition else None,
+            condition=condition,
             block=block,
             target_state=str(state),
         )
@@ -827,7 +1262,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self, when: lark.Token, _, condition: Expression, __, block: Block, ___
     ):
         """
-        WHEN LPAREN condition RPAREN block EXIT
+        WHEN LPAREN [ condition ] RPAREN block EXIT
         """
         return ExitTransition(
             context=context_from_token(self.fn, when),
@@ -868,10 +1303,12 @@ class _ProgramTransformer(lark.visitors.Transformer):
         )
 
     def state_statement(self, state_token: lark.Token, name: lark.Token, _):
-        return StateStatement(
+        statement = StateStatement(
             context=context_from_token(self.fn, state_token),
             name=str(name),
         )
+        self._code_transitions.append(statement)
+        return statement
 
     def while_statement(
         self,
@@ -887,7 +1324,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
             body=statement,
         )
 
-    def expr_statement(self, expression: Expression, semicolon: lark.Token):
+    def expr_statement(self, expression: CommaSeparatedExpressions, semicolon: lark.Token):
         return ExpressionStatement(
             context=context_from_token(self.fn, semicolon),
             expression=expression,
@@ -899,7 +1336,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         self,
         if_token: lark.Token,
         _,
-        condition: Expression,
+        condition: OptionalExpression,
         __,
         body: Expression,
         *else_clause
@@ -932,7 +1369,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         statement: Statement,
     ):
         """
-        FOR LPAREN opt_expr SEMICOLON opt_expr SEMICOLON opt_expr RPAREN statement
+        FOR LPAREN [ comma_expr ] SEMICOLON [ comma_expr ] SEMICOLON [ comma_expr ] RPAREN statement
         """
         return ForStatement(
             context=context_from_token(self.fn, for_token),
@@ -979,17 +1416,17 @@ class _ProgramTransformer(lark.visitors.Transformer):
             type=type_expr,
         )
 
-    def exit_expr(self, exit_token: lark.Token, _, expr: Expression, __):
+    def exit_expr(self, exit_token: lark.Token, _, args: OptionalExpression, __):
         return ExitExpression(
             context=context_from_token(self.fn, exit_token),
-            expression=expr,
+            args=args,
         )
 
     def expr_with_args(
         self,
         expression: Expression,
         tok: lark.Token,
-        arguments: Sequence[Expression],
+        arguments: OptionalExpression,
         _,
     ):
         return ExpressionWithArguments(
@@ -1033,22 +1470,27 @@ class _ProgramTransformer(lark.visitors.Transformer):
             name=str(name),
         )
 
+    def comma_expr(self, *expressions: Expression) -> CommaSeparatedExpressions:
+        return CommaSeparatedExpressions(
+            context=expressions[0].context,
+            expressions=list(expressions),
+        )
+
     @lark.visitors.v_args(tree=True)
     def literal_expr(self, item):
         child = item.children[0]
         if isinstance(child, lark.Token):
+            context = context_from_token(self.fn, child)
             value = str(child)
         else:
+            context = context_from_token(self.fn, child.children[0])
             value = "".join(child.children)
         return Literal(
-            context=context_from_token(self.fn, item),
+            context=context,
             type=item.data,
             # [Tree('variable', [Token('NAME', 'seq_test_init')])]
             value=value,
         )
-
-    comma_expr = transformer.tuple_args
-    opt_expr = transformer.pass_through
 
     args = transformer.tuple_args
 
@@ -1088,7 +1530,7 @@ class _ProgramTransformer(lark.visitors.Transformer):
         """
         basetype declarator SEMICOLON
         """
-        return StructMember(
+        return StructMemberDecl(
             context=type.context,
             type=type,
             declarator=declarator,
