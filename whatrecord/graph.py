@@ -6,13 +6,13 @@ import html
 import logging
 import textwrap
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import graphviz as gv
 
 from .common import (FullLoadContext, LoadContext, PVRelations,
                      ScriptPVRelations)
-from .db import RecordField, RecordInstance, RecordType
+from .db import Database, RecordField, RecordInstance, RecordType
 from .gv_compat import AsyncDigraph
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # information in terms of dataclasses
 
 
-@dataclass
+@dataclass()
 class GraphNode:
     #: The integer ID of the node
     id: str
@@ -33,6 +33,9 @@ class GraphNode:
     options: dict = dataclasses.field(default_factory=dict)
     #: Highlight the node in the graph?
     highlighted: bool = False
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 @dataclass
@@ -60,6 +63,11 @@ class _GraphHelper:
         self._node_id = 0
         self.nodes = {}
         self.edges = []
+
+    @property
+    def edge_pairs(self) -> Generator[Tuple[GraphNode, GraphNode], None, None]:
+        for edge in self.edges:
+            yield (edge.source, edge.destination)
 
     def get_node(
         self, label: str, text: Optional[str] = None
@@ -413,7 +421,11 @@ def combine_relations(
                         field.update_unknowns(field_info)
 
 
-def find_record_links(database, starting_records, check_all=True, relations=None):
+def find_record_links(
+    database: Dict[str, RecordInstance],
+    starting_records: List[str],
+    relations: Optional[PVRelations] = None
+) -> Generator[LinkInfo, None, None]:
     """
     Get all related record links from a set of starting records.
 
@@ -476,20 +488,185 @@ def find_record_links(database, starting_records, check_all=True, relations=None
                 yield li
 
 
+class RecordLinkGraph(_GraphHelper):
+    """Record link graph."""
+    # TODO: create node and color when not in database?
+
+    database: Database
+    starting_records: List[str]
+    header_format: str = 'record({rtype}, "{name}")'
+    field_format: str = '{field:>4s}: "{value}"'
+    text_format: str = (
+        f"<b>{{header}}</b>"
+        f"{_GraphHelper.newline}"
+        f"{_GraphHelper.newline}"
+        f"{{field_lines}}"
+    )
+    sort_fields: bool
+    show_empty: bool
+    relations: Optional[PVRelations]
+    record_types: Dict[str, RecordType]
+    default_edge_kwargs: Dict[str, str] = {
+        "style": "solid",
+        "color": "black",
+    }
+
+    edge_kwargs: ClassVar[Dict[str, Dict[str, str]]] = {
+        "style": {
+            "PP": "",
+            "CPP": "",
+            "CP": "",
+        },
+        "color": {
+            "MS": "red",
+            "MSS": "red",
+            "MSI": "red",
+        }
+    }
+
+    def __init__(
+        self,
+        database: Optional[Union[Database, Dict[str, RecordInstance]]] = None,
+        starting_records: Optional[List[str]] = None,
+        header_format: Optional[str] = None,
+        field_format: Optional[str] = None,
+        text_format: Optional[str] = None,
+        sort_fields: bool = True,
+        show_empty: bool = False,
+        relations: Optional[PVRelations] = None,
+        record_types: Optional[Dict[str, RecordType]] = None,
+    ):
+        super().__init__()
+        self.database = Database(record_types=dict(record_types or {}))
+        self.starting_records = starting_records or []
+        self.header_format = header_format or type(self).header_format
+        self.field_format = field_format or type(self).field_format
+        self.text_format = text_format or type(self).text_format
+        self.sort_fields = sort_fields
+        self.show_empty = show_empty
+        self.relations = relations
+
+        if database is not None:
+            self.add_database(database)
+
+    def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
+        """Add records from the given database to the graph."""
+        if isinstance(database, Database):
+            self.database.append(database)
+        else:
+            for record in database.values():
+                self.database.add_or_update_record(record)
+
+        if not self.relations:
+            self.relations = build_database_relations(
+                self.database.records, record_types=self.database.record_types
+            )
+
+        for li in find_record_links(
+            self.database.records, self.starting_records, relations=self.relations
+        ):
+            for (rec, field) in ((li.record1, li.field1), (li.record2, li.field2)):
+                if rec.name not in self.nodes:
+                    self.get_node(label=rec.name, text=field.name)
+
+            src = self.get_node(li.record1.name)
+            dest = self.get_node(li.record2.name)
+
+            for field, node in [(li.field1, src), (li.field2, dest)]:
+                if field.value or self.show_empty:
+                    text_line = self.field_format.format(
+                        field=field.name, value=field.value
+                    )
+                    if node.text and text_line not in node.text:
+                        node.text = "\n".join((node.text, text_line))
+                    else:
+                        node.text = text_line
+
+            if li.field1.dtype == "DBF_INLINK":
+                src, dest = dest, src
+                li.field1, li.field2 = li.field2, li.field1
+
+            logger.debug("New edge %s -> %s", src, dest)
+
+            edge_kw = dict(self.default_edge_kwargs)
+            for key, to_find in self.edge_kwargs.items():
+                for match, value in to_find.items():
+                    if match in li.info:
+                        edge_kw[key] = value
+                        break
+
+            if (src, dest) not in set(self.edge_pairs):
+                edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
+                if li.info:
+                    edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
+                self.add_edge(src.label, dest.label, **edge_kw)
+
+        if not self.nodes:
+            # No relationship found; at least show the records
+            for rec_name in self.starting_records:
+                if rec_name in self.database.records:
+                    self.get_node(rec_name)
+
+        for node in self.nodes.values():
+            field_lines = node.text
+            if self.sort_fields:
+                node.text = "\n".join(sorted(node.text.splitlines()))
+
+            if field_lines:
+                node.text += "\n"
+
+            rec = self.database.records[node.label]
+            header = self.header_format.format(rtype=rec.record_type, name=rec.name)
+            if rec.aliases:
+                header += f"\nAlias: {', '.join(rec.aliases)}"
+            escaped_header = html.escape(header, quote=False)
+            node.text = self.text_format.format(
+                header=escaped_header.replace("\n", self.newline),
+                field_lines=self.newline.join(
+                    html.escape(line, quote=False)
+                    for line in node.text.splitlines()
+                ),
+            )
+
+    def to_digraph(
+        self,
+        graph: Optional[gv.Digraph] = None,
+        engine: str = "dot",
+        font_name: Optional[str] = "Courier",
+        format: str = "pdf",
+    ) -> gv.Digraph:
+        """
+        Create a graphviz digraph.
+
+        Parameters
+        ----------
+        graph : graphviz.Graph, optional
+            Graph instance to use.  New one created if not specified.
+        engine : str, optional
+            Graphviz engine (dot, fdp, etc).
+        font_name : str, optional
+            Font name to use for all nodes and edges.
+        format :
+            The output format used for rendering (``'pdf'``, ``'png'``, ...).
+        """
+        for node in self.nodes.values():
+            node.highlighted = node.label in self.starting_records
+        return super().to_digraph(
+            graph=graph, engine=engine, font_name=font_name, format=format
+        )
+
+
 def graph_links(
-    database: Dict[str, RecordInstance],
+    database: Union[Database, Dict[str, RecordInstance]],
     starting_records: List[str],
-    graph: Optional[gv.Digraph] = None,
-    engine: str = "dot",
-    header_format: str = 'record({rtype}, "{name}")',
-    field_format: str = '{field:>4s}: "{value}"',
+    header_format: Optional[str] = None,
+    field_format: Optional[str] = None,
     text_format: Optional[str] = None,
     sort_fields: bool = True,
     show_empty: bool = False,
-    font_name: str = "Courier",
     relations: Optional[PVRelations] = None,
     record_types: Optional[Dict[str, RecordType]] = None,
-) -> Tuple[dict, list, gv.Digraph]:
+) -> RecordLinkGraph:
     """
     Create a graphviz digraph of record links.
 
@@ -526,122 +703,20 @@ def graph_links(
 
     Returns
     -------
-    nodes: dict
-    edges: list
-    graph : AsyncDigraph
+    graph : RecordLinkGraph
     """
-    node_id = 0
-    edges = []
-    nodes = {}
-    existing_edges = set()
 
-    if relations is None:
-        relations = build_database_relations(
-            database, record_types=record_types
-        )
-
-    if graph is None:
-        graph = AsyncDigraph(format="pdf")
-
-    if font_name is not None:
-        graph.attr("graph", fontname=font_name)
-        graph.attr("node", fontname=font_name)
-        graph.attr("edge", fontname=font_name)
-
-    if engine is not None:
-        graph.engine = engine
-
-    newline = '<br align="left"/>'
-    if text_format is None:
-        text_format = f"""<b>{{header}}</b>{newline}{newline}{{field_lines}}"""
-
-    # graph.attr("node", shape="record")
-
-    def new_node(rec, field=""):
-        nonlocal node_id
-        node_id += 1
-        nodes[rec.name] = dict(id=str(node_id), text=[], record=rec)
-        # graph.node(nodes[rec.name], label=field)
-        logger.debug("Created node %s (field: %r)", rec.name, field)
-
-    # TODO: create node and color when not in database?
-
-    for li in find_record_links(database, starting_records, relations=relations):
-        for (rec, field) in ((li.record1, li.field1), (li.record2, li.field2)):
-            if rec.name not in nodes:
-                new_node(rec, field)
-
-        src, dest = nodes[li.record1.name], nodes[li.record2.name]
-
-        for field, text in [(li.field1, src["text"]), (li.field2, dest["text"])]:
-            if field.value or show_empty:
-                text_line = field_format.format(field=field.name, value=field.value)
-                if text_line not in text:
-                    text.append(text_line)
-
-        if li.field1.dtype == "DBF_INLINK":
-            src, dest = dest, src
-            li.field1, li.field2 = li.field2, li.field1
-
-        logger.debug("New edge %s -> %s", src, dest)
-
-        edge_kw = {}
-        if any(item in li.info for item in {"PP", "CPP", "CP"}):
-            edge_kw["style"] = ""
-        else:
-            edge_kw["style"] = "dashed"
-
-        if any(item in li.info for item in {"MS", "MSS", "MSI"}):
-            edge_kw["color"] = "red"
-
-        src_id, dest_id = src["id"], dest["id"]
-        if (src_id, dest_id) not in existing_edges:
-            edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
-            if li.info:
-                edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
-            edges.append((src_id, dest_id, edge_kw))
-            existing_edges.add((src_id, dest_id))
-
-    if not nodes:
-        # No relationship found; at least show the records
-        for rec_name in starting_records:
-            try:
-                new_node(database[rec_name])
-            except KeyError:
-                ...
-
-    for _, node in sorted(nodes.items()):
-        field_lines = node["text"]
-        if sort_fields:
-            field_lines.sort()
-
-        if field_lines:
-            field_lines.append("")
-
-        rec = node["record"]
-        header = header_format.format(rtype=rec.record_type, name=rec.name)
-        if rec.aliases:
-            header += f"\nAlias: {', '.join(rec.aliases)}"
-
-        text = text_format.format(
-            header=html.escape(header, quote=False).replace("\n", newline),
-            field_lines=newline.join(
-                html.escape(line, quote=False) for line in field_lines
-            ),
-        )
-        graph.node(
-            node["id"],
-            label="< {} >".format(text),
-            shape="box3d" if rec.name in starting_records else "rectangle",
-            fillcolor="bisque" if rec.name in starting_records else "white",
-            style="filled",
-        )
-
-    # add all of the edges between graphs
-    for src, dest, options in edges:
-        graph.edge(src, dest, **options)
-
-    return nodes, edges, graph
+    return RecordLinkGraph(
+        database=database,
+        starting_records=starting_records,
+        header_format=header_format,
+        field_format=field_format,
+        text_format=text_format,
+        sort_fields=sort_fields,
+        show_empty=show_empty,
+        relations=relations,
+        record_types=record_types,
+    )
 
 
 def build_script_relations(

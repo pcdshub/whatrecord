@@ -3,19 +3,21 @@
 whatrecord-supported file types.
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import pathlib
 import re
 import shutil
 import tempfile
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import graphviz as gv
 
 from ..common import AnyPath
 from ..db import Database, LinterResults
-from ..graph import build_database_relations, graph_links
+from ..graph import RecordLinkGraph, build_database_relations, graph_links
 from ..shell import LoadedIoc
 from ..snl import SequencerProgram
 from .parse import parse_from_cli_args
@@ -149,7 +151,7 @@ def _records_by_patterns(
 def get_database_graph(
     *loaded_items: DatabaseItem,
     highlight: Optional[List[str]] = None,
-) -> Tuple[dict, list, gv.Digraph]:
+) -> RecordLinkGraph:
     """
     Get a database graph from a number of database items.
     """
@@ -203,7 +205,7 @@ def main(
     )
 
     if databases_only:
-        nodes, edges, graph = get_database_graph(*loaded_items, highlight=highlight)
+        graph = get_database_graph(*loaded_items, highlight=highlight)
     else:
         try:
             item, = loaded_items
@@ -214,15 +216,13 @@ def main(
             )
 
         if isinstance(item, SequencerProgram):
-            snl_graph = item.as_graph(include_code=code)
-            nodes = snl_graph.nodes
-            edges = snl_graph.edges
-            graph = snl_graph.to_digraph()
+            graph = item.as_graph(include_code=code)
         else:
             raise RuntimeError(
                 f"Sorry, graph isn't supported yet for {item.__class__.__name__}"
             )
 
-    render_graph_to_file(graph, filename=output)
-    logger.debug("Nodes: %s", nodes)
-    logger.debug("Edges: %s", edges)
+    gv_graph = graph.to_digraph()
+    logger.debug("Nodes: %s", graph.nodes)
+    logger.debug("Edges: %s", graph.edges)
+    render_graph_to_file(gv_graph, filename=output)

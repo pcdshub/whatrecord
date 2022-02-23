@@ -430,13 +430,13 @@ class ServerState:
 
         if not pv_names:
             return graphviz.Digraph()
-        _, _, digraph = graph.graph_links(
+        gr = graph.graph_links(
             database=self.database,
-            starting_records=pv_names,
+            starting_records=list(pv_names),
             sort_fields=True,
-            font_name="Courier",
             relations=self.container.pv_relations,
         )
+        digraph = gr.to_digraph(font_name="Courier")
         return digraph
 
     def clear_cache(self):

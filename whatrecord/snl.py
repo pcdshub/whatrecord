@@ -648,6 +648,20 @@ class SequencerProgramGraph(_GraphHelper):
         font_name: Optional[str] = "Courier",
         format: str = "pdf",
     ) -> gv.Digraph:
+        """
+        Create a graphviz digraph.
+
+        Parameters
+        ----------
+        graph : graphviz.Graph, optional
+            Graph instance to use.  New one created if not specified.
+        engine : str, optional
+            Graphviz engine (dot, fdp, etc).
+        font_name : str, optional
+            Font name to use for all nodes and edges.
+        format :
+            The output format used for rendering (``'pdf'``, ``'png'``, ...).
+        """
         for node in self.nodes.values():
             node.highlighted = node.label in self.highlight_states
         return super().to_digraph(
