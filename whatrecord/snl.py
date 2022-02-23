@@ -683,7 +683,7 @@ class SequencerProgramGraph:
         qualified_name = f"{state_set.name}.{state.name}"
         self.get_node(
             qualified_name,
-            text="\n".join(self._get_state_node_text(state)),
+            text="\n".join(self._get_state_node_text(state_set, state)),
         )
 
         if state_set.states[0] is state:
@@ -787,8 +787,8 @@ class SequencerProgramGraph:
             return self.clean_code(str(obj)) or default
         return default
 
-    def _get_state_node_text(self, state: State):
-        yield f"<b>{state.name}</b>"
+    def _get_state_node_text(self, state_set: StateSet, state: State):
+        yield f"<b>{state_set.name}.{state.name}</b>"
         if self.include_code:
             if state.entry is not None:
                 yield "<u>Entry</u>"
