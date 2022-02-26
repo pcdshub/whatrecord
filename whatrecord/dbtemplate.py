@@ -377,7 +377,7 @@ class _TemplateMsiTransformer(lark.visitors.Transformer):
     @lark.visitors.v_args(tree=True)
     def empty(self, tree):
         empty = PatternValues(
-            context=context_from_token(self.fn, tree),
+            context=transformer.context_from_tree(self.fn, tree),
             values=[],
         )
         self._stack.append(empty)
