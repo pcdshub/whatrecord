@@ -11,6 +11,11 @@ def context_from_token(fn: str, token: lark.Token) -> FullLoadContext:
     return (LoadContext(name=fn, line=token.line), )
 
 
+def context_from_tree(fn: str, tree: lark.Tree) -> FullLoadContext:
+    """Get a LoadContext from a lark Tree."""
+    return (LoadContext(name=fn, line=tree.meta.line), )
+
+
 T = TypeVar("T")
 
 

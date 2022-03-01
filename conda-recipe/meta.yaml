@@ -23,7 +23,7 @@ requirements:
       - graphviz
       - python-graphviz <0.18
       - jinja2
-      - lark-parser <1.0
+      - lark-parser
       - apischema
 
 test:
