@@ -4,7 +4,7 @@ import json
 import logging
 import pathlib
 import textwrap
-from typing import Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, Generator, List, Optional, Tuple, TypeVar, Union
 
 import apischema
 
@@ -204,3 +204,44 @@ def find_binary_from_hashbang(
         binary = parent_dir / first_line.lstrip("#!").strip()
         if not must_exist or binary.exists():
             return str(binary.resolve())
+
+
+def lines_between(
+    text: str,
+    start_marker: str,
+    end_marker: str,
+    *,
+    include_blank: bool = False
+) -> Generator[str, None, None]:
+    """
+    From a block of text, yield all lines between `start_marker` and
+    `end_marker`
+
+    Parameters
+    ----------
+    text : str
+        The block of text
+    start_marker : str
+        The block-starting marker to match
+    end_marker : str
+        The block-ending marker to match
+    include_blank : bool, optional
+        Skip yielding blank lines
+
+    Yields
+    ------
+    line : str
+        Line of text found between the markers.
+    """
+    found_start = False
+    start_marker = start_marker.lower()
+    end_marker = end_marker.lower()
+    for line in text.splitlines():
+        line_lowercase = line.strip().lower()
+        if line_lowercase == start_marker:
+            found_start = True
+        elif found_start:
+            if line_lowercase == end_marker:
+                break
+            elif line_lowercase or include_blank:
+                yield line
