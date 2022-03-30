@@ -1,4 +1,5 @@
 import dataclasses
+import pathlib
 import textwrap
 from typing import Optional, Set
 
@@ -69,6 +70,35 @@ def prune_result(
             makefile.Makefile(
                 env={"ENV_VAR": "A"},
                 default_goal="all",
+                filename=None,
+            ),
+            id="default-goal",
+        ),
+        pytest.param(
+            # These would typically be set by the epics build system; but let's
+            # set them ourselves as this is just a test of our stuff and not
+            # the EPICS build system:
+            """
+            BUILD_ARCHS=arch1 arch2
+            CROSS_COMPILER_HOST_ARCHS=arch3 arch4
+            CROSS_COMPILER_TARGET_ARCHS=arch5 arch6
+            BASE_MODULE_VERSION=R7.0.2
+            CONFIG=/
+            """,
+            {
+                "build_archs",
+                "cross_compiler_host_archs",
+                "cross_compiler_target_archs",
+                "base_version",
+                "base_config_path",
+            },
+            makefile.Makefile(
+                env={},
+                build_archs=["arch1", "arch2"],
+                cross_compiler_host_archs=["arch3", "arch4"],
+                cross_compiler_target_archs=["arch5", "arch6"],
+                base_version="R7.0.2",
+                base_config_path=pathlib.Path("/"),
                 filename=None,
             ),
             id="default-goal",
