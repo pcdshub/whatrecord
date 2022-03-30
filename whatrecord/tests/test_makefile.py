@@ -44,7 +44,7 @@ def prune_result(
                 env={"WHATREC_A": "B", "WHATREC_C": "D"},
                 filename=None,
             ),
-            id="simple-subst",
+            id="simple-subst-0",
         ),
         pytest.param(
             """
@@ -57,7 +57,7 @@ def prune_result(
                 env={"WHATREC_A": "A", "WHATREC_B": "A", "WHATREC_C": "C"},
                 filename=None,
             ),
-            id="simple-subst",
+            id="simple-subst-1",
         ),
         pytest.param(
             """
@@ -101,7 +101,7 @@ def prune_result(
                 base_config_path=pathlib.Path("/"),
                 filename=None,
             ),
-            id="default-goal",
+            id="epics-build-system-vars",
         ),
     ]
 )
