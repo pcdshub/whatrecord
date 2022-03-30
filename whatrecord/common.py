@@ -440,7 +440,7 @@ class IocMetadata:
                    startup_directory=pathlib.Path())
 
     @classmethod
-    def from_filename(
+    def from_file(
         cls,
         filename: Union[pathlib.Path, str],
         *,
@@ -475,6 +475,9 @@ class IocMetadata:
             binary=binary or util.find_binary_from_hashbang(filename),
             base_version=base_version,
         )
+
+    #: Back-compat: from_filename is deprecated
+    from_filename = from_file
 
     @classmethod
     def from_dict(cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None):

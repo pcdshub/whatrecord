@@ -177,7 +177,7 @@ def parse(
         )
 
     if format == FileFormat.iocsh:
-        md = IocMetadata.from_filename(
+        md = IocMetadata.from_file(
             filename,
             standin_directories=standin_directories,
             macros=dict(macro_context),
