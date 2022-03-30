@@ -36,7 +36,6 @@ _make_helper: str = f"""
     @echo -e "makefile_list=$(MAKEFILE_LIST)\\0"
     @echo -e "features=$(.FEATURES)\\0"
     @echo -e "include_dirs=$(.INCLUDE_DIRS)\\0"
-    @echo -e "extra_prereqs=$(.EXTRA_PREREQS)\\0"
     @echo "{_section_end_marker}make"
 """.replace("    ", "\t")
 

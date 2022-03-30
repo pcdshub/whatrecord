@@ -47,6 +47,20 @@ def prune_result(
             ),
             id="simple-subst",
         ),
+        pytest.param(
+            """
+            ENV_VAR=A
+
+            all:
+                echo "Hi!"
+            """,
+            makefile.MakefileInformation(
+                env={"ENV_VAR": "A"},
+                make_vars={"default_goal": "all"},
+                filename=None,
+            ),
+            id="default-goal",
+        ),
     ]
 )
 def test_from_contents(contents: str, expected: makefile.MakefileInformation):
