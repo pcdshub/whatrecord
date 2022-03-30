@@ -15,6 +15,8 @@ def prune_result(
     """
     for key in set(info.env) - set(expected.env):
         info.env.pop(key)
+    for key in set(info.make_vars) - set(expected.make_vars):
+        info.make_vars.pop(key)
 
 
 @pytest.mark.parametrize(
@@ -49,6 +51,6 @@ def prune_result(
 )
 def test_from_contents(contents: str, expected: makefile.MakefileInformation):
     contents = textwrap.dedent(contents).replace("    ", "\t")
-    result = makefile.MakefileInformation.from_makefile_contents(contents)
+    result = makefile.MakefileInformation.from_string(contents)
     prune_result(result, expected)
     assert result == expected

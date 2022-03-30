@@ -20,13 +20,23 @@ _make_helper: str = f"""
 
 # Trick borrowed from epics-sumo; thanks!
 .EXPORT_ALL_VARIABLES:
+# per GNU Make's documentation:
+#   Simply by being mentioned as a target, this
+#   tells make to export all variables to child processes by default. See
+#   Communicating Variables to a Sub-make.
 
 {_whatrecord_target}:
+    # This is the environment section; null-delimited list of env vars
     @echo "{_section_start_marker}env"
     @env -0
     @echo "{_section_end_marker}env"
+    # This is the make meta information section, as specified by make itself
     @echo "{_section_start_marker}make"
     @echo -e "default_goal=$(.DEFAULT_GOAL)\\0"
+    @echo -e "makefile_list=$(MAKEFILE_LIST)\\0"
+    @echo -e "features=$(.FEATURES)\\0"
+    @echo -e "include_dirs=$(.INCLUDE_DIRS)\\0"
+    @echo -e "extra_prereqs=$(.EXTRA_PREREQS)\\0"
     @echo "{_section_end_marker}make"
 """.replace("    ", "\t")
 
@@ -35,10 +45,17 @@ _make_helper: str = f"""
 class MakefileInformation:
     """
     Makefile information as determined by ``make`` itself.
+
+    Will not work if:
+    * ``.RECIPEPREFIX`` is set to anything but tab in the makefile, however
+        uncommon that may be.
     """
 
+    #: Environment variable name to value.
     env: Dict[str, str] = field(default_factory=dict)
+    #: Special make variable information.
     make_vars: Dict[str, str] = field(default_factory=dict)
+    #: The Makefile filename, if available.
     filename: Optional[pathlib.Path] = None
 
     @classmethod
@@ -81,42 +98,133 @@ class MakefileInformation:
         return makevars
 
     @classmethod
-    def from_make_output(
+    def _from_make_output(
         cls, output: str, filename: Optional[AnyPath] = None
     ) -> MakefileInformation:
+        """
+        Parse ``make`` output with our helper target attached.
+        """
         if filename is not None:
             filename = pathlib.Path(filename)
 
-        return cls(
-            env=cls._get_env(output),
-            make_vars=cls._get_make_vars(output),
-            filename=filename,
-        )
+        try:
+            return cls(
+                env=cls._get_env(output),
+                make_vars=cls._get_make_vars(output),
+                filename=filename,
+            )
+        except Exception:
+            logger.exception("Failed to parse Makefile output: %s", output)
+            return MakefileInformation(filename=filename)
 
     @classmethod
-    def from_makefile_contents(
+    def from_string(
         cls, contents: str, filename: Optional[AnyPath] = None, encoding: str = "utf-8"
     ) -> MakefileInformation:
+        """
+        Get Makefile information given its contents.
+
+        Parameters
+        ----------
+        contents : str
+            The Makefile contents.
+
+        filename : pathlib.Path or str, optional
+            The filename.
+
+        encoding : str, optional
+            Encoding to use.
+
+        Raises
+        ------
+        RuntimeError
+            If unable to run ``make`` and get information.
+
+        Returns
+        -------
+        makefile : MakefileInformation
+            The makefile information.
+        """
         full_contents = "\n".join((contents, _make_helper))
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "New makefile contents: %s",
                 full_contents.replace("\t", "(tab) "),
             )
-        output = subprocess.check_output(
+        result = subprocess.run(
             ["make", "--silent", "--file=-", _whatrecord_target],
             input=full_contents.encode(encoding),
+            capture_output=True,
         )
-        output = output.decode(encoding)
+        stdout = result.stdout.decode(encoding, "replace")
         if logger.isEnabledFor(logging.DEBUG):
+            stderr = result.stderr.decode(encoding, "replace")
             logger.debug(
-                "make output:\n%s",
-                textwrap.indent(output, "    ")
+                "make output:\n%s\nmake stderr:\n%s",
+                textwrap.indent(stdout, "    "),
+                textwrap.indent(stderr, "    ")
             )
-        return cls.from_make_output(output, filename=filename)
+        return cls._from_make_output(stdout, filename=filename)
 
     @classmethod
-    def from_makefile(cls, filename: AnyPath, encoding: str = "utf-8") -> MakefileInformation:
+    def from_file_obj(
+        cls, fp, filename: Optional[AnyPath] = None, encoding: str = "utf-8"
+    ) -> MakefileInformation:
+        """
+        Load a Makefile from a file object.
+
+        Parameters
+        ----------
+        fp : file-like object
+            The file-like object to read from.
+
+        filename : pathlib.Path or str, optional
+            The filename, defaults to ``fp.name`` if available.
+
+        encoding : str, optional
+            Encoding to use.
+
+        Raises
+        ------
+        RuntimeError
+            If unable to run ``make`` and get information.
+
+        Returns
+        -------
+        makefile : MakefileInformation
+            The makefile information.
+        """
+        return cls.from_string(
+            fp.read(),
+            filename=filename or getattr(fp, "name", None),
+            encoding=encoding,
+        )
+
+    @classmethod
+    def from_file(
+        cls, filename: AnyPath, encoding: str = "utf-8"
+    ) -> MakefileInformation:
+        """
+        Load a Makefile from a filename.
+
+        Parameters
+        ----------
+        filename : pathlib.Path or str
+            The filename.
+
+        encoding : str, optional
+            Encoding to use.
+
+        Raises
+        ------
+        RuntimeError
+            If unable to run ``make`` and get information.
+
+        Returns
+        -------
+        makefile : MakefileInformation
+            The makefile information.
+        """
         with open(filename, "rt") as fp:
             contents = fp.read()
-        return cls.from_makefile_contents(contents, filename=filename, encoding=encoding)
+        return cls.from_string(contents, filename=filename, encoding=encoding)
