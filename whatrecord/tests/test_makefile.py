@@ -1,5 +1,6 @@
 import dataclasses
 import pathlib
+import subprocess
 import textwrap
 from typing import Optional, Set
 
@@ -25,6 +26,16 @@ def prune_result(
     for field in dataclasses.fields(makefile.Makefile):
         if field.name not in to_keep and field.name not in ignore:
             setattr(result, field.name, getattr(expected, field.name))
+
+
+@pytest.mark.skipif(
+    not makefile.host_has_make(),
+    reason="Host does not have make"
+)
+def test_make_version():
+    version = subprocess.check_output(["make", "--version"])
+    print(version)
+    raise
 
 
 @pytest.mark.skipif(
@@ -108,5 +119,6 @@ def prune_result(
 def test_from_contents(contents: str, expected: makefile.Makefile, to_keep: Set[str]):
     contents = textwrap.dedent(contents).replace("    ", "\t")
     result = makefile.Makefile.from_string(contents)
+    print(result)
     prune_result(result, expected, to_keep=to_keep)
     assert result == expected
