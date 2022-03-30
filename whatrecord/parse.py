@@ -13,7 +13,7 @@ from .db import Database, LinterResults
 from .dbtemplate import TemplateSubstitution
 from .gateway import PVList as GatewayPVList
 from .macro import MacroContext
-from .makefile import MakefileInformation
+from .makefile import Makefile
 from .shell import LoadedIoc
 from .snl import SequencerProgram
 from .streamdevice import StreamProtocol
@@ -30,7 +30,7 @@ ParseResult = Union[
     SequencerProgram,
     StreamProtocol,
     TemplateSubstitution,
-    MakefileInformation,
+    Makefile,
 ]
 
 
@@ -143,7 +143,7 @@ def parse(
         return StreamProtocol.from_string(contents, filename=filename)
 
     if format == FileFormat.makefile:
-        return MakefileInformation.from_string(contents, filename=filename)
+        return Makefile.from_string(contents, filename=filename)
 
     raise RuntimeError(
         f"Sorry, whatrecord doesn't support the {format!r} format just yet in the "

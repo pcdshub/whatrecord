@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+import functools
 import logging
 import pathlib
+import shutil
 import subprocess
 import textwrap
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from .common import AnyPath
 from .util import lines_between
 
 logger = logging.getLogger(__name__)
+
+
+class MakeNotInstalled(RuntimeError):
+    ...
+
 
 _section_start_marker = "--whatrecord-section-start--"
 _section_end_marker = "--whatrecord-section-end--"
@@ -34,16 +41,26 @@ _make_helper: str = f"""
     @echo "{_section_start_marker}make"
     @echo -e "default_goal=$(.DEFAULT_GOAL)\\0"
     @echo -e "makefile_list=$(MAKEFILE_LIST)\\0"
-    @echo -e "features=$(.FEATURES)\\0"
+    @echo -e "make_features=$(.FEATURES)\\0"
     @echo -e "include_dirs=$(.INCLUDE_DIRS)\\0"
     @echo "{_section_end_marker}make"
 """.replace("    ", "\t")
 
 
+@functools.lru_cache(maxsize=None)
+def host_has_make() -> bool:
+    """Does the host have ``make`` required to use this module?"""
+    return shutil.which("make") is not None
+
+
 @dataclass
-class MakefileInformation:
+class Makefile:
     """
     Makefile information as determined by ``make`` itself.
+
+    Makes some assumptions about variables typically used in EPICS build
+    environments, but should fill in generic information for all non-EPICS
+    makefiles as well.
 
     Will not work if:
     * ``.RECIPEPREFIX`` is set to anything but tab in the makefile, however
@@ -52,8 +69,24 @@ class MakefileInformation:
 
     #: Environment variable name to value.
     env: Dict[str, str] = field(default_factory=dict)
-    #: Special make variable information.
-    make_vars: Dict[str, str] = field(default_factory=dict)
+    #: .DEFAULT_GOAL, or the default ``make`` target.
+    default_goal: str = ""
+    #: .MAKEFILE_LIST, or the makefiles included in the build.
+    makefile_list: List[str] = field(default_factory=list)
+    #: .FEATURES, features supported by make
+    make_features: Set[str] = field(default_factory=set)
+    #: .INCLUDE_DIRS, include directories
+    include_dirs: List[str] = field(default_factory=list)
+    #: BUILD_ARCHS
+    build_archs: List[str] = field(default_factory=list)
+    #: CROSS_COMPILER_HOST_ARCHS
+    cross_compiler_host_archs: List[str] = field(default_factory=list)
+    #: CROSS_COMPILER_TARGET_ARCHS
+    cross_compiler_target_archs: List[str] = field(default_factory=list)
+    #: epics-base version.
+    base_version: Optional[str] = None
+    #: epics-base configure path.
+    base_config_path: Optional[pathlib.Path] = None
     #: The Makefile filename, if available.
     filename: Optional[pathlib.Path] = None
 
@@ -74,7 +107,7 @@ class MakefileInformation:
         """Get environment variables from make output."""
         env = {}
         env_lines = "\0".join(cls._get_section(output, "env"))
-        for line in env_lines.split("\0"):
+        for line in sorted(env_lines.split("\0")):
             if "=" in line:
                 variable, value = line.split("=", 1)
                 env[variable] = value
@@ -99,7 +132,7 @@ class MakefileInformation:
     @classmethod
     def _from_make_output(
         cls, output: str, filename: Optional[AnyPath] = None
-    ) -> MakefileInformation:
+    ) -> Makefile:
         """
         Parse ``make`` output with our helper target attached.
         """
@@ -107,19 +140,33 @@ class MakefileInformation:
             filename = pathlib.Path(filename)
 
         try:
+            env = cls._get_env(output)
+            make_vars = cls._get_make_vars(output)
             return cls(
-                env=cls._get_env(output),
-                make_vars=cls._get_make_vars(output),
+                env=env,
                 filename=filename,
+                default_goal=make_vars.get("default_goal", ""),
+                makefile_list=make_vars.get("makefile_list", "").split(),
+                make_features=set(make_vars.get("make_features", "").split()),
+                include_dirs=make_vars.get("include_dirs", "").split(),
+                build_archs=env.get("BUILD_ARCHS", "").split(),
+                cross_compiler_host_archs=env.get("CROSS_COMPILER_HOST_ARCHS", "").split(),
+                cross_compiler_target_archs=env.get("CROSS_COMPILER_TARGET_ARCHS", "").split(),
+                base_version=env.get("BASE_MODULE_VERSION", ""),
+                base_config_path=pathlib.Path(env["CONFIG"]) if "CONFIG" in env else None,
             )
         except Exception:
             logger.exception("Failed to parse Makefile output: %s", output)
-            return MakefileInformation(filename=filename)
+            return Makefile(filename=filename)
 
     @classmethod
     def from_string(
-        cls, contents: str, filename: Optional[AnyPath] = None, encoding: str = "utf-8"
-    ) -> MakefileInformation:
+        cls,
+        contents: str,
+        filename: Optional[AnyPath] = None,
+        working_directory: Optional[AnyPath] = None,
+        encoding: str = "utf-8",
+    ) -> Makefile:
         """
         Get Makefile information given its contents.
 
@@ -131,6 +178,12 @@ class MakefileInformation:
         filename : pathlib.Path or str, optional
             The filename.
 
+        working_directory : pathlib.Path or str, optional
+            The working directory to use when evaluating the Makefile contents.
+            Assumed to be the directory in which the makefile is contained, but
+            this may be overridden.  If the filename is unavailable, the
+            fallback is the current working directory.
+
         encoding : str, optional
             Encoding to use.
 
@@ -141,18 +194,29 @@ class MakefileInformation:
 
         Returns
         -------
-        makefile : MakefileInformation
+        makefile : Makefile
             The makefile information.
         """
+        if not host_has_make():
+            raise MakeNotInstalled("Host does not have ``make`` installed.")
+
         full_contents = "\n".join((contents, _make_helper))
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "New makefile contents: %s",
                 full_contents.replace("\t", "(tab) "),
             )
+
+        if working_directory is None:
+            if filename is not None:
+                working_directory = pathlib.Path(filename).resolve().parent
+            else:
+                working_directory = pathlib.Path.cwd()
+
         result = subprocess.run(
             ["make", "--silent", "--file=-", _whatrecord_target],
             input=full_contents.encode(encoding),
+            cwd=working_directory,
             capture_output=True,
         )
         stdout = result.stdout.decode(encoding, "replace")
@@ -167,8 +231,12 @@ class MakefileInformation:
 
     @classmethod
     def from_file_obj(
-        cls, fp, filename: Optional[AnyPath] = None, encoding: str = "utf-8"
-    ) -> MakefileInformation:
+        cls,
+        fp,
+        filename: Optional[AnyPath] = None,
+        working_directory: Optional[AnyPath] = None,
+        encoding: str = "utf-8",
+    ) -> Makefile:
         """
         Load a Makefile from a file object.
 
@@ -180,6 +248,12 @@ class MakefileInformation:
         filename : pathlib.Path or str, optional
             The filename, defaults to ``fp.name`` if available.
 
+        working_directory : pathlib.Path or str, optional
+            The working directory to use when evaluating the Makefile contents.
+            Assumed to be the directory in which the makefile is contained, but
+            this may be overridden.  If the filename is unavailable, the
+            fallback is the current working directory.
+
         encoding : str, optional
             Encoding to use.
 
@@ -190,19 +264,23 @@ class MakefileInformation:
 
         Returns
         -------
-        makefile : MakefileInformation
+        makefile : Makefile
             The makefile information.
         """
         return cls.from_string(
             fp.read(),
             filename=filename or getattr(fp, "name", None),
+            working_directory=working_directory,
             encoding=encoding,
         )
 
     @classmethod
     def from_file(
-        cls, filename: AnyPath, encoding: str = "utf-8"
-    ) -> MakefileInformation:
+        cls,
+        filename: AnyPath,
+        working_directory: Optional[AnyPath] = None,
+        encoding: str = "utf-8",
+    ) -> Makefile:
         """
         Load a Makefile from a filename.
 
@@ -211,6 +289,11 @@ class MakefileInformation:
         filename : pathlib.Path or str
             The filename.
 
+        working_directory : pathlib.Path or str, optional
+            The working directory to use when evaluating the Makefile contents.
+            Assumed to be the directory in which the makefile is contained, but
+            this may be overridden.
+
         encoding : str, optional
             Encoding to use.
 
@@ -221,9 +304,14 @@ class MakefileInformation:
 
         Returns
         -------
-        makefile : MakefileInformation
+        makefile : Makefile
             The makefile information.
         """
         with open(filename, "rt") as fp:
             contents = fp.read()
-        return cls.from_string(contents, filename=filename, encoding=encoding)
+        return cls.from_string(
+            contents,
+            filename=filename,
+            working_directory=working_directory,
+            encoding=encoding,
+        )
