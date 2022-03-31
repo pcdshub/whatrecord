@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import pathlib
 import shutil
 import subprocess
@@ -9,7 +10,10 @@ import textwrap
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
+import graphviz as gv
+
 from .common import AnyPath
+from .graph import _GraphHelper
 from .util import lines_between
 
 logger = logging.getLogger(__name__)
@@ -97,6 +101,38 @@ class Makefile:
     #: The Makefile filename, if available.
     filename: Optional[pathlib.Path] = None
 
+    def find_release_paths(self, check: bool = True) -> Dict[str, pathlib.Path]:
+        """
+        Find paths defined in RELEASE.
+
+        Parameters
+        ----------
+        check : bool, optional
+            Check that the release path includes a ``configure`` directory and
+            a ``Makefile``.
+        """
+        # TODO: are the checks here appropriate? Perhaps just a simple
+        # ``path/Makefile`` check is sufficient for the build system.
+        results = {}
+        for var in self.release_top_vars:
+            value = self.env.get(var, "").strip()
+            if not value:
+                continue
+
+            print(var, value)
+            # Assume it's not for windows, for now.  Can't instantiate
+            # WindowsPath on linux anyway:
+            if value.startswith(os.sep):
+                try:
+                    path = pathlib.Path(value)
+                except ValueError:
+                    ...
+                else:
+                    if not check or (path / "Makefile").is_file():
+                        results[var] = path
+
+        return results
+
     @classmethod
     def _get_section(cls, output: str, section: str) -> str:
         """Get a single make output section."""
@@ -110,13 +146,16 @@ class Makefile:
         ).strip()
 
     @classmethod
-    def _get_env(cls, output: str) -> Dict[str, str]:
+    def _get_env(cls, output: str, keep_os_env: bool = False) -> Dict[str, str]:
         """Get environment variables from make output."""
         env = {}
         for line in sorted(cls._get_section(output, "env").split("\0")):
             if "=" in line:
                 variable, value = line.split("=", 1)
-                env[variable] = value
+                if not keep_os_env and os.environ.get(variable) == value:
+                    ...
+                else:
+                    env[variable] = value
         return env
 
     @classmethod
@@ -140,7 +179,10 @@ class Makefile:
 
     @classmethod
     def _from_make_output(
-        cls, output: str, filename: Optional[AnyPath] = None
+        cls,
+        output: str,
+        filename: Optional[AnyPath] = None,
+        keep_os_env: bool = False,
     ) -> Makefile:
         """
         Parse ``make`` output with our helper target attached.
@@ -149,7 +191,7 @@ class Makefile:
             filename = pathlib.Path(filename)
 
         try:
-            env = cls._get_env(output)
+            env = cls._get_env(output, keep_os_env=keep_os_env)
             make_vars = cls._get_make_vars(output)
             return cls(
                 env=env,
@@ -175,6 +217,7 @@ class Makefile:
         contents: str,
         filename: Optional[AnyPath] = None,
         working_directory: Optional[AnyPath] = None,
+        keep_os_env: bool = False,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -194,8 +237,12 @@ class Makefile:
             this may be overridden.  If the filename is unavailable, the
             fallback is the current working directory.
 
+        keep_os_env : bool, optional
+            Keep environment variables in ``.env`` from outside of ``make``,
+            as in those present in ``os.environ`` when executing ``make``.
+
         encoding : str, optional
-            Encoding to use.
+            String encoding to use.
 
         Raises
         ------
@@ -245,6 +292,7 @@ class Makefile:
         fp,
         filename: Optional[AnyPath] = None,
         working_directory: Optional[AnyPath] = None,
+        keep_os_env: bool = False,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -264,8 +312,12 @@ class Makefile:
             this may be overridden.  If the filename is unavailable, the
             fallback is the current working directory.
 
+        keep_os_env : bool, optional
+            Keep environment variables in ``.env`` from outside of ``make``,
+            as in those present in ``os.environ`` when executing ``make``.
+
         encoding : str, optional
-            Encoding to use.
+            String encoding to use.
 
         Raises
         ------
@@ -282,6 +334,7 @@ class Makefile:
             filename=filename or getattr(fp, "name", None),
             working_directory=working_directory,
             encoding=encoding,
+            keep_os_env=keep_os_env,
         )
 
     @classmethod
@@ -289,6 +342,7 @@ class Makefile:
         cls,
         filename: AnyPath,
         working_directory: Optional[AnyPath] = None,
+        keep_os_env: bool = False,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -304,8 +358,12 @@ class Makefile:
             Assumed to be the directory in which the makefile is contained, but
             this may be overridden.
 
+        keep_os_env : bool, optional
+            Keep environment variables in ``.env`` from outside of ``make``,
+            as in those present in ``os.environ`` when executing ``make``.
+
         encoding : str, optional
-            Encoding to use.
+            String encoding to use.
 
         Raises
         ------
@@ -324,4 +382,175 @@ class Makefile:
             filename=filename,
             working_directory=working_directory,
             encoding=encoding,
+            keep_os_env=keep_os_env,
         )
+
+    @staticmethod
+    def find_makefile(
+        file_or_directory: AnyPath,
+    ) -> pathlib.Path:
+        """
+        Find a Makefile given a path, if it exists.
+
+        Accepts either a direct path to a Makefile or a directory containing
+        a Makefile.
+
+        Parameters
+        ----------
+        file_or_directory : str or pathlib.Path
+            Makefile directory or direct path.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file or directory does not contain a ``Makefile``.
+        """
+        path = pathlib.Path(file_or_directory)
+
+        if path.is_dir():
+            path = path / "Makefile"
+
+        if not path.exists():
+            raise FileNotFoundError(file_or_directory)
+
+        return path.resolve()
+
+
+@dataclass
+class IocDependency:
+    #: The name of the dependency, as derived from the path name
+    name: str = ""
+    #: The name of the dependency, as derived from the build system variable
+    variable_name: Optional[str] = None
+    #: The absolute path to the dependency
+    path: Optional[pathlib.Path] = None
+    #: The parsed Makefile information for this dependency
+    makefile: Makefile = field(default_factory=Makefile)
+    #: Modules (etc.) which depend on this instance
+    dependents: List[str] = field(default_factory=list)
+    #: Modules (etc.) are required for this instance
+    dependencies: List[str] = field(default_factory=list)
+    #: All modules found
+    all_modules: List[...]
+    # TODO Need to have these only in one place and referenced by name or id
+    # elsewhere
+
+    @classmethod
+    def from_makefile(
+        cls,
+        makefile: Makefile,
+        recurse: bool = True,
+        *,
+        keep_os_env: bool = False,
+        seen: Optional[Dict[pathlib.Path, IocDependency]] = None,
+        name: Optional[str] = None,
+        variable_name: Optional[str] = None,
+    ) -> IocDependency:
+        if makefile.filename is not None:
+            name = name or makefile.filename.parent.name
+            path = makefile.filename.parent
+        else:
+            name = name or "unknown"
+            path = None
+
+        ioc = cls(
+            name=name,
+            variable_name=variable_name,
+            path=path,
+            makefile=makefile,
+            dependents=[],
+            dependencies=[],
+        )
+        if not recurse:
+            return ioc
+
+        if seen is None:
+            # For recursion purposes
+            seen = {path: ioc}
+
+        for variable_name, path in makefile.find_release_paths().items():
+            if path in seen:
+                print("-> dupe path skipping", path)
+                continue
+            try:
+                dep_makefile_path = Makefile.find_makefile(path)
+            except FileNotFoundError:
+                continue
+
+            dep_makefile = Makefile.from_file(
+                dep_makefile_path, keep_os_env=keep_os_env
+            )
+            dep = IocDependency.from_makefile(
+                dep_makefile,
+                recurse=True,
+                seen=seen,
+                keep_os_env=keep_os_env,
+                name=variable_name,
+                variable_name=variable_name,
+            )
+            seen[variable_name] = dep
+            dep.dependents.append(ioc)
+            ioc.dependencies.append(dep)
+
+        return ioc
+
+    def as_graph(self, **kwargs) -> IocDependencyGraph:
+        """
+        Create a graphviz digraph of the dependencies.
+
+        Returns
+        -------
+        graph : IocDependencyGraph
+        """
+        return IocDependencyGraph(self, **kwargs)
+
+
+class IocDependencyGraph(_GraphHelper):
+    """
+    A graph for a IocDependency.
+
+    Parameters
+    ----------
+    dep : IocDependency, optional
+        A dep to add.
+
+    highlight_states : list of str, optional
+        List of state names to highlight.
+
+    include_code : bool, optional
+        Include code, where relevant, in nodes.
+    """
+
+    _entry_label: str = "_Entry_"
+    _exit_label: str = "_Exit_"
+
+    def __init__(
+        self,
+        dep: Optional[IocDependency] = None,
+        highlight_deps: Optional[List[str]] = None,
+        include_code: bool = False,
+    ):
+        super().__init__()
+        self.include_code = include_code
+        self.highlight_deps = highlight_deps or []
+        if dep is not None:
+            self.add_dependency(dep)
+
+    def add_dependency(self, dep: IocDependency):
+        """Add a dependency to the graph."""
+        if dep.name in self.nodes:
+            return
+
+        self.get_node(dep.name, text=f"{dep.variable_name} {dep.name}\n{dep.path}")
+        for item in dep.dependencies:
+            self.add_dependency(item)
+            self.add_edge(dep.name, item.name)
+
+        # for item in dep.dependents:
+        #     self.add_dependency(item)
+        #     self.add_edge(item.name, dep.name)
+
+    def _ready_for_digraph(self, graph: gv.Digraph):
+        """Hook when the user calls ``to_digraph``."""
+        for node in self.nodes.values():
+            node.highlighted = node.label in self.highlight_deps

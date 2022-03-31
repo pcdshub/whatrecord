@@ -16,7 +16,18 @@ import whatrecord
 DESCRIPTION = __doc__
 RETURN_VALUE = None
 
-MODULES = ("server", "iocmanager_loader", "info", "lint", "parse", "graph")
+# The whatrecord.bin modules are listed here and imported dynamically such
+# that any missing dependencies for that command will not stop other
+# entrypoints from working:
+MODULES = (
+    "deps",
+    "graph"
+    "info",
+    "iocmanager_loader",
+    "lint",
+    "parse",
+    "server",
+)
 
 
 def _try_import(module):
