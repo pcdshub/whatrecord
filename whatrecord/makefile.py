@@ -87,6 +87,8 @@ class Makefile:
     base_version: Optional[str] = None
     #: epics-base configure path.
     base_config_path: Optional[pathlib.Path] = None
+    #: Variables defined in RELEASE_TOP
+    release_top_vars: List[str] = field(default_factory=list)
     #: The Makefile filename, if available.
     filename: Optional[pathlib.Path] = None
 
@@ -154,6 +156,7 @@ class Makefile:
                 cross_compiler_target_archs=env.get("CROSS_COMPILER_TARGET_ARCHS", "").split(),
                 base_version=env.get("BASE_MODULE_VERSION", ""),
                 base_config_path=pathlib.Path(env["CONFIG"]) if "CONFIG" in env else None,
+                release_top_vars=env.get("RELEASE_TOPS", "").split(),
             )
         except Exception:
             logger.exception("Failed to parse Makefile output: %s", output)
