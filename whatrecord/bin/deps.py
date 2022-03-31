@@ -12,7 +12,7 @@ import apischema
 
 from ..common import AnyPath
 from ..format import FormatContext
-from ..makefile import IocDependency, IocDependencyGraph, Makefile
+from ..makefile import DependencyGroup, DependencyGroupGraph, Makefile
 from .graph import render_graph_to_file
 
 logger = logging.getLogger(__name__)
@@ -79,14 +79,15 @@ def main(
 ):
     makefile_path = Makefile.find_makefile(path)
     makefile = Makefile.from_file(makefile_path, keep_os_env=keep_os_env)
-    info = IocDependency.from_makefile(
+    info = DependencyGroup.from_makefile(
         makefile, recurse=not no_recurse, keep_os_env=keep_os_env
     )
 
     if graph:
-        graph = IocDependencyGraph(info)
-        gv_graph = graph.to_digraph()
-        render_graph_to_file(gv_graph, filename=graph_output)
+        group_graph = DependencyGroupGraph(info)
+        render_graph_to_file(group_graph.to_digraph(), filename=graph_output)
+        # An alternative to 'whatrecord graph'; both should have the same
+        # result in the end.
         return
 
     if not friendly:

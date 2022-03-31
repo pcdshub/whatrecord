@@ -8,8 +8,9 @@ import shutil
 import subprocess
 import textwrap
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
+import apischema
 import graphviz as gv
 
 from .common import AnyPath
@@ -119,7 +120,6 @@ class Makefile:
             if not value:
                 continue
 
-            print(var, value)
             # Assume it's not for windows, for now.  Can't instantiate
             # WindowsPath on linux anyway:
             if value.startswith(os.sep):
@@ -417,23 +417,22 @@ class Makefile:
 
 
 @dataclass
-class IocDependency:
+class Dependency:
+    """A single EPICS dependency (module) in the build system."""
     #: The name of the dependency, as derived from the path name
     name: str = ""
     #: The name of the dependency, as derived from the build system variable
     variable_name: Optional[str] = None
     #: The absolute path to the dependency
-    path: Optional[pathlib.Path] = None
+    path: pathlib.Path = field(default_factory=pathlib.Path)
     #: The parsed Makefile information for this dependency
     makefile: Makefile = field(default_factory=Makefile)
     #: Modules (etc.) which depend on this instance
-    dependents: List[str] = field(default_factory=list)
+    dependents: List[pathlib.Path] = field(default_factory=list)
     #: Modules (etc.) are required for this instance
-    dependencies: List[str] = field(default_factory=list)
-    #: All modules found
-    all_modules: List[...]
-    # TODO Need to have these only in one place and referenced by name or id
-    # elsewhere
+    dependencies: List[pathlib.Path] = field(default_factory=list)
+    #: The "root" node.  ``None`` to refer to itself.
+    root: Optional[DependencyGroup] = field(default=None, metadata=apischema.metadata.skip)
 
     @classmethod
     def from_makefile(
@@ -442,36 +441,37 @@ class IocDependency:
         recurse: bool = True,
         *,
         keep_os_env: bool = False,
-        seen: Optional[Dict[pathlib.Path, IocDependency]] = None,
         name: Optional[str] = None,
         variable_name: Optional[str] = None,
-    ) -> IocDependency:
+        root: Optional[DependencyGroup] = None,
+    ) -> Dependency:
         if makefile.filename is not None:
             name = name or makefile.filename.parent.name
             path = makefile.filename.parent
         else:
             name = name or "unknown"
-            path = None
+            path = pathlib.Path(".")  # :shrug:
 
-        ioc = cls(
+        this_dep = Dependency(
             name=name,
             variable_name=variable_name,
             path=path,
             makefile=makefile,
             dependents=[],
             dependencies=[],
+            root=root,
         )
-        if not recurse:
-            return ioc
 
-        if seen is None:
-            # For recursion purposes
-            seen = {path: ioc}
+        if root is not None:
+            root.all_modules[this_dep.path] = this_dep
+
+        if not recurse:
+            return this_dep
 
         for variable_name, path in makefile.find_release_paths().items():
-            if path in seen:
-                print("-> dupe path skipping", path)
+            if root and path in root.all_modules:
                 continue
+
             try:
                 dep_makefile_path = Makefile.find_makefile(path)
             except FileNotFoundError:
@@ -480,38 +480,73 @@ class IocDependency:
             dep_makefile = Makefile.from_file(
                 dep_makefile_path, keep_os_env=keep_os_env
             )
-            dep = IocDependency.from_makefile(
+            release_dep = Dependency.from_makefile(
                 dep_makefile,
                 recurse=True,
-                seen=seen,
                 keep_os_env=keep_os_env,
                 name=variable_name,
                 variable_name=variable_name,
+                root=root,
             )
-            seen[variable_name] = dep
-            dep.dependents.append(ioc)
-            ioc.dependencies.append(dep)
+            release_dep.dependents.append(this_dep.path)
+            this_dep.dependencies.append(release_dep.path)
 
-        return ioc
+        return this_dep
 
-    def as_graph(self, **kwargs) -> IocDependencyGraph:
+
+@dataclass
+class DependencyGroup:
+    """
+    IOC (or support module) dependency information.
+
+    This differs
+    """
+    #: The primary IOC or module this refers to.
+    root: pathlib.Path
+    #: All modules found while scanning for the root one.
+    all_modules: Dict[pathlib.Path, Dependency] = field(default_factory=dict)
+
+    @classmethod
+    def from_makefile(
+        cls,
+        makefile: Makefile,
+        recurse: bool = True,
+        *,
+        keep_os_env: bool = False,
+        name: Optional[str] = None,
+    ) -> DependencyGroup:
+        if makefile.filename is None:
+            raise ValueError("The provided Makefile must have a path")
+
+        info = cls(root=makefile.filename.parent, all_modules={})
+        # The following will implicitly be inserted into all_modules
+        Dependency.from_makefile(
+            makefile=makefile,
+            name=name,
+            keep_os_env=keep_os_env,
+            root=info,
+            recurse=recurse,
+        )
+        return info
+
+    def as_graph(self, **kwargs) -> DependencyGroupGraph:
         """
         Create a graphviz digraph of the dependencies.
 
         Returns
         -------
-        graph : IocDependencyGraph
+        graph : DependencyGroupGraph
         """
-        return IocDependencyGraph(self, **kwargs)
+        return DependencyGroupGraph(self, **kwargs)
 
 
-class IocDependencyGraph(_GraphHelper):
+class DependencyGroupGraph(_GraphHelper):
     """
-    A graph for a IocDependency.
+    A graph for a group of dependencies.
 
     Parameters
     ----------
-    dep : IocDependency, optional
+    dep : Dependency or DependencyGroup, optional
         A dep to add.
 
     highlight_states : list of str, optional
@@ -526,7 +561,7 @@ class IocDependencyGraph(_GraphHelper):
 
     def __init__(
         self,
-        dep: Optional[IocDependency] = None,
+        dep: Optional[Union[Dependency, DependencyGroup]] = None,
         highlight_deps: Optional[List[str]] = None,
         include_code: bool = False,
     ):
@@ -536,19 +571,27 @@ class IocDependencyGraph(_GraphHelper):
         if dep is not None:
             self.add_dependency(dep)
 
-    def add_dependency(self, dep: IocDependency):
+    def add_dependency(self, item: Union[DependencyGroup, Dependency]):
         """Add a dependency to the graph."""
-        if dep.name in self.nodes:
+        if isinstance(item, DependencyGroup):
+            for path, mod in item.all_modules.items():
+                self.add_dependency(mod)
             return
 
-        self.get_node(dep.name, text=f"{dep.variable_name} {dep.name}\n{dep.path}")
-        for item in dep.dependencies:
-            self.add_dependency(item)
-            self.add_edge(dep.name, item.name)
+        if item.path in self.nodes:
+            return
 
-        # for item in dep.dependents:
-        #     self.add_dependency(item)
-        #     self.add_edge(item.name, dep.name)
+        self.get_node(
+            str(item.path), text=f"{item.variable_name} {item.name}\n{item.path}"
+        )
+        if item.root is None:
+            # Misconfiguration?
+            return
+
+        for dep_path in item.dependencies:
+            dep = item.root.all_modules[dep_path]
+            self.add_dependency(dep)
+            self.add_edge(str(item.path), str(dep.path))
 
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""

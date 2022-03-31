@@ -21,7 +21,7 @@ RETURN_VALUE = None
 # entrypoints from working:
 MODULES = (
     "deps",
-    "graph"
+    "graph",
     "info",
     "iocmanager_loader",
     "lint",

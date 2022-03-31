@@ -18,6 +18,7 @@ import graphviz as gv
 from ..common import AnyPath
 from ..db import Database, LinterResults
 from ..graph import RecordLinkGraph, build_database_relations, graph_links
+from ..makefile import DependencyGroup, DependencyGroupGraph, Makefile
 from ..shell import LoadedIoc
 from ..snl import SequencerProgram
 from .parse import parse_from_cli_args
@@ -217,6 +218,8 @@ def main(
 
         if isinstance(item, SequencerProgram):
             graph = item.as_graph(include_code=code)
+        elif isinstance(item, Makefile):
+            graph = DependencyGroupGraph(DependencyGroup.from_makefile(item))
         else:
             raise RuntimeError(
                 f"Sorry, graph isn't supported yet for {item.__class__.__name__}"
