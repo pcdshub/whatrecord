@@ -35,7 +35,6 @@ def prune_result(
 def test_make_version():
     version = subprocess.check_output(["make", "--version"])
     print(version)
-    raise
 
 
 @pytest.mark.skipif(

@@ -23,7 +23,7 @@ _section_start_marker = "--whatrecord-section-start--"
 _section_end_marker = "--whatrecord-section-end--"
 _whatrecord_target = "_whatrecord_target"
 
-_make_helper: str = f"""
+_make_helper: str = fr"""
 
 # Trick borrowed from epics-sumo; thanks!
 .EXPORT_ALL_VARIABLES:
@@ -36,14 +36,19 @@ _make_helper: str = f"""
     # This is the environment section; null-delimited list of env vars
     @echo "{_section_start_marker}env"
     @env -0
-    @echo "{_section_end_marker}env"
+    @echo "{_section_end_marker}"
     # This is the make meta information section, as specified by make itself
-    @echo "{_section_start_marker}make"
-    @echo -e "default_goal=$(.DEFAULT_GOAL)\\0"
-    @echo -e "makefile_list=$(MAKEFILE_LIST)\\0"
-    @echo -e "make_features=$(.FEATURES)\\0"
-    @echo -e "include_dirs=$(.INCLUDE_DIRS)\\0"
-    @echo "{_section_end_marker}make"
+    @echo "{_section_start_marker}default_goal"
+    @echo "$(.DEFAULT_GOAL)"
+    @echo "{_section_end_marker}"
+    @echo "{_section_start_marker}makefile_list"
+    @echo "$(MAKEFILE_LIST)"
+    @echo "{_section_end_marker}"
+    @echo "{_section_start_marker}make_features"
+    @echo "$(.FEATURES)"
+    @echo "{_section_start_marker}include_dirs"
+    @echo "$(.INCLUDE_DIRS)"
+    @echo "{_section_end_marker}"
 """.replace("    ", "\t")
 
 
@@ -93,23 +98,22 @@ class Makefile:
     filename: Optional[pathlib.Path] = None
 
     @classmethod
-    def _get_section(cls, output: str, section: str) -> List[str]:
+    def _get_section(cls, output: str, section: str) -> str:
         """Get a single make output section."""
-        return list(
+        return "\n".join(
             lines_between(
                 output,
                 start_marker=_section_start_marker + section,
-                end_marker=_section_end_marker + section,
+                end_marker=_section_end_marker,
                 include_blank=False,
             )
-        )
+        ).strip()
 
     @classmethod
     def _get_env(cls, output: str) -> Dict[str, str]:
         """Get environment variables from make output."""
         env = {}
-        env_lines = "\0".join(cls._get_section(output, "env"))
-        for line in sorted(env_lines.split("\0")):
+        for line in sorted(cls._get_section(output, "env").split("\0")):
             if "=" in line:
                 variable, value = line.split("=", 1)
                 env[variable] = value
@@ -118,12 +122,15 @@ class Makefile:
     @classmethod
     def _get_make_vars(cls, output: str) -> Dict[str, str]:
         """Get environment variables from make output."""
-        makevars = {}
-        env_lines = "\0".join(cls._get_section(output, "make"))
-        for line in env_lines.split("\0"):
-            if "=" in line:
-                variable, value = line.split("=", 1)
-                makevars[variable] = value
+        makevars = {
+            var: cls._get_section(output, var)
+            for var in (
+                "default_goal",
+                "makefile_list",
+                "make_features",
+                "include_dirs",
+            )
+        }
 
         if makevars.get("default_goal", None) == _whatrecord_target:
             # This means there's no default goal, and ours is the first
