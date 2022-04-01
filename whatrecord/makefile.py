@@ -97,10 +97,12 @@ class Makefile:
     base_version: Optional[str] = None
     #: epics-base configure path.
     base_config_path: Optional[pathlib.Path] = None
-    #: Variables defined in RELEASE_TOP
+    #: Variables defined in RELEASE_TOPS
     release_top_vars: List[str] = field(default_factory=list)
     #: The Makefile filename, if available.
     filename: Optional[pathlib.Path] = None
+    #: The working directory used when invoking make:
+    working_directory: pathlib.Path = field(default_factory=pathlib.Path)
 
     def find_release_paths(self, check: bool = True) -> Dict[str, pathlib.Path]:
         """
@@ -122,14 +124,12 @@ class Makefile:
 
             # Assume it's not for windows, for now.  Can't instantiate
             # WindowsPath on linux anyway:
-            if value.startswith(os.sep):
-                try:
-                    path = pathlib.Path(value)
-                except ValueError:
-                    ...
-                else:
-                    if not check or (path / "Makefile").is_file():
-                        results[var] = path
+            try:
+                path = (self.working_directory / value).resolve()
+                if not check or (path / "Makefile").is_file():
+                    results[var] = path
+            except Exception:
+                ...
 
         return results
 
@@ -181,6 +181,7 @@ class Makefile:
     def _from_make_output(
         cls,
         output: str,
+        working_directory: AnyPath,
         filename: Optional[AnyPath] = None,
         keep_os_env: bool = False,
     ) -> Makefile:
@@ -206,6 +207,7 @@ class Makefile:
                 base_version=env.get("BASE_MODULE_VERSION", ""),
                 base_config_path=pathlib.Path(env["CONFIG"]) if "CONFIG" in env else None,
                 release_top_vars=env.get("RELEASE_TOPS", "").split(),
+                working_directory=working_directory,
             )
         except Exception:
             logger.exception("Failed to parse Makefile output: %s", output)
@@ -270,11 +272,16 @@ class Makefile:
             else:
                 working_directory = pathlib.Path.cwd()
 
+        env = dict(os.environ)
+        # Shell updates this variable and Makefiles may rely on it:
+        env["PWD"] = str(working_directory)
+
         result = subprocess.run(
             ["make", "--silent", "--file=-", _whatrecord_target],
             input=full_contents.encode(encoding),
             cwd=working_directory,
             capture_output=True,
+            env=env,
         )
         stdout = result.stdout.decode(encoding, "replace")
         if logger.isEnabledFor(logging.DEBUG):
@@ -284,7 +291,10 @@ class Makefile:
                 textwrap.indent(stdout, "    "),
                 textwrap.indent(stderr, "    ")
             )
-        return cls._from_make_output(stdout, filename=filename)
+
+        return cls._from_make_output(
+            stdout, working_directory=working_directory, filename=filename
+        )
 
     @classmethod
     def from_file_obj(
@@ -408,7 +418,7 @@ class Makefile:
         path = pathlib.Path(file_or_directory)
 
         if path.is_dir():
-            path = path / "Makefile"
+            path = path.resolve() / "Makefile"
 
         if not path.exists():
             raise FileNotFoundError(file_or_directory)
@@ -462,32 +472,34 @@ class Dependency:
             root=root,
         )
 
-        if root is not None:
-            root.all_modules[this_dep.path] = this_dep
+        if root is None:
+            return this_dep
+
+        root.all_modules[this_dep.path] = this_dep
 
         if not recurse:
             return this_dep
 
         for variable_name, path in makefile.find_release_paths().items():
-            if root and path in root.all_modules:
-                continue
+            if path in root.all_modules:
+                release_dep = root.all_modules[path]
+            else:
+                try:
+                    dep_makefile_path = Makefile.find_makefile(path)
+                except FileNotFoundError:
+                    continue
 
-            try:
-                dep_makefile_path = Makefile.find_makefile(path)
-            except FileNotFoundError:
-                continue
-
-            dep_makefile = Makefile.from_file(
-                dep_makefile_path, keep_os_env=keep_os_env
-            )
-            release_dep = Dependency.from_makefile(
-                dep_makefile,
-                recurse=True,
-                keep_os_env=keep_os_env,
-                name=variable_name,
-                variable_name=variable_name,
-                root=root,
-            )
+                dep_makefile = Makefile.from_file(
+                    dep_makefile_path, keep_os_env=keep_os_env
+                )
+                release_dep = Dependency.from_makefile(
+                    dep_makefile,
+                    recurse=True,
+                    keep_os_env=keep_os_env,
+                    name=variable_name,  # unclear the right approach here
+                    variable_name=variable_name,
+                    root=root,
+                )
             release_dep.dependents.append(this_dep.path)
             this_dep.dependencies.append(release_dep.path)
 
@@ -581,9 +593,13 @@ class DependencyGroupGraph(_GraphHelper):
         if item.path in self.nodes:
             return
 
-        self.get_node(
-            str(item.path), text=f"{item.variable_name} {item.name}\n{item.path}"
-        )
+        if item.variable_name != item.name:
+            node_text = f"{item.variable_name} {item.name}\n{item.path}"
+        else:
+            node_text = f"{item.variable_name}\n{item.path}"
+
+        self.get_node(str(item.path), text=node_text)
+
         if item.root is None:
             # Misconfiguration?
             return

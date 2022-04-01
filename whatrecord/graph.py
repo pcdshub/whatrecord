@@ -89,6 +89,7 @@ class _GraphHelper:
         self,
         source: str,
         destination: str,
+        allow_dupes: bool = False,
         **options
     ) -> GraphEdge:
         """Create a new edge in the graph."""
@@ -97,6 +98,8 @@ class _GraphHelper:
             self.get_node(destination),
             options
         )
+        if edge in self.edges and not allow_dupes:
+            return self.edges[self.edges.index(edge)]
         self.edges.append(edge)
         return edge
 

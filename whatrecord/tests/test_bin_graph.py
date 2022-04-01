@@ -1,5 +1,7 @@
 """Smoke tests to see if the provided IOCs load without crashing."""
 
+import pathlib
+
 import pytest
 
 from ..bin.graph import main
@@ -42,3 +44,16 @@ def test_graph_multiple_db(with_dbd):
     else:
         dbd_path = None
     main(filenames=db_paths, dbd=dbd_path, highlight=[".*"])
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        # sequencer files
+        conftest.MODULE_PATH / "iocs" / "ioc_sequencer" / "sncExample.st",
+        # dependency graphs
+        conftest.MODULE_PATH / "deps" / "module_a" / "Makefile",
+    ]
+)
+def test_graph_other_formats_smoke(filename: pathlib.Path):
+    main(filenames=[filename], highlight=[".*"])

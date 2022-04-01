@@ -2,11 +2,14 @@ import dataclasses
 import pathlib
 import subprocess
 import textwrap
-from typing import Optional, Set
+from typing import Optional, Set, Tuple
 
 import pytest
 
 from .. import makefile
+from .conftest import MODULE_PATH, skip_without_make
+
+DEPS_MAKEFILE_ROOT = MODULE_PATH / "deps"
 
 
 def prune_result(
@@ -28,19 +31,56 @@ def prune_result(
             setattr(result, field.name, getattr(expected, field.name))
 
 
-@pytest.mark.skipif(
-    not makefile.host_has_make(),
-    reason="Host does not have make"
-)
+def get_makefile(contents: str, *, set_filename: bool = True) -> makefile.Makefile:
+    """Get a Makefile instance given its contents."""
+    contents = textwrap.dedent(contents).replace("    ", "\t")
+    print("Creating Makefile from contents:")
+    print(contents)
+    make = makefile.Makefile.from_string(
+        contents,
+        filename=DEPS_MAKEFILE_ROOT / "Makefile.made_up" if set_filename else None,
+    )
+    if set_filename:
+        # Make the object more realistic
+        make.name = "ioc"
+        make.variable_name = "ioc_var"
+    return make
+
+
+def get_dependency_group(
+    contents: str, *, set_filename: bool = True
+) -> Tuple[makefile.Makefile, makefile.DependencyGroup]:
+    """Get a DependencyGroup instance given a single Makefile's contents."""
+    root = get_makefile(contents, set_filename=set_filename)
+    group = makefile.DependencyGroup.from_makefile(root)
+    if set_filename:
+        assert root.filename is not None
+        assert group.root == root.filename.parent
+    return root, group
+
+
+def check_module_in_group(
+    group: makefile.DependencyGroup, variable_name: str, path: pathlib.Path
+) -> makefile.Dependency:
+    """Check if a module is present in a DependencyGroup."""
+    if path not in group.all_modules:
+        paths = ", ".join(str(path) for path in group.all_modules)
+        raise ValueError(
+            f"Module {variable_name} not found in dependency list. "
+            f"Paths: {paths}"
+        )
+    module = group.all_modules[path]
+    assert module.variable_name == variable_name
+    return module
+
+
+@skip_without_make
 def test_make_version():
     version = subprocess.check_output(["make", "--version"])
     print(version)
 
 
-@pytest.mark.skipif(
-    not makefile.host_has_make(),
-    reason="Host does not have make"
-)
+@skip_without_make
 @pytest.mark.parametrize(
     "contents, to_keep, expected",
     [
@@ -116,8 +156,147 @@ def test_make_version():
     ]
 )
 def test_from_contents(contents: str, expected: makefile.Makefile, to_keep: Set[str]):
-    contents = textwrap.dedent(contents).replace("    ", "\t")
-    result = makefile.Makefile.from_string(contents)
+    result = get_makefile(contents, set_filename=False)
     print(result)
     prune_result(result, expected, to_keep=to_keep)
     assert result == expected
+
+
+@skip_without_make
+@pytest.mark.parametrize(
+    "contents",
+    [
+        pytest.param(
+            f"""
+            EPICS_BASE={DEPS_MAKEFILE_ROOT}/base
+            RELEASE_TOP=EPICS_BASE
+            """,
+            id="initial",
+        ),
+    ]
+)
+def test_dependency_norecurse_smoke(contents: str):
+    make = get_makefile(contents)
+    dep = makefile.Dependency.from_makefile(make, name="name", variable_name="var")
+    assert dep.makefile == make
+    assert dep.name == "name"
+    assert dep.variable_name == "var"
+
+
+@skip_without_make
+def test_dependency_group_base_only():
+    _, group = get_dependency_group(
+        f"""
+        EPICS_BASE={DEPS_MAKEFILE_ROOT}/base
+        RELEASE_TOPS=EPICS_BASE
+        """
+    )
+
+    assert len(group.all_modules) == 2
+
+    base = check_module_in_group(group, "EPICS_BASE", DEPS_MAKEFILE_ROOT / "base")
+    # I'm not convinced this is the right behavior, but not sure if we can
+    # do better generically:
+    assert base.name == "EPICS_BASE"
+
+
+@skip_without_make
+def test_dependency_group_base_and_module_a():
+    _, group = get_dependency_group(
+        f"""
+        EPICS_BASE={DEPS_MAKEFILE_ROOT}/base
+        MODULE_A={DEPS_MAKEFILE_ROOT}/module_a
+        RELEASE_TOPS=EPICS_BASE MODULE_A
+        """
+    )
+
+    assert len(group.all_modules) == 3
+    check_module_in_group(group, "EPICS_BASE", DEPS_MAKEFILE_ROOT / "base")
+    check_module_in_group(group, "MODULE_A", DEPS_MAKEFILE_ROOT / "module_a")
+
+
+@skip_without_make
+def test_dependency_group_base_and_layers():
+    _, group = get_dependency_group(
+        f"""
+        EPICS_BASE={DEPS_MAKEFILE_ROOT}/base
+        MODULE_C={DEPS_MAKEFILE_ROOT}/module_c
+        RELEASE_TOPS=EPICS_BASE MODULE_C
+        """
+    )
+
+    # test suite -> module_c   -> module_a -> base
+    #         |                -> module_b -> base
+    #         -> base
+    #
+
+    base = check_module_in_group(group, "EPICS_BASE", DEPS_MAKEFILE_ROOT / "base")
+    ma = check_module_in_group(group, "MODULE_A", DEPS_MAKEFILE_ROOT / "module_a")
+    mb = check_module_in_group(group, "MODULE_B", DEPS_MAKEFILE_ROOT / "module_b")
+    mc = check_module_in_group(group, "MODULE_C", DEPS_MAKEFILE_ROOT / "module_c")
+    ioc_path = DEPS_MAKEFILE_ROOT  # <-- test suite pseudo-makefile
+    assert set(group.all_modules) == {
+        ioc_path,
+        base.path,
+        ma.path,
+        mb.path,
+        mc.path,
+    }
+    assert len(group.all_modules) == 5
+
+    # Base
+    assert set(base.dependents) == {ma.path, mb.path, mc.path, ioc_path}
+    assert len(base.dependents) == 4
+    assert len(base.dependencies) == 0
+
+    # module a
+    assert set(ma.dependencies) == {base.path}
+    assert len(ma.dependencies) == 1
+    assert set(ma.dependents) == {mc.path}
+    assert len(ma.dependents) == 1
+
+    # module b
+    assert set(mb.dependencies) == {base.path}
+    assert len(mb.dependents) == 1
+    assert set(mb.dependents) == {mc.path}
+    assert len(mb.dependents) == 1
+
+    # module c
+    assert set(mc.dependencies) == {base.path, ma.path, mb.path}
+    assert len(mc.dependencies) == 3
+    assert set(mc.dependents) == {ioc_path}
+    assert len(mc.dependents) == 1
+
+
+@skip_without_make
+def test_dependency_group_graph():
+    _, group = get_dependency_group(
+        f"""
+        EPICS_BASE={DEPS_MAKEFILE_ROOT}/base
+        MODULE_C={DEPS_MAKEFILE_ROOT}/module_c
+        RELEASE_TOPS=EPICS_BASE MODULE_C
+        """
+    )
+    graph = makefile.DependencyGroupGraph(group)
+    assert len(graph.nodes) == 5
+
+    base = check_module_in_group(group, "EPICS_BASE", DEPS_MAKEFILE_ROOT / "base")
+    ma = check_module_in_group(group, "MODULE_A", DEPS_MAKEFILE_ROOT / "module_a")
+    mb = check_module_in_group(group, "MODULE_B", DEPS_MAKEFILE_ROOT / "module_b")
+    mc = check_module_in_group(group, "MODULE_C", DEPS_MAKEFILE_ROOT / "module_c")
+
+    edge_pairs = list(graph.edge_pairs)
+
+    def check_edge(source: makefile.Dependency, dest: makefile.Dependency):
+        node_source = graph.get_node(str(source.path))
+        node_dest = graph.get_node(str(dest.path))
+        assert (node_source, node_dest) in edge_pairs
+
+    check_edge(source=ma, dest=base)
+    check_edge(source=mb, dest=base)
+    check_edge(source=mc, dest=base)
+    check_edge(source=mc, dest=ma)
+    check_edge(source=mc, dest=mb)
+
+    # Smoke test to_digraph
+    graph.to_digraph()
