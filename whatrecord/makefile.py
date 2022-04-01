@@ -191,27 +191,23 @@ class Makefile:
         if filename is not None:
             filename = pathlib.Path(filename)
 
-        try:
-            env = cls._get_env(output, keep_os_env=keep_os_env)
-            make_vars = cls._get_make_vars(output)
-            return cls(
-                env=env,
-                filename=filename,
-                default_goal=make_vars.get("default_goal", ""),
-                makefile_list=make_vars.get("makefile_list", "").split(),
-                make_features=set(make_vars.get("make_features", "").split()),
-                include_dirs=make_vars.get("include_dirs", "").split(),
-                build_archs=env.get("BUILD_ARCHS", "").split(),
-                cross_compiler_host_archs=env.get("CROSS_COMPILER_HOST_ARCHS", "").split(),
-                cross_compiler_target_archs=env.get("CROSS_COMPILER_TARGET_ARCHS", "").split(),
-                base_version=env.get("BASE_MODULE_VERSION", ""),
-                base_config_path=pathlib.Path(env["CONFIG"]) if "CONFIG" in env else None,
-                release_top_vars=env.get("RELEASE_TOPS", "").split(),
-                working_directory=working_directory,
-            )
-        except Exception:
-            logger.exception("Failed to parse Makefile output: %s", output)
-            return Makefile(filename=filename)
+        env = cls._get_env(output, keep_os_env=keep_os_env)
+        make_vars = cls._get_make_vars(output)
+        return cls(
+            env=env,
+            filename=filename,
+            default_goal=make_vars.get("default_goal", ""),
+            makefile_list=make_vars.get("makefile_list", "").split(),
+            make_features=set(make_vars.get("make_features", "").split()),
+            include_dirs=make_vars.get("include_dirs", "").split(),
+            build_archs=env.get("BUILD_ARCHS", "").split(),
+            cross_compiler_host_archs=env.get("CROSS_COMPILER_HOST_ARCHS", "").split(),
+            cross_compiler_target_archs=env.get("CROSS_COMPILER_TARGET_ARCHS", "").split(),
+            base_version=env.get("BASE_MODULE_VERSION", ""),
+            base_config_path=pathlib.Path(env["CONFIG"]) if "CONFIG" in env else None,
+            release_top_vars=env.get("RELEASE_TOPS", "").split(),
+            working_directory=pathlib.Path(working_directory),
+        )
 
     @classmethod
     def from_string(

@@ -11,6 +11,9 @@ from .conftest import MODULE_PATH, skip_without_make
 
 DEPS_MAKEFILE_ROOT = MODULE_PATH / "deps"
 
+# More coverage on debug log lines
+makefile.logger.setLevel("DEBUG")
+
 
 def prune_result(
     result: makefile.Makefile,
@@ -277,7 +280,7 @@ def test_dependency_group_graph():
         RELEASE_TOPS=EPICS_BASE MODULE_C
         """
     )
-    graph = makefile.DependencyGroupGraph(group)
+    graph = group.as_graph()
     assert len(graph.nodes) == 5
 
     base = check_module_in_group(group, "EPICS_BASE", DEPS_MAKEFILE_ROOT / "base")
