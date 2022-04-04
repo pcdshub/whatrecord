@@ -458,7 +458,7 @@ class Dependency:
             name = name or "unknown"
             path = pathlib.Path(".")  # :shrug:
 
-        this_dep = Dependency(
+        this_dep = cls(
             name=name,
             variable_name=variable_name,
             path=path,
@@ -488,7 +488,7 @@ class Dependency:
                 dep_makefile = Makefile.from_file(
                     dep_makefile_path, keep_os_env=keep_os_env
                 )
-                release_dep = Dependency.from_makefile(
+                release_dep = cls.from_makefile(
                     dep_makefile,
                     recurse=True,
                     keep_os_env=keep_os_env,
