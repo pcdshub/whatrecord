@@ -7,12 +7,11 @@
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
       
-      
         <meta name="author" content="SLAC National Accelerator Laboratory">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-7.3.4">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-8.1.7">
     
     
       
@@ -20,10 +19,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.db9e7362.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.cd566b2a.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.3f5d1f46.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.e6a45f82.min.css">
         
       
     
@@ -33,18 +32,17 @@
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
-        <style>:root{--md-text-font-family:"Roboto";--md-code-font-family:"Roboto Mono"}</style>
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
-    
     
     
       <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="../css/mkdocstrings.css">
     
+    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
-
 
     
     
@@ -61,9 +59,8 @@
     <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="lightblue" data-md-color-accent="purple">
   
     
-    <script>function __prefix(e){return new URL("..",location).pathname+"."+e}function __get(e,t=localStorage){return JSON.parse(t.getItem(__prefix(e)))}</script>
     
-      <script>var palette=__get("__palette");if(null!==palette&&"object"==typeof palette.color)for(var key in palette.color)document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -79,6 +76,7 @@
     <div data-md-component="announce">
       
     </div>
+    
     
       
 
@@ -137,8 +135,7 @@
       <label class="md-header__button md-icon" for="__search">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
       </label>
-      
-<div class="md-search" data-md-component="search" role="dialog">
+      <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
@@ -384,6 +381,7 @@
       </a>
       
         
+
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
@@ -448,6 +446,33 @@
   
     <nav class="md-nav" aria-label="Modules">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.bin.deps" class="md-nav__link">
+    deps
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.bin.graph" class="md-nav__link">
+    graph
+  </a>
+  
+    <nav class="md-nav" aria-label="graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.bin.graph-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#whatrecord.bin.info" class="md-nav__link">
@@ -591,13 +616,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#whatrecord.bin.parse.parse" class="md-nav__link">
-    parse()
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#whatrecord.bin.parse.parse_from_cli_args" class="md-nav__link">
     parse_from_cli_args()
   </a>
@@ -736,8 +754,8 @@
             <article class="md-content__inner md-typeset">
               
                 
-                
-                <h1 id="cli">CLI</h1>
+
+<h1 id="cli">CLI</h1>
 <p>Top-level options:</p>
 <pre><code>usage: whatrecord [-h] [--version] [--log LOG_LEVEL]
                   {info,iocmanager-loader,lint,parse,server} ...
@@ -887,6 +905,137 @@ optional arguments:
 
 
 
+<h5 id="whatrecord.bin.deps" class="doc doc-heading">
+        <code>whatrecord.bin.deps</code>
+
+
+
+</h5>
+
+    <div class="doc doc-contents ">
+
+      <p>"whatrecord deps" is used to get dependency information from EPICS IOC or</p>
+<p>module Makefiles.</p>
+<p>Under the hood, this uses GNU make, which is an external dependency required
+for correct functionality.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-module">
+
+
+
+<h5 id="whatrecord.bin.graph" class="doc doc-heading">
+        <code>whatrecord.bin.graph</code>
+
+
+
+</h5>
+
+    <div class="doc doc-contents ">
+
+      <p>"whatrecord graph" is used to parse and generate a relationship graph of</p>
+<p>whatrecord-supported file types.</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<h6 id="whatrecord.bin.graph-functions">Functions</h6>
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h7 id="whatrecord.bin.graph.get_database_graph" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">get_database_graph</span><span class="p">(</span><span class="o">*</span><span class="n">loaded_items</span><span class="p">:</span> <span class="n">DatabaseItem</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">highlight</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordLinkGraph</span></code>
+
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Get a database graph from a number of database items.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/bin/graph.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">get_database_graph</span><span class="p">(</span>
+    <span class="o">*</span><span class="n">loaded_items</span><span class="p">:</span> <span class="n">DatabaseItem</span><span class="p">,</span>
+    <span class="n">highlight</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecordLinkGraph</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a database graph from a number of database items.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">database</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_multiple</span><span class="p">(</span><span class="o">*</span><span class="n">loaded_items</span><span class="p">)</span>
+    <span class="n">starting_records</span> <span class="o">=</span> <span class="n">_records_by_patterns</span><span class="p">(</span><span class="n">database</span><span class="p">,</span> <span class="n">highlight</span><span class="p">)</span> <span class="k">if</span> <span class="n">highlight</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="n">relations</span> <span class="o">=</span> <span class="n">build_database_relations</span><span class="p">(</span>
+        <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="o">.</span><span class="n">records</span><span class="p">,</span>
+        <span class="n">record_types</span><span class="o">=</span><span class="n">database</span><span class="o">.</span><span class="n">record_types</span> <span class="ow">or</span> <span class="p">{},</span>
+        <span class="n">aliases</span><span class="o">=</span><span class="n">database</span><span class="o">.</span><span class="n">aliases</span> <span class="ow">or</span> <span class="p">{},</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">graph_links</span><span class="p">(</span>
+        <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="o">.</span><span class="n">records</span><span class="p">,</span>
+        <span class="n">starting_records</span><span class="o">=</span><span class="n">starting_records</span><span class="p">,</span>
+        <span class="n">relations</span><span class="o">=</span><span class="n">relations</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-module">
+
+
+
 <h5 id="whatrecord.bin.info" class="doc doc-heading">
         <code>whatrecord.bin.info</code>
 
@@ -1000,7 +1149,7 @@ optional arguments:
 
 
 <h7 id="whatrecord.bin.lint.lint" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">verbosity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x1073769d0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">]</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">verbosity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105330af0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">]</span></code>
 
 
 </h7>
@@ -1069,7 +1218,7 @@ optional arguments:
 
 
 <h7 id="whatrecord.bin.lint.lint_command" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint_command</span><span class="p">(</span><span class="n">command_info</span><span class="p">:</span> <span class="n">IocshCommand</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x1073769d0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint_command</span><span class="p">(</span><span class="n">command_info</span><span class="p">:</span> <span class="n">IocshCommand</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105330af0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span></code>
 
 
 </h7>
@@ -1202,7 +1351,6 @@ format, by default.</p>
 
 
 
-
 <h6 id="whatrecord.bin.parse-functions">Functions</h6>
 
 
@@ -1211,185 +1359,8 @@ format, by default.</p>
 
 
 
-<h7 id="whatrecord.bin.parse.parse" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">standin_directories</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">FileFormat</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">access_security</span><span class="o">.</span><span class="n">AccessSecurityConfig</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">gateway</span><span class="o">.</span><span class="n">PVList</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">snl</span><span class="o">.</span><span class="n">SequencerProgram</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">streamdevice</span><span class="o">.</span><span class="n">StreamProtocol</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">dbtemplate</span><span class="o">.</span><span class="n">TemplateSubstitution</span><span class="p">]</span></code>
-
-
-</h7>
-
-    <div class="doc doc-contents ">
-
-      <p>Generically parse either a startup script or a database file.</p>
-<p>Hopefully does the right thing based on file extension.  If not, use
-the <code>format</code> kwarg to specify it directly.</p>
-
-<p><strong>Parameters:</strong></p>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Description</th>
-      <th>Default</th>
-    </tr>
-  </thead>
-  <tbody>
-      <tr>
-        <td><code>filename</code></td>
-        <td><code>Union[str, pathlib.Path]</code></td>
-        <td><p>The filename to parse.</p></td>
-        <td><em>required</em></td>
-      </tr>
-      <tr>
-        <td><code>dbd</code></td>
-        <td><code>Optional[str]</code></td>
-        <td><p>The associated database definition file, if parsing a database or
-substitutions file.</p></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>standin_directories</code></td>
-        <td><code>Optional[Dict[str, str]]</code></td>
-        <td><p>Rewrite hard-coded directory prefixes by setting::</p>
-<pre><code>standin_directories = {"/replace_this/": "/with/this"}
-</code></pre></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>macros</code></td>
-        <td><code>Optional[str]</code></td>
-        <td><p>Macro string to use when parsing the file.</p></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>expand</code></td>
-        <td><code>bool</code></td>
-        <td><p>Expand a substitutions file.</p></td>
-        <td><code>False</code></td>
-      </tr>
-  </tbody>
-</table>
-        <details class="quote">
-          <summary>Source code in <code>whatrecord/bin/parse.py</code></summary>
-          <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span>
-    <span class="n">filename</span><span class="p">:</span> <span class="n">AnyPath</span><span class="p">,</span>
-    <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">standin_directories</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FileFormat</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParseResult</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generically parse either a startup script or a database file.</span>
-
-<span class="sd">    Hopefully does the right thing based on file extension.  If not, use</span>
-<span class="sd">    the ``format`` kwarg to specify it directly.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    filename : str or pathlib.Path</span>
-<span class="sd">        The filename to parse.</span>
-
-<span class="sd">    dbd : str or pathlib.Path, optional</span>
-<span class="sd">        The associated database definition file, if parsing a database or</span>
-<span class="sd">        substitutions file.</span>
-
-<span class="sd">    standin_directories : dict, optional</span>
-<span class="sd">        Rewrite hard-coded directory prefixes by setting::</span>
-
-<span class="sd">            standin_directories = {&quot;/replace_this/&quot;: &quot;/with/this&quot;}</span>
-
-<span class="sd">    macros : str, optional</span>
-<span class="sd">        Macro string to use when parsing the file.</span>
-
-<span class="sd">    expand : bool, optional</span>
-<span class="sd">        Expand a substitutions file.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">standin_directories</span> <span class="o">=</span> <span class="n">standin_directories</span> <span class="ow">or</span> <span class="p">{}</span>
-
-    <span class="n">filename</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="c1"># The shared macro context - used in different ways below:</span>
-    <span class="n">macro_context</span> <span class="o">=</span> <span class="n">MacroContext</span><span class="p">(</span><span class="n">macro_string</span><span class="o">=</span><span class="n">macros</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">format</span> <span class="o">=</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">from_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="ow">in</span> <span class="p">(</span><span class="n">FileFormat</span><span class="o">.</span><span class="n">database</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">database_definition</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">database_definition</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">dbd</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">LinterResults</span><span class="o">.</span><span class="n">from_database_file</span><span class="p">(</span>
-            <span class="n">db</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
-            <span class="n">dbd</span><span class="o">=</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">dbd</span><span class="p">),</span>
-            <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">iocsh</span><span class="p">:</span>
-        <span class="n">md</span> <span class="o">=</span> <span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_filename</span><span class="p">(</span>
-            <span class="n">filename</span><span class="p">,</span>
-            <span class="n">standin_directories</span><span class="o">=</span><span class="n">standin_directories</span><span class="p">,</span>
-            <span class="n">macros</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">macro_context</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">use_gdb</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">get_binary_information</span><span class="p">())</span>
-            <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Skipping gdb information...&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">LoadedIoc</span><span class="o">.</span><span class="n">from_metadata</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">substitution</span><span class="p">:</span>
-        <span class="n">template</span> <span class="o">=</span> <span class="n">TemplateSubstitution</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">expand</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">template</span>
-
-        <span class="n">database_text</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">expand_files</span><span class="p">()</span>
-        <span class="c1"># It&#39;s technically possible that this *isn&#39;t* a database file; so</span>
-        <span class="c1"># perhaps a `whatrecord msi` could be implemented in the future.</span>
-        <span class="k">return</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
-            <span class="n">database_text</span><span class="p">,</span>
-            <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
-            <span class="n">dbd</span><span class="o">=</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">dbd</span><span class="p">)</span> <span class="k">if</span> <span class="n">dbd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">state_notation</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">SequencerProgram</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
-        <span class="n">contents</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-
-    <span class="k">if</span> <span class="n">macros</span><span class="p">:</span>
-        <span class="n">contents</span> <span class="o">=</span> <span class="n">macro_context</span><span class="o">.</span><span class="n">expand_file</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">gateway_pvlist</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">GatewayPVList</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">access_security</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">AccessSecurityConfig</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">stream_protocol</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">StreamProtocol</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;Sorry, whatrecord doesn&#39;t support the </span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2"> format just yet in the &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;CLI parsing tool.  Please open an issue.&quot;</span>
-    <span class="p">)</span>
-</code></pre></div>
-        </details>
-    </div>
-
-  </div>
-
-
-
-  <div class="doc doc-object doc-function">
-
-
-
 <h7 id="whatrecord.bin.parse.parse_from_cli_args" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">parse_from_cli_args</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">standin_directory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">access_security</span><span class="o">.</span><span class="n">AccessSecurityConfig</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">gateway</span><span class="o">.</span><span class="n">PVList</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">snl</span><span class="o">.</span><span class="n">SequencerProgram</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">streamdevice</span><span class="o">.</span><span class="n">StreamProtocol</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">dbtemplate</span><span class="o">.</span><span class="n">TemplateSubstitution</span><span class="p">]</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">parse_from_cli_args</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">standin_directory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">v3</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">access_security</span><span class="o">.</span><span class="n">AccessSecurityConfig</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">gateway</span><span class="o">.</span><span class="n">PVList</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">snl</span><span class="o">.</span><span class="n">SequencerProgram</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">streamdevice</span><span class="o">.</span><span class="n">StreamProtocol</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">dbtemplate</span><span class="o">.</span><span class="n">TemplateSubstitution</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">makefile</span><span class="o">.</span><span class="n">Makefile</span><span class="p">]</span></code>
 
 
 </h7>
@@ -1441,6 +1412,12 @@ substitutions file.</p></td>
         <td><p>Expand a substitutions file.</p></td>
         <td><code>False</code></td>
       </tr>
+      <tr>
+        <td><code>v3</code></td>
+        <td><code>bool</code></td>
+        <td><p>Use V3 database grammar where applicable.</p></td>
+        <td><code>False</code></td>
+      </tr>
   </tbody>
 </table>
         <details class="quote">
@@ -1453,6 +1430,7 @@ substitutions file.</p></td>
     <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">v3</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParseResult</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generically parse either a startup script or a database file.</span>
@@ -1476,6 +1454,9 @@ substitutions file.</p></td>
 
 <span class="sd">    expand : bool, optional</span>
 <span class="sd">        Expand a substitutions file.</span>
+
+<span class="sd">    v3 : bool, optional</span>
+<span class="sd">        Use V3 database grammar where applicable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">standin_directories</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
         <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">standin_directory</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
@@ -1490,14 +1471,24 @@ substitutions file.</p></td>
             <span class="n">ioc_metadata</span>
         <span class="p">)</span>
 
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="n">FileFormat</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span> <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="n">fmt</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">FileFormat</span><span class="p">)]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2"> is not a valid FileFormat. Options include: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">options</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
     <span class="k">return</span> <span class="n">parse</span><span class="p">(</span>
         <span class="n">filename</span><span class="p">,</span>
         <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
         <span class="n">standin_directories</span><span class="o">=</span><span class="n">standin_directories</span><span class="p">,</span>
         <span class="n">macros</span><span class="o">=</span><span class="n">macros</span><span class="p">,</span>
         <span class="n">use_gdb</span><span class="o">=</span><span class="n">use_gdb</span><span class="p">,</span>
-        <span class="nb">format</span><span class="o">=</span><span class="n">FileFormat</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span> <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span>
         <span class="n">expand</span><span class="o">=</span><span class="n">expand</span><span class="p">,</span>
+        <span class="n">v3</span><span class="o">=</span><span class="n">v3</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div>
         </details>
@@ -1646,7 +1637,7 @@ substitutions file.</p></td>
 
 
 <h5 id="whatrecord.bin.lint.lint" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">verbosity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x1073769d0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">]</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">verbosity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105330af0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">]</span></code>
 
 
 </h5>
@@ -1715,7 +1706,7 @@ substitutions file.</p></td>
 
 
 <h5 id="whatrecord.bin.lint.lint_command" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint_command</span><span class="p">(</span><span class="n">command_info</span><span class="p">:</span> <span class="n">IocshCommand</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x1073769d0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">lint</span><span class="o">.</span><span class="n">lint_command</span><span class="p">(</span><span class="n">command_info</span><span class="p">:</span> <span class="n">IocshCommand</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">file</span><span class="p">:</span> <span class="n">IO</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">_io</span><span class="o">.</span><span class="n">StringIO</span> <span class="nb">object</span> <span class="n">at</span> <span class="mh">0x105330af0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="n">FormatContext</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span></code>
 
 
 </h5>
@@ -1805,7 +1796,6 @@ format, by default.</p>
 
 
 
-
 <h4 id="whatrecord.bin.parse-functions">Functions</h4>
 
 
@@ -1814,185 +1804,8 @@ format, by default.</p>
 
 
 
-<h5 id="whatrecord.bin.parse.parse" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">standin_directories</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">FileFormat</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">access_security</span><span class="o">.</span><span class="n">AccessSecurityConfig</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">gateway</span><span class="o">.</span><span class="n">PVList</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">snl</span><span class="o">.</span><span class="n">SequencerProgram</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">streamdevice</span><span class="o">.</span><span class="n">StreamProtocol</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">dbtemplate</span><span class="o">.</span><span class="n">TemplateSubstitution</span><span class="p">]</span></code>
-
-
-</h5>
-
-    <div class="doc doc-contents ">
-
-      <p>Generically parse either a startup script or a database file.</p>
-<p>Hopefully does the right thing based on file extension.  If not, use
-the <code>format</code> kwarg to specify it directly.</p>
-
-<p><strong>Parameters:</strong></p>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Description</th>
-      <th>Default</th>
-    </tr>
-  </thead>
-  <tbody>
-      <tr>
-        <td><code>filename</code></td>
-        <td><code>Union[str, pathlib.Path]</code></td>
-        <td><p>The filename to parse.</p></td>
-        <td><em>required</em></td>
-      </tr>
-      <tr>
-        <td><code>dbd</code></td>
-        <td><code>Optional[str]</code></td>
-        <td><p>The associated database definition file, if parsing a database or
-substitutions file.</p></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>standin_directories</code></td>
-        <td><code>Optional[Dict[str, str]]</code></td>
-        <td><p>Rewrite hard-coded directory prefixes by setting::</p>
-<pre><code>standin_directories = {"/replace_this/": "/with/this"}
-</code></pre></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>macros</code></td>
-        <td><code>Optional[str]</code></td>
-        <td><p>Macro string to use when parsing the file.</p></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>expand</code></td>
-        <td><code>bool</code></td>
-        <td><p>Expand a substitutions file.</p></td>
-        <td><code>False</code></td>
-      </tr>
-  </tbody>
-</table>
-        <details class="quote">
-          <summary>Source code in <code>whatrecord/bin/parse.py</code></summary>
-          <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span>
-    <span class="n">filename</span><span class="p">:</span> <span class="n">AnyPath</span><span class="p">,</span>
-    <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">standin_directories</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FileFormat</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParseResult</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generically parse either a startup script or a database file.</span>
-
-<span class="sd">    Hopefully does the right thing based on file extension.  If not, use</span>
-<span class="sd">    the ``format`` kwarg to specify it directly.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    filename : str or pathlib.Path</span>
-<span class="sd">        The filename to parse.</span>
-
-<span class="sd">    dbd : str or pathlib.Path, optional</span>
-<span class="sd">        The associated database definition file, if parsing a database or</span>
-<span class="sd">        substitutions file.</span>
-
-<span class="sd">    standin_directories : dict, optional</span>
-<span class="sd">        Rewrite hard-coded directory prefixes by setting::</span>
-
-<span class="sd">            standin_directories = {&quot;/replace_this/&quot;: &quot;/with/this&quot;}</span>
-
-<span class="sd">    macros : str, optional</span>
-<span class="sd">        Macro string to use when parsing the file.</span>
-
-<span class="sd">    expand : bool, optional</span>
-<span class="sd">        Expand a substitutions file.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">standin_directories</span> <span class="o">=</span> <span class="n">standin_directories</span> <span class="ow">or</span> <span class="p">{}</span>
-
-    <span class="n">filename</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="c1"># The shared macro context - used in different ways below:</span>
-    <span class="n">macro_context</span> <span class="o">=</span> <span class="n">MacroContext</span><span class="p">(</span><span class="n">macro_string</span><span class="o">=</span><span class="n">macros</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">format</span> <span class="o">=</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">from_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="ow">in</span> <span class="p">(</span><span class="n">FileFormat</span><span class="o">.</span><span class="n">database</span><span class="p">,</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">database_definition</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">database_definition</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">dbd</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">LinterResults</span><span class="o">.</span><span class="n">from_database_file</span><span class="p">(</span>
-            <span class="n">db</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
-            <span class="n">dbd</span><span class="o">=</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">dbd</span><span class="p">),</span>
-            <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">iocsh</span><span class="p">:</span>
-        <span class="n">md</span> <span class="o">=</span> <span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_filename</span><span class="p">(</span>
-            <span class="n">filename</span><span class="p">,</span>
-            <span class="n">standin_directories</span><span class="o">=</span><span class="n">standin_directories</span><span class="p">,</span>
-            <span class="n">macros</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">macro_context</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">use_gdb</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">get_binary_information</span><span class="p">())</span>
-            <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Skipping gdb information...&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">LoadedIoc</span><span class="o">.</span><span class="n">from_metadata</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">substitution</span><span class="p">:</span>
-        <span class="n">template</span> <span class="o">=</span> <span class="n">TemplateSubstitution</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">expand</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">template</span>
-
-        <span class="n">database_text</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">expand_files</span><span class="p">()</span>
-        <span class="c1"># It&#39;s technically possible that this *isn&#39;t* a database file; so</span>
-        <span class="c1"># perhaps a `whatrecord msi` could be implemented in the future.</span>
-        <span class="k">return</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
-            <span class="n">database_text</span><span class="p">,</span>
-            <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
-            <span class="n">dbd</span><span class="o">=</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">dbd</span><span class="p">)</span> <span class="k">if</span> <span class="n">dbd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">state_notation</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">SequencerProgram</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
-        <span class="n">contents</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-
-    <span class="k">if</span> <span class="n">macros</span><span class="p">:</span>
-        <span class="n">contents</span> <span class="o">=</span> <span class="n">macro_context</span><span class="o">.</span><span class="n">expand_file</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">gateway_pvlist</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">GatewayPVList</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">access_security</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">AccessSecurityConfig</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="n">FileFormat</span><span class="o">.</span><span class="n">stream_protocol</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">StreamProtocol</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
-
-    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;Sorry, whatrecord doesn&#39;t support the </span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2"> format just yet in the &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;CLI parsing tool.  Please open an issue.&quot;</span>
-    <span class="p">)</span>
-</code></pre></div>
-        </details>
-    </div>
-
-  </div>
-
-
-
-  <div class="doc doc-object doc-function">
-
-
-
 <h5 id="whatrecord.bin.parse.parse_from_cli_args" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">parse_from_cli_args</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">standin_directory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">access_security</span><span class="o">.</span><span class="n">AccessSecurityConfig</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">gateway</span><span class="o">.</span><span class="n">PVList</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">snl</span><span class="o">.</span><span class="n">SequencerProgram</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">streamdevice</span><span class="o">.</span><span class="n">StreamProtocol</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">dbtemplate</span><span class="o">.</span><span class="n">TemplateSubstitution</span><span class="p">]</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">bin</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">parse_from_cli_args</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">standin_directory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">v3</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">access_security</span><span class="o">.</span><span class="n">AccessSecurityConfig</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">gateway</span><span class="o">.</span><span class="n">PVList</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">snl</span><span class="o">.</span><span class="n">SequencerProgram</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">streamdevice</span><span class="o">.</span><span class="n">StreamProtocol</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">dbtemplate</span><span class="o">.</span><span class="n">TemplateSubstitution</span><span class="p">,</span> <span class="n">whatrecord</span><span class="o">.</span><span class="n">makefile</span><span class="o">.</span><span class="n">Makefile</span><span class="p">]</span></code>
 
 
 </h5>
@@ -2044,6 +1857,12 @@ substitutions file.</p></td>
         <td><p>Expand a substitutions file.</p></td>
         <td><code>False</code></td>
       </tr>
+      <tr>
+        <td><code>v3</code></td>
+        <td><code>bool</code></td>
+        <td><p>Use V3 database grammar where applicable.</p></td>
+        <td><code>False</code></td>
+      </tr>
   </tbody>
 </table>
         <details class="quote">
@@ -2056,6 +1875,7 @@ substitutions file.</p></td>
     <span class="n">use_gdb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">expand</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">v3</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParseResult</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generically parse either a startup script or a database file.</span>
@@ -2079,6 +1899,9 @@ substitutions file.</p></td>
 
 <span class="sd">    expand : bool, optional</span>
 <span class="sd">        Expand a substitutions file.</span>
+
+<span class="sd">    v3 : bool, optional</span>
+<span class="sd">        Use V3 database grammar where applicable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">standin_directories</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
         <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">standin_directory</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
@@ -2093,14 +1916,24 @@ substitutions file.</p></td>
             <span class="n">ioc_metadata</span>
         <span class="p">)</span>
 
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="n">FileFormat</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span> <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="n">fmt</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">FileFormat</span><span class="p">)]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2"> is not a valid FileFormat. Options include: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">options</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
     <span class="k">return</span> <span class="n">parse</span><span class="p">(</span>
         <span class="n">filename</span><span class="p">,</span>
         <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
         <span class="n">standin_directories</span><span class="o">=</span><span class="n">standin_directories</span><span class="p">,</span>
         <span class="n">macros</span><span class="o">=</span><span class="n">macros</span><span class="p">,</span>
         <span class="n">use_gdb</span><span class="o">=</span><span class="n">use_gdb</span><span class="p">,</span>
-        <span class="nb">format</span><span class="o">=</span><span class="n">FileFormat</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span> <span class="k">if</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span>
         <span class="n">expand</span><span class="o">=</span><span class="n">expand</span><span class="p">,</span>
+        <span class="n">v3</span><span class="o">=</span><span class="n">v3</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div>
         </details>
@@ -2160,11 +1993,6 @@ substitutions file.</p></td>
     </div>
 
   </div>
-                
-              
-              
-                
-
 
               
             </article>
@@ -2178,8 +2006,7 @@ substitutions file.</p></td>
         
       </main>
       
-        
-<footer class="md-footer">
+        <footer class="md-footer">
   
     <nav class="md-footer__inner md-grid" aria-label="Footer">
       
@@ -2218,20 +2045,19 @@ substitutions file.</p></td>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
-      <div class="md-footer-copyright">
-        
-          <div class="md-footer-copyright__highlight">
-            (C) 2021 SLAC National Accelerator Laboratory
-          </div>
-        
-        
-          Made with
-          <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-            Material for MkDocs
-          </a>
-        
-        
-      </div>
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      (C) 2021 SLAC National Accelerator Laboratory
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
       
     </div>
   </div>
@@ -2241,10 +2067,10 @@ substitutions file.</p></td>
     <div class="md-dialog" data-md-component="dialog">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.top", "toc.integrate"], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../assets/javascripts/workers/search.8397ff9e.min.js", "version": null}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.top", "toc.integrate"], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../assets/javascripts/workers/search.22074ed6.min.js"}</script>
     
     
-      <script src="../assets/javascripts/bundle.1e84347e.min.js"></script>
+      <script src="../assets/javascripts/bundle.01de222e.min.js"></script>
       
     
   </body>

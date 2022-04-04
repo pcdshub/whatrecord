@@ -7,12 +7,11 @@
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
       
-      
         <meta name="author" content="SLAC National Accelerator Laboratory">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-7.3.4">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-8.1.7">
     
     
       
@@ -20,10 +19,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.db9e7362.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.cd566b2a.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.3f5d1f46.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.e6a45f82.min.css">
         
       
     
@@ -33,18 +32,17 @@
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
-        <style>:root{--md-text-font-family:"Roboto";--md-code-font-family:"Roboto Mono"}</style>
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
-    
     
     
       <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="../css/mkdocstrings.css">
     
+    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
-
 
     
     
@@ -61,9 +59,8 @@
     <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="lightblue" data-md-color-accent="purple">
   
     
-    <script>function __prefix(e){return new URL("..",location).pathname+"."+e}function __get(e,t=localStorage){return JSON.parse(t.getItem(__prefix(e)))}</script>
     
-      <script>var palette=__get("__palette");if(null!==palette&&"object"==typeof palette.color)for(var key in palette.color)document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -79,6 +76,7 @@
     <div data-md-component="announce">
       
     </div>
+    
     
       
 
@@ -137,8 +135,7 @@
       <label class="md-header__button md-icon" for="__search">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
       </label>
-      
-<div class="md-search" data-md-component="search" role="dialog">
+      <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
@@ -399,6 +396,7 @@
       </a>
       
         
+
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
@@ -1030,8 +1028,8 @@
             <article class="md-content__inner md-typeset">
               
                 
-                
-                <h1 id="server-client">Server / client</h1>
+
+<h1 id="server-client">Server / client</h1>
 <h3 id="starting-the-backend-api-server">Starting the backend API server</h3>
 <p>With the provided test-suite IOCs:</p>
 <pre><code class="language-bash">$ whatrecord server --scripts whatrecord/tests/iocs/*/st.cmd
@@ -1249,7 +1247,7 @@ whatrecord.ioc_finder.IocScriptStaticList            (<span title="whatrecord.io
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IocInfoDict</span><span class="p">]):</span>
         <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">script_list</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_filename</span><span class="p">(</span><span class="n">fn</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">fn</span><span class="p">))</span>
 </code></pre></div>
         </details>
 
@@ -3082,13 +3080,12 @@ whatrecord.server.server.ServerState        </code>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pv_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">graphviz</span><span class="o">.</span><span class="n">Digraph</span><span class="p">()</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">digraph</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_script_relations</span><span class="p">(</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_script_relations</span><span class="p">(</span>
             <span class="n">database</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">,</span>
             <span class="n">limit_to_records</span><span class="o">=</span><span class="n">pv_names</span><span class="p">,</span>
-            <span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">,</span>
             <span class="n">script_relations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_relations</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">digraph</span>
+        <span class="k">return</span> <span class="n">gr</span><span class="o">.</span><span class="n">to_digraph</span><span class="p">(</span><span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_ioc_to_pvs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pv_names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
         <span class="n">ioc_to_pvs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -3128,13 +3125,13 @@ whatrecord.server.server.ServerState        </code>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pv_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">graphviz</span><span class="o">.</span><span class="n">Digraph</span><span class="p">()</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">digraph</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_links</span><span class="p">(</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_links</span><span class="p">(</span>
             <span class="n">database</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">,</span>
-            <span class="n">starting_records</span><span class="o">=</span><span class="n">pv_names</span><span class="p">,</span>
+            <span class="n">starting_records</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">pv_names</span><span class="p">),</span>
             <span class="n">sort_fields</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">,</span>
             <span class="n">relations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">container</span><span class="o">.</span><span class="n">pv_relations</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="n">digraph</span> <span class="o">=</span> <span class="n">gr</span><span class="o">.</span><span class="n">to_digraph</span><span class="p">(</span><span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">digraph</span>
 
     <span class="k">def</span> <span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -6047,13 +6044,12 @@ whatrecord.server.server.ServerState        </code>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pv_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">graphviz</span><span class="o">.</span><span class="n">Digraph</span><span class="p">()</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">digraph</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_script_relations</span><span class="p">(</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_script_relations</span><span class="p">(</span>
             <span class="n">database</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">,</span>
             <span class="n">limit_to_records</span><span class="o">=</span><span class="n">pv_names</span><span class="p">,</span>
-            <span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">,</span>
             <span class="n">script_relations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_relations</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">digraph</span>
+        <span class="k">return</span> <span class="n">gr</span><span class="o">.</span><span class="n">to_digraph</span><span class="p">(</span><span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_ioc_to_pvs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pv_names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
         <span class="n">ioc_to_pvs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -6093,13 +6089,13 @@ whatrecord.server.server.ServerState        </code>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pv_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">graphviz</span><span class="o">.</span><span class="n">Digraph</span><span class="p">()</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">digraph</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_links</span><span class="p">(</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_links</span><span class="p">(</span>
             <span class="n">database</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">,</span>
-            <span class="n">starting_records</span><span class="o">=</span><span class="n">pv_names</span><span class="p">,</span>
+            <span class="n">starting_records</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">pv_names</span><span class="p">),</span>
             <span class="n">sort_fields</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">,</span>
             <span class="n">relations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">container</span><span class="o">.</span><span class="n">pv_relations</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="n">digraph</span> <span class="o">=</span> <span class="n">gr</span><span class="o">.</span><span class="n">to_digraph</span><span class="p">(</span><span class="n">font_name</span><span class="o">=</span><span class="s2">&quot;Courier&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">digraph</span>
 
     <span class="k">def</span> <span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -7346,11 +7342,6 @@ whatrecord.server.util.TaskHandler        </code>
     </div>
 
   </div>
-                
-              
-              
-                
-
 
               
             </article>
@@ -7364,8 +7355,7 @@ whatrecord.server.util.TaskHandler        </code>
         
       </main>
       
-        
-<footer class="md-footer">
+        <footer class="md-footer">
   
     <nav class="md-footer__inner md-grid" aria-label="Footer">
       
@@ -7404,20 +7394,19 @@ whatrecord.server.util.TaskHandler        </code>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
-      <div class="md-footer-copyright">
-        
-          <div class="md-footer-copyright__highlight">
-            (C) 2021 SLAC National Accelerator Laboratory
-          </div>
-        
-        
-          Made with
-          <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-            Material for MkDocs
-          </a>
-        
-        
-      </div>
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      (C) 2021 SLAC National Accelerator Laboratory
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
       
     </div>
   </div>
@@ -7427,10 +7416,10 @@ whatrecord.server.util.TaskHandler        </code>
     <div class="md-dialog" data-md-component="dialog">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.top", "toc.integrate"], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../assets/javascripts/workers/search.8397ff9e.min.js", "version": null}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.top", "toc.integrate"], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../assets/javascripts/workers/search.22074ed6.min.js"}</script>
     
     
-      <script src="../assets/javascripts/bundle.1e84347e.min.js"></script>
+      <script src="../assets/javascripts/bundle.01de222e.min.js"></script>
       
     
   </body>
