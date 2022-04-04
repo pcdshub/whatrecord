@@ -47,4 +47,4 @@ class IocScriptStaticList(_IocInfoFinder):
 
     def __post_init__(self, script_list: List[IocInfoDict]):
         for fn in script_list:
-            self.add_or_update_entry(IocMetadata.from_filename(fn))
+            self.add_or_update_entry(IocMetadata.from_file(fn))

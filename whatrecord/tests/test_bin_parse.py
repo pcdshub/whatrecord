@@ -5,7 +5,8 @@ import os
 import apischema
 import pytest
 
-from ..bin.parse import main, parse
+from ..bin.parse import main
+from ..parse import parse
 from ..shell import LoadedIoc, ShellState
 from . import conftest
 

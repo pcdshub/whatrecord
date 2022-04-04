@@ -63,11 +63,18 @@ Plugins
 * LCLS-specific epicsArch / logbook DAQ PVs
 * TwinCAT PLC source code (pytmc)
 
+Makefile / build system information
+
+* Determine build dependencies from a ``Makefile``
+* Recursively inspect sub-dependencies
+* Graph IOC dependency information or output it as JSON
+
 Command-line tools
 
 * ``whatrecord lint`` - lint a database
 * ``whatrecord parse`` - parse supported formats
 * ``whatrecord server`` - start the API server
+* ``whatrecord graph`` - graph PV relationships, SNL diagrams, IOC dependencies
 
 Record?
 -------

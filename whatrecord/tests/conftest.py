@@ -3,7 +3,7 @@ import pathlib
 
 import pytest
 
-from .. import settings
+from .. import makefile, settings
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent
 
@@ -22,4 +22,9 @@ startup_scripts = pytest.mark.parametrize(
         )
         for startup_script in STARTUP_SCRIPTS
     ]
+)
+
+skip_without_make = pytest.mark.skipif(
+    not makefile.host_has_make(),
+    reason="Host does not have make"
 )

@@ -36,6 +36,7 @@ class FileFormat(str, enum.Enum):
     access_security = 'access_security'
     stream_protocol = 'stream_protocol'
     state_notation = 'state_notation'
+    makefile = 'makefile'
 
     @classmethod
     def from_extension(cls, extension: str) -> FileFormat:
@@ -55,7 +56,11 @@ class FileFormat(str, enum.Enum):
     @classmethod
     def from_filename(cls, filename: AnyPath) -> FileFormat:
         """Get a file format based on a full filename."""
-        extension = pathlib.Path(filename).suffix.lstrip(".")
+        path = pathlib.Path(filename)
+        extension = path.suffix.lstrip(".")
+        if not extension and path.name.startswith("Makefile"):
+            return FileFormat.makefile
+
         try:
             return FileFormat.from_extension(extension)
         except KeyError:
@@ -440,7 +445,7 @@ class IocMetadata:
                    startup_directory=pathlib.Path())
 
     @classmethod
-    def from_filename(
+    def from_file(
         cls,
         filename: Union[pathlib.Path, str],
         *,
@@ -475,6 +480,9 @@ class IocMetadata:
             binary=binary or util.find_binary_from_hashbang(filename),
             base_version=base_version,
         )
+
+    #: Back-compat: from_filename is deprecated
+    from_filename = from_file
 
     @classmethod
     def from_dict(cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None):
