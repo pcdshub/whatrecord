@@ -1,5 +1,9 @@
 """
-"whatrecord info" is used to get PV information from the whatrecord server.
+"whatrecord deps" is used to get dependency information from EPICS IOC or
+module Makefiles.
+
+Under the hood, this uses GNU make, which is an external dependency required
+for correct functionality.
 """
 
 import argparse
