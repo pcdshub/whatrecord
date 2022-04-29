@@ -28,6 +28,12 @@ def parse_config(lines: List[str]) -> List[IocInfoDict]:
     """
     Parse an IOC manager config to get its IOCs.
 
+    The parsing here is a bit weak when it comes to syntax errors. This is
+    generally not a problem as these files are almost entirely written out by
+    the IOC Manager GUI / CLI tools.  Occasionally, a user may edit the file
+    manually and introduce syntax errors on certain lines, and this will
+    attempt to skip it as best it can.
+
     Parameters
     ----------
     lines : list of str
@@ -48,14 +54,21 @@ def parse_config(lines: List[str]) -> List[IocInfoDict]:
             continue
         if not loading:
             continue
+        if line.lstrip().startswith("#"):
+            continue
         if "id:" in line:
             if "}" in line:
+                # {id: ... } in a single line
                 entries.append(line)
             else:
+                # {id: ...
+                #  ... }
                 entry = line
         elif entry is not None:
             entry += line
             if "}" in entry:
+                # {id: ...
+                #  ... }   <-- closing line
                 entries.append(entry)
                 entry = None
 
@@ -67,7 +80,7 @@ def parse_config(lines: List[str]) -> List[IocInfoDict]:
         try:
             result.append(fix_entry(entry))
         except Exception:
-            logger.exception("Failed to fix up IOC manager entry: %s", entry)
+            logger.error("Failed to fix up IOC manager entry: %s", entry)
 
     return result
 
