@@ -5,12 +5,13 @@ import math
 import pathlib
 import typing
 from dataclasses import field
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple, Union
+from typing import (Any, Dict, FrozenSet, Generator, List, Mapping, Optional,
+                    Tuple, Union)
 
 import apischema
 import lark
 
-from . import transformer
+from . import transformer, util
 from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterWarning,
                      PVAFieldReference, RecordField, RecordInstance,
                      RecordType, RecordTypeField, StringWithContext, dataclass)
@@ -429,8 +430,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         )
         if record_type_info is None:
             # TODO lint error, if dbd loaded
-            ...
+            record.has_dbd_info = False
         else:
+            record.has_dbd_info = True
             for fld in record.fields.values():
                 field_info = record_type_info.fields.get(fld.name, None)
                 if field_info is None:
@@ -804,6 +806,59 @@ class Database:
                 raise ValueError(f"Expected {_DatabaseSource}, got {type(item)}")
 
         return db
+
+    @classmethod
+    def from_vendored_dbd(cls, version: int = 3) -> Database:
+        """
+        Load the vendored database definition file from whatrecord.
+
+        This is a good fallback when you have a database file without a
+        corresponding database definition file.
+
+        Parameters
+        ----------
+        version : int, optional
+            Use the old V3 style or new V3 style database grammar by specifying
+            3 or 4, respectively.  Defaults to 3.
+
+        Returns
+        -------
+        db : Database
+        """
+        if version <= 3:
+            return cls.from_file(
+                util.MODULE_PATH / "tests" / "iocs/v3_softIoc.dbd",
+                version=version,
+            )
+        return cls.from_file(
+            util.MODULE_PATH / "tests" / "iocs" / "softIoc.dbd",
+            version=version,
+        )
+
+    def get_links_for_record(
+        self,
+        record: RecordInstance,
+    ) -> Generator[Tuple[RecordField, str, List[str]], None, None]:
+        """
+        Get all links - in, out, and forward links.
+
+        Parameters
+        ----------
+        record : RecordInstance
+            Additional information, if the database definition wasn't loaded
+            with this instance.
+
+        Yields
+        ------
+        field : RecordField
+        link_text: str
+        link_info: str
+        """
+        record_info = self.record_types.get(record.record_type, None)
+        if not record_info:
+            return
+
+        yield from record_info.get_links_for_record(record)
 
 
 _DatabaseSource = Union["LoadedIoc", "ShellState", Database, LinterResults]

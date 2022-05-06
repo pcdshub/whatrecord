@@ -307,3 +307,17 @@ record(ai, "rec:X") {
             message="Unquoted field value 'B'"
         )
     ]
+
+
+@pytest.mark.parametrize(
+    "version", [3, 4],
+)
+def test_load_vendored_database_smoke(version: int):
+    dbd = Database.from_vendored_dbd(version=version)
+    record_types = list(dbd.record_types.values())
+    assert len(record_types)
+    record = record_types[0]
+    if version == 3:
+        assert "v3_softIoc.dbd" in record.context[0].name
+    else:
+        assert "softIoc.dbd" in record.context[0].name

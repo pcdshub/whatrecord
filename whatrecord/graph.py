@@ -189,6 +189,7 @@ def build_database_relations(
     database: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
     aliases: Optional[Dict[str, str]] = None,
+    version: int = 3,
 ) -> PVRelations:
     """
     Build a dictionary of PV relationships.
@@ -205,6 +206,12 @@ def build_database_relations(
     record_types : dict, optional
         The database definitions to use for fields that are not defined in the
         database file.  Dictionary of record type name to RecordType.
+        If not specified, the whatrecord-vendored database definition files
+        will be used.
+
+    version : int, optional
+        Use the old V3 style or new V3 style database grammar by specifying
+        3 or 4, respectively.  Defaults to 3.
 
     Returns
     -------
@@ -212,6 +219,10 @@ def build_database_relations(
         Such that: ``info[pv1][pv2] = (field1, field2, info)``
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
+    if not record_types:
+        dbd = Database.from_vendored_dbd(version=version)
+        record_types = dbd.record_types
+
     aliases = aliases or {}
     warned = set()
     unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
@@ -219,12 +230,14 @@ def build_database_relations(
 
     # TODO: alias handling?
     for rec1 in database.values():
-        if record_types:
-            # Use links as defined in the database definition
+        # Use links as defined in the database definition
+        if rec1.has_dbd_info:
             rec1_links = rec1.get_links()
         else:
-            # Fall back to static list of link fields
-            rec1_links = rec1.get_common_links()
+            rec1_rtype = record_types.get(rec1.record_type, None)
+            if rec1_rtype is None:
+                continue
+            rec1_links = rec1_rtype.get_links_for_record(rec1)
 
         for field1, link, info in rec1_links:
             # TODO: copied without thinking about implications
