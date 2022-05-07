@@ -185,6 +185,20 @@ def is_supported_link(link: str) -> bool:
     return False
 
 
+def _get_links_for_record(
+    record: RecordInstance, record_types: Optional[Dict[str, RecordType]] = None
+) -> Generator[Tuple[RecordField, str, List[str]], None, None]:
+    """
+    Get links for the provided record, referring back to the record_types dict if necessary.
+    """
+    if record.has_dbd_info:
+        yield from record.get_links()
+    elif record_types is not None:
+        rec1_rtype = record_types.get(record.record_type, None)
+        if rec1_rtype is not None:
+            yield from rec1_rtype.get_links_for_record(record)
+
+
 def build_database_relations(
     database: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
@@ -230,20 +244,17 @@ def build_database_relations(
 
     # TODO: alias handling?
     for rec1 in database.values():
-        # Use links as defined in the database definition
-        if rec1.has_dbd_info:
-            rec1_links = rec1.get_links()
-        else:
-            rec1_rtype = record_types.get(rec1.record_type, None)
-            if rec1_rtype is None:
-                continue
-            rec1_links = rec1_rtype.get_links_for_record(rec1)
-
-        for field1, link, info in rec1_links:
+        rec1_rtype = record_types.get(rec1.record_type, None)
+        for field1, link, info in _get_links_for_record(
+            rec1, record_types=record_types
+        ):
             # TODO: copied without thinking about implications
             # due to the removal of st.cmd context as an attempt to reduce
             field1 = copy.deepcopy(field1)
             # field1.context = rec1.context[:1] + field1.context
+
+            if not rec1.has_dbd_info and rec1_rtype:
+                field1.update_from_record_type(rec1_rtype)
 
             if "." in link:
                 link, field2 = link.split(".", 1)
@@ -254,15 +265,18 @@ def build_database_relations(
 
             rec2 = database.get(aliases.get(link, link), None)
             if rec2 is None:
+                # Case 1: The linked record is *not* in the database.
+
                 # TODO: switch to debug; this will be expensive later
                 if not is_supported_link(link):
                     continue
 
-                if link not in warned:
-                    warned.add(link)
+                rec2_name = link
+                if rec2_name not in warned:
+                    warned.add(rec2_name)
                     logger.debug(
                         "Linked record from %s.%s not in database: %s",
-                        rec1.name, field1.name, link
+                        rec1.name, field1.name, rec2_name
                     )
 
                 field2 = RecordField(
@@ -271,16 +285,20 @@ def build_database_relations(
                     value="(unknown-record)",
                     context=unset_ctx,
                 )
-                rec2_name = link
             elif field2 in rec2.fields:
+                # Case 2: The linked record is in the database and has a
+                # recognized field name.
                 rec2_name = rec2.name
                 # TODO: copied without thinking about implications
                 field2 = copy.deepcopy(rec2.fields[field2])
                 # field2.context = rec2.context[:1] + field2.context
-            elif record_types:
+            else:
+                # Case 3: The linked record is in the database but does not
+                # have a recognized field name.
                 rec2_name = rec2.name
                 dbd_record_type = record_types.get(rec2.record_type, None)
                 if dbd_record_type is None:
+                    # Record type not in the database?
                     field2 = RecordField(
                         dtype="invalid",
                         name=field2,
@@ -288,6 +306,7 @@ def build_database_relations(
                         context=unset_ctx,
                     )
                 elif field2 not in dbd_record_type.fields:
+                    # Field name invalid
                     field2 = RecordField(
                         dtype="invalid",
                         name=field2,
@@ -295,6 +314,7 @@ def build_database_relations(
                         context=unset_ctx,
                     )
                 else:
+                    # Record and field found in provided record_types
                     dbd_record_field = dbd_record_type.fields[field2]
                     field2 = RecordField(
                         dtype=dbd_record_field.type,
@@ -302,14 +322,11 @@ def build_database_relations(
                         value="",
                         context=dbd_record_field.context,
                     )
-            else:
-                rec2_name = rec2.name
-                field2 = RecordField(
-                    dtype="unknown",
-                    name=field2,
-                    value="",  # unset or invalid, can't tell yet
-                    context=unset_ctx,
-                )
+
+            if rec2 is not None:
+                rec2_type = record_types.get(rec2.record_type, None)
+                if rec2_type is not None:
+                    field2.update_from_record_type(rec2_type)
 
             by_record[rec1.name][rec2_name].append((field1, field2, info))
             by_record[rec2_name][rec1.name].append((field2, field1, info))
@@ -447,7 +464,8 @@ def combine_relations(
 def find_record_links(
     database: Dict[str, RecordInstance],
     starting_records: List[str],
-    relations: Optional[PVRelations] = None
+    relations: Optional[PVRelations] = None,
+    record_types: Optional[Dict[str, RecordType]] = None,
 ) -> Generator[LinkInfo, None, None]:
     """
     Get all related record links from a set of starting records.
@@ -467,6 +485,10 @@ def find_record_links(
         Pre-built PV relationship dictionary.  Generated from database
         if not provided.
 
+    record_types : dict, optional
+        The database definitions to use for fields that are not defined in the
+        database file.  Dictionary of record type name to RecordType.
+
     Yields
     ------
     link_info : LinkInfo
@@ -475,7 +497,7 @@ def find_record_links(
     checked = []
 
     if relations is None:
-        relations = build_database_relations(database)
+        relations = build_database_relations(database, record_types=record_types)
 
     records_to_check = list(starting_records)
 
@@ -592,7 +614,9 @@ class RecordLinkGraph(_GraphHelper):
             dest = self.get_node(li.record2.name, text=" ")
 
             for field, node in [(li.field1, src), (li.field2, dest)]:
-                if field.value or self.show_empty:
+                if field.name == "PROC":
+                    ...
+                elif field.value or self.show_empty:
                     text_line = self.field_format.format(
                         field=field.name, value=field.value
                     )
@@ -615,9 +639,12 @@ class RecordLinkGraph(_GraphHelper):
                         break
 
             if (src, dest) not in set(self.edge_pairs):
-                edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
-                if li.info:
-                    edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
+                if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
+                    edge_kw["xlabel"] = "FLNK"
+                else:
+                    edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
+                    if li.info:
+                        edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
                 self.add_edge(src.label, dest.label, **edge_kw)
 
         if not self.nodes:
@@ -660,7 +687,7 @@ def graph_links(
     field_format: Optional[str] = None,
     text_format: Optional[str] = None,
     sort_fields: bool = True,
-    show_empty: bool = False,
+    show_empty: bool = True,
     relations: Optional[PVRelations] = None,
     record_types: Optional[Dict[str, RecordType]] = None,
 ) -> RecordLinkGraph:

@@ -550,8 +550,21 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
 """,
     }
 
-    def update_unknowns(self, other: RecordField, *, unknown_values=None,
-                        dbd=None):
+    def update_from_record_type(
+        self,
+        record_type: RecordType
+    ):
+        """Update field information given dbd-provided information."""
+        record_type_field = record_type.fields.get(self.name, None)
+        if record_type_field is not None:
+            self.dtype = record_type_field.type
+
+    def update_unknowns(
+        self,
+        other: RecordField,
+        *,
+        unknown_values: Optional[Sequence[str]] = None,
+    ):
         """
         If this RecordField has some missing information ("unknown"), fill
         it in with information from the other field.
@@ -566,7 +579,6 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
             if ctx.name in unknown_values:
                 # Even if the other context is unknown, let's take it anyway:
                 self.context = other.context
-        # if dbd is not None:
 
 
 PVRelations = Dict[
