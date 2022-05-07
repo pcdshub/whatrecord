@@ -588,22 +588,18 @@ class RecordLinkGraph(_GraphHelper):
         for li in find_record_links(
             self.database.records, self.starting_records, relations=self.relations
         ):
-            for (rec, field) in ((li.record1, li.field1), (li.record2, li.field2)):
-                if rec.name not in self.nodes:
-                    self.get_node(label=rec.name, text=field.name)
-
-            src = self.get_node(li.record1.name)
-            dest = self.get_node(li.record2.name)
+            src = self.get_node(li.record1.name, text=" ")
+            dest = self.get_node(li.record2.name, text=" ")
 
             for field, node in [(li.field1, src), (li.field2, dest)]:
                 if field.value or self.show_empty:
                     text_line = self.field_format.format(
                         field=field.name, value=field.value
                     )
-                    if node.text and text_line not in node.text:
-                        node.text = "\n".join((node.text, text_line))
-                    else:
+                    if not node.text.strip():
                         node.text = text_line
+                    elif text_line not in node.text:
+                        node.text = "\n".join((node.text, text_line))
 
             if li.field1.dtype == "DBF_INLINK":
                 src, dest = dest, src
