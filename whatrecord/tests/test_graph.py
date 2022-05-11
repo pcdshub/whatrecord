@@ -37,12 +37,15 @@ record({record_type}, "{record_name}") {{
     return db.records[record_name]
 
 
-def test_simple_graph():
+def test_simple_graph(dbd: Database):
     database = {
         "record_a": create_record("ai", "record_a", {"INP": "record_b CPP MS", "VAL": "10"}),
         "record_b": create_record("ao", "record_b", {"OUT": "record_c CA", "VAL": "20"}),
     }
-    relations = graph.build_database_relations(database)
+    relations = graph.build_database_relations(
+        database,
+        record_types=dbd.record_types,
+    )
     print(database["record_a"])
     assert relations["record_a"]["record_b"] == [
         (
@@ -81,7 +84,7 @@ def dbd():
     )
 
 
-def test_combine_relations():
+def test_combine_relations(dbd: Database):
     database_1 = {
         "record_a": create_record("ai", "record_a", {"INP": "record_b CPP MS", "VAL": "10"}),
         "record_b": create_record("ao", "record_b", {"OUT": "record_c CA", "VAL": "20"}),
@@ -91,12 +94,16 @@ def test_combine_relations():
         "record_d": create_record("ai", "record_d", {"INP": "", "VAL": "10"}),
         "record_e": create_record("ai", "record_e", {"INP": "record_a CP", "VAL": "10"}),
     }
-    relations = graph.build_database_relations(database_1)
+    relations = graph.build_database_relations(
+        database_1,
+        record_types=dbd.record_types,
+    )
     graph.combine_relations(
         relations,
         database_1,
         graph.build_database_relations(database_2),
         database_2,
+        record_types=dbd.record_types,
     )
 
     assert relations["record_a"]["record_b"] == [
@@ -245,6 +252,7 @@ def test_combine_with_alias(dbd: Database):
             "alias_a": "record_a",
             "alias_b": "record_b",
         },
+        record_types=dbd.record_types,
     )
 
     relations_2 = graph.build_database_relations(
@@ -254,6 +262,7 @@ def test_combine_with_alias(dbd: Database):
             "alias_d": "record_d",
             "alias_e": "record_e",
         },
+        record_types=dbd.record_types,
     )
 
     graph.combine_relations(
@@ -268,6 +277,7 @@ def test_combine_with_alias(dbd: Database):
             "alias_d": "record_d",
             "alias_e": "record_e",
         },
+        record_types=dbd.record_types,
     )
 
     assert relations["record_a"]["record_b"] == [

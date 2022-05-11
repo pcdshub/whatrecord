@@ -34,6 +34,26 @@ class GraphNode:
     #: Highlight the node in the graph?
     highlighted: bool = False
 
+    def add_text_line(self, line: str, delimiter: str = "\n", only_unique: bool = True):
+        """
+        Add a line of text to the node.
+
+        Parameters
+        ----------
+        line : str
+            The line to add.
+
+        delimiter : str, optional
+            The between-line delimiter.
+
+        only_unique : bool, optional
+            Only add unique lines to the text.
+        """
+        if not self.text.strip():
+            self.text = line
+        elif not only_unique or line not in self.text:
+            self.text = delimiter.join((self.text, line))
+
     def __hash__(self):
         return hash(self.id)
 
@@ -82,7 +102,9 @@ class _GraphHelper:
             )
             logger.debug("Created node %s", label)
 
-        self.nodes[label].text = text or self.nodes[label].text
+        if text and text.strip():
+            self.nodes[label].add_text_line(text)
+
         return self.nodes[label]
 
     def add_edge(
@@ -185,10 +207,100 @@ def is_supported_link(link: str) -> bool:
     return False
 
 
+def _get_links_for_record(
+    record: RecordInstance, record_types: Optional[Dict[str, RecordType]] = None
+) -> Generator[Tuple[RecordField, str, List[str]], None, None]:
+    """
+    Get links for the provided record, referring back to the record_types dict if necessary.
+    """
+    if record.has_dbd_info:
+        yield from record.get_links()
+    elif record_types is not None:
+        rec1_rtype = record_types.get(record.record_type, None)
+        if rec1_rtype is not None:
+            yield from rec1_rtype.get_links_for_record(record)
+
+
+_unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
+
+
+def _field_from_record_relation(
+    record: Optional[RecordInstance],
+    field_name: str,
+    link_text: str,
+    record_types: Dict[str, RecordType]
+) -> Optional[RecordField]:
+    """
+    Create a RecordField instance based on what we know, given the parameters.
+
+    Parameters
+    ----------
+    record : RecordInstance or None
+        An (optional) record instance, if available in the database.
+
+    field_name : str
+        A field name for the record (field_name).
+
+    link_text : str, optional
+        The link text - likely the record name - referring to ``record``.
+
+    record_types : dict, optional
+        Record type information from a database definition.
+    """
+    if record is None:
+        # Case 1: The linked record is *not* in the database.
+
+        if not is_supported_link(link_text):
+            return None
+
+        return RecordField(
+            dtype="unknown",
+            name=field_name,
+            value="(unknown-record)",
+            context=_unset_ctx,
+        )
+
+    if field_name in record.fields:
+        # Case 2: The linked record is in the database and has a
+        # recognized field name.
+        return copy.deepcopy(record.fields[field_name])
+
+    # Case 3: The linked record is in the database but does not
+    # have a recognized field name.
+    dbd_record_type = record_types.get(record.record_type, None)
+    if dbd_record_type is None:
+        # Record type not in the database?
+        return RecordField(
+            dtype="invalid",
+            name=field_name,
+            value="(invalid-record-type)",
+            context=_unset_ctx,
+        )
+
+    if field_name not in dbd_record_type.fields:
+        # Field name invalid
+        return RecordField(
+            dtype="invalid",
+            name=field_name,
+            value="(invalid-field)",
+            context=_unset_ctx,
+        )
+
+    # Record and field found in provided record_types
+    dbd_record_field = dbd_record_type.fields[field_name]
+    return RecordField(
+        dtype=dbd_record_field.type,
+        name=field_name,
+        value="",
+        context=dbd_record_field.context,
+    )
+
+
 def build_database_relations(
     database: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
     aliases: Optional[Dict[str, str]] = None,
+    version: int = 3,
 ) -> PVRelations:
     """
     Build a dictionary of PV relationships.
@@ -205,6 +317,12 @@ def build_database_relations(
     record_types : dict, optional
         The database definitions to use for fields that are not defined in the
         database file.  Dictionary of record type name to RecordType.
+        If not specified, the whatrecord-vendored database definition files
+        will be used.
+
+    version : int, optional
+        Use the old V3 style or new V3 style database grammar by specifying
+        3 or 4, respectively.  Defaults to 3.
 
     Returns
     -------
@@ -212,91 +330,57 @@ def build_database_relations(
         Such that: ``info[pv1][pv2] = (field1, field2, info)``
         And in reverse: ``info[pv2][pv1] = (field2, field1, info)``
     """
+    if not record_types:
+        dbd = Database.from_vendored_dbd(version=version)
+        record_types = dbd.record_types
+
     aliases = aliases or {}
     warned = set()
-    unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
     by_record = collections.defaultdict(lambda: collections.defaultdict(list))
 
-    # TODO: alias handling?
     for rec1 in database.values():
-        if record_types:
-            # Use links as defined in the database definition
-            rec1_links = rec1.get_links()
-        else:
-            # Fall back to static list of link fields
-            rec1_links = rec1.get_common_links()
-
-        for field1, link, info in rec1_links:
-            # TODO: copied without thinking about implications
-            # due to the removal of st.cmd context as an attempt to reduce
+        rec1_rtype = record_types.get(rec1.record_type, None)
+        for field1, link, info in _get_links_for_record(
+            rec1, record_types=record_types
+        ):
             field1 = copy.deepcopy(field1)
             # field1.context = rec1.context[:1] + field1.context
 
+            if not rec1.has_dbd_info and rec1_rtype:
+                field1.update_from_record_type(rec1_rtype)
+
             if "." in link:
-                link, field2 = link.split(".", 1)
+                link, field2_name = link.split(".", 1)
             elif field1.name == "FLNK":
-                field2 = "PROC"
+                field2_name = "PROC"
             else:
-                field2 = "VAL"
+                field2_name = "VAL"
 
-            rec2 = database.get(aliases.get(link, link), None)
+            rec2_name = aliases.get(link, link)
+            rec2 = database.get(rec2_name, None)
+
+            field2 = _field_from_record_relation(
+                record=rec2,
+                field_name=field2_name,
+                link_text=link,
+                record_types=record_types,
+            )
+
+            if field2 is None:
+                continue
+
             if rec2 is None:
-                # TODO: switch to debug; this will be expensive later
-                if not is_supported_link(link):
-                    continue
-
-                if link not in warned:
-                    warned.add(link)
-                    logger.debug(
-                        "Linked record from %s.%s not in database: %s",
-                        rec1.name, field1.name, link
-                    )
-
-                field2 = RecordField(
-                    dtype="unknown",
-                    name=field2,
-                    value="(unknown-record)",
-                    context=unset_ctx,
+                warned.add(rec2_name)
+                logger.debug(
+                    "Linked record from %s.%s not in database: %s",
+                    rec1.name, field1.name, rec2_name
                 )
-                rec2_name = link
-            elif field2 in rec2.fields:
-                rec2_name = rec2.name
-                # TODO: copied without thinking about implications
-                field2 = copy.deepcopy(rec2.fields[field2])
-                # field2.context = rec2.context[:1] + field2.context
-            elif record_types:
-                rec2_name = rec2.name
-                dbd_record_type = record_types.get(rec2.record_type, None)
-                if dbd_record_type is None:
-                    field2 = RecordField(
-                        dtype="invalid",
-                        name=field2,
-                        value="(invalid-record-type)",
-                        context=unset_ctx,
-                    )
-                elif field2 not in dbd_record_type.fields:
-                    field2 = RecordField(
-                        dtype="invalid",
-                        name=field2,
-                        value="(invalid-field)",
-                        context=unset_ctx,
-                    )
-                else:
-                    dbd_record_field = dbd_record_type.fields[field2]
-                    field2 = RecordField(
-                        dtype=dbd_record_field.type,
-                        name=field2,
-                        value="",
-                        context=dbd_record_field.context,
-                    )
             else:
-                rec2_name = rec2.name
-                field2 = RecordField(
-                    dtype="unknown",
-                    name=field2,
-                    value="",  # unset or invalid, can't tell yet
-                    context=unset_ctx,
-                )
+                # We may have updated information about the record field;
+                # but it's possible this is entirely unnecessary (TODO)
+                rec2_type = record_types.get(rec2.record_type, None)
+                if rec2_type is not None:
+                    field2.update_from_record_type(rec2_type)
 
             by_record[rec1.name][rec2_name].append((field1, field2, info))
             by_record[rec2_name][rec1.name].append((field2, field1, info))
@@ -434,7 +518,8 @@ def combine_relations(
 def find_record_links(
     database: Dict[str, RecordInstance],
     starting_records: List[str],
-    relations: Optional[PVRelations] = None
+    relations: Optional[PVRelations] = None,
+    record_types: Optional[Dict[str, RecordType]] = None,
 ) -> Generator[LinkInfo, None, None]:
     """
     Get all related record links from a set of starting records.
@@ -454,6 +539,10 @@ def find_record_links(
         Pre-built PV relationship dictionary.  Generated from database
         if not provided.
 
+    record_types : dict, optional
+        The database definitions to use for fields that are not defined in the
+        database file.  Dictionary of record type name to RecordType.
+
     Yields
     ------
     link_info : LinkInfo
@@ -462,7 +551,7 @@ def find_record_links(
     checked = []
 
     if relations is None:
-        relations = build_database_relations(database)
+        relations = build_database_relations(database, record_types=record_types)
 
     records_to_check = list(starting_records)
 
@@ -504,8 +593,9 @@ class RecordLinkGraph(_GraphHelper):
 
     database: Database
     starting_records: List[str]
+    newline: str = '<br align="left"/>'
     header_format: str = 'record({rtype}, "{name}")'
-    field_format: str = '{field:>4s}: "{value}"'
+    field_format: str = '{field}: "{value}"'
     text_format: str = (
         f"<b>{{header}}</b>"
         f"{_GraphHelper.newline}"
@@ -542,7 +632,7 @@ class RecordLinkGraph(_GraphHelper):
         field_format: Optional[str] = None,
         text_format: Optional[str] = None,
         sort_fields: bool = True,
-        show_empty: bool = False,
+        show_empty: bool = True,
         relations: Optional[PVRelations] = None,
         record_types: Optional[Dict[str, RecordType]] = None,
     ):
@@ -575,22 +665,16 @@ class RecordLinkGraph(_GraphHelper):
         for li in find_record_links(
             self.database.records, self.starting_records, relations=self.relations
         ):
-            for (rec, field) in ((li.record1, li.field1), (li.record2, li.field2)):
-                if rec.name not in self.nodes:
-                    self.get_node(label=rec.name, text=field.name)
-
-            src = self.get_node(li.record1.name)
-            dest = self.get_node(li.record2.name)
+            src = self.get_node(li.record1.name, text=" ")
+            dest = self.get_node(li.record2.name, text=" ")
 
             for field, node in [(li.field1, src), (li.field2, dest)]:
-                if field.value or self.show_empty:
-                    text_line = self.field_format.format(
-                        field=field.name, value=field.value
+                if field.name == "PROC":
+                    ...
+                elif field.value or self.show_empty:
+                    node.add_text_line(
+                        self.field_format.format(field=field.name, value=field.value)
                     )
-                    if node.text and text_line not in node.text:
-                        node.text = "\n".join((node.text, text_line))
-                    else:
-                        node.text = text_line
 
             if li.field1.dtype == "DBF_INLINK":
                 src, dest = dest, src
@@ -606,9 +690,12 @@ class RecordLinkGraph(_GraphHelper):
                         break
 
             if (src, dest) not in set(self.edge_pairs):
-                edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
-                if li.info:
-                    edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
+                if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
+                    edge_kw["xlabel"] = "FLNK"
+                else:
+                    edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
+                    if li.info:
+                        edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
                 self.add_edge(src.label, dest.label, **edge_kw)
 
         if not self.nodes:
@@ -618,12 +705,11 @@ class RecordLinkGraph(_GraphHelper):
                     self.get_node(rec_name)
 
         for node in self.nodes.values():
-            field_lines = node.text
             if self.sort_fields:
                 node.text = "\n".join(sorted(node.text.splitlines()))
 
-            if field_lines:
-                node.text += "\n"
+            if node.text.strip() and not node.text.endswith("\n\n"):
+                node.add_text_line("\n", only_unique=False)
 
             rec = self.database.records[node.label]
             header = self.header_format.format(rtype=rec.record_type, name=rec.name)
@@ -651,7 +737,7 @@ def graph_links(
     field_format: Optional[str] = None,
     text_format: Optional[str] = None,
     sort_fields: bool = True,
-    show_empty: bool = False,
+    show_empty: bool = True,
     relations: Optional[PVRelations] = None,
     record_types: Optional[Dict[str, RecordType]] = None,
 ) -> RecordLinkGraph:
@@ -740,8 +826,6 @@ def build_script_relations(
 
             owner1 = get_owner(rec1)
             owner2 = get_owner(rec2)
-            # print(rec1_name, owner1, "|", rec2_name, owner2)
-
             if owner1 != owner2:
                 by_script[owner2][owner1].add(rec2_name)
                 by_script[owner1][owner2].add(rec1_name)
