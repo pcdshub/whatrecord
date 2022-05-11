@@ -207,6 +207,11 @@ def main(
 
     if databases_only:
         graph = get_database_graph(*loaded_items, highlight=highlight)
+        if not graph.nodes:
+            logger.warning(
+                "No records found matching the highlight settings: %s",
+                highlight
+            )
     else:
         try:
             item, = loaded_items

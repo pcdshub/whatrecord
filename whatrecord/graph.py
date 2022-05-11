@@ -34,6 +34,26 @@ class GraphNode:
     #: Highlight the node in the graph?
     highlighted: bool = False
 
+    def add_text_line(self, line: str, delimiter: str = "\n", only_unique: bool = True):
+        """
+        Add a line of text to the node.
+
+        Parameters
+        ----------
+        line : str
+            The line to add.
+
+        delimiter : str, optional
+            The between-line delimiter.
+
+        only_unique : bool, optional
+            Only add unique lines to the text.
+        """
+        if not self.text.strip():
+            self.text = line
+        elif not only_unique or line not in self.text:
+            self.text = delimiter.join((self.text, line))
+
     def __hash__(self):
         return hash(self.id)
 
@@ -82,7 +102,9 @@ class _GraphHelper:
             )
             logger.debug("Created node %s", label)
 
-        self.nodes[label].text = text or self.nodes[label].text
+        if text and text.strip():
+            self.nodes[label].add_text_line(text)
+
         return self.nodes[label]
 
     def add_edge(
@@ -571,8 +593,9 @@ class RecordLinkGraph(_GraphHelper):
 
     database: Database
     starting_records: List[str]
+    newline: str = '<br align="left"/>'
     header_format: str = 'record({rtype}, "{name}")'
-    field_format: str = '{field:>4s}: "{value}"'
+    field_format: str = '{field}: "{value}"'
     text_format: str = (
         f"<b>{{header}}</b>"
         f"{_GraphHelper.newline}"
@@ -609,7 +632,7 @@ class RecordLinkGraph(_GraphHelper):
         field_format: Optional[str] = None,
         text_format: Optional[str] = None,
         sort_fields: bool = True,
-        show_empty: bool = False,
+        show_empty: bool = True,
         relations: Optional[PVRelations] = None,
         record_types: Optional[Dict[str, RecordType]] = None,
     ):
@@ -649,13 +672,9 @@ class RecordLinkGraph(_GraphHelper):
                 if field.name == "PROC":
                     ...
                 elif field.value or self.show_empty:
-                    text_line = self.field_format.format(
-                        field=field.name, value=field.value
+                    node.add_text_line(
+                        self.field_format.format(field=field.name, value=field.value)
                     )
-                    if not node.text.strip():
-                        node.text = text_line
-                    elif text_line not in node.text:
-                        node.text = "\n".join((node.text, text_line))
 
             if li.field1.dtype == "DBF_INLINK":
                 src, dest = dest, src
@@ -686,12 +705,11 @@ class RecordLinkGraph(_GraphHelper):
                     self.get_node(rec_name)
 
         for node in self.nodes.values():
-            field_lines = node.text
             if self.sort_fields:
                 node.text = "\n".join(sorted(node.text.splitlines()))
 
-            if field_lines:
-                node.text += "\n"
+            if node.text.strip() and not node.text.endswith("\n\n"):
+                node.add_text_line("\n", only_unique=False)
 
             rec = self.database.records[node.label]
             header = self.header_format.format(rtype=rec.record_type, name=rec.name)
@@ -808,8 +826,6 @@ def build_script_relations(
 
             owner1 = get_owner(rec1)
             owner2 = get_owner(rec2)
-            # print(rec1_name, owner1, "|", rec2_name, owner2)
-
             if owner1 != owner2:
                 by_script[owner2][owner1].add(rec2_name)
                 by_script[owner1][owner2].add(rec1_name)
