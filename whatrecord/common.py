@@ -581,8 +581,11 @@ field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% end
                 self.context = other.context
 
 
+# field1, field2, options (CA, CP, CPP, etc.)
+FieldRelation = Tuple[RecordField, RecordField, List[str]]
+
 PVRelations = Dict[
-    str, Dict[str, List[Tuple[RecordField, RecordField, List[str]]]]
+    str, Dict[str, List[FieldRelation]]
 ]
 
 

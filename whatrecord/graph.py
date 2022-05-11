@@ -199,6 +199,81 @@ def _get_links_for_record(
             yield from rec1_rtype.get_links_for_record(record)
 
 
+_unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
+
+
+def _field_from_record_relation(
+    record: Optional[RecordInstance],
+    field_name: str,
+    link_text: str,
+    record_types: Dict[str, RecordType]
+) -> Optional[RecordField]:
+    """
+    Create a RecordField instance based on what we know, given the parameters.
+
+    Parameters
+    ----------
+    record : RecordInstance or None
+        An (optional) record instance, if available in the database.
+
+    field_name : str
+        A field name for the record (field_name).
+
+    link_text : str, optional
+        The link text - likely the record name - referring to ``record``.
+
+    record_types : dict, optional
+        Record type information from a database definition.
+    """
+    if record is None:
+        # Case 1: The linked record is *not* in the database.
+
+        if not is_supported_link(link_text):
+            return None
+
+        return RecordField(
+            dtype="unknown",
+            name=field_name,
+            value="(unknown-record)",
+            context=_unset_ctx,
+        )
+
+    if field_name in record.fields:
+        # Case 2: The linked record is in the database and has a
+        # recognized field name.
+        return copy.deepcopy(record.fields[field_name])
+
+    # Case 3: The linked record is in the database but does not
+    # have a recognized field name.
+    dbd_record_type = record_types.get(record.record_type, None)
+    if dbd_record_type is None:
+        # Record type not in the database?
+        return RecordField(
+            dtype="invalid",
+            name=field_name,
+            value="(invalid-record-type)",
+            context=_unset_ctx,
+        )
+
+    if field_name not in dbd_record_type.fields:
+        # Field name invalid
+        return RecordField(
+            dtype="invalid",
+            name=field_name,
+            value="(invalid-field)",
+            context=_unset_ctx,
+        )
+
+    # Record and field found in provided record_types
+    dbd_record_field = dbd_record_type.fields[field_name]
+    return RecordField(
+        dtype=dbd_record_field.type,
+        name=field_name,
+        value="",
+        context=dbd_record_field.context,
+    )
+
+
 def build_database_relations(
     database: Dict[str, RecordInstance],
     record_types: Optional[Dict[str, RecordType]] = None,
@@ -239,17 +314,13 @@ def build_database_relations(
 
     aliases = aliases or {}
     warned = set()
-    unset_ctx: FullLoadContext = (LoadContext("unknown", 0), )
     by_record = collections.defaultdict(lambda: collections.defaultdict(list))
 
-    # TODO: alias handling?
     for rec1 in database.values():
         rec1_rtype = record_types.get(rec1.record_type, None)
         for field1, link, info in _get_links_for_record(
             rec1, record_types=record_types
         ):
-            # TODO: copied without thinking about implications
-            # due to the removal of st.cmd context as an attempt to reduce
             field1 = copy.deepcopy(field1)
             # field1.context = rec1.context[:1] + field1.context
 
@@ -257,73 +328,34 @@ def build_database_relations(
                 field1.update_from_record_type(rec1_rtype)
 
             if "." in link:
-                link, field2 = link.split(".", 1)
+                link, field2_name = link.split(".", 1)
             elif field1.name == "FLNK":
-                field2 = "PROC"
+                field2_name = "PROC"
             else:
-                field2 = "VAL"
+                field2_name = "VAL"
 
-            rec2 = database.get(aliases.get(link, link), None)
+            rec2_name = aliases.get(link, link)
+            rec2 = database.get(rec2_name, None)
+
+            field2 = _field_from_record_relation(
+                record=rec2,
+                field_name=field2_name,
+                link_text=link,
+                record_types=record_types,
+            )
+
+            if field2 is None:
+                continue
+
             if rec2 is None:
-                # Case 1: The linked record is *not* in the database.
-
-                # TODO: switch to debug; this will be expensive later
-                if not is_supported_link(link):
-                    continue
-
-                rec2_name = link
-                if rec2_name not in warned:
-                    warned.add(rec2_name)
-                    logger.debug(
-                        "Linked record from %s.%s not in database: %s",
-                        rec1.name, field1.name, rec2_name
-                    )
-
-                field2 = RecordField(
-                    dtype="unknown",
-                    name=field2,
-                    value="(unknown-record)",
-                    context=unset_ctx,
+                warned.add(rec2_name)
+                logger.debug(
+                    "Linked record from %s.%s not in database: %s",
+                    rec1.name, field1.name, rec2_name
                 )
-            elif field2 in rec2.fields:
-                # Case 2: The linked record is in the database and has a
-                # recognized field name.
-                rec2_name = rec2.name
-                # TODO: copied without thinking about implications
-                field2 = copy.deepcopy(rec2.fields[field2])
-                # field2.context = rec2.context[:1] + field2.context
             else:
-                # Case 3: The linked record is in the database but does not
-                # have a recognized field name.
-                rec2_name = rec2.name
-                dbd_record_type = record_types.get(rec2.record_type, None)
-                if dbd_record_type is None:
-                    # Record type not in the database?
-                    field2 = RecordField(
-                        dtype="invalid",
-                        name=field2,
-                        value="(invalid-record-type)",
-                        context=unset_ctx,
-                    )
-                elif field2 not in dbd_record_type.fields:
-                    # Field name invalid
-                    field2 = RecordField(
-                        dtype="invalid",
-                        name=field2,
-                        value="(invalid-field)",
-                        context=unset_ctx,
-                    )
-                else:
-                    # Record and field found in provided record_types
-                    dbd_record_field = dbd_record_type.fields[field2]
-                    field2 = RecordField(
-                        dtype=dbd_record_field.type,
-                        name=field2,
-                        value="",
-                        context=dbd_record_field.context,
-                    )
-
-            if rec2 is not None:
+                # We may have updated information about the record field;
+                # but it's possible this is entirely unnecessary (TODO)
                 rec2_type = record_types.get(rec2.record_type, None)
                 if rec2_type is not None:
                     field2.update_from_record_type(rec2_type)
