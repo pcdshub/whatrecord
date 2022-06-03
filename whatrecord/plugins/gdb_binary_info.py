@@ -183,7 +183,7 @@ except Exception as ex:
         "commands": {},
         "base_version": None,
         "variables": {},
-        "error": f"{type(ex).__name__}: {ex}",
+        "error": "{0}: {1}".format(type(ex).__name__, ex),
     }
 finally:
     if OLD_GDB:
