@@ -596,9 +596,13 @@ ScriptPVRelations = Dict[
 
 def get_link_information(link_str: str) -> Tuple[str, List[str]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
+    if isinstance(link_str, (dict, list)):
+        raise ValueError("JSON and PVAccess links are a TODO (sorry!)")
     if not isinstance(link_str, str):
-        # Oh, PVA...
-        raise ValueError("PVA links are TODO, sorry")
+        raise ValueError(
+            f"Unexpected and supported type for get_link_information: "
+            f"{type(link_str)}"
+        )
 
     if " " in link_str:
         # strip off PP/MS/etc (TODO might be useful later)
