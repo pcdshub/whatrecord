@@ -6,7 +6,7 @@ import lark
 import pytest
 
 from ..common import LoadContext
-from ..db import Database, PVAFieldReference, RecordInstance
+from ..db import Database, PVAFieldReference, RecordField, RecordInstance
 
 
 def test_simple():
@@ -147,3 +147,17 @@ record(ai, "rec:X") {
 }
 """
         )
+
+
+def test_list_as_value():
+    db = Database.from_string(
+        """\
+record(ai, "rec:X") {
+    field(VAL, ["test value"])
+}
+""",
+        version=4,
+    )
+    val = db.records["rec:X"].fields["VAL"]
+    assert isinstance(val, RecordField)
+    assert val.value == ("test value",)

@@ -340,3 +340,23 @@ def test_combine_with_alias(dbd: Database):
             ["CP"],
         ),
     ]
+
+
+def test_list_value_graph(dbd: Database):
+    database_1 = {
+        "record_a": create_record(
+            "ai",
+            "record_a",
+            {
+                # Note: field(INP, ["this is a long string array value"])
+                "INP": ("this is a long string array value",),
+                "VAL": "10",
+            },
+        ),
+    }
+
+    # Ensure this doesn't raise
+    graph.build_database_relations(
+        database_1,
+        record_types=dbd.record_types,
+    )
