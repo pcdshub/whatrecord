@@ -15,15 +15,15 @@ from typing import (Any, ClassVar, Dict, Generator, Iterable, List, Optional,
                     Tuple, Union)
 
 import apischema
+from epicsmacrolib import IocshRedirect
 
 from . import common, dbtemplate, graph, settings, util
 from .access_security import AccessSecurityState
 from .asyn import AsynState
 from .autosave import AutosaveState
 from .common import (AnyPath, FullLoadContext, IocMetadata, IocshCmdArgs,
-                     IocshRedirect, IocshResult, IocshScript, LoadContext,
-                     MutableLoadContext, PVRelations,
-                     RecordDefinitionAndInstance, RecordInstance,
+                     IocshResult, IocshScript, LoadContext, MutableLoadContext,
+                     PVRelations, RecordDefinitionAndInstance, RecordInstance,
                      ShellStateHandler, WhatRecord, time_context)
 from .db import Database, DatabaseLoadFailure, LinterResults, RecordType
 from .format import FormatContext

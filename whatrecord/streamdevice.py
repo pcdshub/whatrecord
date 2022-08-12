@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
 
 import lark
+from epicsmacrolib import split_iocsh_line
 
 from . import transformer
 from .common import (AnyPath, FullLoadContext, ShellStateHandler,
                      StringWithContext)
 from .db import PVAFieldReference, RecordInstance
-from .iocsh import split_words
 from .transformer import context_from_token
 
 
@@ -335,7 +335,7 @@ class StreamDeviceState(ShellStateHandler):
         info_field = info_field.value.strip()
         results = {}
         try:
-            proto_file, proto_name, *proto_args = split_words(info_field).argv
+            proto_file, proto_name, *proto_args = split_iocsh_line(info_field).argv
             proto_file = proto_file.lstrip("@ ")
         except Exception:
             results["error"] = (
