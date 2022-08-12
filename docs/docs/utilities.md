@@ -2,8 +2,6 @@
 
 ## Macros
 
-EPICS-compliant macro parsing by way of a Cython wrapper of macLib.
-
 ::: whatrecord.macro
 
 ## PV Graphing

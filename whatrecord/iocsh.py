@@ -1,12 +1,11 @@
 from typing import Optional
 
-from _whatrecord.common import IocshRedirect, IocshSplit
-from _whatrecord.iocsh import split_words
+from epicsmacrolib import IocshRedirect, IocshSplit, split_iocsh_line
 
 from .common import IocshResult, LoadContext
 from .macro import MacroContext
 
-__all__ = ["split_words", "parse_iocsh_line", "IocshRedirect", "IocshSplit"]
+__all__ = ["split_iocsh_line", "parse_iocsh_line", "IocshRedirect", "IocshSplit"]
 
 
 def parse_iocsh_line(
@@ -69,7 +68,7 @@ def parse_iocsh_line(
     if not line or line.startswith('#'):
         return result
 
-    split = split_words(line, string_encoding=string_encoding)
+    split = split_iocsh_line(line, string_encoding=string_encoding)
     result.argv = split.argv
 
     # Only set the following if necessary; apischema can skip serialization

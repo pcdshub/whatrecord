@@ -93,11 +93,6 @@ Requirements:
 * jinja2
 * lark
 
-Build requirements:
-
-* cython
-* epicscorelibs
-
 Frontend Screenshots
 --------------------
 

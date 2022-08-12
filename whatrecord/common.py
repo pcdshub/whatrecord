@@ -15,9 +15,8 @@ from typing import (Any, Callable, ClassVar, Dict, Generator, List, Optional,
                     Sequence, Tuple, Union)
 
 import apischema
+import epicsmacrolib
 import lark
-
-from _whatrecord.common import IocshRedirect
 
 if typing.TYPE_CHECKING:
     from .shell import ShellState
@@ -121,7 +120,7 @@ class IocshResult:
     outputs: List[str] = field(default_factory=list)
     argv: Optional[List[str]] = None
     error: Optional[str] = None
-    redirects: List[IocshRedirect] = field(default_factory=list)
+    redirects: List[epicsmacrolib.IocshRedirect] = field(default_factory=list)
     # TODO: normalize this
     # result: Optional[Union[str, Dict[str, str], IocshCmdArgs, ShortLinterResults]]
     result: Any = None
