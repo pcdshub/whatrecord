@@ -596,9 +596,13 @@ ScriptPVRelations = Dict[
 
 def get_link_information(link_str: str) -> Tuple[str, List[str]]:
     """Get link information from a DBF_{IN,OUT,FWD}LINK value."""
-    if isinstance(link_str, dict):
-        # Oh, PVA...
-        raise ValueError("PVA links are TODO, sorry")
+    if isinstance(link_str, (dict, list)):
+        raise ValueError("JSON and PVAccess links are a TODO (sorry!)")
+    if not isinstance(link_str, str):
+        raise ValueError(
+            f"Unexpected and supported type for get_link_information: "
+            f"{type(link_str)}"
+        )
 
     if " " in link_str:
         # strip off PP/MS/etc (TODO might be useful later)
@@ -760,12 +764,16 @@ class RecordType:
 
         for field_type_info in self.get_fields_of_type(*LINK_TYPES):
             field_instance = record.fields.get(field_type_info.name, None)
-            if field_instance and not isinstance(field_instance, PVAFieldReference):
-                try:
-                    link, info = get_link_information(field_instance.value)
-                except ValueError:
-                    continue
-                yield field_instance, link, info
+            if field_instance is None:
+                continue
+            elif isinstance(field_instance, PVAFieldReference):
+                continue
+
+            try:
+                link, info = get_link_information(field_instance.value)
+            except ValueError:
+                continue
+            yield field_instance, link, info
 
     def get_fields_of_type(self, *types: str) -> Generator[RecordTypeField, None, None]:
         """Get all fields of the matching type(s)."""

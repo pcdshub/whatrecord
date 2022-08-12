@@ -3,6 +3,9 @@ import os
 import shutil
 import sys
 
+if sys.platform == "darwin":
+    os.environ.setdefault("MACOSX_DEPLOYMENT_TARGET", "10.9")
+
 if os.environ.get("CONDA_BUILD_STATE") == "RENDER":
     epicscorelibs = None
 else:
