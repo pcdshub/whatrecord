@@ -24,13 +24,15 @@ requirements:
       - lark-parser
       - python-graphviz <0.18
 
-test:
-    imports:
-      - whatrecord
-    requires:
-      - pytest
-      - pytest-aiohttp
-      - epics-base
+# NOTE: this is skipped for now as epicsmacrolib is missing on conda, so
+# we have another pip install step prior to being able to run tests.
+# test:
+#     imports:
+#       - whatrecord
+#     requires:
+#       - pytest
+#       - pytest-aiohttp
+#       - epics-base
 
 about:
   home: https://github.com/pcdshub/whatrecord
