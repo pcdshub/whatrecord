@@ -1,30 +1,28 @@
 {% set data = load_setup_py_data() %}
 
 package:
-    name    : whatrecord
-    version : {{ data.get('version') }}
+    name: whatrecord
+    version: {{ data.get('version') }}
 
 source:
     path: ..
 
 build:
     number: 0
+    noarch: python
 
 requirements:
     build:
       - python {{PY_VER}}*
-      - setuptools
-      - epicscorelibs
-      - setuptools_dso
-      - cython
+      - pip
     run:
       - python {{PY_VER}}*
       - aiohttp
+      - apischema
       - graphviz
-      - python-graphviz <0.18
       - jinja2
       - lark-parser
-      - apischema
+      - python-graphviz <0.18
 
 test:
     imports:

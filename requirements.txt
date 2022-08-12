@@ -1,5 +1,6 @@
 aiohttp
 apischema[graphql]
+epicsmacrolib
 graphviz <0.18
 jinja2
 lark

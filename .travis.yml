@@ -83,6 +83,8 @@ jobs:
 
         - conda create -n ${CONDA_ENV_NAME} python=$PYTHON_VERSION ${CONDA_PACKAGE} ${CONDA_EXTRAS}
         - source activate ${CONDA_ENV_NAME}
+        # epicsmacrolib is not yet on conda-forge
+        - python -m pip install --requirement requirements.txt
         - python -m pip install --requirement dev-requirements.txt
         - conda list
       script:

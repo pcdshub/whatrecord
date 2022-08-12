@@ -1,6 +1,6 @@
 from typing import Dict
 
-from _whatrecord.macro import MacroContext
+from epicsmacrolib import MacroContext
 
 
 def macros_from_string(

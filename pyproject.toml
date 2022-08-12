@@ -1,10 +1,6 @@
 [build-system]
 requires = [
-    "cython",
-    "epicscorelibs",
     "setuptools",
-    "setuptools_dso",
-    "wheel",
 ]
 
 [tool.pytest.ini_options]
