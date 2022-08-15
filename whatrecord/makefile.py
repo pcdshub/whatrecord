@@ -104,8 +104,12 @@ class Makefile:
     filename: Optional[pathlib.Path] = None
     #: The working directory used when invoking make:
     working_directory: pathlib.Path = field(default_factory=pathlib.Path)
+    #: RELEASE_TOPS with absolute paths that are missing Makefiles.
+    missing_paths: List[str] = field(default_factory=list)
 
-    def find_release_paths(self, check: bool = True) -> Dict[str, pathlib.Path]:
+    def find_release_paths(
+        self,
+    ) -> Tuple[Dict[str, pathlib.Path], Dict[str, pathlib.Path]]:
         """
         Find paths defined in RELEASE.
 
@@ -114,10 +118,20 @@ class Makefile:
         check : bool, optional
             Check that the release path includes a ``configure`` directory and
             a ``Makefile``.
+
+        Returns
+        -------
+        valid : dict of str to pathlib.Path
+            Variables that hold paths to other dependencies with a Makefile
+            are added to this list.
+        invalid : dict of str to pathlib.Path
+            Variables that look like paths that do not exist on the filesystem
+            are added to this list.
         """
         # TODO: are the checks here appropriate? Perhaps just a simple
         # ``path/Makefile`` check is sufficient for the build system.
-        results = {}
+        valid_paths = {}
+        invalid_paths = {}
         for var in self.release_top_vars:
             value = self.env.get(var, "").strip()
             if not value:
@@ -127,12 +141,23 @@ class Makefile:
             # WindowsPath on linux anyway:
             try:
                 path = (self.working_directory / value).resolve()
-                if not check or (path / "Makefile").is_file():
-                    results[var] = path
+                if (path / "Makefile").is_file():
+                    valid_paths[var] = path
+                elif any(
+                    (
+                        value.startswith("/"),
+                        value.startswith("\\"),
+                        value.startswith("../"),
+                        value.startswith("..\\"),
+                    )
+                ):
+                    # Only mark up invalid values that _look_ like either
+                    # relative or absolute paths
+                    invalid_paths[var] = path
             except Exception:
                 ...
 
-        return results
+        return valid_paths, invalid_paths
 
     @classmethod
     def _get_section(cls, output: str, section: str) -> str:
@@ -466,6 +491,8 @@ class Dependency:
     dependents: List[pathlib.Path] = field(default_factory=list)
     #: Modules (etc.) are required for this instance
     dependencies: List[pathlib.Path] = field(default_factory=list)
+    #: Modules paths without Makefiles (misconfigured or maybe not installed).
+    missing_paths: Dict[str, pathlib.Path] = field(default_factory=dict)
     #: The "root" node.  ``None`` to refer to itself.
     root: Optional[DependencyGroup] = field(default=None, metadata=apischema.metadata.skip)
 
@@ -505,13 +532,15 @@ class Dependency:
         if not recurse:
             return this_dep
 
-        for variable_name, path in makefile.find_release_paths().items():
+        valid_paths, invalid_paths = makefile.find_release_paths()
+        for variable_name, path in valid_paths.items():
             if path in root.all_modules:
                 release_dep = root.all_modules[path]
             else:
                 try:
                     dep_makefile_path = Makefile.find_makefile(path)
                 except FileNotFoundError:
+                    this_dep.missing_paths[variable_name] = path
                     continue
 
                 dep_makefile = Makefile.from_file(
@@ -528,6 +557,7 @@ class Dependency:
             release_dep.dependents.append(this_dep.path)
             this_dep.dependencies.append(release_dep.path)
 
+        this_dep.missing_paths = invalid_paths
         return this_dep
 
 
