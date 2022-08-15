@@ -10,7 +10,7 @@ import argparse
 import json
 import logging
 import sys
-from typing import Optional
+from typing import List, Optional
 
 import apischema
 
@@ -63,6 +63,15 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
+        "-d",
+        "--define",
+        dest="defines",
+        type=str,
+        nargs="*",
+        help="Define a variable for GNU make in the form: VARIABLE=VALUE",
+    )
+
+    parser.add_argument(
         "-o", "--graph-output",
         type=str,
         required=False,
@@ -79,10 +88,14 @@ def main(
     keep_os_env: bool = False,
     graph: bool = False,
     graph_output: Optional[str] = None,
+    defines: Optional[List[str]] = None,
     file=sys.stdout,
 ):
+    variables = dict(variable.split("=", 1) for variable in defines or [])
     makefile_path = Makefile.find_makefile(path)
-    makefile = Makefile.from_file(makefile_path, keep_os_env=keep_os_env)
+    makefile = Makefile.from_file(
+        makefile_path, keep_os_env=keep_os_env, variables=variables
+    )
     info = DependencyGroup.from_makefile(
         makefile, recurse=not no_recurse, keep_os_env=keep_os_env
     )

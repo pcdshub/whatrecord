@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import textwrap
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import apischema
 import graphviz as gv
@@ -216,6 +216,7 @@ class Makefile:
         filename: Optional[AnyPath] = None,
         working_directory: Optional[AnyPath] = None,
         keep_os_env: bool = False,
+        variables: Optional[Dict[str, str]] = None,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -238,6 +239,9 @@ class Makefile:
         keep_os_env : bool, optional
             Keep environment variables in ``.env`` from outside of ``make``,
             as in those present in ``os.environ`` when executing ``make``.
+
+        variables : dict of str to str
+            Variable overrides to pass to ``make``.
 
         encoding : str, optional
             String encoding to use.
@@ -272,8 +276,22 @@ class Makefile:
         # Shell updates this variable and Makefiles may rely on it:
         env["PWD"] = str(working_directory)
 
+        custom_defines = dict(variables or {})
+        custom_defines["_DEPENDENCY_CHECK_"] = "1"
+        custom_args = [
+            f"{variable}={value}"
+            for variable, value in custom_defines.items()
+        ]
+
         result = subprocess.run(
-            ["make", "--silent", "--file=-", _whatrecord_target],
+            [
+                "make",
+                "--silent",
+                "--keep-going",
+                "--file=-",
+                _whatrecord_target,
+                *custom_args,
+            ],
             input=full_contents.encode(encoding),
             cwd=working_directory,
             capture_output=True,
@@ -299,6 +317,7 @@ class Makefile:
         filename: Optional[AnyPath] = None,
         working_directory: Optional[AnyPath] = None,
         keep_os_env: bool = False,
+        variables: Optional[Dict[str, str]] = None,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -322,6 +341,9 @@ class Makefile:
             Keep environment variables in ``.env`` from outside of ``make``,
             as in those present in ``os.environ`` when executing ``make``.
 
+        variables : dict of str to str
+            Variable overrides to pass to ``make``.
+
         encoding : str, optional
             String encoding to use.
 
@@ -341,6 +363,7 @@ class Makefile:
             working_directory=working_directory,
             encoding=encoding,
             keep_os_env=keep_os_env,
+            variables=variables,
         )
 
     @classmethod
@@ -349,6 +372,7 @@ class Makefile:
         filename: AnyPath,
         working_directory: Optional[AnyPath] = None,
         keep_os_env: bool = False,
+        variables: Optional[Dict[str, str]] = None,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -367,6 +391,9 @@ class Makefile:
         keep_os_env : bool, optional
             Keep environment variables in ``.env`` from outside of ``make``,
             as in those present in ``os.environ`` when executing ``make``.
+
+        variables : dict of str to str
+            Variable overrides to pass to ``make``.
 
         encoding : str, optional
             String encoding to use.
@@ -389,6 +416,7 @@ class Makefile:
             working_directory=working_directory,
             encoding=encoding,
             keep_os_env=keep_os_env,
+            variables=variables,
         )
 
     @staticmethod
