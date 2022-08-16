@@ -581,6 +581,7 @@ class DependencyGroup:
         *,
         keep_os_env: bool = False,
         name: Optional[str] = None,
+        variable_name: Optional[str] = None,
     ) -> DependencyGroup:
         if makefile.filename is None:
             raise ValueError("The provided Makefile must have a path")
@@ -593,6 +594,7 @@ class DependencyGroup:
             keep_os_env=keep_os_env,
             root=info,
             recurse=recurse,
+            variable_name=variable_name,
         )
         return info
 
