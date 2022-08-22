@@ -488,9 +488,9 @@ class Dependency:
     #: The parsed Makefile information for this dependency
     makefile: Makefile = field(default_factory=Makefile)
     #: Modules (etc.) which depend on this instance
-    dependents: List[pathlib.Path] = field(default_factory=list)
+    dependents: Dict[str, pathlib.Path] = field(default_factory=dict)
     #: Modules (etc.) are required for this instance
-    dependencies: List[pathlib.Path] = field(default_factory=list)
+    dependencies: Dict[str, pathlib.Path] = field(default_factory=dict)
     #: Modules paths without Makefiles (misconfigured or maybe not installed).
     missing_paths: Dict[str, pathlib.Path] = field(default_factory=dict)
     #: The "root" node.  ``None`` to refer to itself.
@@ -519,8 +519,8 @@ class Dependency:
             variable_name=variable_name,
             path=path,
             makefile=makefile,
-            dependents=[],
-            dependencies=[],
+            dependents={},
+            dependencies={},
             root=root,
         )
 
@@ -554,8 +554,8 @@ class Dependency:
                     variable_name=variable_name,
                     root=root,
                 )
-            release_dep.dependents.append(this_dep.path)
-            this_dep.dependencies.append(release_dep.path)
+            release_dep.dependents[this_dep.variable_name] = this_dep.path
+            this_dep.dependencies[variable_name] = release_dep.path
 
         this_dep.missing_paths = invalid_paths
         return this_dep
@@ -661,7 +661,7 @@ class DependencyGroupGraph(_GraphHelper):
             # Misconfiguration?
             return
 
-        for dep_path in item.dependencies:
+        for _, dep_path in item.dependencies.items():
             dep = item.root.all_modules[dep_path]
             self.add_dependency(dep)
             self.add_edge(str(item.path), str(dep.path))
