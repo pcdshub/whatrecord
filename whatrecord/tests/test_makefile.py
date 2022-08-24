@@ -248,27 +248,29 @@ def test_dependency_group_base_and_layers():
     assert len(group.all_modules) == 5
 
     # Base
-    assert set(base.dependents) == {ma.path, mb.path, mc.path, ioc_path}
-    assert len(base.dependents) == 4
+    assert base.dependents == {
+        "MODULE_A": ma.path,
+        "MODULE_B": mb.path,
+        "MODULE_C": mc.path,
+        None: ioc_path,
+    }
     assert len(base.dependencies) == 0
 
     # module a
-    assert set(ma.dependencies) == {base.path}
-    assert len(ma.dependencies) == 1
-    assert set(ma.dependents) == {mc.path}
-    assert len(ma.dependents) == 1
+    assert ma.dependencies == {"EPICS_BASE": base.path}
+    assert ma.dependents == {"MODULE_C": mc.path}
 
     # module b
-    assert set(mb.dependencies) == {base.path}
-    assert len(mb.dependents) == 1
-    assert set(mb.dependents) == {mc.path}
-    assert len(mb.dependents) == 1
+    assert mb.dependencies == {"EPICS_BASE": base.path}
+    assert mb.dependents == {"MODULE_C": mc.path}
 
     # module c
-    assert set(mc.dependencies) == {base.path, ma.path, mb.path}
-    assert len(mc.dependencies) == 3
-    assert set(mc.dependents) == {ioc_path}
-    assert len(mc.dependents) == 1
+    assert mc.dependencies == {
+        "EPICS_BASE": base.path,
+        "MODULE_A": ma.path,
+        "MODULE_B": mb.path,
+    }
+    assert mc.dependents == {None: ioc_path}
 
 
 @skip_without_make
