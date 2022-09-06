@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import textwrap
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import apischema
 import graphviz as gv
@@ -51,6 +51,7 @@ _make_helper: str = fr"""
     @echo "{_section_end_marker}"
     @echo "{_section_start_marker}make_features"
     @echo "$(.FEATURES)"
+    @echo "{_section_end_marker}"
     @echo "{_section_start_marker}include_dirs"
     @echo "$(.INCLUDE_DIRS)"
     @echo "{_section_end_marker}"
@@ -103,8 +104,12 @@ class Makefile:
     filename: Optional[pathlib.Path] = None
     #: The working directory used when invoking make:
     working_directory: pathlib.Path = field(default_factory=pathlib.Path)
+    #: RELEASE_TOPS with absolute paths that are missing Makefiles.
+    missing_paths: List[str] = field(default_factory=list)
 
-    def find_release_paths(self, check: bool = True) -> Dict[str, pathlib.Path]:
+    def find_release_paths(
+        self,
+    ) -> Tuple[Dict[str, pathlib.Path], Dict[str, pathlib.Path]]:
         """
         Find paths defined in RELEASE.
 
@@ -113,10 +118,20 @@ class Makefile:
         check : bool, optional
             Check that the release path includes a ``configure`` directory and
             a ``Makefile``.
+
+        Returns
+        -------
+        valid : dict of str to pathlib.Path
+            Variables that hold paths to other dependencies with a Makefile
+            are added to this list.
+        invalid : dict of str to pathlib.Path
+            Variables that look like paths that do not exist on the filesystem
+            are added to this list.
         """
         # TODO: are the checks here appropriate? Perhaps just a simple
         # ``path/Makefile`` check is sufficient for the build system.
-        results = {}
+        valid_paths = {}
+        invalid_paths = {}
         for var in self.release_top_vars:
             value = self.env.get(var, "").strip()
             if not value:
@@ -126,12 +141,23 @@ class Makefile:
             # WindowsPath on linux anyway:
             try:
                 path = (self.working_directory / value).resolve()
-                if not check or (path / "Makefile").is_file():
-                    results[var] = path
+                if (path / "Makefile").is_file():
+                    valid_paths[var] = path
+                elif any(
+                    (
+                        value.startswith("/"),
+                        value.startswith("\\"),
+                        value.startswith("../"),
+                        value.startswith("..\\"),
+                    )
+                ):
+                    # Only mark up invalid values that _look_ like either
+                    # relative or absolute paths
+                    invalid_paths[var] = path
             except Exception:
                 ...
 
-        return results
+        return valid_paths, invalid_paths
 
     @classmethod
     def _get_section(cls, output: str, section: str) -> str:
@@ -216,6 +242,7 @@ class Makefile:
         filename: Optional[AnyPath] = None,
         working_directory: Optional[AnyPath] = None,
         keep_os_env: bool = False,
+        variables: Optional[Dict[str, str]] = None,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -238,6 +265,9 @@ class Makefile:
         keep_os_env : bool, optional
             Keep environment variables in ``.env`` from outside of ``make``,
             as in those present in ``os.environ`` when executing ``make``.
+
+        variables : dict of str to str
+            Variable overrides to pass to ``make``.
 
         encoding : str, optional
             String encoding to use.
@@ -272,8 +302,22 @@ class Makefile:
         # Shell updates this variable and Makefiles may rely on it:
         env["PWD"] = str(working_directory)
 
+        custom_defines = dict(variables or {})
+        custom_defines["_DEPENDENCY_CHECK_"] = "1"
+        custom_args = [
+            f"{variable}={value}"
+            for variable, value in custom_defines.items()
+        ]
+
         result = subprocess.run(
-            ["make", "--silent", "--file=-", _whatrecord_target],
+            [
+                "make",
+                "--silent",
+                "--keep-going",
+                "--file=-",
+                _whatrecord_target,
+                *custom_args,
+            ],
             input=full_contents.encode(encoding),
             cwd=working_directory,
             capture_output=True,
@@ -299,6 +343,7 @@ class Makefile:
         filename: Optional[AnyPath] = None,
         working_directory: Optional[AnyPath] = None,
         keep_os_env: bool = False,
+        variables: Optional[Dict[str, str]] = None,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -322,6 +367,9 @@ class Makefile:
             Keep environment variables in ``.env`` from outside of ``make``,
             as in those present in ``os.environ`` when executing ``make``.
 
+        variables : dict of str to str
+            Variable overrides to pass to ``make``.
+
         encoding : str, optional
             String encoding to use.
 
@@ -341,6 +389,7 @@ class Makefile:
             working_directory=working_directory,
             encoding=encoding,
             keep_os_env=keep_os_env,
+            variables=variables,
         )
 
     @classmethod
@@ -349,6 +398,7 @@ class Makefile:
         filename: AnyPath,
         working_directory: Optional[AnyPath] = None,
         keep_os_env: bool = False,
+        variables: Optional[Dict[str, str]] = None,
         encoding: str = "utf-8",
     ) -> Makefile:
         """
@@ -367,6 +417,9 @@ class Makefile:
         keep_os_env : bool, optional
             Keep environment variables in ``.env`` from outside of ``make``,
             as in those present in ``os.environ`` when executing ``make``.
+
+        variables : dict of str to str
+            Variable overrides to pass to ``make``.
 
         encoding : str, optional
             String encoding to use.
@@ -389,6 +442,7 @@ class Makefile:
             working_directory=working_directory,
             encoding=encoding,
             keep_os_env=keep_os_env,
+            variables=variables,
         )
 
     @staticmethod
@@ -434,9 +488,11 @@ class Dependency:
     #: The parsed Makefile information for this dependency
     makefile: Makefile = field(default_factory=Makefile)
     #: Modules (etc.) which depend on this instance
-    dependents: List[pathlib.Path] = field(default_factory=list)
+    dependents: Dict[str, pathlib.Path] = field(default_factory=dict)
     #: Modules (etc.) are required for this instance
-    dependencies: List[pathlib.Path] = field(default_factory=list)
+    dependencies: Dict[str, pathlib.Path] = field(default_factory=dict)
+    #: Modules paths without Makefiles (misconfigured or maybe not installed).
+    missing_paths: Dict[str, pathlib.Path] = field(default_factory=dict)
     #: The "root" node.  ``None`` to refer to itself.
     root: Optional[DependencyGroup] = field(default=None, metadata=apischema.metadata.skip)
 
@@ -463,8 +519,8 @@ class Dependency:
             variable_name=variable_name,
             path=path,
             makefile=makefile,
-            dependents=[],
-            dependencies=[],
+            dependents={},
+            dependencies={},
             root=root,
         )
 
@@ -476,13 +532,15 @@ class Dependency:
         if not recurse:
             return this_dep
 
-        for variable_name, path in makefile.find_release_paths().items():
+        valid_paths, invalid_paths = makefile.find_release_paths()
+        for variable_name, path in valid_paths.items():
             if path in root.all_modules:
                 release_dep = root.all_modules[path]
             else:
                 try:
                     dep_makefile_path = Makefile.find_makefile(path)
                 except FileNotFoundError:
+                    this_dep.missing_paths[variable_name] = path
                     continue
 
                 dep_makefile = Makefile.from_file(
@@ -496,9 +554,10 @@ class Dependency:
                     variable_name=variable_name,
                     root=root,
                 )
-            release_dep.dependents.append(this_dep.path)
-            this_dep.dependencies.append(release_dep.path)
+            release_dep.dependents[this_dep.variable_name] = this_dep.path
+            this_dep.dependencies[variable_name] = release_dep.path
 
+        this_dep.missing_paths = invalid_paths
         return this_dep
 
 
@@ -522,6 +581,7 @@ class DependencyGroup:
         *,
         keep_os_env: bool = False,
         name: Optional[str] = None,
+        variable_name: Optional[str] = None,
     ) -> DependencyGroup:
         if makefile.filename is None:
             raise ValueError("The provided Makefile must have a path")
@@ -534,6 +594,7 @@ class DependencyGroup:
             keep_os_env=keep_os_env,
             root=info,
             recurse=recurse,
+            variable_name=variable_name,
         )
         return info
 
@@ -600,7 +661,7 @@ class DependencyGroupGraph(_GraphHelper):
             # Misconfiguration?
             return
 
-        for dep_path in item.dependencies:
+        for _, dep_path in item.dependencies.items():
             dep = item.root.all_modules[dep_path]
             self.add_dependency(dep)
             self.add_edge(str(item.path), str(dep.path))
