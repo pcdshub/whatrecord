@@ -93,6 +93,14 @@ Requirements:
 * jinja2
 * lark
 
+Docker
+------
+
+See `/docker </docker>`_ to set up a Python 3.10-based whatrecord container.
+A docker-compose configuration for starting up the frontend/backend servers
+is also provided.  Note that the default configuration only indexes the
+whatrecord-provided IOCs.
+
 Frontend Screenshots
 --------------------
 

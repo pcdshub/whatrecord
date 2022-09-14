@@ -1,0 +1,38 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  whatrecord-frontend:
+    env_file:
+      - .env
+    image: node:18.9-alpine
+    working_dir: /usr/src/app
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    volumes:
+      - ../frontend:/usr/src/app
+    command: ["yarn", "serve", "--port", "${FRONTEND_PORT}"]
+    depends_on:
+      - whatrecord
+  whatrecord:
+    env_file:
+      - .env
+    build:
+      context: ../
+      # with respect to the build context:
+      dockerfile: docker/Dockerfile
+      args:
+        - PIP_EXTRAS=happi pytmc pytest pytest-aiohttp
+    image: pcdshub/whatrecord:latest
+    command: /bin/bash -c "
+      echo Cache contents;
+      ls -la /var/lib/whatrecord/cache;
+      echo Startup scripts to use;
+      ls -la /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd;
+      echo Running server...;
+      whatrecord server --port=${API_PORT} --scripts /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd
+      "
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    volumes:
+      - whatrecord-cache:/var/lib/whatrecord/cache
+volumes:
+  whatrecord-cache: {}
