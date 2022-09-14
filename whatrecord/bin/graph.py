@@ -199,7 +199,7 @@ def main(
         for filename in filenames
     ]
 
-    if all(isinstance(item, DatabaseItem) for item in loaded_items):
+    if all(isinstance(item, (LoadedIoc, Database)) for item in loaded_items):
         loaded_items = cast(List[DatabaseItem], loaded_items)
         graph = get_database_graph(*loaded_items, highlight=highlight)
         if not graph.nodes:
