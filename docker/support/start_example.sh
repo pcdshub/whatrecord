@@ -13,4 +13,5 @@ ls -la /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd
 echo Running API server on port ${API_PORT}...
 whatrecord server \
   --port=${API_PORT} \
+  --gateway-config=/usr/share/whatrecord/support/gateway/ \
   --scripts /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd

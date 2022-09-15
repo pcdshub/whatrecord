@@ -1,0 +1,109 @@
+EVALUATION ORDER ALLOW, DENY
+
+# Some whatrecord sample matches:
+IOC:KFE:.*      DENY
+IOC:PVA:.*      ALLOW
+IOC:autosave:.*      ALLOW
+
+# And some original ones from https://github.com/pcdshub/gateway-setup
+.*LAS.*                 ALLOW
+.*UND.*                 ALLOW
+ztec1.*                 ALLOW
+LTLHN.*                 ALLOW
+LXLHN.*                 ALLOW
+CYCLE:P104:.*           ALLOW
+
+NET:CAG:LAS.*           ALLOW RWALL 1
+
+NET:CAG:LAS:SXR.*       DENY
+NET:CAG:LAS:XPP.*       DENY
+NET:CAG:LAS:FS:WAVE.*   DENY
+NET:CAG:LAS:RFC:WAVE.*  DENY
+NET:CAG:LAS:UND:MISC.*  DENY
+
+# AMO R/W Access
+LAS:R51:.*              DENY
+EVR:LAS:LHN:04:.*       ALLOW RWTMO 1
+
+# SXR R/W Access
+LAS:R52:.*              DENY
+LAS:FS2.*               DENY
+SXR:.*                  DENY
+
+# XPP R/W Access
+LAS:XPP:.*              DENY
+LAS:R54:.*              DENY
+EVR:LAS:LHN:01:.*       ALLOW RWXPP 1
+
+# XCS R/W Access
+LAS:XCS:.*              DENY
+XCS:LAS:.*              DENY
+
+# MFX R/W Access
+LAS:MFX:.*              ALLOW RWMFX 1
+EVR:LAS:MFX:.*          ALLOW RWMFX 1
+MFX:LAS:.*              ALLOW RWMFX 1
+LAS:FS45:.*             ALLOW RWMFX 1
+
+# CXI R/W Access
+CXI:.*                  ALLOW RWCXI 1
+LAS:FS5:.*              ALLOW RWCXI 1
+EVR:LAS:CXI:01.*        ALLOW RWCXI 1
+IOC:LAS:CXI:EVR:01.*    ALLOW RWCXI 1
+LAS:R52B:AIN.*          ALLOW RWCXI 1
+LAS:R52B:AOU.*          ALLOW RWCXI 1
+
+# MEC R/W Access
+MEC:.*                  ALLOW RWMEC 1
+LAS:MEC:.*              ALLOW RWMEC 1
+LAS:FS6:.*              ALLOW RWMEC 1
+
+# Allow mcc to write to ephotk user PVs
+# For some reason these are in las subnet
+MEC:USER:MCC:EPHOT.*    ALLOW RWINSTRMCC 1
+
+# All instruments R/W Access
+LAS:FS1:Angle:Shift:Ramp:Target  DENY
+LAS:FS2:Angle:Shift:Ramp:Target  DENY
+LAS:FS3:.*                       DENY
+LAS:FS4:.*                       DENY
+
+# Laser Hall Bays R/W Access
+LAS:FS11:.*             ALLOW RWINSTR 1
+LAS:FS14:.*             ALLOW RWINSTR 1
+
+# Laser Hall, temporary, allow ADC PVs to XPP and TMO
+LAS:LHN:ADC:01:.*       ALLOW RWXPP 1
+LAS:LHN:ADC:04:.*       ALLOW RWSXR 1
+
+# Laser Hall Shutters R/W Access
+LTLHN.*LST.*            ALLOW RWINSTR 1
+
+# All Undulator Hall PV's go through a different gateway
+UND:.*                  DENY
+
+# RF Phase Cavity phase control PV's go through a different gateway
+LAS:UND:MMS:.*          DENY
+
+# Deny fast history PVs
+LAS*_LAST_*             DENY
+
+# Temporary, ACR/AD/MCC Access
+LAS:UNDS:FLOAT:05       ALLOW RWMCC 1
+LAS:UNDS:FLOAT:06       ALLOW RWMCC 1
+LAS:UNDH:FLOAT:05       ALLOW RWMCC 1
+LAS:UNDH:FLOAT:06       ALLOW RWMCC 1
+
+# Temporary
+LAS:UNDH:FLOAT:15       ALLOW RWINSTR 1
+
+# fstiming unit 0 waveforms go through different gateway
+LAS:FS0:WAVE.*          DENY
+
+# why is this at the bottom?
+NET:CAG:LAS:AMO.*           DENY
+# Keep this as the last pattern please
+# Add write permission for gateway diagnostic pvs
+# To reread config file:
+#        caput NET:CAG:LAS:newAsFlag 1
+NET:CAG:LAS.*      ALLOW RWALL 1
