@@ -4,7 +4,7 @@ TEST_ARGS ?= pytest --pyargs whatrecord -v
 INSPECT_ARGS ?= /bin/bash --login
 CACHE_VOLUME_NAME ?= docker_whatrecord-cache
 IOC_BINARY ?= $(shell which softIoc)
-EXTRA_RUN_ARGS ?= -v "$(CACHE_VOLUME_NAME):/var/lib/whatrecord/cache" -v $(IOC_BINARY):/ioc/softIoc
+EXTRA_RUN_ARGS ?= -v "$(CACHE_VOLUME_NAME):/var/lib/whatrecord/cache"
 
 all: build-image run-test
 
@@ -28,10 +28,12 @@ inspect:
 
 gdb-info:
 	if [ ! -f "$(IOC_BINARY)" ]; then \
-		echo "Try make gdb-info IOC_BINARY=/path/to/linux-x86_64/softIoc"; exit 1; \
+		echo "Try make gdb-info IOC_BINARY=/path/to/linux-x86_64/softIoc"; \
+		exit 1; \
 	fi
 	echo "Running gdb-info on host file: $(IOC_BINARY)"
-	docker run -it -v $(IOC_BINARY):/ioc/softIoc \
+	docker run -it \
+		-v $(IOC_BINARY):/ioc/softIoc \
 		$(IMAGE) \
 		gdb \
 		--batch-silent \
