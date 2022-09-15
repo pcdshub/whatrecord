@@ -3,8 +3,10 @@
 
 FROM python:3.10.7-bullseye
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get -y update && \
-    apt-get -y install build-essential graphviz gdb && \
+    apt-get -y install build-essential graphviz gdb libldap2-dev  && \
     apt-get clean
 
 ARG SDIST
@@ -19,6 +21,6 @@ WORKDIR /ioc
 
 RUN echo 'whatrecord parse iocBoot/ioc-*/st.cmd' >> ~/.bash_history
 RUN echo 'whatrecord lint iocBoot/ioc-*/st.cmd' >> ~/.bash_history
-RUN echo "pytest -v $(python -c 'import os, whatrecord; print(os.path.dirname(whatrecord.__file__))')" >> ~/.bash_history
+RUN echo "pytest -v --pyargs whatrecord" >> ~/.bash_history
 
 CMD ["whatrecord", "--help"]
