@@ -4,7 +4,7 @@ TEST_ARGS ?= pytest --pyargs whatrecord -v
 INSPECT_ARGS ?= /bin/bash --login
 CACHE_VOLUME_NAME ?= docker_whatrecord-cache
 IOC_BINARY ?= $(shell which softIoc)
-EXTRA_RUN_ARGS ?= -v "$(CACHE_VOLUME_NAME):/var/lib/whatrecord/cache"
+EXTRA_RUN_ARGS ?= -v "$(CACHE_VOLUME_NAME):/var/lib/whatrecord/cache" -v $(PWD)/support:/usr/share/whatrecord/support --env-file .env
 
 all: build-image run-test
 

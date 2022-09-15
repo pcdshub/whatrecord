@@ -20,7 +20,7 @@ services:
       # with respect to the build context:
       dockerfile: docker/Dockerfile
       args:
-        - PIP_EXTRAS=happi pytmc pytest pytest-aiohttp
+        - PIP_EXTRAS=happi pytmc pytest python-ldap pytest-aiohttp ophyd
     image: pcdshub/whatrecord:latest
     command: bash /usr/share/whatrecord/support/start_example.sh
     ports:
