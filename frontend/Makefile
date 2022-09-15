@@ -1,8 +1,8 @@
-ifneq ("$(wildcard ./.env)","")
-	include .env
+ifneq ("$(wildcard ../docker/.env)","")
+	include ../docker/.env
 endif
-ifneq ("$(wildcard ./.env.local)","")
-	include .env.local
+ifneq ("$(wildcard ../docker/.env.local)","")
+	include ../docker/.env.local
 endif
 
 API_HOST      ?= localhost

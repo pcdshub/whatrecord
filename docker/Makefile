@@ -24,4 +24,4 @@ run-test:
 inspect:
 	docker run -it $(EXTRA_RUN_ARGS) $(IMAGE) $(INSPECT_ARGS)
 
-.PHONY: all build-image run-whatrecord run-test inspect
+.PHONY: all build-image run-whatrecord run-test inspect clear-cache

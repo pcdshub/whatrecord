@@ -35,6 +35,12 @@ Start the backend server example alone by way of:
 $ docker-compose up whatrecord
 ```
 
+### Clearing the cache
+
+```bash
+$ docker-compose down --volumes
+```
+
 ## Standalone docker image
 
 The standalone docker image can be used after building it via docker-compose.

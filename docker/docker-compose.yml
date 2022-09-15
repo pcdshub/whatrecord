@@ -22,17 +22,11 @@ services:
       args:
         - PIP_EXTRAS=happi pytmc pytest pytest-aiohttp
     image: pcdshub/whatrecord:latest
-    command: /bin/bash -c "
-      echo Cache contents;
-      ls -la /var/lib/whatrecord/cache;
-      echo Startup scripts to use;
-      ls -la /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd;
-      echo Running server...;
-      whatrecord server --port=${API_PORT} --scripts /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd
-      "
+    command: bash /usr/share/whatrecord/support/start_example.sh
     ports:
       - "${API_PORT}:${API_PORT}"
     volumes:
       - whatrecord-cache:/var/lib/whatrecord/cache
+      - ./support:/usr/share/whatrecord/support
 volumes:
   whatrecord-cache: {}
