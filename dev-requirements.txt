@@ -1,10 +1,10 @@
 # These are required for developing the package (running the tests, building
 # the documentation) but not necessarily required for _using_ it.
 codecov
-coverage
 flake8
 pytest
 pytest-aiohttp
+pytest-cov
 
 # docs-related dependencies:
 mkdocs

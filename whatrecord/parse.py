@@ -9,7 +9,7 @@ from typing import Dict, Optional, Union
 
 from .access_security import AccessSecurityConfig
 from .common import AnyPath, FileFormat, IocMetadata
-from .db import Database, LinterResults
+from .db import Database
 from .dbtemplate import TemplateSubstitution
 from .gateway import PVList as GatewayPVList
 from .macro import MacroContext
@@ -25,7 +25,6 @@ ParseResult = Union[
     AccessSecurityConfig,
     Database,
     GatewayPVList,
-    LinterResults,
     LoadedIoc,
     SequencerProgram,
     StreamProtocol,
@@ -88,8 +87,8 @@ def parse(
             return Database.from_file(
                 filename, macro_context=macro_context, version=3 if v3 else 4
             )
-        return LinterResults.from_database_file(
-            db_filename=filename,
+        return Database.from_file(
+            filename,
             dbd=Database.from_file(dbd, version=3 if v3 else 4),
             macro_context=macro_context
         )

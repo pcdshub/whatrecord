@@ -2,7 +2,7 @@ version: ~> 1.0
 
 language: python
 os: linux
-dist: xenial
+dist: focal
 
 stages:
   - test
@@ -48,10 +48,11 @@ jobs:
         - python -m pip install .
         - python -m pip install --requirement dev-requirements.txt
       script:
-        - |
-          set -e
-          coverage run --concurrency=thread --parallel-mode -m pytest -vv
-          (coverage combine && coverage report | grep -v -e ' 0%') || true
+        - pytest -vv --cov=whatrecord/
+
+    - <<: *testpythonpip
+      name: "Python 3.10 - PIP"
+      python: "3.10"
 
     - &testpythonconda
       stage: test
@@ -88,7 +89,4 @@ jobs:
         - python -m pip install --requirement dev-requirements.txt
         - conda list
       script:
-        - |
-          set -e
-          coverage run --concurrency=thread --parallel-mode -m pytest -vv
-          (coverage combine && coverage report | grep -v -e ' 0%') || true
+        - pytest -vv --cov=whatrecord/

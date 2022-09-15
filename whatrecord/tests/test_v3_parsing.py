@@ -5,8 +5,8 @@ import pytest
 
 from .. import Database
 from ..common import LoadContext
-from ..db import (DatabaseMenu, LinterResults, LinterWarning, RecordField,
-                  RecordInstance, RecordType, RecordTypeField)
+from ..db import (DatabaseMenu, LinterWarning, RecordField, RecordInstance,
+                  RecordType, RecordTypeField)
 
 v3_or_v4 = pytest.mark.parametrize("version", [3, 4])
 
@@ -291,7 +291,7 @@ alias("rec:X", "rec:Y")
 
 
 def test_unquoted_warning():
-    lint = LinterResults.from_database_string(
+    db = Database.from_string(
         """\
 record(ai, "rec:X") {
     field(A, "test")
@@ -300,7 +300,7 @@ record(ai, "rec:X") {
 """,
         version=3
     )
-    assert lint.warnings == [
+    assert db.lint.warnings == [
         LinterWarning(
             name="unquoted_field",
             line=3,

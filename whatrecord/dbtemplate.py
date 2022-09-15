@@ -98,7 +98,7 @@ class Substitution:
 
         filename = pathlib.Path(filename)
         search_paths = search_paths or [filename.resolve().parent]
-        with open(self.filename, "rt") as fp:
+        with open(filename, "rt") as fp:
             return self.expand(fp.read(), search_paths=search_paths)
 
     @property

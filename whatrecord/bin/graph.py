@@ -11,12 +11,12 @@ import pathlib
 import re
 import shutil
 import tempfile
-from typing import List, Optional, Union
+from typing import List, Optional, Union, cast
 
 import graphviz as gv
 
 from ..common import AnyPath
-from ..db import Database, LinterResults
+from ..db import Database
 from ..graph import RecordLinkGraph, build_database_relations, graph_links
 from ..makefile import DependencyGroup, DependencyGroupGraph, Makefile
 from ..shell import LoadedIoc
@@ -132,7 +132,7 @@ def render_graph_to_file(
         shutil.copyfile(rendered_filename, filename)
 
 
-DatabaseItem = Union[LinterResults, LoadedIoc, Database]
+DatabaseItem = Union[LoadedIoc, Database]
 
 
 def _records_by_patterns(
@@ -185,7 +185,6 @@ def main(
 ):
     highlight = highlight or []
 
-    databases_only = len(filenames) > 1
     loaded_items = [
         parse_from_cli_args(
             filename=filename,
@@ -200,12 +199,8 @@ def main(
         for filename in filenames
     ]
 
-    databases_only = all(
-        isinstance(item, (LinterResults, LoadedIoc, Database))
-        for item in loaded_items
-    )
-
-    if databases_only:
+    if all(isinstance(item, (LoadedIoc, Database)) for item in loaded_items):
+        loaded_items = cast(List[DatabaseItem], loaded_items)
         graph = get_database_graph(*loaded_items, highlight=highlight)
         if not graph.nodes:
             logger.warning(
