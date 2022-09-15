@@ -152,9 +152,13 @@ def get_commands():
             "args": [],
         }
         try:
-            command["usage"] = funcdef["usage"]
+            usage = funcdef["usage"]
+            if isinstance(usage, gdb.Value):
+                usage = usage.string()
         except Exception:
             pass
+        else:
+            command["usage"] = usage
 
         for idx in range(int(funcdef["nargs"])):
             arg = funcdef["arg"][idx].dereference()
