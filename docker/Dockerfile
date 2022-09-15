@@ -6,7 +6,7 @@ FROM python:3.10.7-bullseye
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -y update && \
-    apt-get -y install build-essential graphviz gdb libldap2-dev  && \
+    apt-get -y install build-essential graphviz gdb && \
     apt-get clean
 
 ARG SDIST

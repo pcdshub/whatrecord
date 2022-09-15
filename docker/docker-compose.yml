@@ -1,4 +1,5 @@
 version: "3.9"  # optional since v1.27.0
+
 services:
   whatrecord-frontend:
     env_file:
@@ -9,9 +10,12 @@ services:
       - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     volumes:
       - ../frontend:/usr/src/app
-    command: ["yarn", "serve", "--port", "${FRONTEND_PORT}"]
+      - ./support:/usr/share/whatrecord/support
+    entrypoint: /bin/sh
+    command: /usr/share/whatrecord/support/run_frontend.sh
     depends_on:
       - whatrecord
+
   whatrecord:
     env_file:
       - .env
@@ -20,7 +24,7 @@ services:
       # with respect to the build context:
       dockerfile: docker/Dockerfile
       args:
-        - PIP_EXTRAS=happi pytmc pytest python-ldap pytest-aiohttp ophyd
+        - PIP_EXTRAS=happi pytmc pytest pytest-aiohttp ophyd
     image: pcdshub/whatrecord:latest
     command: bash /usr/share/whatrecord/support/start_example.sh
     ports:
@@ -28,5 +32,6 @@ services:
     volumes:
       - whatrecord-cache:/var/lib/whatrecord/cache
       - ./support:/usr/share/whatrecord/support
+
 volumes:
   whatrecord-cache: {}
