@@ -549,8 +549,9 @@ class ShellState(ShellStateHandler):
             context=self.get_load_context()
         )
         return {
-            "loaded_records": len(db.records),
-            "loaded_groups": len(db.pva_groups),
+            "context": [LoadContext(str(filename), 0)],
+            "num_records": len(db.records),
+            "num_pva_groups": len(db.pva_groups),
             "lint": db.lint,
         }
 

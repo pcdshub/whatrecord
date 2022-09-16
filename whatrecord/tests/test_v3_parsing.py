@@ -303,7 +303,7 @@ record(ai, "rec:X") {
     assert db.lint.warnings == [
         LinterWarning(
             name="unquoted_field",
-            line=3,
+            context=[LoadContext("None", 3)],
             message="Unquoted field value 'B'"
         )
     ]
