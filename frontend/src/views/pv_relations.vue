@@ -519,7 +519,7 @@ export default {
       if (record && this.shown_record != record) {
         this.shown_record = record;
         axios
-          .get("/api/pv/graph", { params: { pv: record, format: "svg" }})
+          .get("/api/pv/graph", { params: { pv: record, format: "svg" } })
           .then((response) => {
             var parser = new DOMParser();
             let svg_doc = parser.parseFromString(

@@ -8,19 +8,16 @@
         class="unassuming_link"
       />
     </template>
-    <template v-else>
-      {{ field.name }} </template>,
+    <template v-else> {{ field.name }} </template>,
     <template v-if="field?.context?.length > 0">
-    <script-context-one-link
-      :name="field.context[0][0]"
-      :line="field.context[0][1]"
-      :link_text="`&quot;${display_value}&quot;`"
-      class="unassuming_link"
-    />)
+      <script-context-one-link
+        :name="field.context[0][0]"
+        :line="field.context[0][1]"
+        :link_text="`&quot;${display_value}&quot;`"
+        class="unassuming_link"
+      />)
     </template>
-    <template v-else>
-      "{{ display_value }}")
-    </template>
+    <template v-else> "{{ display_value }}") </template>
     <br />
   </div>
 </template>

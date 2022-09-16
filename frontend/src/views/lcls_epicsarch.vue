@@ -22,9 +22,7 @@
           selectionMode="single"
           v-model:filters="file_filters"
           v-model:selection="selected_file"
-          :globalFilterFields="[
-            'name',
-          ]"
+          :globalFilterFields="['name']"
         >
           <template #header>
             <div class="p-d-flex p-jc-between">
@@ -61,7 +59,9 @@
           </template>
         </details>
         <details v-if="file_info?.loaded_files">
-          <summary>Loaded files ({{ Object.keys(file_info.loaded_files).length }})</summary>
+          <summary>
+            Loaded files ({{ Object.keys(file_info.loaded_files).length }})
+          </summary>
           <ul>
             <li v-for="file in Object.keys(file_info.loaded_files)" :key="file">
               <script-context-link :context="[[file, 0]]" prefix="" />
@@ -98,10 +98,9 @@
           </template>
           <Column field="name" header="PV">
             <template #body="{ data }">
-              <router-link
-                :to="`/whatrec/${data.name}/${data.name}`"
-                >{{ data.name }}</router-link
-              >
+              <router-link :to="`/whatrec/${data.name}/${data.name}`">{{
+                data.name
+              }}</router-link>
             </template>
             <template #filter="{ filterModel, filterCallback }">
               <InputText
@@ -113,7 +112,12 @@
               />
             </template>
           </Column>
-          <Column field="alias" header="Alias" :sortable="true" style="width: 30%">
+          <Column
+            field="alias"
+            header="Alias"
+            :sortable="true"
+            style="width: 30%"
+          >
             <template #filter="{ filterModel, filterCallback }">
               <InputText
                 type="text"
@@ -124,7 +128,12 @@
               />
             </template>
           </Column>
-          <Column field="context" header="Context" :sortable="true" style="width: 30%">
+          <Column
+            field="context"
+            header="Context"
+            :sortable="true"
+            style="width: 30%"
+          >
             <template #body="{ data }">
               <script-context-link :context="data.context" :short="3" />
             </template>
@@ -197,8 +206,8 @@ export default {
   },
   computed: {
     epicsarch_file_table() {
-      return this.epicsarch_files.map(
-        filename => (this.filename_to_table(filename))
+      return this.epicsarch_files.map((filename) =>
+        this.filename_to_table(filename)
       );
     },
 
@@ -227,7 +236,7 @@ export default {
         loaded_files: metadata.loaded_files,
         aliases: metadata.aliases,
         filename: metadata.filename,
-      }
+      };
     },
 
     ...mapState({
@@ -264,9 +273,12 @@ export default {
   methods: {
     filename_to_table(filename) {
       return {
-        name: filename.replace(/^.cds.group.pcds.dist.pds.(.*).misc.(.*?)/i, "$1 $2"),
+        name: filename.replace(
+          /^.cds.group.pcds.dist.pds.(.*).misc.(.*?)/i,
+          "$1 $2"
+        ),
         filename: filename,
-      }
+      };
     },
     init_filters() {
       this.file_filters = {
@@ -305,7 +317,6 @@ export default {
       this.selected_file = this.filename_to_table(selected_filename);
       document.title = `WhatRecord? epicsArch ${selected_filename}`;
     },
-
   },
 };
 </script>
@@ -338,5 +349,4 @@ export default {
   justify-content: stretch;
   max-width: 85%;
 }
-
 </style>

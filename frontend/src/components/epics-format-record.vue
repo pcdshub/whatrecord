@@ -90,10 +90,10 @@ export default {
     new_autosave_fields() {
       // autosave fields without database defaults
       const new_field_names = Object.keys(this.autosave_fields).filter(
-        field_name => this.db_defined_fields.indexOf(field_name) < 0
+        (field_name) => this.db_defined_fields.indexOf(field_name) < 0
       );
       return new_field_names.map(
-        field_name => this.autosave_fields[field_name]
+        (field_name) => this.autosave_fields[field_name]
       );
     },
 
@@ -107,16 +107,13 @@ export default {
           context: field.context,
           value: field.value,
           dtype: record_defn?.fields[field.field]?.type,
-        }
+        };
       }
-      this.metadata?.autosave?.restore?.forEach(
-        restore => Object.values(restore).forEach(
-          field => add_field(restore, field)
-        )
+      this.metadata?.autosave?.restore?.forEach((restore) =>
+        Object.values(restore).forEach((field) => add_field(restore, field))
       );
       return fields;
     },
-
   },
 };
 </script>

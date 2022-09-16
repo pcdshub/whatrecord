@@ -38,25 +38,24 @@ import ScriptLine from "../components/script-line.vue";
 
 function remove_xml(filename, lines) {
   // Strip the <xml> header
-  const raw_xml = lines.slice(1).map(line => line.line).join("\n");
+  const raw_xml = lines
+    .slice(1)
+    .map((line) => line.line)
+    .join("\n");
 
   let parser = new DOMParser();
   let xml = parser.parseFromString(raw_xml, "text/xml");
 
   const sections = [
     xml.querySelectorAll("Declaration")?.item(0),
-    xml.querySelectorAll("Implementation")?.item(0)
+    xml.querySelectorAll("Implementation")?.item(0),
   ];
-  const code = sections.map(section => section?.textContent ?? "").join("\n")
+  const code = sections.map((section) => section?.textContent ?? "").join("\n");
 
-  return code.split("\n").map(
-      (line, lineno) => (
-        {
-          line: line,
-          context: [[filename, lineno + 1]],
-        }
-      )
-  )
+  return code.split("\n").map((line, lineno) => ({
+    line: line,
+    context: [[filename, lineno + 1]],
+  }));
 }
 
 export default {
@@ -85,7 +84,7 @@ export default {
     },
     lines() {
       if (this.is_twincat_file) {
-          return remove_xml(this.filename, this.file_info?.script.lines ?? []);
+        return remove_xml(this.filename, this.file_info?.script.lines ?? []);
       }
       return this.file_info?.script.lines ?? [];
     },
@@ -117,7 +116,7 @@ export default {
         );
     },
     get_line_id(line) {
-        return line?.context?.map((ctx) => ctx[1]).join(":") ?? [];
+      return line?.context?.map((ctx) => ctx[1]).join(":") ?? [];
     },
   },
 };

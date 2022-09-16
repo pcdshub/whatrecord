@@ -55,9 +55,11 @@
           />
         </template>
         <template #body="{ data }">
-          <router-link :to="`/netconfig/${data.cn[0]}`">{{ data.cn[0] }}</router-link>
+          <router-link :to="`/netconfig/${data.cn[0]}`">{{
+            data.cn[0]
+          }}</router-link>
           <template v-if="data.cname">
-            <br/>({{ data.cname.join(", ") }})
+            <br />({{ data.cname.join(", ") }})
           </template>
         </template>
       </Column>
@@ -208,5 +210,4 @@ export default {
 };
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

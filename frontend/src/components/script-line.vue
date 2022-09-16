@@ -86,15 +86,12 @@ export default {
       }
 
       let info_table = {};
-      if (
-        this.command_info == null ||
-        this.command_info.length == 0
-      ) {
+      if (this.command_info == null || this.command_info.length == 0) {
         if (this.line?.result?.arguments?.length > 0) {
           // whatrecord-suppplied argument information as a backup to
           // what gdb could more accurately provide
           this.line.result.arguments.forEach(
-            arg => (info_table[`${arg.name} (${arg.type})`] = arg.value)
+            (arg) => (info_table[`${arg.name} (${arg.type})`] = arg.value)
           );
           return info_table;
         }

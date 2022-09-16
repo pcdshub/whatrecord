@@ -10,10 +10,10 @@
   <details v-if="commands.length">
     <summary>Commands</summary>
     <DataTable :value="commands" dataKey="name">
-      <Column field="name" header="Command"  :sortable="true" />
+      <Column field="name" header="Command" :sortable="true" />
       <Column field="args" header="Arguments" :sortable="true">
         <template #body="{ data }">
-          {{ data.args.map(arg => arg.name).join(", ") }}
+          {{ data.args.map((arg) => arg.name).join(", ") }}
         </template>
       </Column>
 
@@ -94,7 +94,9 @@ export default {
   computed: {
     all_files() {
       let files = [];
-      for (const [file, hash] of Object.entries(this.ioc_info?.loaded_files || {})) {
+      for (const [file, hash] of Object.entries(
+        this.ioc_info?.loaded_files || {}
+      )) {
         files.push({
           name: file,
           hash: hash,

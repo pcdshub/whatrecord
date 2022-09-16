@@ -24,7 +24,13 @@
     </template>
     <Column field="name" header="Name" :sortable="true">
       <template #body="{ data }">
-        <router-link :to="{ name: 'whatrec', params: { record_glob: data.name, selected_records: data.name }}">{{ data.name }}</router-link>
+        <router-link
+          :to="{
+            name: 'whatrec',
+            params: { record_glob: data.name, selected_records: data.name },
+          }"
+          >{{ data.name }}</router-link
+        >
       </template>
       <template #filter="{ filterModel, filterCallback }">
         <InputText
@@ -39,7 +45,10 @@
     <Column field="iocs" header="IOCs" :sortable="true">
       <template #body="{ data }">
         <template v-for="ioc in data.iocs" :key="ioc">
-          <router-link :to="{ name: 'iocs', params: { selected_iocs_in: ioc }}">{{ ioc }}</router-link>
+          <router-link
+            :to="{ name: 'iocs', params: { selected_iocs_in: ioc } }"
+            >{{ ioc }}</router-link
+          >
           <br />
         </template>
       </template>
@@ -65,7 +74,6 @@ import DataTable from "primevue/datatable";
 import InputText from "primevue/inputtext";
 import { FilterMatchMode } from "primevue/api";
 
-
 export default {
   name: "DuplicateView",
   components: {
@@ -85,14 +93,10 @@ export default {
   },
   computed: {
     duplicate_table() {
-      return Object.entries(this.duplicates).map(
-        ([ record, iocs ]) => (
-          {
-            name: record,
-            iocs: iocs,
-          }
-        )
-      );
+      return Object.entries(this.duplicates).map(([record, iocs]) => ({
+        name: record,
+        iocs: iocs,
+      }));
     },
     ...mapState({
       duplicates_ready(state) {
@@ -127,5 +131,4 @@ export default {
 };
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

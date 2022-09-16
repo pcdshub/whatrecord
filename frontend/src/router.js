@@ -13,8 +13,10 @@ import DuplicateView from "./views/duplicates.vue";
 import LclsEpicsArchView from "./views/lcls_epicsarch.vue";
 
 import {
-    happi_enabled, twincat_pytmc_enabled, netconfig_enabled,
-    epicsarch_enabled
+  happi_enabled,
+  twincat_pytmc_enabled,
+  netconfig_enabled,
+  epicsarch_enabled,
 } from "./settings.js";
 
 let routes = [

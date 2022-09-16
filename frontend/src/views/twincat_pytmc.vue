@@ -17,15 +17,14 @@
     </ul>
 
     <h3>PLC Information</h3>
-    Part of <router-link :to="{ name: 'twincat_pytmc', query: { plc: selected_item_plc } }">
+    Part of
+    <router-link
+      :to="{ name: 'twincat_pytmc', query: { plc: selected_item_plc } }"
+    >
       {{ selected_item_plc }}
     </router-link>
     <h4>Dependencies</h4>
-    <DataTable
-      :value="plc_dependencies"
-      class="p-datatable-sm"
-      dataKey="name"
-    >
+    <DataTable :value="plc_dependencies" class="p-datatable-sm" dataKey="name">
       <Column field="name" header="Name" />
       <Column field="vendor" header="Vendor" />
       <Column field="version" header="Version" />
@@ -60,19 +59,15 @@
 
         <details v-if="nc_axes.length">
           <summary>{{ nc_axes.length }} NC Axes</summary>
-          <DataTable
-            :value="nc_axes"
-            class="p-datatable-sm"
-            dataKey="name"
-          >
+          <DataTable :value="nc_axes" class="p-datatable-sm" dataKey="name">
             <Column field="axis_id" header="ID" style="width: 5%" />
             <Column field="name" header="Axis" style="width: 15%">
               <template #body="{ data }">
                 "{{ data.name }}" <br />
-                <br/>
+                <br />
                 <script-context-link :context="data.context" :short="1" />
               </template>
-            </column>
+            </Column>
             <Column field="units" header="Units" style="width: 5%" />
             <Column field="params" header="Params">
               <template #body="{ data }">
@@ -152,7 +147,12 @@
               />
             </template>
           </Column>
-          <Column field="context" header="Context" :sortable="true" style="width: 30%">
+          <Column
+            field="context"
+            header="Context"
+            :sortable="true"
+            style="width: 30%"
+          >
             <template #body="{ data }">
               <script-context-link :context="data.context" :short="3" />
             </template>
