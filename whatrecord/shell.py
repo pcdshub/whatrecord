@@ -442,7 +442,11 @@ class ShellState(ShellStateHandler):
                 self.db_add_paths.append((dbd_path.parent / path).resolve())
 
         self.aliases.update(self.database_definition.aliases)
-        return {"result": f"Loaded database: {fn}"}
+        return {
+            "context": [LoadContext(str(fn), 0)],
+            "result": "Loaded database",
+            "record_types": ", ".join(self.database_definition.record_types),
+        }
 
     @_handler
     def handle_dbLoadTemplate(self, filename: str, macros: str = ""):
@@ -451,6 +455,7 @@ class ShellState(ShellStateHandler):
 
         # TODO this should be multiple load calls for the purposes of context
         result = {
+            "context": [LoadContext(str(filename), 0)],
             "total_records": 0,
             "total_groups": 0,
             "loaded_files": [],
@@ -468,7 +473,7 @@ class ShellState(ShellStateHandler):
                 context=self.get_load_context() + sub.context,
             )
             info = {
-                "filename": sub.filename,
+                "context": [LoadContext(str(sub.filename), 0)],
                 "macros": sub.macros,
                 "records": len(db.records),
                 "groups": len(db.pva_groups),

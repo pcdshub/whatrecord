@@ -391,10 +391,7 @@ export default {
     InputSwitch,
     InputText,
   },
-  props: {
-    filename: String,
-    line: String,
-  },
+  props: {},
   data() {
     return {
       last_query: null,

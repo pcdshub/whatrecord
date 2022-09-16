@@ -64,19 +64,20 @@ export default {
     DictionaryTable,
     ScriptLine,
   },
-  props: {
-    filename: String,
-    line: String,
-  },
+  props: {},
   data() {
-    return {};
+    return {
+      filename: "",
+      line: 0,
+      last_params: null,
+    };
   },
   computed: {
     commands() {
       return this.metadata?.commands ?? {};
     },
     metadata() {
-      return this.file_info?.ioc ?? {};
+      return this.file_info?.ioc ?? null;
     },
     is_twincat_file() {
       const extension = this.filename.split(".").pop() || "";
@@ -94,10 +95,6 @@ export default {
       },
     }),
   },
-  async mounted() {
-    this.$store.dispatch("get_file_info", { filename: this.filename });
-    document.title = "WhatRecord? Script " + this.filename;
-  },
   updated() {
     const lineno = this.line;
     const obj = document.getElementById(lineno);
@@ -105,7 +102,36 @@ export default {
       obj.scrollIntoView();
     }
   },
+  async created() {
+    document.title = `WhatRecord? Script`;
+    this.$watch(
+      () => this.$route.params,
+      (to_params) => {
+        this.from_params(to_params);
+      }
+    );
+    await this.from_params();
+  },
+  async mounted() {
+    await this.from_params();
+  },
   methods: {
+    async from_params() {
+      const route_params = this.$route.params;
+      const params = {
+        filename: route_params.filename,
+        line: route_params.line,
+      };
+
+      if (this.last_params != params && params.filename?.length > 0) {
+        this.last_params = params;
+        this.filename = params.filename;
+        this.line = params.line;
+
+        this.$store.dispatch("get_file_info", { filename: this.filename });
+        document.title = "WhatRecord? Script " + this.filename;
+      }
+    },
     expand_all() {
       document.body
         .querySelectorAll("details")

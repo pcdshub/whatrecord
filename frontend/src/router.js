@@ -33,10 +33,6 @@ let routes = [
     name: "file",
     path: "/file/:filename/:line?",
     component: ScriptView,
-    props: (route) => ({
-      filename: route.params.filename || "",
-      line: route.params.line || 0,
-    }),
   },
   {
     name: "iocs",
