@@ -445,7 +445,10 @@ class ShellState(ShellStateHandler):
         return {
             "context": [LoadContext(str(fn), 0)],
             "result": "Loaded database",
-            "record_types": ", ".join(self.database_definition.record_types),
+            "record_types": list(sorted(self.database_definition.record_types)),
+            "drivers": list(sorted(self.database_definition.drivers)),
+            "functions": list(sorted(self.database_definition.functions)),
+            "breaktables": list(sorted(self.database_definition.breaktables)),
         }
 
     @_handler
