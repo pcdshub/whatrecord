@@ -44,7 +44,6 @@ SIGNAL_CLASSES = (
     EpicsSignalBase,
     ophyd.EpicsMotor,
     ophyd.EpicsScaler,
-    ophyd.EpicsMCA
 )
 
 
