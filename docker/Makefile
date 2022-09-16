@@ -30,7 +30,7 @@ inspect:
 	docker run -it $(EXTRA_RUN_ARGS) $(IMAGE) $(INSPECT_ARGS)
 
 clear-cache:
-	docker run -it $(EXTRA_RUN_ARGS) $(IMAGE) ls -la /var/lib/whatrecord/cache/
+	rm -f ./cache/*.json
 
 gdb-info:
 	if [ ! -f "$(IOC_BINARY)" ]; then \

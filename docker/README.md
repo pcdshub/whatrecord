@@ -37,9 +37,13 @@ $ docker-compose up whatrecord
 
 ### Clearing the cache
 
+The cache is stored as a shared volume in /docker/cache. To clear it, use
+
 ```bash
-$ docker-compose down --volumes
+$ make clear-cache
 ```
+
+Or delete the ``.json`` files in that directory.
 
 ## Standalone docker image
 
