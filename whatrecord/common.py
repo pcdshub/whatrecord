@@ -518,7 +518,7 @@ class IocMetadata:
 @dataclass
 class LinterMessage:
     name: str
-    line: int
+    context: FullLoadContext
     message: str
 
 
@@ -880,7 +880,7 @@ record("{{record_type}}", "{{name}}") {
             return [
                 LinterError(
                     name="combine_pva_and_v3",
-                    line=0,
+                    context=tuple(self.context) + tuple(other.context),
                     message="Cannot combine PVA group with V3 record"
                 )
             ]
@@ -899,7 +899,7 @@ record("{{record_type}}", "{{name}}") {
             return [
                 LinterError(
                     name="record_type_mismatch",
-                    line=0,
+                    context=self.context,
                     message=(
                         f"Record type mismatch in provided database files: "
                         f"{self.name} {self.record_type} {other.record_type}"

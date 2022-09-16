@@ -1,21 +1,12 @@
 <template>
-  <div class="result-block">
-    Records loaded: {{ load_count }}<br />
-    <br />
-    Macros:<br />
-    <dictionary-table :dict="macros" :cls="'metadata'" :skip_keys="[]">
-    </dictionary-table>
-  </div>
-  <div class="error-block">
+  <div class="error-block" v-if="errors?.length > 0 || warnings?.length > 0">
     <template v-for="(error, idx) in errors" class="error-block" :key="idx">
-      <script-context-link :context="{ file: error.file, line: error.line }" />
-      '{{ error.name }}' error: {{ error.message }}<br />
+      <script-context-link :context="error.context" :short="1" />
+      [{{ error.name }}] error: {{ error.message }}<br />
     </template>
     <template v-for="(warning, idx) in warnings" class="error-block" :key="idx">
-      <script-context-link
-        :context="{ file: warning.file, line: warning.line }"
-      />
-      '{{ warning.name }}' warning: {{ warning.message }}<br />
+      <script-context-link :context="warning.context" :short="1" />
+      [{{ warning.name }}] warning: {{ warning.message }}<br />
     </template>
   </div>
 </template>
@@ -27,7 +18,7 @@ import ScriptContextLink from "./script-context-link.vue";
 export default {
   name: "LinterResults",
   components: [DictionaryTable, ScriptContextLink],
-  props: ["load_count", "errors", "warnings", "macros"],
+  props: ["errors", "warnings"],
   beforeCreate() {
     // TODO: I don't think these are circular; why am I running into this?
     this.$options.components.DictionaryTable =

@@ -12,8 +12,8 @@ import lark
 
 from . import transformer, util
 from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterMessage,
-                     LinterWarning, PVAFieldReference, RecordField,
-                     RecordInstance, RecordType, RecordTypeField,
+                     LinterWarning, LoadContext, PVAFieldReference,
+                     RecordField, RecordInstance, RecordType, RecordTypeField,
                      StringWithContext, dataclass)
 from .macro import MacroContext
 from .transformer import context_from_token
@@ -356,7 +356,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             self._add_lint(
                 LinterWarning(
                     name="unquoted_field",
-                    line=field_token.line,
+                    context=[LoadContext(self.fn, field_token.line)],
                     message=f"Unquoted field value {name!r}"
                 ),
             )
