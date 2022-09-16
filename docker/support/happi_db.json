@@ -1,0 +1,36 @@
+{
+    "motor1": {
+        "_id": "motor1",
+        "active": true,
+        "args": [
+            "{{prefix}}"
+        ],
+        "creation": "Thu Jul 23 17:05:48 2020",
+        "device_class": "ophyd.EpicsMotor",
+        "documentation": null,
+        "kwargs": {
+            "name": "{{name}}"
+        },
+        "last_edit": "Thu Jul 23 17:05:48 2020",
+        "name": "motor1",
+        "prefix": "IOC:KFE:A:One",
+        "type": "OphydItem"
+    },
+    "motor2": {
+        "_id": "motor2",
+        "active": true,
+        "args": [
+            "{{prefix}}"
+        ],
+        "creation": "Thu Jul 23 17:06:44 2020",
+        "device_class": "ophyd.EpicsMotor",
+        "documentation": null,
+        "kwargs": {
+            "name": "{{name}}"
+        },
+        "last_edit": "Thu Jul 23 17:06:44 2020",
+        "name": "motor2",
+        "prefix": "IOC:KFE:B:One",
+        "type": "OphydItem"
+    }
+}

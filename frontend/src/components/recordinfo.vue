@@ -198,7 +198,7 @@ export default {
   },
   computed: {
     appliance_viewer_url() {
-      const appliance_viewer_url = process.env.WHATRECORD_ARCHIVER_URL || "";
+      const appliance_viewer_url = process.env.VUE_APP_WHATRECORD_ARCHIVER_URL || "";
       if (!appliance_viewer_url || !this.record) {
         return null;
       }

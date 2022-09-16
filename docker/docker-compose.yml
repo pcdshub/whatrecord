@@ -1,0 +1,37 @@
+version: "3.9"  # optional since v1.27.0
+
+services:
+  whatrecord-frontend:
+    env_file:
+      - .env
+    image: node:18.9-alpine
+    working_dir: /usr/src/app
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    volumes:
+      - ../frontend:/usr/src/app
+      - ./support:/usr/share/whatrecord/support
+    entrypoint: /bin/sh
+    command: /usr/share/whatrecord/support/run_frontend.sh
+    depends_on:
+      - whatrecord
+
+  whatrecord:
+    env_file:
+      - .env
+    build:
+      context: ../
+      # with respect to the build context:
+      dockerfile: docker/Dockerfile
+      args:
+        - PIP_EXTRAS=happi pytmc pytest pytest-aiohttp ophyd
+    image: pcdshub/whatrecord:latest
+    command: bash /usr/share/whatrecord/support/start_example.sh
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    volumes:
+      - whatrecord-cache:/var/lib/whatrecord/cache
+      - ./support:/usr/share/whatrecord/support
+
+volumes:
+  whatrecord-cache: {}

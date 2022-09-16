@@ -1,0 +1,2 @@
+# This is a docker ignore file for whatrecord - the Python source/backend.
+frontend/
