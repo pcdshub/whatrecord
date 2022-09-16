@@ -37,8 +37,6 @@
               <Button
                 type="button"
                 icon="pi pi-filter-slash"
-                label="Clear"
-                class="p-button-outlined"
                 @click="clear_group_filters()"
               />
               <span class="p-input-icon-left">
