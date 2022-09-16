@@ -425,7 +425,10 @@ class ShellState(ShellStateHandler):
         if self.database_definition:
             # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
-            return "whatrecord: TODO multiple dbLoadDatabase"
+            return {
+                "error": "whatrecord: TODO multiple dbLoadDatabase"
+            }
+
         dbd_path = self._fix_path_with_search_list(dbd, self.db_include_paths)
         fn, contents = self.load_file(dbd_path)
         macro_context = MacroContext(use_environment=False)
