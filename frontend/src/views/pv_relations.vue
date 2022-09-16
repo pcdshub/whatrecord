@@ -36,6 +36,7 @@
             <div class="p-d-flex p-jc-between">
               <Button
                 type="button"
+                id="clear-filters"
                 icon="pi pi-filter-slash"
                 @click="clear_group_filters()"
               />
@@ -44,6 +45,7 @@
                 <InputText
                   v-model="group_filters['global'].value"
                   placeholder="Search"
+                  id="filter-input"
                 />
               </span>
             </div>
@@ -603,5 +605,16 @@ export default {
   height: calc(100vh - 100px);
   min-width: 60vw;
   max-width: 85vw;
+}
+
+#clear-filters {
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  margin-left: 0.5em;
+  margin-right: 0.5em;
+}
+
+#filter-input {
+  width: 100%;
 }
 </style>
