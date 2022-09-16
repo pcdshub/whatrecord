@@ -26,6 +26,9 @@ run-test:
 inspect:
 	docker run -it $(EXTRA_RUN_ARGS) $(IMAGE) $(INSPECT_ARGS)
 
+clear-cache:
+	docker run -it $(EXTRA_RUN_ARGS) $(IMAGE) rm -f /var/lib/whatrecord/cache/*.json
+
 gdb-info:
 	if [ ! -f "$(IOC_BINARY)" ]; then \
 		echo "Try make gdb-info IOC_BINARY=/path/to/linux-x86_64/softIoc"; \
