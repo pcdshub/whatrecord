@@ -1,6 +1,5 @@
 <template>
   <div class="p-grid option">
-    <div class="p-col-6"></div>
     <div class="p-col-6">
       <SelectButton
         v-model="search_mode"
@@ -21,12 +20,7 @@
       </form>
     </div>
     <div class="p-col-2">
-      <Button
-        @click="do_search()"
-        label=""
-        icon="pi pi-search"
-        :loading="searching"
-      />
+      <Button @click="do_search()" icon="pi pi-search" :loading="searching" />
     </div>
   </div>
   <DataTable
@@ -165,11 +159,11 @@ export default {
 
 <style scoped>
 .p-grid .search {
-  padding: 0.5em;
+  padding: 1em;
 }
 
 .p-grid .option {
-  padding: 0em;
+  padding: 1em;
 }
 
 .input_search {

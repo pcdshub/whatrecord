@@ -594,7 +594,7 @@ export default {
 }
 
 #left {
-  min-width: 15vw;
+  min-width: 17vw;
   max-width: 17vw;
   max-height: 97vh;
 }
