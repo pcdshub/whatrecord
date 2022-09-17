@@ -726,6 +726,19 @@ class LoadedIoc:
 
     @classmethod
     def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:
+        """
+        Load the serialized JSON from the cache for the given IOC.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata that identifies the IOC.
+
+        Returns
+        -------
+        dict or None
+            The cached JSON, if available.
+        """
         try:
             with open(md.ioc_cache_filename, "rb") as fp:
                 return json.load(fp)
@@ -737,11 +750,24 @@ class LoadedIoc:
 
     @classmethod
     def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
+        """
+        If available, load the cached data about the provided IOC.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata that identifies the IOC.
+
+        Returns
+        -------
+        LoadedIoc or None
+        """
         json_dict = cls._json_from_cache(md)
         if json_dict is not None:
             return apischema.deserialize(cls, json_dict)
 
     def save_to_cache(self) -> bool:
+        """Save this instance to the application cache."""
         if not settings.CACHE_PATH:
             return False
 
@@ -753,6 +779,20 @@ class LoadedIoc:
     def from_errored_load(
         cls, md: IocMetadata, load_failure: IocLoadFailure
     ) -> LoadedIoc:
+        """
+        Create a LoadedIoc from a failed load, as indicated by IocLoadFailure.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata that was used to load the IOC.
+        load_failure : IocLoadFailure
+            The load failure information.
+
+        Returns
+        -------
+        LoadedIoc
+        """
         exception_line = f"{load_failure.ex_class}: {load_failure.ex_message}"
         error_lines = [exception_line] + load_failure.traceback.splitlines()
         script = IocshScript(
@@ -777,6 +817,18 @@ class LoadedIoc:
 
     @classmethod
     def from_metadata(cls, md: IocMetadata) -> LoadedIoc:
+        """
+        Generate a LoadedIoc by interpreting the startup script.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata from the IOC.
+
+        Returns
+        -------
+        LoadedIoc
+        """
         sh = ShellState(ioc_info=md)
         sh.working_directory = md.startup_directory
         sh.macro_context.define(**md.macros)
@@ -799,7 +851,23 @@ class LoadedIoc:
     def whatrec(
         self, rec: str, field: Optional[str] = None, include_pva: bool = True
     ) -> Optional[WhatRecord]:
-        """Get record information, optionally including PVAccess results."""
+        """
+        Get record information, optionally including PVAccess results.
+
+        Parameters
+        ----------
+        rec : str
+            The record name (excluding any field).
+        field : Optional[str], optional
+            An optional field name, such as ``DESC``.  Currently unused.
+        include_pva : bool, optional
+            Include PVAccess results in the query.
+
+        Returns
+        -------
+        Optional[WhatRecord]
+            Information about the provided record, if available.
+        """
         state = self.shell_state
         v3_inst = state.database.get(state.aliases.get(rec, rec), None)
         pva_inst = state.pva_database.get(rec, None) if include_pva else None
@@ -835,6 +903,24 @@ def load_cached_ioc(
     md: IocMetadata,
     allow_failed_load: bool = False,
 ) -> Optional[LoadedIoc]:
+    """
+    Load an IOC from the cache.
+
+    Parameters
+    ----------
+    md : IocMetadata
+        The metadata from the IOC, which determines its cache key.
+    allow_failed_load : bool, optional
+        A previous load of the provided IOC may have been marked as a failure.
+        If set, ``load_cached_ioc`` will return the results of the failed load.
+        If unset, ``load_cached_ioc`` will return ``None`` and allow the caller
+        to treat this as a cache miss and potentially reload it from disk.
+
+    Returns
+    -------
+    Optional[LoadedIoc]
+        The cached LoadedIoc instance.
+    """
     cached_md = md.from_cache()
     if cached_md is None:
         logger.debug("Cached metadata unavailable %s", md.name)
@@ -863,6 +949,8 @@ def load_cached_ioc(
     except FileNotFoundError:
         logger.error("%s is noted as up-to-date; but cache file missing", md.name)
 
+    return None
+
 
 @dataclass
 class IocLoadFailure:
@@ -888,6 +976,26 @@ async def async_load_ioc(
 ) -> IocLoadResult:
     """
     Helper function for loading an IOC in a subprocess and relying on the cache.
+
+    Parameters
+    ----------
+    standin_directories :
+        Stand-in directories to use when loading the IOC.
+    identifier : Union[int, str]
+        The IOC identifier.
+    md : IocMetadata
+        Metadata tied to the IOC.
+    use_gdb : bool, optional
+        Use GDB to analyze the IOC binary for linting of shell script commands.
+    use_cache : bool, optional
+        Load from the cache for IOCs which have been cached.
+
+    Returns
+    -------
+    IocLoadResult
+        The result of loading, including an identifier which can be used by the
+        caller to load the item from disk (as it's faster than using
+        multiprocessing).
     """
     if not settings.CACHE_PATH:
         use_cache = False
@@ -936,7 +1044,14 @@ async def async_load_ioc(
         )
 
 
-def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True) -> IocLoadResult:
+def _load_ioc(
+    identifier: Union[int, str],
+    md: IocMetadata,
+    standin_directories,
+    use_gdb: bool = True,
+    use_cache: bool = True,
+) -> IocLoadResult:
+    """A synchronous wrapper around ``async_load_ioc``."""
     return asyncio.run(
         async_load_ioc(
             identifier=identifier, md=md,
@@ -947,11 +1062,13 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True)
 
 
 def _sigint_handler(signum, frame):
+    """SIGINT handler for subprocesses."""
     logger.error("Subprocess killed with SIGINT; exiting.")
     sys.exit(1)
 
 
 def _process_init():
+    """Subprocess initializer; enables SIGINT handler."""
     signal.signal(signal.SIGINT, _sigint_handler)
 
 
