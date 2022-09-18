@@ -897,17 +897,7 @@ class PVAFieldReference:
 PVAFieldReference: {{ record_name }}.{{ field_name }}
                  - {{ metadata }}
 """,
-        "file": "field({{ name }}, {{ _json_dump(obj.as_file_json) }})",
     }
-
-    @property
-    def as_file_json(self) -> dict:
-        """The field reference as JSON seen in a database file."""
-        ref = {}
-        if self.field_name:
-            ref["+channel"] = self.field_name
-        ref.update(self.metadata)
-        return ref
 
 
 AnyField = Union[RecordField, PVAFieldReference]

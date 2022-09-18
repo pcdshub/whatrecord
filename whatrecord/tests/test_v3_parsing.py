@@ -1,5 +1,8 @@
 """V3 database parsing tests."""
 
+import textwrap
+from typing import Optional
+
 import apischema
 import pytest
 
@@ -7,6 +10,7 @@ from .. import Database, common
 from ..common import LoadContext
 from ..db import (DatabaseMenu, LinterWarning, RecordField, RecordInstance,
                   RecordType, RecordTypeField)
+from ..format import FormatContext, FormatOptions
 
 v3_or_v4 = pytest.mark.parametrize("version", [3, 4])
 
@@ -338,3 +342,72 @@ def test_load_vendored_database_smoke(version: int):
 )
 def test_grammar_version_check(base_version: str, expected: int):
     assert common.get_grammar_version_by_base_version(base_version) == expected
+
+
+@pytest.mark.parametrize(
+    "input_text, expected",
+    [
+        pytest.param(
+            """\
+            menu(stringoutPOST) {
+                choice(stringoutPOST_OnChange, "On Change")
+                choice(stringoutPOST_Always, "Always")
+            }
+            recordtype(ai) {
+                %#include "epicsTypes.h"
+                %#include "link.h"
+                field(NAME, DBF_STRING) {
+                    prompt("Record Name")
+                    special(SPC_NOMOD)
+                    size(61)
+                }
+            }
+            device(ai, CONSTANT, devAaiSoft, "Soft Channel")
+            registrar(rsrvRegistrar)
+            variable(dbBptNotMonotonic, int)
+            """,
+            None,
+            id="dbd_basic"
+        ),
+        pytest.param(
+            """\
+            record(ai, "rec:X") {
+                field(A, "test")
+                field(B, "test")
+                info(info, "X")
+            }
+            """,
+            None,
+            id="record_basic"
+        ),
+        pytest.param(
+            """\
+            record(ai, "rec:X") {
+                field(A, "test")
+                field(B, "test")
+            }
+            alias("rec:X", "rec:Y")
+            """,
+            # standalone alisa -> record()
+            """\
+            record(ai, "rec:X") {
+                alias("rec:Y")
+                field(A, "test")
+                field(B, "test")
+            }
+            """,
+            id="alias_fix"
+        ),
+    ],
+)
+def test_roundtrip_format(input_text: str, expected: Optional[str]):
+    input_text = textwrap.dedent(input_text)
+    ctx = FormatContext(options=FormatOptions(indent=4))
+
+    db = Database.from_string(input_text, version=3)
+    result = ctx.render_object(db, "file")
+    if expected is None:
+        assert result.strip() == input_text.strip()
+    else:
+        expected = textwrap.dedent(expected)
+        assert result.strip() == expected.strip()

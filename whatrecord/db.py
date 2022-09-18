@@ -139,7 +139,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             reference.record_name = record.name
 
         # Update top-level standalone aliases
-        for alias_name, record_name in self._state.standalone_aliases.items():
+        for alias_name, record_name in list(self._state.standalone_aliases.items()):
             self.db.standalone_aliases[alias_name] = record_name
             self.db.aliases[alias_name] = record_name
             if record_name in self.db.records:
@@ -396,7 +396,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
 
             if isinstance(field_info, dict):
                 # There, uh, is still some work left to do here.
-                channel = field_info.pop("+channel", None)
+                channel = field_info.get("+channel", None)
                 if channel is not None:
                     # The current record doesn't have its name yet due to how
                     # the parser goes depth first; update it later.
@@ -584,7 +584,9 @@ class Database:
 
             {% endfor %}
             {% for alias, record in standalone_aliases.items() %}
+            {% if record not in records or alias not in records[record].aliases %}
             alias("{{ alias }}", "{{ record }}")
+            {% endif %}
             {% endfor %}
             """.rstrip()
         ),
