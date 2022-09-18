@@ -1,12 +1,16 @@
 import dataclasses
+import functools
 import inspect
+import json
 import logging
 import textwrap
 import typing
+from typing import Optional
 
 import apischema
 import jinja2
 
+from . import settings
 from .common import LoadContext
 
 logger = logging.getLogger(__name__)
@@ -41,13 +45,25 @@ def template_from_dataclass(cls, fields, render_option):
     )
 
 
+@dataclasses.dataclass
+class FormatOptions:
+    indent: int = settings.INDENT
+
+
 class FormatContext:
+    format_options: FormatOptions
+
     def __init__(
-        self, helpers=None, *, trim_blocks=True, lstrip_blocks=False,
-        default_options="console",
+        self,
+        helpers: Optional[list] = None,
+        options: Optional[FormatOptions] = None,
+        *,
+        trim_blocks: bool = True,
+        lstrip_blocks: bool = False,
+        default_options: str = "console",
         **env_kwargs
     ):
-        self.helpers = helpers or [self.render_object, type, locals]
+        self.helpers = helpers or [self.render_object, type, locals, json]
         self.default_options = default_options
         self._template_dict = {}
         self.env = jinja2.Environment(
@@ -57,6 +73,7 @@ class FormatContext:
             **env_kwargs,
         )
 
+        self.format_options = options or FormatOptions()
         self.env.filters.update(self.get_filters())
         self.default_render_context = self.get_render_context()
         self._fallback_formats = {}
@@ -160,4 +177,7 @@ class FormatContext:
     def get_render_context(self) -> dict:
         """Jinja template context dictionary - helper functions."""
         context = {func.__name__: func for func in self.helpers}
+        context["_fmt"] = self.format_options
+        context["_json_dump"] = functools.partial(json.dumps, indent=self.format_options.indent)
+        context["_indent"] = self.format_options.indent * " "
         return context

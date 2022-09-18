@@ -145,7 +145,7 @@ class IocshResult:
 {%- endfor %} {{ line }}
 {% if error %}
     ** ERROR on line {% if context %}{{ context[0].line }}{% endif %} **
-    {{ error | indent(4) }}
+    {{ error | indent(_fmt.indent) }}
 {% endif %}
 {% if outputs != [line] %}
 {% for output in outputs %}
@@ -743,9 +743,15 @@ class RecordField:
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """field({{name}}, "{{value}}")""",
-        "console-verbose": """\
-field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% endif %}\
-""",
+        "console-verbose": textwrap.dedent(
+            """\
+            field({{name}}, "{{value}}")  # {{dtype}}
+            {%- if context %}; {{context[-1]}}{% endif %}\
+            """.rstrip(),
+        ),
+        "file": """
+            field({{name}}, {{ _json_dump(value) }})
+        """.strip(),
     }
 
     def update_from_record_type(
@@ -885,7 +891,17 @@ class PVAFieldReference:
 PVAFieldReference: {{ record_name }}.{{ field_name }}
                  - {{ metadata }}
 """,
+        "file": "field({{ name }}, {{ _json_dump(obj.as_file_json) }})",
     }
+
+    @property
+    def as_file_json(self) -> dict:
+        """The field reference as JSON seen in a database file."""
+        ref = {}
+        if self.field_name:
+            ref["+channel"] = self.field_name
+        ref.update(self.metadata)
+        return ref
 
 
 AnyField = Union[RecordField, PVAFieldReference]
@@ -1010,20 +1026,42 @@ class RecordInstance:
     owner: str = ""
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-record("{{record_type}}", "{{name}}") {
-{% if owner %}
-    # Part of {{ owner }}
-{% endif %}
-{% for ctx in context %}
-    # {{ctx}}
-{% endfor %}
-{% for name, field_inst in fields.items() | sort %}
-{% set field_text = render_object(field_inst, "console") %}
-    {{ field_text | indent(4) }}
-{% endfor %}
-}
-""",
+        "console": textwrap.dedent(
+            """\
+            record({ record_type }}, "{{ name }}") {
+            {% if owner %}
+            {{ _indent }}# Part of {{ owner }}
+            {% endif %}
+            {% for ctx in context %}
+            {{ _indent }}# {{ ctx }}
+            {% endfor %}
+            {% for name, field_inst in fields.items() | sort %}
+            {% set field_text = render_object(field_inst, "console") %}
+            {{ _indent }}{{ field_text | indent(_fmt.indent) }}
+            {% endfor %}
+            }
+            """.rstrip()
+        ),
+        "file": textwrap.dedent(
+            """\
+            {% if is_grecord %}
+            grecord({{ record_type }}, "{{ name }}") {
+            {% else %}
+            record({{ record_type }}, "{{ name }}") {
+            {% endif %}
+            {% for alias in aliases %}
+            {{ _indent }}alias("{{ alias }}")
+            {% endfor %}
+            {% for name, field_inst in fields.items() | sort %}
+            {% set field_text = render_object(field_inst, "file") %}
+            {{ _indent }}{{ field_text | indent(_fmt.indent) }}
+            {% endfor %}
+            {% for name, info_value in info.items() | sort %}
+            {{ _indent }}info({{ name }}, {{ _json_dump(info_value) | indent(_fmt.indent) }})
+            {% endfor %}
+            }
+            """.rstrip()
+        ),
     }
 
     @property
@@ -1319,11 +1357,11 @@ class WhatRecord:
     IOC: {{ ioc_info }}
 {% if record %}
 {% set instance_info = render_object(record, "console") %}
-    {{ instance_info | indent(4)}}
+    {{ instance_info | indent(_fmt.indent)}}
 {% endif %}
 {% if pva_group %}
 {% set instance_info = render_object(pva_group, "console") %}
-    {{ instance_info | indent(4)}}
+    {{ instance_info | indent(_fmt.indent)}}
 {% endif %}
 }
 """,

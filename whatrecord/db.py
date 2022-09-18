@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import math
 import pathlib
+import textwrap
 import typing
 from dataclasses import field
-from typing import (Any, Dict, FrozenSet, Generator, List, Mapping, Optional,
-                    Tuple, Union, cast)
+from typing import (Any, ClassVar, Dict, FrozenSet, Generator, List, Mapping,
+                    Optional, Tuple, Union, cast)
 
 import lark
 
@@ -532,6 +533,17 @@ class Database:
 
     lint: DatabaseLint = field(default_factory=DatabaseLint)
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            {% for name, record in obj.non_aliased_records.items() %}
+            {{ render_object(record, "file") }}
+
+            {% endfor %}
+            """.rstrip()
+        ),
+    }
+
     @classmethod
     def from_string(
         cls,
@@ -827,6 +839,30 @@ class Database:
             return
 
         yield from record_info.get_links_for_record(record)
+
+    @property
+    def all_aliases(self) -> Dict[str, str]:
+        """All aliases: top-level-defined and per-instance-defined."""
+        aliases = dict(self.aliases)
+        for record_name, record in self.records.items():
+            for alias in record.aliases:
+                aliases[alias] = record_name
+        return aliases
+
+    @property
+    def non_aliased_records(self) -> Dict[str, RecordInstance]:
+        """
+        Get unique and non-aliased record instances.
+
+        This can be used to ignore records included by the ``include_aliases``
+        setting.
+        """
+        records = {}
+        aliases = self.all_aliases
+        for record_name, record in self.records.items():
+            if record_name not in aliases:
+                records[record_name] = record
+        return records
 
 
 _DatabaseSource = Union["LoadedIoc", "ShellState", Database]

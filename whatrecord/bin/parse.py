@@ -69,16 +69,14 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "--friendly",
-        action="store_true",
-        help="Output Python object representation instead of JSON",
-    )
-
-    parser.add_argument(
-        "--friendly-format",
+        "-o", "--output-format",
         type=str,
-        default="console",
-        help="Output Python object representation instead of JSON",
+        default="json",
+        help=(
+            "Defaults to 'json', some input formats may support "
+            "'console', which aims to be convenient for console output, "
+            "or 'file', which should closely resemble the input file"
+        ),
     )
 
     parser.add_argument(
@@ -170,12 +168,11 @@ def main(
     filename: AnyPath,
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
-    macros: Optional[str] = None,
-    friendly: bool = False,
-    use_gdb: bool = False,
     format: Optional[str] = None,
+    output_format: str = "json",
+    macros: Optional[str] = None,
+    use_gdb: bool = False,
     expand: bool = False,
-    friendly_format: str = "console",
     v3: bool = False,
 ):
     result = parse_from_cli_args(
@@ -189,10 +186,9 @@ def main(
         v3=v3,
     )
 
-    if friendly:
-        fmt = FormatContext()
-        print(fmt.render_object(result, friendly_format))
-    else:
-        # TODO: JSON -> obj -> JSON round tripping
+    if output_format == "json":
         json_info = apischema.serialize(result)
         print(json.dumps(json_info, indent=4))
+    else:
+        fmt = FormatContext()
+        print(fmt.render_object(result, output_format))
