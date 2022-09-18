@@ -206,6 +206,42 @@ record(ai, "rec:X") {
         pytest.param(
             """\
             record(ai, "rec:X") {
+                field(VAL, [
+                    "test value"
+                ])
+            }
+            """,
+            None,
+            id="record_array"
+        ),
+        # TODO: quotes indicate transformer or grammar priority issue?
+        pytest.param(
+            """\
+            record(ai, "value") {
+                field(HEXINT, 0x10)
+            }
+            """,
+            None,
+            marks=pytest.mark.xfail(reason="TODO"),
+            id="record_hexint"
+        ),
+        # TODO: quotes indicate transformer or grammar priority issue?
+        pytest.param(
+            """\
+            record(ai, "value") {
+                field(NAN, NaN)
+                field(VAL, {
+                    "a": 1e10
+                })
+            }
+            """,
+            None,
+            marks=pytest.mark.xfail(reason="TODO"),
+            id="record_misc_types"
+        ),
+        pytest.param(
+            """\
+            record(ai, "rec:X") {
                 info(Q:group, {
                     "grp:name": {
                         "X": {
@@ -227,6 +263,57 @@ record(ai, "rec:X") {
             """,
             None,
             id="pva_group_1",
+        ),
+        pytest.param(
+            """\
+            record(ai, "time_tag") {
+                info(Q:time:tag, "nsec:lsb:20")
+            }
+
+            record(ai, "display_form_hint") {
+                info(Q:form, "Default")
+            }
+
+            record(longin, "tgt3") {
+            }
+
+            record(longin, "src3") {
+                field(INP, {
+                    "pva": {
+                        "pv": "tgt3",
+                        "field": "",
+                        "local": false,
+                        "Q": "4",
+                        "pipeline": false,
+                        "proc": "none",
+                        "sevr": false,
+                        "time": false,
+                        "monorder": "0",
+                        "retry": false,
+                        "always": false,
+                        "defer": false
+                    }
+                })
+            }
+            """,
+            None,
+            id="pva_group_2",
+        ),
+        pytest.param(
+            """\
+            record(longin, "src3") {
+                field(INP, {
+                    "pva": {
+                        "Q": 4,
+                        "proc": none,
+                        "monorder": 0
+                    }
+                })
+            }
+            """,
+            None,
+            marks=pytest.mark.xfail(reason="TODO"),
+            id="pva_group_3",
         ),
     ],
 )
