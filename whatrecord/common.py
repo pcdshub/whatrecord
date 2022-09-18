@@ -171,16 +171,14 @@ class IocshScript:
         "console": textwrap.dedent(
             """\
             {%- for line in lines %}
-            {% set line = render_object(line, "console") %}
-            {{ line }}
+            {{ render_object(line, "console") }}
             {%- endfor %}
             """.rstrip(),
         ),
         "console-verbose": textwrap.dedent(
             """\
             {%- for line in lines -%}
-            {% set line = render_object(line, "console-verbose") %}
-            {{ line }}
+            {{ render_object(line, "console-verbose") }}
             {%- endfor %}
             """.rstrip(),
         )
@@ -867,6 +865,14 @@ class RecordInstanceSummary:
         )
 
 
+class UnquotedString(str):
+    """
+    An unquoted string token found when loading a database file.
+    May be a linter warning.
+    """
+    ...
+
+
 class StringWithContext(str):
     """A string with LoadContext."""
     __slots__ = ("context", )
@@ -913,6 +919,18 @@ class DatabaseMenu:
     name: str
     choices: Dict[str, str]
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            menu({{ name }}) {
+            {% for name, choice in choices.items() %}
+            {{ _indent }}choice({{ name }}, "{{ choice }}")
+            {% endfor %}
+            }
+            """.rstrip(),
+        ),
+    }
+
 
 @dataclass
 class DatabaseDevice:
@@ -920,6 +938,14 @@ class DatabaseDevice:
     link_type: str
     dset_name: str
     choice_string: str
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            device({{ record_type }}, {{ link_type }}, {{ dset_name }}, "{{ choice_string }}")
+            """.rstrip(),
+        ),
+    }
 
 
 @apischema.fields.with_fields_set
@@ -943,6 +969,58 @@ class RecordTypeField:
     # -> bundle the remainder in "body", even if unrecognized
     body: Dict[str, str] = field(default_factory=dict)
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            field({{ name }}, {{ type }}) {
+            {{ obj._get_file_repr() | indent(_fmt.indent) }}
+            }
+            """.rstrip(),
+        ),
+    }
+
+    def _get_file_repr(self) -> str:
+        # This is too slow to let jinja take care of....
+        def get_value_repr(value: str):
+            if isinstance(value, UnquotedString):
+                return str(value)
+            return f'"{value}"'
+
+        return "\n".join(
+            f"{attr}({get_value_repr(value)})"
+            for attr, value in self.get_all_set_entries().items()
+        )
+
+    def get_all_set_entries(self) -> Dict[str, str]:
+        """
+        Get all field entries that have been set in the database definition.
+
+        Returns
+        -------
+        dict
+            e.g., {"initial": "5"}
+        """
+        entries = {}
+        for attr in (
+            "asl",
+            "initial",
+            "promptgroup",
+            "prompt",
+            "special",
+            "pp",
+            "interest",
+            "base",
+            "size",
+            "extra",
+            "menu",
+            "prop",
+        ):
+            value = getattr(self, attr)
+            if value is not None:
+                entries[attr] = value
+        entries.update(self.body)
+        return entries
+
 
 @dataclass
 class RecordType:
@@ -950,10 +1028,23 @@ class RecordType:
     name: str
     cdefs: List[str] = field(default_factory=list)
     fields: Dict[str, RecordTypeField] = field(default_factory=dict)
-    devices: Dict[str, DatabaseDevice] = field(default_factory=dict)
-    aliases: List[str] = field(default_factory=list)
-    info: Dict[str, str] = field(default_factory=dict)
-    is_grecord: bool = False
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            recordtype({{ name }}) {
+            {% for cdef in cdefs %}
+            {{ _indent }}%{{ cdef }}
+            {% endfor %}
+            {% for field_name, field in fields.items() %}
+            {{ _indent }}field({{ field.name }}, {{ field.type }}) {
+            {{ _indent }}{{ _indent }}{{ field._get_file_repr() | indent(_fmt.indent * 2) }}
+            {{ _indent }}}
+            {% endfor %}
+            }
+            """.rstrip(),
+        ),
+    }
 
     def get_links_for_record(
         self, record: RecordInstance
@@ -1036,8 +1127,7 @@ class RecordInstance:
             {{ _indent }}# {{ ctx }}
             {% endfor %}
             {% for name, field_inst in fields.items() | sort %}
-            {% set field_text = render_object(field_inst, "console") %}
-            {{ _indent }}{{ field_text | indent(_fmt.indent) }}
+            {{ _indent }}{{ render_object(field_inst, "console") | indent(_fmt.indent) }}
             {% endfor %}
             }
             """.rstrip()
@@ -1053,8 +1143,7 @@ class RecordInstance:
             {{ _indent }}alias("{{ alias }}")
             {% endfor %}
             {% for name, field_inst in fields.items() | sort %}
-            {% set field_text = render_object(field_inst, "file") %}
-            {{ _indent }}{{ field_text | indent(_fmt.indent) }}
+            {{ _indent }}{{ render_object(field_inst, "file") | indent(_fmt.indent) }}
             {% endfor %}
             {% for name, info_value in info.items() | sort %}
             {{ _indent }}info({{ name }}, {{ _json_dump(info_value) | indent(_fmt.indent) }})
@@ -1314,8 +1403,7 @@ class RecordDefinitionAndInstance:
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """\
-{% set instance_info = render_object(instance, "console") %}
-{{ instance_info }}
+{{ render_object(instance, "console") }}
 """,
     }
 
@@ -1353,15 +1441,12 @@ class WhatRecord:
         "console": """\
 {{ name }}:
     Owner: {{ present }}
-{% set ioc_info = render_object(ioc, "console") %}
-    IOC: {{ ioc_info }}
+    IOC: {{ render_object(ioc, "console") }}
 {% if record %}
-{% set instance_info = render_object(record, "console") %}
-    {{ instance_info | indent(_fmt.indent)}}
+    {{ render_object(record, "console") | indent(_fmt.indent)}}
 {% endif %}
 {% if pva_group %}
-{% set instance_info = render_object(pva_group, "console") %}
-    {{ instance_info | indent(_fmt.indent)}}
+    {{ render_object(pva_group, "console") | indent(_fmt.indent)}}
 {% endif %}
 }
 """,

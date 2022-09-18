@@ -15,7 +15,7 @@ from . import transformer, util
 from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterMessage,
                      LinterWarning, LoadContext, PVAFieldReference,
                      RecordField, RecordInstance, RecordType, RecordTypeField,
-                     StringWithContext, dataclass)
+                     StringWithContext, UnquotedString, dataclass)
 from .macro import MacroContext
 from .transformer import context_from_token
 
@@ -33,14 +33,6 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
 
 class DatabaseLoadFailure(Exception):
     """Database load failure."""
-    ...
-
-
-class UnquotedString(str):
-    """
-    An unquoted string token found when loading a database file.
-    May be a linter warning.
-    """
     ...
 
 
@@ -455,7 +447,7 @@ class Database:
 
     Attributes
     ----------
-    standalone_aliases :
+    standalone_aliases : Dict[str, str]
         Standalone aliases are those defined outside of the record body; this
         may only be useful for faithfully reconstructing the Database according
         to its original source code.  Keyed on alias to actual record name.
@@ -536,6 +528,15 @@ class Database:
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "file": textwrap.dedent(
             """\
+            {% for name, menu in menus.items() %}
+            {{ render_object(menu, "file") }}
+            {% endfor %}
+            {% for device in devices %}
+            {{ render_object(device, "file") }}
+            {% endfor %}
+            {% for name, record_type in record_types.items() %}
+            {{ render_object(record_type, "file") }}
+            {% endfor %}
             {% for name, record in obj.non_aliased_records.items() %}
             {{ render_object(record, "file") }}
 
