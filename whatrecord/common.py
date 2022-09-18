@@ -613,8 +613,44 @@ class IocMetadata:
         binary: Optional[str] = None,
         base_version: Optional[str] = settings.DEFAULT_BASE_VERSION,
         **metadata
-    ):
-        """Given at minimum a filename, guess the rest."""
+    ) -> IocMetadata:
+        """
+        Given at minimum a filename, guess the rest of the metadata.
+
+        Parameters
+        ----------
+        filename : pathlib.Path or str
+            The IOC startup script filename.
+        name : str, optional
+            The name of the IOC.  Defaults to the startup script's parent
+            directory name.
+        host : str, optional
+            The host on which the IOC runs.
+        port : int, optional
+            The port on which the IOC will be accessible from the host.
+        startup_directory : pathlib.Path, optional
+            The directory in which the script should be started.  Defaults
+            to the parent directory of ``filename``.
+        macros : Dict[str, str], optional
+            Macros to use when interpreting the startup script.
+        standin_directories : Dict[str, str], optional
+            Stand-in directories to use when interpreting a script outside of
+            its normal environment.
+        binary : str, optional
+            The binary used to run the startup script normally. That is, an
+            EPICS IOC binary.  If not specified, this will be determined
+            based on the startup script hashbang (if available).
+        base_version : str, optional
+            The epics-base version to use when interpreting the startup script.
+            This may be overridden automatically when interpreting the startup
+            script.
+        **metadata :
+            User-specified metadata.
+
+        Returns
+        -------
+        IocMetadata
+        """
         filename = pathlib.Path(filename).expanduser().resolve()
         name = name or filename.parts[-2]  # iocBoot/((ioc-something))/st.cmd
         if "/" in name:
@@ -640,14 +676,21 @@ class IocMetadata:
     from_filename = from_file
 
     @classmethod
-    def from_dict(cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None):
+    def from_dict(
+        cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None
+    ) -> IocMetadata:
         """
-        Pick apart a given dictionary, relegating extra info to ``.metadata``.
+        Create an IocMetadata instance.
+
+        Pick apart a given ``iocdict`` dictionary, relegating extra info to
+        ``.metadata``.
 
         Parameters
         ----------
         iocdict : dict
             IOC information dictionary.
+        macros : dict, optional
+            Additional macros to use at startup.
         """
         ioc = dict(iocdict)
         name = ioc.pop("name")
