@@ -952,19 +952,49 @@ class DatabaseDevice:
 @dataclass
 class RecordTypeField:
     context: FullLoadContext
+    #: Record type name.
     name: str
+    #: The data type (e.g., DBF_STRING)
     type: str
+    #: Access security level (ASL0, ASL1, or None)
     asl: Optional[str] = None
+    #: Initial value for the field.
     initial: Optional[str] = None
+    #: Grouping for the field in user interfaces.
     promptgroup: Optional[str] = None
+    #: User interface information about the field.
     prompt: Optional[str] = None
+    #: "Special" settings such as SPC_NOMOD (no write access)
+    #: SPC_NOMOD      Field must not be modified
+    #: SPC_DBADDR     db_name_to_addr must call cvt_dbaddr
+    #: SPC_SCAN       scan related field is being changed
+    #: SPC_ALARMACK   Special Alarm Acknowledgement
+    #: SPC_AS         Access Security
+    #: SPC_ATTRIBUTE  psuedo field, i.e. attribute field
+    #:                useful when record support must be notified of a field
+    #:                changing value
+    #: SPC_MOD        used by all records that support a reset field
+    #: SPC_RESET      The res field is being modified
+    #:
+    #: Specific to conversion:
+    #: SPC_LINCONV  A linear conversion field is being changed
+    #:
+    #: Specific to calculation records
+    #: SPC_CALC     The CALC field is being changed
     special: Optional[str] = None
+    #: Process passive.
     pp: Optional[str] = None
+    #: Process passive. TURE/FALSE.
     interest: Optional[str] = None
+    #: Base: e.g., HEX
     base: Optional[str] = None
+    #: Number of elements.
     size: Optional[str] = None
+    #: Extra debug information.
     extra: Optional[str] = None
+    #: Enum (menu) options for the field.
     menu: Optional[str] = None
+    #: Property- YES/NO
     prop: Optional[str] = None
     # -> bundle the remainder in "body", even if unrecognized
     body: Dict[str, str] = field(default_factory=dict)
@@ -1002,18 +1032,19 @@ class RecordTypeField:
         """
         entries = {}
         for attr in (
-            "asl",
+            # Order defined in dbStaticLib.c
+            "prompt",
             "initial",
             "promptgroup",
-            "prompt",
             "special",
-            "pp",
-            "interest",
-            "base",
-            "size",
             "extra",
             "menu",
+            "size",
+            "pp",
             "prop",
+            "base",
+            "interest",
+            "asl",
         ):
             value = getattr(self, attr)
             if value is not None:
@@ -1028,6 +1059,7 @@ class RecordType:
     name: str
     cdefs: List[str] = field(default_factory=list)
     fields: Dict[str, RecordTypeField] = field(default_factory=dict)
+    devices: List[DatabaseDevice] = field(default_factory=list)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "file": textwrap.dedent(

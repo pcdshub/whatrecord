@@ -146,6 +146,11 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                 self.db.records[record_name].aliases.append(alias_name)
             # else:  linter error
 
+        for device in self.db.devices:
+            record_type = self.record_types.get(device.record_type, None)
+            if record_type is not None:
+                record_type.devices.append(device)
+
         return self.db
 
     dbitem = transformer.tuple_args
@@ -170,7 +175,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     menu_head = transformer.pass_through
     menu_body = transformer.dictify
 
-    def device(self, _, record_type, link_type, dset_name, choice_string):
+    def device(
+        self, _, record_type: str, link_type: str, dset_name: str, choice_string: str
+    ):
         self.db.devices.append(
             DatabaseDevice(record_type, link_type, dset_name, choice_string)
         )
@@ -187,8 +194,8 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def function(self, _, name):
         self.db.functions.append(name)
 
-    def variable(self, _, name, value=None):
-        self.db.variables[name] = value
+    def variable(self, _, name, dtype=None):
+        self.db.variables[name] = dtype
 
     def breaktable(self, _, name, values):
         self.db.breaktables[name] = list(values)
@@ -528,18 +535,56 @@ class Database:
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "file": textwrap.dedent(
             """\
+            {% for include in includes %}
+            include {{ include }}
+            {% endfor %}
+            {% for addpath in addpaths %}
+            addpath {{ addpath }}
+            {% endfor %}
+            {% for path in paths %}
+            path {{ path }}
+            {% endfor %}
             {% for name, menu in menus.items() %}
             {{ render_object(menu, "file") }}
             {% endfor %}
-            {% for device in devices %}
-            {{ render_object(device, "file") }}
-            {% endfor %}
             {% for name, record_type in record_types.items() %}
             {{ render_object(record_type, "file") }}
+            {% for device in record_type.devices %}
+            {{ render_object(device, "file") }}
+            {% endfor %}
+            {% endfor %}
+            {% for link, identifier in links.items() %}
+            link({{ link }}, {{ identifier }})
+            {% endfor %}
+            {% for driver in drivers %}
+            driver({{ driver }})
+            {% endfor %}
+            {% for registrar in registrars %}
+            registrar({{ registrar }})
+            {% endfor %}
+            {% for function in functions %}
+            function({{ function }})
+            {% endfor %}
+            {% for variable, type in variables.items() %}
+            {% if type %}
+            variable({{ variable }}, {{ type }})
+            {% else %}
+            variable({{ variable }})
+            {% endif %}
+            {% endfor %}
+            {% for name, breaktable in breaktables.items() %}
+            breaktable({{ name }}) {
+            {{ _indent }}{% for value in breaktable %}
+            {{ _indent }}{{ value }}
+            {{ _indent }}{% endfor %}
+            }
             {% endfor %}
             {% for name, record in obj.non_aliased_records.items() %}
             {{ render_object(record, "file") }}
 
+            {% endfor %}
+            {% for alias, record in standalone_aliases.items() %}
+            alias("{{ alias }}", "{{ record }}")
             {% endfor %}
             """.rstrip()
         ),
