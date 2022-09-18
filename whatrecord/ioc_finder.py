@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import pathlib
-from dataclasses import InitVar, field
+from dataclasses import field
 from typing import Dict, List, Union
 
 from .common import IocInfoDict, IocMetadata
@@ -10,6 +10,7 @@ from .util import run_script_with_json_output
 logger = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass
 class _IocInfoFinder:
     """
     An IOC information "finder" base class.
@@ -17,6 +18,8 @@ class _IocInfoFinder:
     Subclasses of this support different ways of finding IOCs from
     user-specified parameters.  See further information in subclasses.
     """
+    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict, init=False)
+
     def add_or_update_entry(self, info: IocMetadata):
         self.scripts[info.script] = info
 
@@ -40,7 +43,10 @@ class IocScriptExternalLoader(_IocInfoFinder):
     """
     #: The script to run.
     load_script: str
-    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if not self.load_script:
+            raise ValueError("load_script is required")
 
     async def update(self):
         result = await run_script_with_json_output(self.load_script)
@@ -58,11 +64,14 @@ class IocScriptStaticInfoList(_IocInfoFinder):
     This is mainly LCLS-specific as it integrates with their "IOC Manager"
     utility.
     """
-    ioc_infos: InitVar[List[IocInfoDict]]
-    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict)
+    ioc_infos: List[IocInfoDict]
 
-    def __post_init__(self, ioc_infos: List[IocInfoDict]):
-        for info in ioc_infos:
+    async def update(self):
+        if self.scripts:
+            # The list is static; there wil be no updates
+            return
+
+        for info in self.ioc_infos:
             self.add_or_update_entry(IocMetadata.from_dict(info))
 
 
@@ -72,9 +81,12 @@ class IocScriptStaticList(_IocInfoFinder):
     An IOC finder that does not do much finding; it expects a static list of
     scripts to load at startup.
     """
-    script_list: InitVar[List[Union[str, pathlib.Path]]]
-    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict)
+    script_list: List[Union[str, pathlib.Path]]
 
-    def __post_init__(self, script_list: List[Union[str, pathlib.Path]]):
-        for fn in script_list:
+    async def update(self):
+        if self.scripts:
+            # The list is static; there wil be no updates
+            return
+
+        for fn in self.script_list:
             self.add_or_update_entry(IocMetadata.from_file(fn))
