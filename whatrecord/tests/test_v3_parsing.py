@@ -3,7 +3,7 @@
 import apischema
 import pytest
 
-from .. import Database
+from .. import Database, common
 from ..common import LoadContext
 from ..db import (DatabaseMenu, LinterWarning, RecordField, RecordInstance,
                   RecordType, RecordTypeField)
@@ -321,3 +321,20 @@ def test_load_vendored_database_smoke(version: int):
         assert "v3_softIoc.dbd" in record.context[0].name
     else:
         assert "softIoc.dbd" in record.context[0].name
+
+
+@pytest.mark.parametrize(
+    "base_version, expected",
+    [
+        ("3", 3),
+        ("3.14.12.2", 3),
+        ("3.14", 3),
+        ("3.15", 3),
+        ("3.16", 4),
+        ("4.0", 4),
+        ("7.0", 4),
+        ("7.0.3.1", 4),
+    ],
+)
+def test_grammar_version_check(base_version: str, expected: int):
+    assert common.get_grammar_version_by_base_version(base_version) == expected
