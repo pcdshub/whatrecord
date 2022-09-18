@@ -459,54 +459,57 @@ class Database:
         may only be useful for faithfully reconstructing the Database according
         to its original source code.  Keyed on alias to actual record name.
 
-    aliases :
+    aliases : Dict[str, str]
         Alias name to record name.
 
-    paths :
+    paths : List[str]
         The path command specifies the current search path for use when loading
         database and database definition files. The addpath appends directory
         names to the current path. The path is used to locate the initial
         database file and included files. An empty dir at the beginning,
         middle, or end of a non-empty path string means the current directory.
 
-    addpaths :
+    addpaths : List[str]
         See 'paths' above.
 
-    breaktables :
+    breaktables : Dict[str, List[str]]
         Breakpoint table (look-up table) of raw-to-engineering values.
 
-    comments :
+    comments : List[str]
         Comments encountered while parsing the database.
 
-    devices :
+    devices : List[DatabaseDevice]
         Device support declarations (dset).
 
-    drivers :
+    drivers : List[str]
         Driver declarations (drvet).
 
-    functions :
+    functions : List[str]
         Exported C function names.
 
-    includes :
+    includes : List[str]
         Inline inclusion. Not supported just yet.
 
-    links :
+    links : Dict[str, str]
         Links.
 
-    menus :
+    menus : Dict[str, DatabaseMenu]
         Named value enumerations (enums).
 
-    records :
+    records : Dict[str, RecordInstance]
         Record name to RecordInstance.
 
-    record_types :
+    record_types : Dict[str, RecordType]
         Record type name to RecordType.
 
-    registrars :
+    registrars : List[str]
         Exported registrar function name.
 
-    variables :
+    variables : Dict[str, Optional[str]]
         IOC shell variables.
+
+    lint : DatabaseLint
+        Any lint found when loading the database.
     """
 
     addpaths: List[str] = field(default_factory=list)
@@ -527,7 +530,7 @@ class Database:
     standalone_aliases: Dict[str, str] = field(default_factory=dict)
     variables: Dict[str, Optional[str]] = field(default_factory=dict)
 
-    lint: Optional[DatabaseLint] = field(default_factory=DatabaseLint)
+    lint: DatabaseLint = field(default_factory=DatabaseLint)
 
     @classmethod
     def from_string(

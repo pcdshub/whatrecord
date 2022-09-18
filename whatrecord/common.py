@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class FileFormat(str, enum.Enum):
+    """
+    File type enum that covers all formats supported by whatrecord.
+    """
     iocsh = 'iocsh'
     database = 'database'
     database_definition = 'database_definition'
@@ -70,7 +73,10 @@ class FileFormat(str, enum.Enum):
 
 @dataclass(frozen=True)
 class LoadContext:
+    """File and line context information."""
+    #: The filename (or other identifier) to identify the context.
     name: str
+    #: The line number of ``name`` this applies to.
     line: int
 
     def __repr__(self):
@@ -84,6 +90,9 @@ class LoadContext:
 
 @apischema.deserializer
 def _load_context_from_tuple(items: Sequence[Union[str, int]]) -> LoadContext:
+    """
+    A deserializer that takes in e.g., ["file", line] and turns it into a LoadContext.
+    """
     return LoadContext(*items)
 
 
@@ -95,6 +104,9 @@ AnyPath = Union[str, pathlib.Path]
 
 @dataclass(repr=False)
 class MutableLoadContext:
+    """
+    A mutable (i.e., changeable) version of :class:`LoadContext`.
+    """
     name: str
     line: int
 
@@ -102,6 +114,7 @@ class MutableLoadContext:
         return f"{self.name}:{self.line}"
 
     def to_load_context(self) -> LoadContext:
+        """Convert this to an immutable LoadContext."""
         return LoadContext(self.name, self.line)
 
 
@@ -148,8 +161,10 @@ class IocshResult:
 
 @dataclass
 class IocshScript:
+    """An IOC Shell script (i.e., st.cmd) that was loaded and interpreted."""
+    #: The path to the script.
     path: str
-    # lines: Tuple[IocshResult, ...]
+    #: Interpreted lines of the script.
     lines: List[IocshResult]
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
@@ -173,6 +188,21 @@ class IocshScript:
 
     @classmethod
     def from_metadata(cls, md: IocMetadata, sh: ShellState) -> IocshScript:
+        """
+        Create an IocshScript provided IocMetadata and ShellState.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            Metadata identifying the IOC.
+        sh : ShellState
+            The state of the shell interpreter after interpreting the IOC
+            startup script.
+
+        Returns
+        -------
+        IocshScript
+        """
         if md.looks_like_sh:
             if md.base_version == settings.DEFAULT_BASE_VERSION:
                 md.base_version = "unknown"
@@ -194,6 +224,23 @@ class IocshScript:
         contents: str,
         sh: ShellState
     ) -> IocshScript:
+        """
+        Create an IocshScript provided a filename, its contents, and ShellState.
+
+        Parameters
+        ----------
+        filename : str
+            The script filename.
+        contents : str
+            The decoded string contents of the file.
+        sh : ShellState
+            The state of the shell interpreter after interpreting the IOC
+            startup script.
+
+        Returns
+        -------
+        IocshScript
+        """
         return cls(
             path=str(filename),
             lines=tuple(
@@ -205,7 +252,21 @@ class IocshScript:
         )
 
     @classmethod
-    def from_general_file(cls, filename: Union[pathlib.Path, str]):
+    def from_general_file(cls, filename: Union[pathlib.Path, str]) -> IocshScript:
+        """
+        Create an IocshScript from any given file, even non-startup scripts.
+
+        This can be used to transfer database files over to the frontend, for
+        example.
+
+        Parameters
+        ----------
+        filename : Union[pathlib.Path, str]
+            The filename.
+
+        Returns
+        -------
+        """
         # For use when shoehorning in a file that's not _really_ an IOC script
         # TODO: instead rework the api
         with open(filename, "rt") as fp:
@@ -225,48 +286,117 @@ class IocshScript:
 
 @dataclass
 class IocshArgument:
+    """A single argument in a shell command."""
+    #: The name of the argument.
     name: str
+    #: Its type, according to EPICS.
     type: str
 
 
 @dataclass
 class IocshCommand:
+    """
+    A registered shell command.
+
+    Largely used as part of the gdb binary information tool.
+    """
+    #: The name of the command.
     name: str
+    #: Arguments the user can pass to the command.
     args: List[IocshArgument] = field(default_factory=list)
+    #: Usage information.
     usage: Optional[str] = None
+    #: Where this command information came from.
     context: Optional[FullLoadContext] = None
 
 
 @dataclass
 class IocshVariable:
+    """
+    A registered shell variable.
+
+    Largely used as part of the gdb binary information tool.
+    """
+    #: The name of the variable.
     name: str
+    #: The last value of the variable.
     value: Optional[str] = None
+    #: The type of the variable, according to EPICS.
     type: Optional[str] = None
 
 
 @dataclass
 class GdbBinaryInfo:
+    """
+    GDB-derived binary information.
+
+    This is populated by deserializing the output of
+    ``whatrecord.plugins.gdb_binary_info``, which is interpreted by GDB itself.
+    """
+    #: Commands that are available to the user in an EPICS IOC shell.
     commands: Dict[str, IocshCommand]
+    #: The base version detected in the binary.
     base_version: Optional[str]
+    #: Variables available to be set in the shell.
     variables: Dict[str, IocshVariable]
+    #: GDB plugin error information.
     error: Optional[str]
+
+
+def get_grammar_version_by_base_version(base_version: str) -> int:
+    """
+    Database grammar version to use, provided the epics-base version.
+
+    Returns
+    -------
+    base_version : str
+        The epics-base version number.
+
+    Returns
+    -------
+    int
+        If R3.15 or under, ``3``, otherwise ``4``.
+    """
+    base_version = base_version.lstrip("vRr")
+    major_minor = tuple(
+        int(v) for v in base_version.split(".")[:2]
+    )
+    return 3 if major_minor < (3, 16) else 4
 
 
 @dataclass
 class IocMetadata:
+    """
+    Metadata identifying an IOC.
+    """
+    #: The name of the IOC.
     name: str = "unset"
+    #: The IOC startup script.
     script: pathlib.Path = field(default_factory=pathlib.Path)
+    #: The startup directory to use when interpreting the script.
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
+    #: The host that the IOC will be run on, if available.
     host: Optional[str] = None
+    #: The port on the host that the IOC will be available on, if available.
     port: Optional[int] = None
+    #: The path to the IOC binary.
     binary: Optional[str] = None
+    #: The EPICS-base version.
     base_version: str = settings.DEFAULT_BASE_VERSION
+    #: User-specified metadata about the IOC.
     metadata: Dict[str, Any] = field(default_factory=dict)
+    #: Macros to include when loading the IOC.
     macros: Dict[str, str] = field(default_factory=dict)
+    #: Stand-in directories to use when interpreting a script outside of its
+    #: normal environment.
     standin_directories: Dict[str, str] = field(default_factory=dict)
+    #: Commands available to be used in the IOC shell.
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
+    #: Variables that are defined for usage in the shell.
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
+    #: Files that were loaded with their hash as a value.
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    #: Whether the IOC was successfully loaded or not.
     load_success: bool = True
 
     def update(self, other: IocMetadata, merge: bool = False):
@@ -336,15 +466,18 @@ class IocMetadata:
 
     @property
     def cache_filename(self) -> pathlib.Path:
+        """The cache filename for this metadata."""
         metadata_fn = f"{self._cache_key}.IocMetadata.json"
         return pathlib.Path(settings.CACHE_PATH) / metadata_fn
 
     @property
     def ioc_cache_filename(self) -> pathlib.Path:
+        """The cache filename for the entire interpreted IOC."""
         metadata_fn = f"{self._cache_key}.LoadedIoc.json"
         return pathlib.Path(settings.CACHE_PATH) / metadata_fn
 
     def from_cache(self) -> Optional[IocMetadata]:
+        """Load metadata from the cache, if available."""
         if not settings.CACHE_PATH:
             return
 
@@ -358,6 +491,7 @@ class IocMetadata:
             ...
 
     def save_to_cache(self) -> bool:
+        """Save this metadata to the cache, if enabled."""
         if not settings.CACHE_PATH:
             return False
 
@@ -379,6 +513,19 @@ class IocMetadata:
         """
         Add filename to the loaded file dictionary, optionally updating an
         existing hash.
+
+        Parameters
+        ----------
+        filename : Union[pathlib.Path, str]
+            The filename.
+        update : bool, optional
+            Update a hash if the filename is already in the loaded_files
+            dictionary.
+
+        Returns
+        -------
+        bool
+            Set if a hash was updated in the loaded_files dictionary.
         """
         filename = pathlib.Path(self.startup_directory) / filename
         if str(filename) not in self.loaded_files or update:
@@ -387,6 +534,12 @@ class IocMetadata:
         return False
 
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
+        """
+        Get binary information using the GDB plugin.
+
+        Requires that gdb be available, along with the ``.binary`` be set
+        to a valid file.
+        """
         if not self.binary or not pathlib.Path(self.binary).exists():
             return
 
@@ -428,20 +581,23 @@ class IocMetadata:
 
     @property
     def database_version_spec(self) -> int:
-        """Load databases with this specification."""
-        # TODO: better version parsing
-        try:
-            base_major_minor = tuple(
-                int(v) for v in self.base_version.split(".")[:2]
-            )
-            return 3 if base_major_minor < (3, 16) else 4
-        except Exception:
-            return 3
+        """
+        Load databases with this specification.
 
-    @classmethod
-    def empty(cls):
-        return cls(name="unset", script=pathlib.Path(),
-                   startup_directory=pathlib.Path())
+        Returns
+        -------
+        version_spec : int
+            If R3.15 or under, ``3``, otherwise ``4``.
+        """
+        # TODO: better version parsing
+
+        for base_version in [self.base_version, settings.DEFAULT_BASE_VERSION]:
+            try:
+                return get_grammar_version_by_base_version(base_version)
+            except Exception:
+                ...
+
+        return 3
 
     @classmethod
     def from_file(
