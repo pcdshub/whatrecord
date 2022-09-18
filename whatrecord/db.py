@@ -537,12 +537,35 @@ class Database:
         cls,
         contents: str,
         dbd: Optional[Union[Database, str, pathlib.Path]] = None,
-        filename: Union[str, pathlib.Path] = None,
+        filename: Optional[Union[str, pathlib.Path]] = None,
         macro_context: Optional[MacroContext] = None,
         version: int = 4,
         include_aliases: bool = True,
     ) -> Database:
-        """Load a database [definition] from a string."""
+        """
+        Load a database [definition] from a string.
+
+        Parameters
+        ----------
+        contents : str
+            The contents of the database file.
+        dbd : Union[Database, str, pathlib.Path], optional
+            The database definition (.dbd) path, if applicable and available.
+        filename : Union[str, pathlib.Path], optional
+            The filename to associate with the contents.
+        macro_context : MacroContext, optional
+            A macro context to use for expanding macros while loading the
+            database.
+        version : int, optional
+            The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+            4 for more recent versions.
+        include_aliases : bool, optional
+            Include aliases as top-level records.
+
+        Returns
+        -------
+        Database
+        """
         if dbd is not None and not isinstance(dbd, Database):
             dbd = Database.from_file(dbd, version=version)
 
@@ -574,19 +597,46 @@ class Database:
 
     @classmethod
     def from_file_obj(
-        cls, fp,
+        cls,
+        fp,
         dbd: Optional[Union[Database, str, pathlib.Path]] = None,
-        filename: Union[str, pathlib.Path] = None,
+        filename: Optional[Union[str, pathlib.Path]] = None,
         macro_context: Optional[MacroContext] = None,
         version: int = 4,
+        include_aliases: bool = True,
     ) -> Database:
-        """Load a database [definition] from a file object."""
+        """
+        Load a database [definition] from a file object.
+
+        Parameters
+        ----------
+        fp : file or file-like object
+            The file object to read from.
+        dbd : Union[Database, str, pathlib.Path], optional
+            The database definition (.dbd) path, if applicable and available.
+        filename : Union[str, pathlib.Path], optional
+            The filename to associate with the contents.  Defaults to
+            ``fp.name``, if available.
+        macro_context : MacroContext, optional
+            A macro context to use for expanding macros while loading the
+            database.
+        version : int, optional
+            The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+            4 for more recent versions.
+        include_aliases : bool, optional
+            Include aliases as top-level records.
+
+        Returns
+        -------
+        Database
+        """
         return cls.from_string(
             fp.read(),
             filename=filename or getattr(fp, "name", None),
             dbd=dbd,
             macro_context=macro_context,
             version=version,
+            include_aliases=include_aliases,
         )
 
     @classmethod
@@ -594,11 +644,32 @@ class Database:
         cls,
         fn: Union[str, pathlib.Path],
         dbd: Optional[Union[Database, str, pathlib.Path]] = None,
-        filename: Union[str, pathlib.Path] = None,
         macro_context: Optional[MacroContext] = None,
         version: int = 4,
+        include_aliases: bool = True,
     ) -> Database:
-        """Load a database [definition] from a filename."""
+        """
+        Load a database [definition] from a filename.
+
+        Parameters
+        ----------
+        fn : str or pathlib.Path
+            The path to the database file.
+        dbd : Union[Database, str, pathlib.Path], optional
+            The database definition (.dbd) path, if applicable and available.
+        macro_context : MacroContext, optional
+            A macro context to use for expanding macros while loading the
+            database.
+        version : int, optional
+            The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+            4 for more recent versions.
+        include_aliases : bool, optional
+            Include aliases as top-level records.
+
+        Returns
+        -------
+        Database
+        """
         with open(fn, "rt") as fp:
             return cls.from_string(
                 fp.read(),
@@ -606,6 +677,7 @@ class Database:
                 dbd=dbd,
                 macro_context=macro_context,
                 version=version,
+                include_aliases=include_aliases,
             )
 
     def field_names_by_type(
