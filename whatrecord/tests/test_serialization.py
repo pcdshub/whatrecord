@@ -125,6 +125,7 @@ def try_to_instantiate(cls):
         if (
             field.default is not dataclasses.MISSING
             or field.default_factory is not dataclasses.MISSING
+            or not field.init
         ):
             continue
 

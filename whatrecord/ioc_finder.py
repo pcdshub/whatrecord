@@ -10,7 +10,6 @@ from .util import run_script_with_json_output
 logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass
 class _IocInfoFinder:
     """
     An IOC information "finder" base class.
@@ -18,7 +17,7 @@ class _IocInfoFinder:
     Subclasses of this support different ways of finding IOCs from
     user-specified parameters.  See further information in subclasses.
     """
-    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict, init=False)
+    scripts: Dict[pathlib.Path, IocMetadata]
 
     def add_or_update_entry(self, info: IocMetadata):
         self.scripts[info.script] = info
@@ -43,6 +42,7 @@ class IocScriptExternalLoader(_IocInfoFinder):
     """
     #: The script to run.
     load_script: str
+    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.load_script:
@@ -65,6 +65,7 @@ class IocScriptStaticInfoList(_IocInfoFinder):
     utility.
     """
     ioc_infos: List[IocInfoDict]
+    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict)
 
     async def update(self):
         if self.scripts:
@@ -82,6 +83,7 @@ class IocScriptStaticList(_IocInfoFinder):
     scripts to load at startup.
     """
     script_list: List[Union[str, pathlib.Path]]
+    scripts: Dict[pathlib.Path, IocMetadata] = field(default_factory=dict)
 
     async def update(self):
         if self.scripts:
