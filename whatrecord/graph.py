@@ -631,9 +631,7 @@ class RecordLinkGraph(_GraphHelper):
             <TD>{rtype}</TD>
             <TD><b>{name}</b></TD>
         </TR>
-        <!-- field lines -->
         {field_lines}
-        <!-- end field lines -->
         </TABLE>
         """.strip()
     )
