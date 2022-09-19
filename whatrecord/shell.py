@@ -693,6 +693,11 @@ class LoadedIoc:
     pv_relations: PVRelations = field(default_factory=dict)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            {{ render_object(script, "file") }}
+            """.rstrip(),
+        ),
         "console": textwrap.dedent(
             """\
             {{ obj | classname }}:

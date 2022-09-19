@@ -168,6 +168,15 @@ class IocshScript:
     lines: List[IocshResult]
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            {%- for line in lines %}
+            {% if line.context | length == 1 %}
+            {{ line.line }}
+            {% endif %}
+            {%- endfor -%}
+            """.rstrip(),
+        ),
         "console": textwrap.dedent(
             """\
             {%- for line in lines %}
