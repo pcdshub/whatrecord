@@ -32,3 +32,6 @@ services:
     volumes:
       - ./cache/:/var/lib/whatrecord/cache
       - ./support:/usr/share/whatrecord/support
+      # Uncomment this to reinstall whatrecord from source without
+      # having to rebuild the image:
+      - ../:/usr/local/src/dev-whatrecord

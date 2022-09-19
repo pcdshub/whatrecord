@@ -201,7 +201,9 @@ class _GraphHelper:
         # add all of the edges between graphs
         for edge in self.edges:
             graph.edge(
-                edge.source_with_port, edge.destination_with_port, **edge.options
+                edge.source_with_port,
+                edge.destination_with_port,
+                **edge.options
             )
         return graph
 
@@ -641,21 +643,33 @@ class RecordLinkGraph(_GraphHelper):
     record_types: Dict[str, RecordType]
     default_edge_kwargs: Dict[str, str] = {
         "style": "solid",
-        "color": "black",
     }
 
     edge_kwargs: ClassVar[Dict[str, Dict[str, str]]] = {
         "style": {
-            "PP": "",
-            "CPP": "",
-            "CP": "",
+            "PP": "bold",
+            "CPP": "bold",
+            "CP": "bold",
         },
-        "color": {
-            "MS": "red",
-            "MSS": "red",
-            "MSI": "red",
-        }
+        # "color": {
+        #     "MS": "",
+        #     "MSS": "",
+        #     "MSI": "",
+        # }
     }
+
+    # Edge colors to cycle through: black is reserved for FLNK.
+    edge_colors: ClassVar[List[str]] = textwrap.dedent(
+        """\
+        brown
+        darkblue
+        darkcyan
+        darkgreen
+        darkmagenta
+        darkred
+        olive
+        """.rstrip()
+    ).split()
 
     def __init__(
         self,
@@ -703,6 +717,7 @@ class RecordLinkGraph(_GraphHelper):
                 self.database.records, record_types=self.database.record_types
             )
 
+        edge_color_idx = 0
         for li in find_record_links(
             self.database.records, self.starting_records, relations=self.relations
         ):
@@ -742,18 +757,22 @@ class RecordLinkGraph(_GraphHelper):
             if (src, dest) not in set(self.edge_pairs):
                 if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
                     edge_kw["taillabel"] = "FLNK"
-                    self.add_edge(src.label, dest.label, **edge_kw)
+                    self.add_edge(src.label, dest.label, color="black", **edge_kw)
                 else:
                     # edge_kw["taillabel"] = f"{li.field1.name}"
                     # edge_kw["headlabel"] = f"{li.field2.name}"
                     if li.info:
                         edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
 
+                    edge_color_idx += 1
+                    color = self.edge_colors[edge_color_idx % len(self.edge_colors)]
+
                     self.add_edge(
                         f"{src.label}",
                         f"{dest.label}",
                         source_port=li.field1.name,
                         dest_port=li.field2.name,
+                        color=color,
                         **edge_kw,
                     )
 

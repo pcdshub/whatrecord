@@ -4,6 +4,13 @@
 
 [ -z ${API_PORT} ] && echo "API port unset?" && exit 1;
 
+echo Installing dev whatrecord from your source tree...
+
+if [ -d /usr/local/src/dev-whatrecord ]; then
+  cd /usr/local/src/dev-whatrecord
+  pip install .
+fi
+
 echo Cache contents:
 ls -la /var/lib/whatrecord/cache
 
