@@ -6,5 +6,6 @@ module.exports = {
           "http://" + process.env.API_HOST + ":" + process.env.API_PORT + "/",
       },
     },
+    stats: "errors-only",
   },
 };
