@@ -6,7 +6,7 @@ import html
 import logging
 import textwrap
 from dataclasses import dataclass
-from typing import ClassVar, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import graphviz as gv
 
@@ -33,6 +33,8 @@ class GraphNode:
     options: dict = dataclasses.field(default_factory=dict)
     #: Highlight the node in the graph?
     highlighted: bool = False
+    #: User-specified metadata
+    metadata: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def add_text_line(self, line: str, delimiter: str = "\n", only_unique: bool = True):
         """
@@ -64,8 +66,26 @@ class GraphEdge:
     source: GraphNode
     #: The destination node.
     destination: GraphNode
+    #: The source node.
+    source_port: Optional[str] = None
+    #: The destination node.
+    destination_port: Optional[str] = None
     #: Options to pass to graphviz.
     options: dict = dataclasses.field(default_factory=dict)
+
+    @property
+    def source_with_port(self) -> str:
+        """Source name including the port name, for graphviz."""
+        if self.source_port is None:
+            return self.source.id
+        return f"{self.source.id}:{self.source_port}_value:e"
+
+    @property
+    def destination_with_port(self) -> str:
+        """Destination name including the port name, for graphviz."""
+        if self.destination_port is None:
+            return self.destination.id
+        return f"{self.destination.id}:{self.destination_port}_name:w"
 
 
 class _GraphHelper:
@@ -112,13 +132,17 @@ class _GraphHelper:
         source: str,
         destination: str,
         allow_dupes: bool = False,
+        source_port: Optional[str] = None,
+        dest_port: Optional[str] = None,
         **options
     ) -> GraphEdge:
         """Create a new edge in the graph."""
         edge = GraphEdge(
             self.get_node(source),
             self.get_node(destination),
-            options
+            source_port=source_port,
+            destination_port=dest_port,
+            options=options
         )
         if edge in self.edges and not allow_dupes:
             return self.edges[self.edges.index(edge)]
@@ -167,7 +191,7 @@ class _GraphHelper:
             text = self.newline.join(node.text.splitlines())
             graph.node(
                 node.id,
-                label="< {} >".format(text),
+                label=text,
                 shape=self.shapes[node.highlighted],
                 fillcolor=self.fill_colors[node.highlighted],
                 style="filled",
@@ -176,7 +200,9 @@ class _GraphHelper:
 
         # add all of the edges between graphs
         for edge in self.edges:
-            graph.edge(edge.source.id, edge.destination.id, **edge.options)
+            graph.edge(
+                edge.source_with_port, edge.destination_with_port, **edge.options
+            )
         return graph
 
     @staticmethod
@@ -593,14 +619,23 @@ class RecordLinkGraph(_GraphHelper):
 
     database: Database
     starting_records: List[str]
-    newline: str = '<br align="left"/>'
-    header_format: str = 'record({rtype}, "{name}")'
+    newline: str = '\n'
+    header_format: str = '{name} ({rtype})'
     field_format: str = '{field}: "{value}"'
     text_format: str = (
-        f"<b>{{header}}</b>"
-        f"{_GraphHelper.newline}"
-        f"{_GraphHelper.newline}"
-        f"{{field_lines}}"
+        """
+        <
+        <TABLE BORDER="0" CELLBORDER="0">
+        <TR>
+            <TD>{rtype}</TD>
+            <TD><b>{name}</b></TD>
+        </TR>
+        <!-- field lines -->
+        {field_lines}
+        <!-- end field lines -->
+        </TABLE>
+        >
+        """.strip()
     )
     sort_fields: bool
     show_empty: bool
@@ -649,6 +684,14 @@ class RecordLinkGraph(_GraphHelper):
         if database is not None:
             self.add_database(database)
 
+    def get_node(
+        self, label: str, text: Optional[str] = None
+    ) -> GraphNode:
+        node = super().get_node(label, text=text)
+        if not node.metadata:
+            node.metadata["fields"] = {}
+        return node
+
     def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
         """Add records from the given database to the graph."""
         if isinstance(database, Database):
@@ -672,9 +715,18 @@ class RecordLinkGraph(_GraphHelper):
                 if field.name == "PROC":
                     ...
                 elif field.value or self.show_empty:
-                    node.add_text_line(
-                        self.field_format.format(field=field.name, value=field.value)
-                    )
+                    node.metadata["fields"][field.name] = textwrap.dedent(
+                        f"""\
+                        <TR>
+                            <TD PORT="{field.name}_name">
+                                <B>{field.name}</B>
+                            </TD>
+                            <TD PORT="{field.name}_value">
+                                {field.value}
+                            </TD>
+                        </TR>
+                        """
+                    ).rstrip()
 
             if li.field1.dtype == "DBF_INLINK":
                 src, dest = dest, src
@@ -692,12 +744,20 @@ class RecordLinkGraph(_GraphHelper):
             if (src, dest) not in set(self.edge_pairs):
                 if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
                     edge_kw["taillabel"] = "FLNK"
+                    self.add_edge(src.label, dest.label, **edge_kw)
                 else:
                     edge_kw["taillabel"] = f"{li.field1.name}"
                     edge_kw["headlabel"] = f"{li.field2.name}"
                     if li.info:
                         edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
-                self.add_edge(src.label, dest.label, **edge_kw)
+
+                    self.add_edge(
+                        f"{src.label}",
+                        f"{dest.label}",
+                        source_port=li.field1.name,
+                        dest_port=li.field2.name,
+                        **edge_kw,
+                    )
 
         if not self.nodes:
             # No relationship found; at least show the records
@@ -706,23 +766,21 @@ class RecordLinkGraph(_GraphHelper):
                     self.get_node(rec_name)
 
         for node in self.nodes.values():
-            if self.sort_fields:
-                node.text = "\n".join(sorted(node.text.splitlines()))
-
-            if node.text.strip() and not node.text.endswith("\n\n"):
-                node.add_text_line("\n", only_unique=False)
-
+            # if self.sort_fields:
+            #     node.text = "\n".join(sorted(node.text.splitlines()))
             rec = self.database.records[node.label]
-            header = self.header_format.format(rtype=rec.record_type, name=rec.name)
             if rec.aliases:
-                header += f"\nAlias: {', '.join(rec.aliases)}"
-            escaped_header = html.escape(header, quote=False)
+                sub_header = html.escape(f"\nAlias: {', '.join(rec.aliases)}")
+                sub_header = f"""<TR><TD COLSPAN="2">{sub_header}</TD></TR>"""
+            else:
+                sub_header = ""
+
+            fields = list(sorted(node.metadata["fields"].items()))
+            field_text = "\n".join(text for _, text in fields)
             node.text = self.text_format.format(
-                header=escaped_header.replace("\n", self.newline),
-                field_lines=self.newline.join(
-                    html.escape(line, quote=False)
-                    for line in node.text.splitlines()
-                ),
+                rtype=html.escape(rec.record_type),
+                name=html.escape(rec.name),
+                field_lines=(sub_header + field_text).strip(),
             )
 
     def _ready_for_digraph(self, graph: gv.Digraph):
