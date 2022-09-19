@@ -11,7 +11,7 @@ from ..parse import parse
 from ..shell import LoadedIoc, ShellState
 from . import conftest
 
-empty_db_iocs = {"fake_ad", }
+empty_db_iocs = {"fake_ad", "ioc_failure"}
 
 
 @conftest.startup_scripts

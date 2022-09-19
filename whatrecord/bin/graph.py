@@ -194,7 +194,7 @@ def main(
             standin_directory=standin_directory,
             macros=macros,
             use_gdb=use_gdb,
-            input_format=input_format,
+            format=input_format,
             expand=expand,
             v3=v3,
         )
