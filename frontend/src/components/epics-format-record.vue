@@ -30,6 +30,19 @@
       </span>
       }
     </div>
+
+    <span v-for="pvagroup in Object.keys(q_group)" :key="pvagroup">
+      &gt;
+      <router-link
+        :to="{
+          name: 'whatrec',
+          params: { record_glob: pvagroup, selected_records: pvagroup },
+          query: { regex: 'false' },
+        }"
+      >
+        {{ pvagroup }}
+      </router-link>
+    </span>
   </template>
   <template v-else>
     <div class="code">
@@ -40,17 +53,26 @@
         :key="field.name"
         :title="field.dtype + ':' + field.context.join(', ')"
       >
-        &nbsp;
-        <script-context-one-link
+        &nbsp; .<script-context-one-link
           :name="field.context[0][0]"
           :line="field.context[0][1]"
           :link_text="field.name"
           class="unassuming_link"
         />
-        from from "{{ field.record_name }}.{{ field.field_name }}"
-        <template v-if="Object.keys(field.metadata).length > 0"
-          ># {{ field.metadata }}</template
+        =
+        <router-link
+          :to="{
+            name: 'whatrec',
+            params: {
+              record_glob: field.record_name,
+              selected_records: field.record_name,
+            },
+            query: { regex: 'false' },
+          }"
+          :title="JSON.stringify(field.metadata, null, 2)"
         >
+          {{ field.record_name }}.{{ field.field_name }}
+        </router-link>
         <br />
       </span>
     </div>
@@ -95,6 +117,13 @@ export default {
       return new_field_names.map(
         (field_name) => this.autosave_fields[field_name]
       );
+    },
+
+    q_group() {
+      if ("Q:group" in this.info_nodes ?? {}) {
+        return this.info_nodes["Q:group"];
+      }
+      return {};
     },
 
     autosave_fields() {
