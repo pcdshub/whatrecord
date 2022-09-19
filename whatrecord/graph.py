@@ -746,8 +746,8 @@ class RecordLinkGraph(_GraphHelper):
                     edge_kw["taillabel"] = "FLNK"
                     self.add_edge(src.label, dest.label, **edge_kw)
                 else:
-                    edge_kw["taillabel"] = f"{li.field1.name}"
-                    edge_kw["headlabel"] = f"{li.field2.name}"
+                    # edge_kw["taillabel"] = f"{li.field1.name}"
+                    # edge_kw["headlabel"] = f"{li.field2.name}"
                     if li.info:
                         edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
 
