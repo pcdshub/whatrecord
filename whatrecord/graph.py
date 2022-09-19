@@ -191,7 +191,7 @@ class _GraphHelper:
             text = self.newline.join(node.text.splitlines())
             graph.node(
                 node.id,
-                label=text,
+                label=f"< {text} >",
                 shape=self.shapes[node.highlighted],
                 fillcolor=self.fill_colors[node.highlighted],
                 style="filled",
@@ -624,7 +624,6 @@ class RecordLinkGraph(_GraphHelper):
     field_format: str = '{field}: "{value}"'
     text_format: str = (
         """
-        <
         <TABLE BORDER="0" CELLBORDER="0">
         <TR>
             <TD>{rtype}</TD>
@@ -634,7 +633,6 @@ class RecordLinkGraph(_GraphHelper):
         {field_lines}
         <!-- end field lines -->
         </TABLE>
-        >
         """.strip()
     )
     sort_fields: bool
@@ -718,10 +716,10 @@ class RecordLinkGraph(_GraphHelper):
                     node.metadata["fields"][field.name] = textwrap.dedent(
                         f"""\
                         <TR>
-                            <TD PORT="{field.name}_name">
+                            <TD PORT="{field.name}_name" BORDER="1">
                                 <B>{field.name}</B>
                             </TD>
-                            <TD PORT="{field.name}_value">
+                            <TD PORT="{field.name}_value" BORDER="1">
                                 {field.value}
                             </TD>
                         </TR>
@@ -771,7 +769,7 @@ class RecordLinkGraph(_GraphHelper):
             rec = self.database.records[node.label]
             if rec.aliases:
                 sub_header = html.escape(f"\nAlias: {', '.join(rec.aliases)}")
-                sub_header = f"""<TR><TD COLSPAN="2">{sub_header}</TD></TR>"""
+                sub_header = f"""<TR><TD>{sub_header}</TD></TR>"""
             else:
                 sub_header = ""
 
@@ -783,10 +781,22 @@ class RecordLinkGraph(_GraphHelper):
                 field_lines=(sub_header + field_text).strip(),
             )
 
+    @property
+    def graphed_records(self) -> List[str]:
+        """All graphed record names (i.e., node labels)."""
+        return [
+            node.label
+            for node in self.nodes.values()
+        ]
+
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""
+        all_match = set(self.graphed_records) <= set(self.starting_records)
         for node in self.nodes.values():
-            node.highlighted = node.label in self.starting_records
+            node.highlighted = (
+                not all_match and
+                node.label in self.starting_records
+            )
 
 
 def graph_links(
