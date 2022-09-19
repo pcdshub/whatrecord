@@ -23,28 +23,6 @@ pass_eval_context = (
 )
 
 
-def template_from_dataclass(cls, fields, render_option):
-    """Generate a console-friendly render template from a dataclass."""
-    if not fields:
-        return f"{cls.__name__}\n"
-
-    name_length = max(len(name) + 1 for name in fields)
-    field_text = "\n".join(
-        "{% if " + field + " | string | length > 0 %}\n" +
-        field.rjust(name_length) +
-        ": {% set field_text = render_object(" + field + ", render_option) %}"
-        "{{ field_text | indent(name_length + 2) }}"
-        "{% endif %}\n"
-        for field in fields
-    )
-    return (
-        f"{cls.__name__}:\n"
-        f"{{% set name_length = {name_length} %}}\n"
-        f"{{% set render_option = {render_option} %}}\n"
-        + field_text
-    )
-
-
 @dataclasses.dataclass
 class FormatOptions:
     indent: int = settings.INDENT
@@ -114,42 +92,31 @@ class FormatContext:
         # TODO: want this to be positional-only; fallback here for pypy
         obj, option = _obj, _option
 
+        def render_prefixed(sub_obj, prefix: str) -> str:
+            return textwrap.indent(
+                self.render_object(sub_obj, option, **context),
+                prefix=prefix,
+            )
+
         if isinstance(obj, typing.Sequence) and not isinstance(obj, str):
             if all(isinstance(obj_idx, LoadContext) for obj_idx in obj):
                 # Special-case FullLoadContext
                 return " ".join(str(ctx) for ctx in obj)
 
             return "\n".join(
-                f"[{idx}]: " + textwrap.indent(
-                    self.render_object(obj_idx, _option, **context),
-                    '    '
-                ).lstrip()
+                f"[{idx}]: " + render_prefixed(obj_idx, '    ').lstrip()
                 for idx, obj_idx in enumerate(obj)
             )
 
         if isinstance(obj, typing.Mapping):
             return "\n".join(
-                f'"{key}": ' + self.render_object(value, _option, **context)
+                f'"{key}": ' + render_prefixed(value, " " * (len(key) + 4))
                 for key, value in sorted(obj.items())
             )
 
         if dataclasses.is_dataclass(obj):
-            cls = type(obj)
-            if cls not in self._fallback_formats:
-                # TODO: lazy method here with 'fields'
-                serialized = apischema.serialize(obj)
-                fields = [
-                    field.name
-                    for field in dataclasses.fields(obj)
-                    if field.name in serialized
-                ]
-                self._fallback_formats[cls] = template_from_dataclass(
-                    cls, fields, option or self.default_options
-                )
-            return self.render_template(
-                self._fallback_formats[cls],
-                **context
-            )
+            serialized = apischema.serialize(obj)
+            return json.dumps(serialized, indent=self.format_options.indent)
 
         return str(obj)
 
