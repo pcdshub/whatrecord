@@ -691,11 +691,12 @@ class RecordLinkGraph(_GraphHelper):
 
             if (src, dest) not in set(self.edge_pairs):
                 if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
-                    edge_kw["xlabel"] = "FLNK"
+                    edge_kw["taillabel"] = "FLNK"
                 else:
-                    edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
+                    edge_kw["taillabel"] = f"{li.field1.name}"
+                    edge_kw["headlabel"] = f"{li.field2.name}"
                     if li.info:
-                        edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
+                        edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
                 self.add_edge(src.label, dest.label, **edge_kw)
 
         if not self.nodes:
