@@ -7,16 +7,12 @@ format, by default.
 import argparse
 import json
 import logging
-import sys
 from typing import List, Optional
 
-import apischema
-
-from .. import settings
 from ..common import AnyPath, FileFormat, IocMetadata
-from ..format import FormatContext
 from ..parse import ParseResult, parse
 from ..shell import LoadedIoc
+from ..util import write_to_file
 
 logger = logging.getLogger(__name__)
 DESCRIPTION = __doc__
@@ -197,18 +193,4 @@ def main(
         v3=v3,
     )
 
-    if output is None:
-        fp = sys.stdout
-    else:
-        fp = open(output, "wt")
-
-    try:
-        if output_format == "json":
-            json_info = apischema.serialize(result)
-            print(json.dumps(json_info, indent=settings.INDENT), file=fp)
-        else:
-            fmt = FormatContext()
-            print(fmt.render_object(result, output_format), file=fp)
-    finally:
-        if fp is not sys.stdout:
-            fp.close()
+    write_to_file(result, filename=output, format=output_format)
