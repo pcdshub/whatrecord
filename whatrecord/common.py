@@ -743,6 +743,9 @@ PVAJsonField = Dict[str, str]
 
 @dataclass
 class RecordField:
+    """
+    A field with a value, as part of a EPICS V3 RecordInstance.
+    """
     dtype: str
     name: str
     value: Any
@@ -895,10 +898,17 @@ class StringWithContext(str):
 
 @dataclass
 class PVAFieldReference:
+    """
+    Part of a PVAccess group which references another record.
+    """
     context: FullLoadContext
+    #: THe name of this field.
     name: str = ""
+    #: The referenced record name.
     record_name: str = ""
+    #: The referenced record's field.
     field_name: str = ""
+    #: Metadata from the field definition.
     metadata: Dict[str, str] = field(default_factory=dict)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
@@ -906,6 +916,7 @@ class PVAFieldReference:
 PVAFieldReference: {{ record_name }}.{{ field_name }}
                  - {{ metadata }}
 """,
+        "file": "",
     }
 
 
@@ -914,8 +925,12 @@ AnyField = Union[RecordField, PVAFieldReference]
 
 @dataclass
 class DatabaseMenu:
+    """An enumeration (menu) from a dbd file."""
     context: FullLoadContext
+    #: The name of the menu.
     name: str
+    #: Possible options for the menu - user-facing string identifier to
+    #: internal identifier.
     choices: Dict[str, str]
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
@@ -933,6 +948,7 @@ class DatabaseMenu:
 
 @dataclass
 class DatabaseDevice:
+    """A per-record-type device definition, part of a dbd file."""
     record_type: str
     link_type: str
     dset_name: str
@@ -950,6 +966,9 @@ class DatabaseDevice:
 @apischema.fields.with_fields_set
 @dataclass
 class RecordTypeField:
+    """
+    An EPICS V3 RecordType field definition, part of a database definition (dbd).
+    """
     context: FullLoadContext
     #: Record type name.
     name: str
@@ -1054,6 +1073,9 @@ class RecordTypeField:
 
 @dataclass
 class RecordType:
+    """
+    An EPICS V3 record type definition, part of a database definition (dbd).
+    """
     context: FullLoadContext
     name: str
     cdefs: List[str] = field(default_factory=list)
@@ -1117,9 +1139,7 @@ class RecordType:
             if fld.type in types:
                 yield fld
 
-    def get_link_fields(
-        self,
-    ) -> Generator[Tuple[RecordTypeField, str, Tuple[str, ...]], None, None]:
+    def get_link_fields(self) -> Generator[RecordTypeField, None, None]:
         """
         Get all link fields - in, out, and forward links.
 
@@ -1132,11 +1152,20 @@ class RecordType:
 
 @dataclass
 class RecordInstance:
+    """
+    An instance of a RecordType, loaded from a db file.
+    """
     context: FullLoadContext
+    #: The name of the record.
     name: str
+    #: The record type name.
     record_type: str
+    #: Whether or not there is corresponding information in the dbd file.
     has_dbd_info: bool = False
+    #: Field information - field name to details.  May be either a V3
+    #: RecordField or a PVAFieldReference.
     fields: Dict[str, AnyField] = field(default_factory=dict)
+    #:
     info: Dict[StringWithContext, Any] = field(default_factory=dict)
     metadata: Dict[StringWithContext, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
@@ -1303,6 +1332,7 @@ class AsynPortBase:
 
 @dataclass
 class ShellStateHandler:
+    """A helper to work with interpreting commands from shell scripts."""
     metadata_key: ClassVar[str]
     parent: Optional[ShellStateHandler] = field(
         default=None, metadata=apischema.metadata.skip,
@@ -1433,9 +1463,8 @@ class RecordDefinitionAndInstance:
     instance: RecordInstance
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-{{ render_object(instance, "console") }}
-""",
+        "console": """{{ render_object(instance, "console") }}""",
+        "file": """{{ render_object(instance, "file") }}""",
     }
 
 
@@ -1469,18 +1498,34 @@ class WhatRecord:
     ioc: Optional[IocMetadata] = None
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-{{ name }}:
-    Owner: {{ present }}
-    IOC: {{ render_object(ioc, "console") }}
-{% if record %}
-    {{ render_object(record, "console") | indent(_fmt.indent)}}
-{% endif %}
-{% if pva_group %}
-    {{ render_object(pva_group, "console") | indent(_fmt.indent)}}
-{% endif %}
-}
-""",
+        "console": textwrap.dedent(
+            """\
+            {{ name }}:
+            {{ _indent }}{Owner: {{ present }}
+            {{ _indent }}{IOC: {{ render_object(ioc, "console") }}
+            {% if record %}
+            {{ _indent }}{{ render_object(record, "console") | indent(_fmt.indent)}}
+            {% endif %}
+            {% if pva_group %}
+            {{ _indent }}{{ render_object(pva_group, "console") | indent(_fmt.indent)}}
+            {% endif %}
+            }
+            """.rstrip()
+        ),
+        "file": textwrap.dedent(
+            """\
+            {{ name }}:
+            {{ _indent }}{Owner: {{ present }}
+            {{ _indent }}{IOC: {{ render_object(ioc, "file") }}
+            {% if record %}
+            {{ _indent }}{{ render_object(record, "file") | indent(_fmt.indent)}}
+            {% endif %}
+            {% if pva_group %}
+            {{ _indent }}{{ render_object(pva_group, "file") | indent(_fmt.indent)}}
+            {% endif %}
+            }
+            """.rstrip(),
+        ),
     }
 
 
