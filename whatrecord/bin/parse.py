@@ -7,10 +7,12 @@ format, by default.
 import argparse
 import json
 import logging
+import sys
 from typing import List, Optional
 
 import apischema
 
+from .. import settings
 from ..common import AnyPath, FileFormat, IocMetadata
 from ..format import FormatContext
 from ..parse import ParseResult, parse
@@ -34,7 +36,8 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "--format",
+        "-if",
+        "--input-format",
         type=str,
         required=False,
         help=(
@@ -69,7 +72,14 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "-o", "--output-format",
+        "-o", "--output",
+        type=str,
+        required=False,
+        help="Output file to write to.  Defaults to standard output.",
+    )
+
+    parser.add_argument(
+        "-of", "--output-format",
         type=str,
         default="json",
         help=(
@@ -168,8 +178,9 @@ def main(
     filename: AnyPath,
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
-    format: Optional[str] = None,
+    input_format: Optional[str] = None,
     output_format: str = "json",
+    output: Optional[str] = None,
     macros: Optional[str] = None,
     use_gdb: bool = False,
     expand: bool = False,
@@ -181,14 +192,23 @@ def main(
         standin_directory=standin_directory,
         macros=macros,
         use_gdb=use_gdb,
-        format=format,
+        format=input_format,
         expand=expand,
         v3=v3,
     )
 
-    if output_format == "json":
-        json_info = apischema.serialize(result)
-        print(json.dumps(json_info, indent=4))
+    if output is None:
+        fp = sys.stdout
     else:
-        fmt = FormatContext()
-        print(fmt.render_object(result, output_format))
+        fp = open(output, "wt")
+
+    try:
+        if output_format == "json":
+            json_info = apischema.serialize(result)
+            print(json.dumps(json_info, indent=settings.INDENT), file=fp)
+        else:
+            fmt = FormatContext()
+            print(fmt.render_object(result, output_format), file=fp)
+    finally:
+        if fp is not sys.stdout:
+            fp.close()
