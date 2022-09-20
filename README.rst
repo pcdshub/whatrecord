@@ -160,3 +160,19 @@ See per-parameter values:
 See database lint:
 
 .. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_14.png
+
+
+Other Screenshots
+-----------------
+
+Use ``whatrecord deps --graph`` to inspect IOCs/modules with ``make`` and
+generate a dependency graph of modules:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_16.png
+
+Use ``whatrecord graph`` to graph state notation language ``.st`` file
+logic:
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_17.png
+
+.. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_18.png
