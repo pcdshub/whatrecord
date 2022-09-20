@@ -98,9 +98,7 @@ class ShellState(ShellStateHandler):
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[MutableLoadContext] = field(default_factory=list)
     loaded_files: Dict[str, str] = field(default_factory=dict)
-    macro_context: MacroContext = field(
-        default_factory=MacroContext, metadata=apischema.metadata.skip
-    )
+    macro_context: MacroContext = field(default_factory=MacroContext)
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
     database_grammar_version: int = 3
@@ -316,7 +314,7 @@ class ShellState(ShellStateHandler):
             return self._fix_path(self.working_directory / filename)
 
         for path in include_paths:
-            option = self._fix_path(path / filename)
+            option = self._fix_path(path) / filename
             if option.exists() and option.is_file():
                 return option
 
