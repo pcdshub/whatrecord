@@ -176,3 +176,39 @@ logic:
 .. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_17.png
 
 .. image:: https://github.com/pcdshub/whatrecord/raw/assets/screenshot_18.png
+
+Use an external tool like ``jq`` to sift through information from whatrecord's
+JSON output:
+
+.. code::
+
+  $ whatrecord parse whatrecord/tests/iocs/db/pva/iq.db | jq '.records[] | [.name, .record_type, .fields.OUT.value]'
+  [
+    "$(PREFIX)Rate",
+    "ao",
+    "$(PREFIX)dly_.ODLY NPP"
+  ]
+  [
+    "$(PREFIX)Delta",
+    "ao",
+    null
+  ]
+  ...
+
+  $ whatrecord parse whatrecord/tests/iocs/db/pva/iq.db | jq '.records[] | [ .name, .info["Q:group"]]'
+  [
+    "$(PREFIX)Rate",
+    null
+  ]
+  [
+    "$(PREFIX)Phase:I",
+    {
+      "$(PREFIX)iq": {
+        "phas.i": {
+          "+type": "plain",
+          "+channel": "VAL"
+        }
+      }
+    }
+  ]
+  ...
