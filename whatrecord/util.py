@@ -2,7 +2,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import pathlib
+import sys
 import textwrap
 from typing import Any, Dict, Generator, List, Optional, Tuple, TypeVar, Union
 
@@ -251,6 +253,7 @@ def write_to_file(
     obj: Any,
     filename: Optional[str] = None,
     format: str = "json",
+    catch_broken_pipe: bool = True
 ) -> str:
     """
     Write ``obj`` to ``filename`` in the specified ``format``.
@@ -279,7 +282,18 @@ def write_to_file(
         to_write = fmt.render_object(obj, format)
 
     if filename is None:
-        print(to_write)
+        try:
+            print(to_write, flush=True)
+        except BrokenPipeError:
+            if not catch_broken_pipe:
+                raise
+
+            # Ref: https://docs.python.org/3/library/signal.html#note-on-sigpipe
+            # Python flushes standard streams on exit; redirect remaining
+            # output to devnull to avoid another BrokenPipeError at shutdown
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+            sys.exit(1)  # Python exits with error code 1 on EPIPE
     else:
         with open(filename, "wt") as fp:
             fp.write(to_write)
