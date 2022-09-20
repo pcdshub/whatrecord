@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
@@ -12,6 +13,8 @@ from .common import (AnyPath, FullLoadContext, ShellStateHandler,
                      StringWithContext)
 from .db import PVAFieldReference, RecordInstance
 from .transformer import context_from_token
+
+logger = logging.getLogger(__name__)
 
 
 def _separate_by_class(items, mapping):
@@ -295,6 +298,7 @@ class StreamDeviceState(ShellStateHandler):
 
     def find_streamdevice_protocol(self, filename: AnyPath) -> pathlib.Path:
         shell_state = self.primary_handler
+        assert shell_state is not None
         return shell_state._fix_path_with_search_list(
             filename,
             shell_state.paths_from_env_var("STREAM_PROTOCOL_PATH", default=".")
