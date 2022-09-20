@@ -15,6 +15,7 @@ from typing import (Any, ClassVar, Dict, Generator, Iterable, List, Optional,
                     Tuple, Union)
 
 import apischema
+import lark
 from epicsmacrolib import IocshRedirect
 
 from . import common, dbtemplate, graph, settings, util
@@ -102,6 +103,7 @@ class ShellState(ShellStateHandler):
     )
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
+    database_grammar_version: int = 3
 
     # Sub-state handlers:
     access_security: AccessSecurityState = field(default_factory=AccessSecurityState)
@@ -308,19 +310,22 @@ class ShellState(ShellStateHandler):
     ) -> pathlib.Path:
         """Given a list of paths, find ``filename``."""
         filename = str(filename)
-        if not include_paths or "/" in filename or "\\" in filename:
+        if not include_paths or str(filename)[0] in ("/", "\\"):
             # Include path unset or even something resembling a nested path
             # automatically is used as-is
-            return self.working_directory / filename
+            return self._fix_path(self.working_directory / filename)
 
         for path in include_paths:
-            option = path / filename
+            option = self._fix_path(path / filename)
             if option.exists() and option.is_file():
                 return option
 
+        if "/" in filename or "\\" in filename:
+            return self._fix_path(self.working_directory / filename)
+
         paths = list(str(path) for path in include_paths)
         raise FileNotFoundError(
-            f"File {filename!r} not found in search path: {paths}"
+            f"File {filename!r} not found in search path: {paths} "
         )
 
     def unhandled(self, command, args):
@@ -433,12 +438,40 @@ class ShellState(ShellStateHandler):
         fn, contents = self.load_file(dbd_path)
         macro_context = MacroContext(use_environment=False)
         macro_context.define_from_string(substitutions or "")
-        self.database_definition = Database.from_string(
-            contents,
-            version=self.ioc_info.database_version_spec,
-            filename=fn,
-            macro_context=macro_context,
-        )
+
+        self.database_grammar_version = self.ioc_info.database_version_spec
+        try:
+            self.database_definition = Database.from_string(
+                contents,
+                version=self.database_grammar_version,
+                filename=fn,
+                macro_context=macro_context,
+            )
+        except lark.exceptions.ParseError as original_ex:
+            # Our guess about the EPICS version may have been wrong.
+            # Let's see if the dbd is valid for the other version.
+            other_spec = {
+                3: 4,
+                4: 3
+            }[self.database_grammar_version]
+
+            try:
+                self.database_definition = Database.from_string(
+                    contents,
+                    version=other_spec,
+                    filename=fn,
+                    macro_context=macro_context,
+                )
+            except Exception:
+                raise DatabaseLoadFailure(
+                    f"Database definition file failed to load. "
+                    f"Attempted to load with grammar version {self.database_grammar_version}, "
+                    f"and fallback version {other_spec} unsuccessfully."
+                ) from original_ex
+
+            # Our initial guess was wrong... Load further database files with
+            # the adjusted version.
+            self.database_grammar_version = other_spec
 
         for addpath in self.database_definition.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
@@ -448,6 +481,7 @@ class ShellState(ShellStateHandler):
         return {
             "context": [LoadContext(str(fn), 0)],
             "result": "Loaded database",
+            "grammar_version": self.database_grammar_version,
             "record_types": list(sorted(self.database_definition.record_types)),
             "drivers": list(sorted(self.database_definition.drivers)),
             "functions": list(sorted(self.database_definition.functions)),
@@ -507,7 +541,7 @@ class ShellState(ShellStateHandler):
                 filename=filename,
                 dbd=self.database_definition,
                 macro_context=macro_context,
-                version=self.ioc_info.database_version_spec,
+                version=self.database_grammar_version,
             )
         except Exception as ex:
             # TODO move this around
@@ -559,6 +593,13 @@ class ShellState(ShellStateHandler):
             macros=macros or "",
             context=self.get_load_context()
         )
+
+        # TODO: add option to annotate all records without requiring
+        # per-record whatrecord queries
+        # if self.annotate_all:
+        #     for record in db.records.values():
+        #         self.annotate_record(record)
+
         return {
             "context": [LoadContext(str(filename), 0)],
             "num_records": len(db.records),
