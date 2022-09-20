@@ -467,6 +467,19 @@
     IocScriptExternalLoader
   </a>
   
+    <nav class="md-nav" aria-label="IocScriptExternalLoader">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.ioc_finder.IocScriptExternalLoader-methods" class="md-nav__link">
+    Methods
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -474,12 +487,38 @@
     IocScriptStaticInfoList
   </a>
   
+    <nav class="md-nav" aria-label="IocScriptStaticInfoList">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.ioc_finder.IocScriptStaticInfoList-methods" class="md-nav__link">
+    Methods
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
   <a href="#whatrecord.ioc_finder.IocScriptStaticList" class="md-nav__link">
     IocScriptStaticList
   </a>
+  
+    <nav class="md-nav" aria-label="IocScriptStaticList">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.ioc_finder.IocScriptStaticList-methods" class="md-nav__link">
+    Methods
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1112,14 +1151,27 @@ whatrecord.ioc_finder.IocScriptExternalLoader            (<span title="whatrecor
 
     <div class="doc doc-contents ">
 
-      <p>IocScriptExternalLoader(load_script: str, scripts: Dict[pathlib.Path, whatrecord.common.IocMetadata] = <factory>)</p>
+      <p>An IOC information "finder" that utilizes an external executable script.</p>
+<p>That script must return a JSON object that is compatible with
+<code>IocMetadata.from_dict</code>.</p>
 
         <details class="quote">
           <summary>Source code in <code>whatrecord/ioc_finder.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
 <span class="k">class</span> <span class="nc">IocScriptExternalLoader</span><span class="p">(</span><span class="n">_IocInfoFinder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An IOC information &quot;finder&quot; that utilizes an external executable script.</span>
+
+<span class="sd">    That script must return a JSON object that is compatible with</span>
+<span class="sd">    `IocMetadata.from_dict`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#: The script to run.</span>
     <span class="n">load_script</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">scripts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">IocMetadata</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_script</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;load_script is required&quot;</span><span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_script_with_json_output</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">load_script</span><span class="p">)</span>
@@ -1141,9 +1193,43 @@ whatrecord.ioc_finder.IocScriptExternalLoader            (<span title="whatrecor
 
 
 
+<h6 id="whatrecord.ioc_finder.IocScriptExternalLoader-methods">Methods</h6>
 
 
 
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.ioc_finder.IocScriptExternalLoader.update" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">ioc_finder</span><span class="o">.</span><span class="n">IocScriptExternalLoader</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-async"><code>async</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Subclasses must implement this method.</p>
+<p>The backend server will call this periodically based on the
+user-configured settings.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/ioc_finder.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_script_with_json_output</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">load_script</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="p">(</span><span class="n">result</span> <span class="ow">or</span> <span class="p">{}):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
 
 
 
@@ -1175,17 +1261,31 @@ whatrecord.ioc_finder.IocScriptStaticInfoList            (<span title="whatrecor
 
     <div class="doc doc-contents ">
 
-      <p>IocScriptStaticInfoList(ioc_infos: dataclasses.InitVar[typing.List[typing.Dict[str, typing.Union[str, typing.Dict[str, str], typing.List[str]]]]], scripts: Dict[pathlib.Path, whatrecord.common.IocMetadata] = <factory>)</p>
+      <p>An IOC information "finder" that is provided a list of IOC information</p>
+<p>dictionaries.</p>
+<p>This is mainly LCLS-specific as it integrates with their "IOC Manager"
+utility.</p>
 
         <details class="quote">
           <summary>Source code in <code>whatrecord/ioc_finder.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
 <span class="k">class</span> <span class="nc">IocScriptStaticInfoList</span><span class="p">(</span><span class="n">_IocInfoFinder</span><span class="p">):</span>
-    <span class="n">ioc_infos</span><span class="p">:</span> <span class="n">InitVar</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">IocInfoDict</span><span class="p">]]</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An IOC information &quot;finder&quot; that is provided a list of IOC information</span>
+<span class="sd">    dictionaries.</span>
+
+<span class="sd">    This is mainly LCLS-specific as it integrates with their &quot;IOC Manager&quot;</span>
+<span class="sd">    utility.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ioc_infos</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IocInfoDict</span><span class="p">]</span>
     <span class="n">scripts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">IocMetadata</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ioc_infos</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IocInfoDict</span><span class="p">]):</span>
-        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">ioc_infos</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scripts</span><span class="p">:</span>
+            <span class="c1"># The list is static; there wil be no updates</span>
+            <span class="k">return</span>
+
+        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ioc_infos</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
 </code></pre></div>
         </details>
@@ -1202,9 +1302,44 @@ whatrecord.ioc_finder.IocScriptStaticInfoList            (<span title="whatrecor
 
 
 
+<h6 id="whatrecord.ioc_finder.IocScriptStaticInfoList-methods">Methods</h6>
 
 
 
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.ioc_finder.IocScriptStaticInfoList.update" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">ioc_finder</span><span class="o">.</span><span class="n">IocScriptStaticInfoList</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-async"><code>async</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Subclasses must implement this method.</p>
+<p>The backend server will call this periodically based on the
+user-configured settings.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/ioc_finder.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scripts</span><span class="p">:</span>
+        <span class="c1"># The list is static; there wil be no updates</span>
+        <span class="k">return</span>
+
+    <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ioc_infos</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
 
 
 
@@ -1236,17 +1371,26 @@ whatrecord.ioc_finder.IocScriptStaticList            (<span title="whatrecord.io
 
     <div class="doc doc-contents ">
 
-      <p>IocScriptStaticList(script_list: dataclasses.InitVar[typing.List[typing.Union[str, pathlib.Path]]], scripts: Dict[pathlib.Path, whatrecord.common.IocMetadata] = <factory>)</p>
+      <p>An IOC finder that does not do much finding; it expects a static list of</p>
+<p>scripts to load at startup.</p>
 
         <details class="quote">
           <summary>Source code in <code>whatrecord/ioc_finder.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
 <span class="k">class</span> <span class="nc">IocScriptStaticList</span><span class="p">(</span><span class="n">_IocInfoFinder</span><span class="p">):</span>
-    <span class="n">script_list</span><span class="p">:</span> <span class="n">InitVar</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]]</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An IOC finder that does not do much finding; it expects a static list of</span>
+<span class="sd">    scripts to load at startup.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">script_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span>
     <span class="n">scripts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">IocMetadata</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IocInfoDict</span><span class="p">]):</span>
-        <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">script_list</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scripts</span><span class="p">:</span>
+            <span class="c1"># The list is static; there wil be no updates</span>
+            <span class="k">return</span>
+
+        <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_list</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">fn</span><span class="p">))</span>
 </code></pre></div>
         </details>
@@ -1263,9 +1407,44 @@ whatrecord.ioc_finder.IocScriptStaticList            (<span title="whatrecord.io
 
 
 
+<h6 id="whatrecord.ioc_finder.IocScriptStaticList-methods">Methods</h6>
 
 
 
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.ioc_finder.IocScriptStaticList.update" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">ioc_finder</span><span class="o">.</span><span class="n">IocScriptStaticList</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-async"><code>async</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Subclasses must implement this method.</p>
+<p>The backend server will call this periodically based on the
+user-configured settings.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/ioc_finder.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scripts</span><span class="p">:</span>
+        <span class="c1"># The list is static; there wil be no updates</span>
+        <span class="k">return</span>
+
+    <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_list</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_or_update_entry</span><span class="p">(</span><span class="n">IocMetadata</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">fn</span><span class="p">))</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
 
 
 

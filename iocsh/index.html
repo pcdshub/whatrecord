@@ -749,6 +749,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#whatrecord.shell.load_cached_ioc" class="md-nav__link">
+    load_cached_ioc()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#whatrecord.shell.load_startup_scripts_with_metadata" class="md-nav__link">
     load_startup_scripts_with_metadata()
   </a>
@@ -1672,7 +1679,7 @@ whatrecord.asyn.AsynState            (<a title="whatrecord.common.ShellStateHand
 
 
 <h5 id="whatrecord.iocsh.parse_iocsh_line" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">iocsh</span><span class="o">.</span><span class="n">parse_iocsh_line</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">LoadContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;epics&gt;&#39;</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">_whatrecord</span><span class="o">.</span><span class="n">macro</span><span class="o">.</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string_encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;latin-1&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IocshResult</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">iocsh</span><span class="o">.</span><span class="n">parse_iocsh_line</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">whatrecord</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">LoadContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;epics&gt;&#39;</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">epicsmacrolib</span><span class="o">.</span><span class="n">macro</span><span class="o">.</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string_encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;latin-1&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IocshResult</span></code>
 
 
 </h5>
@@ -1792,7 +1799,7 @@ higher-level function.</p></td>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="n">split</span> <span class="o">=</span> <span class="n">split_words</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">string_encoding</span><span class="o">=</span><span class="n">string_encoding</span><span class="p">)</span>
+    <span class="n">split</span> <span class="o">=</span> <span class="n">split_iocsh_line</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">string_encoding</span><span class="o">=</span><span class="n">string_encoding</span><span class="p">)</span>
     <span class="n">result</span><span class="o">.</span><span class="n">argv</span> <span class="o">=</span> <span class="n">split</span><span class="o">.</span><span class="n">argv</span>
 
     <span class="c1"># Only set the following if necessary; apischema can skip serialization</span>
@@ -3424,6 +3431,11 @@ whatrecord.shell.LoadedIoc        </code>
     <span class="n">pv_relations</span><span class="p">:</span> <span class="n">PVRelations</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
 
     <span class="n">_jinja_format_</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
+            <span class="sd">&quot;&quot;&quot;\</span>
+<span class="sd">            {{ render_object(script, &quot;file&quot;) }}</span>
+<span class="sd">            &quot;&quot;&quot;</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(),</span>
+        <span class="p">),</span>
         <span class="s2">&quot;console&quot;</span><span class="p">:</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
             <span class="sd">&quot;&quot;&quot;\</span>
 <span class="sd">            {{ obj | classname }}:</span>
@@ -3457,6 +3469,19 @@ whatrecord.shell.LoadedIoc        </code>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_json_from_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load the serialized JSON from the cache for the given IOC.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        md : IocMetadata</span>
+<span class="sd">            The metadata that identifies the IOC.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict or None</span>
+<span class="sd">            The cached JSON, if available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">ioc_cache_filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
@@ -3468,11 +3493,24 @@ whatrecord.shell.LoadedIoc        </code>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LoadedIoc</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        If available, load the cached data about the provided IOC.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        md : IocMetadata</span>
+<span class="sd">            The metadata that identifies the IOC.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LoadedIoc or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">json_dict</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_json_from_cache</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">json_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">apischema</span><span class="o">.</span><span class="n">deserialize</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">json_dict</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">save_to_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Save this instance to the application cache.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">settings</span><span class="o">.</span><span class="n">CACHE_PATH</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
@@ -3484,6 +3522,20 @@ whatrecord.shell.LoadedIoc        </code>
     <span class="k">def</span> <span class="nf">from_errored_load</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">,</span> <span class="n">load_failure</span><span class="p">:</span> <span class="n">IocLoadFailure</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedIoc</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a LoadedIoc from a failed load, as indicated by IocLoadFailure.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        md : IocMetadata</span>
+<span class="sd">            The metadata that was used to load the IOC.</span>
+<span class="sd">        load_failure : IocLoadFailure</span>
+<span class="sd">            The load failure information.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LoadedIoc</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">exception_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">load_failure</span><span class="o">.</span><span class="n">ex_class</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">load_failure</span><span class="o">.</span><span class="n">ex_message</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">error_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">exception_line</span><span class="p">]</span> <span class="o">+</span> <span class="n">load_failure</span><span class="o">.</span><span class="n">traceback</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
         <span class="n">script</span> <span class="o">=</span> <span class="n">IocshScript</span><span class="p">(</span>
@@ -3508,6 +3560,18 @@ whatrecord.shell.LoadedIoc        </code>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_metadata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedIoc</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a LoadedIoc by interpreting the startup script.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        md : IocMetadata</span>
+<span class="sd">            The metadata from the IOC.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LoadedIoc</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">sh</span> <span class="o">=</span> <span class="n">ShellState</span><span class="p">(</span><span class="n">ioc_info</span><span class="o">=</span><span class="n">md</span><span class="p">)</span>
         <span class="n">sh</span><span class="o">.</span><span class="n">working_directory</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">startup_directory</span>
         <span class="n">sh</span><span class="o">.</span><span class="n">macro_context</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="o">**</span><span class="n">md</span><span class="o">.</span><span class="n">macros</span><span class="p">)</span>
@@ -3530,7 +3594,23 @@ whatrecord.shell.LoadedIoc        </code>
     <span class="k">def</span> <span class="nf">whatrec</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include_pva</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">WhatRecord</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get record information, optionally including PVAccess results.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get record information, optionally including PVAccess results.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        rec : str</span>
+<span class="sd">            The record name (excluding any field).</span>
+<span class="sd">        field : Optional[str], optional</span>
+<span class="sd">            An optional field name, such as ``DESC``.  Currently unused.</span>
+<span class="sd">        include_pva : bool, optional</span>
+<span class="sd">            Include PVAccess results in the query.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Optional[WhatRecord]</span>
+<span class="sd">            Information about the provided record, if available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shell_state</span>
         <span class="n">v3_inst</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">rec</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">pva_inst</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">pva_database</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">include_pva</span> <span class="k">else</span> <span class="kc">None</span>
@@ -3585,7 +3665,267 @@ whatrecord.shell.LoadedIoc        </code>
 
 
 
+  <div class="doc doc-object doc-method">
 
+
+
+<h7 id="whatrecord.shell.LoadedIoc.from_cache" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="o">.</span><span class="n">from_cache</span><span class="p">(</span><span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LoadedIoc</span><span class="p">]</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>If available, load the cached data about the provided IOC.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>md</code></td>
+        <td><code>IocMetadata</code></td>
+        <td><p>The metadata that identifies the IOC.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/shell.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">from_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LoadedIoc</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    If available, load the cached data about the provided IOC.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    md : IocMetadata</span>
+<span class="sd">        The metadata that identifies the IOC.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    LoadedIoc or None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">json_dict</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_json_from_cache</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">json_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">apischema</span><span class="o">.</span><span class="n">deserialize</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">json_dict</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.shell.LoadedIoc.from_errored_load" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="o">.</span><span class="n">from_errored_load</span><span class="p">(</span><span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">,</span> <span class="n">load_failure</span><span class="p">:</span> <span class="n">IocLoadFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedIoc</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Create a LoadedIoc from a failed load, as indicated by IocLoadFailure.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>md</code></td>
+        <td><code>IocMetadata</code></td>
+        <td><p>The metadata that was used to load the IOC.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>load_failure</code></td>
+        <td><code>IocLoadFailure</code></td>
+        <td><p>The load failure information.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/shell.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">from_errored_load</span><span class="p">(</span>
+    <span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">,</span> <span class="n">load_failure</span><span class="p">:</span> <span class="n">IocLoadFailure</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedIoc</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a LoadedIoc from a failed load, as indicated by IocLoadFailure.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    md : IocMetadata</span>
+<span class="sd">        The metadata that was used to load the IOC.</span>
+<span class="sd">    load_failure : IocLoadFailure</span>
+<span class="sd">        The load failure information.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    LoadedIoc</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">exception_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">load_failure</span><span class="o">.</span><span class="n">ex_class</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">load_failure</span><span class="o">.</span><span class="n">ex_message</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">error_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">exception_line</span><span class="p">]</span> <span class="o">+</span> <span class="n">load_failure</span><span class="o">.</span><span class="n">traceback</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+    <span class="n">script</span> <span class="o">=</span> <span class="n">IocshScript</span><span class="p">(</span>
+        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">script</span><span class="p">),</span>
+        <span class="n">lines</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">IocshResult</span><span class="p">(</span><span class="n">line</span><span class="o">=</span><span class="n">line</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="p">(</span><span class="n">LoadContext</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="n">lineno</span><span class="p">),))</span>
+            <span class="k">for</span> <span class="n">lineno</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">error_lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">md</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;exception_class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">load_failure</span><span class="o">.</span><span class="n">ex_class</span>
+    <span class="n">md</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;exception_message&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">load_failure</span><span class="o">.</span><span class="n">ex_message</span>
+    <span class="n">md</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;traceback&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">load_failure</span><span class="o">.</span><span class="n">traceback</span>
+    <span class="n">md</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;load_failure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">path</span><span class="o">=</span><span class="n">md</span><span class="o">.</span><span class="n">script</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">md</span><span class="p">,</span>
+        <span class="n">shell_state</span><span class="o">=</span><span class="n">ShellState</span><span class="p">(),</span>
+        <span class="n">script</span><span class="o">=</span><span class="n">script</span><span class="p">,</span>
+        <span class="n">load_failure</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.shell.LoadedIoc.from_metadata" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="o">.</span><span class="n">from_metadata</span><span class="p">(</span><span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedIoc</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Generate a LoadedIoc by interpreting the startup script.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>md</code></td>
+        <td><code>IocMetadata</code></td>
+        <td><p>The metadata from the IOC.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/shell.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">from_metadata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedIoc</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a LoadedIoc by interpreting the startup script.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    md : IocMetadata</span>
+<span class="sd">        The metadata from the IOC.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    LoadedIoc</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sh</span> <span class="o">=</span> <span class="n">ShellState</span><span class="p">(</span><span class="n">ioc_info</span><span class="o">=</span><span class="n">md</span><span class="p">)</span>
+    <span class="n">sh</span><span class="o">.</span><span class="n">working_directory</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">startup_directory</span>
+    <span class="n">sh</span><span class="o">.</span><span class="n">macro_context</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="o">**</span><span class="n">md</span><span class="o">.</span><span class="n">macros</span><span class="p">)</span>
+    <span class="n">sh</span><span class="o">.</span><span class="n">standin_directories</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">standin_directories</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="c1"># It&#39;s not enough to chdir, as we can rely on the environment variable</span>
+    <span class="c1"># in shell scripts:</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PWD&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">startup_directory</span><span class="p">)</span>
+
+    <span class="n">script</span> <span class="o">=</span> <span class="n">IocshScript</span><span class="o">.</span><span class="n">from_metadata</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="n">sh</span><span class="o">=</span><span class="n">sh</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">path</span><span class="o">=</span><span class="n">md</span><span class="o">.</span><span class="n">script</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">md</span><span class="p">,</span>
+        <span class="n">shell_state</span><span class="o">=</span><span class="n">sh</span><span class="p">,</span>
+        <span class="n">script</span><span class="o">=</span><span class="n">script</span><span class="p">,</span>
+        <span class="n">pv_relations</span><span class="o">=</span><span class="n">graph</span><span class="o">.</span><span class="n">build_database_relations</span><span class="p">(</span><span class="n">sh</span><span class="o">.</span><span class="n">database</span><span class="p">),</span>
+    <span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.shell.LoadedIoc.save_to_cache" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">LoadedIoc</span><span class="o">.</span><span class="n">save_to_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span></code>
+
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Save this instance to the application cache.</p>
+
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/shell.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">save_to_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Save this instance to the application cache.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">settings</span><span class="o">.</span><span class="n">CACHE_PATH</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">ioc_cache_filename</span><span class="p">,</span> <span class="s2">&quot;wt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">apischema</span><span class="o">.</span><span class="n">serialize</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">fp</span><span class="o">=</span><span class="n">fp</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">True</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
 
 
 
@@ -3603,12 +3943,74 @@ whatrecord.shell.LoadedIoc        </code>
 
       <p>Get record information, optionally including PVAccess results.</p>
 
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>rec</code></td>
+        <td><code>str</code></td>
+        <td><p>The record name (excluding any field).</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>field</code></td>
+        <td><code>Optional[str]</code></td>
+        <td><p>An optional field name, such as <code>DESC</code>.  Currently unused.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>include_pva</code></td>
+        <td><code>bool</code></td>
+        <td><p>Include PVAccess results in the query.</p></td>
+        <td><code>True</code></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Optional[WhatRecord]</code></td>
+      <td><p>Information about the provided record, if available.</p></td>
+    </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>whatrecord/shell.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">whatrec</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include_pva</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">WhatRecord</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Get record information, optionally including PVAccess results.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get record information, optionally including PVAccess results.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rec : str</span>
+<span class="sd">        The record name (excluding any field).</span>
+<span class="sd">    field : Optional[str], optional</span>
+<span class="sd">        An optional field name, such as ``DESC``.  Currently unused.</span>
+<span class="sd">    include_pva : bool, optional</span>
+<span class="sd">        Include PVAccess results in the query.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Optional[WhatRecord]</span>
+<span class="sd">        Information about the provided record, if available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shell_state</span>
     <span class="n">v3_inst</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">rec</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">pva_inst</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">pva_database</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">include_pva</span> <span class="k">else</span> <span class="kc">None</span>
@@ -3936,11 +4338,10 @@ things like loading files and other core state information.</p>
     <span class="n">pva_database</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">load_context</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">MutableLoadContext</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">loaded_files</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-    <span class="n">macro_context</span><span class="p">:</span> <span class="n">MacroContext</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
-        <span class="n">default_factory</span><span class="o">=</span><span class="n">MacroContext</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">apischema</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">skip</span>
-    <span class="p">)</span>
+    <span class="n">macro_context</span><span class="p">:</span> <span class="n">MacroContext</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">MacroContext</span><span class="p">)</span>
     <span class="n">ioc_info</span><span class="p">:</span> <span class="n">IocMetadata</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">IocMetadata</span><span class="p">)</span>
     <span class="n">db_add_paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">database_grammar_version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
 
     <span class="c1"># Sub-state handlers:</span>
     <span class="n">access_security</span><span class="p">:</span> <span class="n">AccessSecurityState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">AccessSecurityState</span><span class="p">)</span>
@@ -4147,19 +4548,22 @@ things like loading files and other core state information.</p>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Given a list of paths, find ``filename``.&quot;&quot;&quot;</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_paths</span> <span class="ow">or</span> <span class="s2">&quot;/&quot;</span> <span class="ow">in</span> <span class="n">filename</span> <span class="ow">or</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">filename</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_paths</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">):</span>
             <span class="c1"># Include path unset or even something resembling a nested path</span>
             <span class="c1"># automatically is used as-is</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">working_directory</span> <span class="o">/</span> <span class="n">filename</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fix_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">working_directory</span> <span class="o">/</span> <span class="n">filename</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">include_paths</span><span class="p">:</span>
-            <span class="n">option</span> <span class="o">=</span> <span class="n">path</span> <span class="o">/</span> <span class="n">filename</span>
+            <span class="n">option</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fix_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">/</span> <span class="n">filename</span>
             <span class="k">if</span> <span class="n">option</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">option</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
                 <span class="k">return</span> <span class="n">option</span>
 
+        <span class="k">if</span> <span class="s2">&quot;/&quot;</span> <span class="ow">in</span> <span class="n">filename</span> <span class="ow">or</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">filename</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fix_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">working_directory</span> <span class="o">/</span> <span class="n">filename</span><span class="p">)</span>
+
         <span class="n">paths</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">include_paths</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">filename</span><span class="si">!r}</span><span class="s2"> not found in search path: </span><span class="si">{</span><span class="n">paths</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">filename</span><span class="si">!r}</span><span class="s2"> not found in search path: </span><span class="si">{</span><span class="n">paths</span><span class="si">}</span><span class="s2"> &quot;</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">unhandled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
@@ -4264,24 +4668,63 @@ things like loading files and other core state information.</p>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="p">:</span>
             <span class="c1"># TODO: technically this is allowed; we&#39;ll need to update</span>
             <span class="c1"># raise RuntimeError(&quot;dbd already loaded&quot;)</span>
-            <span class="k">return</span> <span class="s2">&quot;whatrecord: TODO multiple dbLoadDatabase&quot;</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="s2">&quot;whatrecord: TODO multiple dbLoadDatabase&quot;</span>
+            <span class="p">}</span>
+
         <span class="n">dbd_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fix_path_with_search_list</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_include_paths</span><span class="p">)</span>
         <span class="n">fn</span><span class="p">,</span> <span class="n">contents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_file</span><span class="p">(</span><span class="n">dbd_path</span><span class="p">)</span>
         <span class="n">macro_context</span> <span class="o">=</span> <span class="n">MacroContext</span><span class="p">(</span><span class="n">use_environment</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">macro_context</span><span class="o">.</span><span class="n">define_from_string</span><span class="p">(</span><span class="n">substitutions</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
-            <span class="n">contents</span><span class="p">,</span>
-            <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ioc_info</span><span class="o">.</span><span class="n">database_version_spec</span><span class="p">,</span>
-            <span class="n">filename</span><span class="o">=</span><span class="n">fn</span><span class="p">,</span>
-            <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
-        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ioc_info</span><span class="o">.</span><span class="n">database_version_spec</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
+                <span class="n">contents</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span><span class="p">,</span>
+                <span class="n">filename</span><span class="o">=</span><span class="n">fn</span><span class="p">,</span>
+                <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">lark</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ParseError</span> <span class="k">as</span> <span class="n">original_ex</span><span class="p">:</span>
+            <span class="c1"># Our guess about the EPICS version may have been wrong.</span>
+            <span class="c1"># Let&#39;s see if the dbd is valid for the other version.</span>
+            <span class="n">other_spec</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="mi">3</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+                <span class="mi">4</span><span class="p">:</span> <span class="mi">3</span>
+            <span class="p">}[</span><span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span><span class="p">]</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
+                    <span class="n">contents</span><span class="p">,</span>
+                    <span class="n">version</span><span class="o">=</span><span class="n">other_spec</span><span class="p">,</span>
+                    <span class="n">filename</span><span class="o">=</span><span class="n">fn</span><span class="p">,</span>
+                    <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">DatabaseLoadFailure</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Database definition file failed to load. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Attempted to load with grammar version </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;and fallback version </span><span class="si">{</span><span class="n">other_spec</span><span class="si">}</span><span class="s2"> unsuccessfully.&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="nn">original_ex</span>
+
+            <span class="c1"># Our initial guess was wrong... Load further database files with</span>
+            <span class="c1"># the adjusted version.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span> <span class="o">=</span> <span class="n">other_spec</span>
 
         <span class="k">for</span> <span class="n">addpath</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="o">.</span><span class="n">addpaths</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">addpath</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="p">):</span>  <span class="c1"># TODO: OS-dependent</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">db_add_paths</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">dbd_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Loaded database: </span><span class="si">{</span><span class="n">fn</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">LoadContext</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">fn</span><span class="p">),</span> <span class="mi">0</span><span class="p">)],</span>
+            <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="s2">&quot;Loaded database&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;grammar_version&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span><span class="p">,</span>
+            <span class="s2">&quot;record_types&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="o">.</span><span class="n">record_types</span><span class="p">)),</span>
+            <span class="s2">&quot;drivers&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="o">.</span><span class="n">drivers</span><span class="p">)),</span>
+            <span class="s2">&quot;functions&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="o">.</span><span class="n">functions</span><span class="p">)),</span>
+            <span class="s2">&quot;breaktables&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="o">.</span><span class="n">breaktables</span><span class="p">)),</span>
+        <span class="p">}</span>
 
     <span class="nd">@_handler</span>
     <span class="k">def</span> <span class="nf">handle_dbLoadTemplate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
@@ -4290,6 +4733,7 @@ things like loading files and other core state information.</p>
 
         <span class="c1"># TODO this should be multiple load calls for the purposes of context</span>
         <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">LoadContext</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="mi">0</span><span class="p">)],</span>
             <span class="s2">&quot;total_records&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
             <span class="s2">&quot;total_groups&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
             <span class="s2">&quot;loaded_files&quot;</span><span class="p">:</span> <span class="p">[],</span>
@@ -4300,21 +4744,21 @@ things like loading files and other core state information.</p>
             <span class="n">database_contents</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">expand_file</span><span class="p">(</span><span class="n">search_paths</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_include_paths</span><span class="p">)</span>
             <span class="c1"># TODO loading file twice (ensure it gets added to the loaded_files list)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">load_file</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
-            <span class="n">lint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_database</span><span class="p">(</span>
+            <span class="n">db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_database</span><span class="p">(</span>
                 <span class="n">filename</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span>
                 <span class="n">contents</span><span class="o">=</span><span class="n">database_contents</span><span class="p">,</span>
                 <span class="n">macros</span><span class="o">=</span><span class="n">macros</span><span class="p">,</span>
                 <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_load_context</span><span class="p">()</span> <span class="o">+</span> <span class="n">sub</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">info</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="n">sub</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">LoadContext</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="mi">0</span><span class="p">)],</span>
                 <span class="s2">&quot;macros&quot;</span><span class="p">:</span> <span class="n">sub</span><span class="o">.</span><span class="n">macros</span><span class="p">,</span>
-                <span class="s2">&quot;records&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">lint</span><span class="o">.</span><span class="n">records</span><span class="p">),</span>
-                <span class="s2">&quot;groups&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">lint</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">),</span>
-                <span class="s2">&quot;lint&quot;</span><span class="p">:</span> <span class="n">lint</span><span class="p">,</span>
+                <span class="s2">&quot;records&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">records</span><span class="p">),</span>
+                <span class="s2">&quot;groups&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">),</span>
+                <span class="s2">&quot;lint&quot;</span><span class="p">:</span> <span class="n">db</span><span class="o">.</span><span class="n">lint</span><span class="p">,</span>
             <span class="p">}</span>
-            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;total_records&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lint</span><span class="o">.</span><span class="n">records</span><span class="p">)</span>
-            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;total_groups&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lint</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">)</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;total_records&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">records</span><span class="p">)</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;total_groups&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">)</span>
             <span class="n">result</span><span class="p">[</span><span class="s2">&quot;loaded_files&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">result</span>
@@ -4325,17 +4769,17 @@ things like loading files and other core state information.</p>
         <span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">macros</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">context</span><span class="p">:</span> <span class="n">FullLoadContext</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
         <span class="n">macro_context</span> <span class="o">=</span> <span class="n">MacroContext</span><span class="p">(</span><span class="n">use_environment</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">macros</span> <span class="o">=</span> <span class="n">macro_context</span><span class="o">.</span><span class="n">define_from_string</span><span class="p">(</span><span class="n">macros</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">lint</span> <span class="o">=</span> <span class="n">LinterResults</span><span class="o">.</span><span class="n">from_database_string</span><span class="p">(</span>
-                <span class="n">db</span><span class="o">=</span><span class="n">contents</span><span class="p">,</span>
+            <span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
+                <span class="n">contents</span><span class="p">,</span>
+                <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
                 <span class="n">dbd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database_definition</span><span class="p">,</span>
-                <span class="n">db_filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
                 <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
-                <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ioc_info</span><span class="o">.</span><span class="n">database_version_spec</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">database_grammar_version</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="c1"># TODO move this around</span>
@@ -4343,7 +4787,6 @@ things like loading files and other core state information.</p>
                 <span class="sa">f</span><span class="s2">&quot;Failed to load </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ex</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
-        <span class="n">db</span><span class="p">:</span> <span class="n">Database</span> <span class="o">=</span> <span class="n">lint</span><span class="o">.</span><span class="n">db</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">db</span><span class="o">.</span><span class="n">records</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec</span>
@@ -4371,7 +4814,7 @@ things like loading files and other core state information.</p>
             <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">addpath</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="p">):</span>  <span class="c1"># TODO: OS-dependent</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">db_add_paths</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">db</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
 
-        <span class="k">return</span> <span class="n">lint</span>
+        <span class="k">return</span> <span class="n">db</span>
 
     <span class="nd">@_handler</span>
     <span class="k">def</span> <span class="nf">handle_dbLoadRecords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">macros</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
@@ -4382,16 +4825,24 @@ things like loading files and other core state information.</p>
 
         <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fix_path_with_search_list</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_include_paths</span><span class="p">)</span>
         <span class="n">filename</span><span class="p">,</span> <span class="n">contents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="n">lint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_database</span><span class="p">(</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_database</span><span class="p">(</span>
             <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
             <span class="n">contents</span><span class="o">=</span><span class="n">contents</span><span class="p">,</span>
             <span class="n">macros</span><span class="o">=</span><span class="n">macros</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
             <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_load_context</span><span class="p">()</span>
         <span class="p">)</span>
+
+        <span class="c1"># TODO: add option to annotate all records without requiring</span>
+        <span class="c1"># per-record whatrecord queries</span>
+        <span class="c1"># if self.annotate_all:</span>
+        <span class="c1">#     for record in db.records.values():</span>
+        <span class="c1">#         self.annotate_record(record)</span>
+
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;loaded_records&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">lint</span><span class="o">.</span><span class="n">records</span><span class="p">),</span>
-            <span class="s2">&quot;loaded_groups&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">lint</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">),</span>
-            <span class="s2">&quot;lint&quot;</span><span class="p">:</span> <span class="n">lint</span><span class="p">,</span>
+            <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">LoadContext</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="mi">0</span><span class="p">)],</span>
+            <span class="s2">&quot;num_records&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">records</span><span class="p">),</span>
+            <span class="s2">&quot;num_pva_groups&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">),</span>
+            <span class="s2">&quot;lint&quot;</span><span class="p">:</span> <span class="n">db</span><span class="o">.</span><span class="n">lint</span><span class="p">,</span>
         <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">annotate_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">:</span> <span class="n">RecordInstance</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
@@ -4459,6 +4910,7 @@ things like loading files and other core state information.</p>
 
 
 <h6 id="whatrecord.shell.ShellState-attributes">Attributes</h6>
+
 
 
 
@@ -4923,6 +5375,66 @@ things like loading files and other core state information.</p>
 
       <p>Helper function for loading an IOC in a subprocess and relying on the cache.</p>
 
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>standin_directories</code></td>
+        <td></td>
+        <td><p>Stand-in directories to use when loading the IOC.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>identifier</code></td>
+        <td><code>Union[int, str]</code></td>
+        <td><p>The IOC identifier.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>md</code></td>
+        <td><code>IocMetadata</code></td>
+        <td><p>Metadata tied to the IOC.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>use_gdb</code></td>
+        <td><code>bool</code></td>
+        <td><p>Use GDB to analyze the IOC binary for linting of shell script commands.</p></td>
+        <td><code>True</code></td>
+      </tr>
+      <tr>
+        <td><code>use_cache</code></td>
+        <td><code>bool</code></td>
+        <td><p>Load from the cache for IOCs which have been cached.</p></td>
+        <td><code>True</code></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>IocLoadResult</code></td>
+      <td><p>The result of loading, including an identifier which can be used by the
+caller to load the item from disk (as it's faster than using
+multiprocessing).</p></td>
+    </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>whatrecord/shell.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span> <span class="nf">async_load_ioc</span><span class="p">(</span>
@@ -4934,6 +5446,26 @@ things like loading files and other core state information.</p>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IocLoadResult</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Helper function for loading an IOC in a subprocess and relying on the cache.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    standin_directories :</span>
+<span class="sd">        Stand-in directories to use when loading the IOC.</span>
+<span class="sd">    identifier : Union[int, str]</span>
+<span class="sd">        The IOC identifier.</span>
+<span class="sd">    md : IocMetadata</span>
+<span class="sd">        Metadata tied to the IOC.</span>
+<span class="sd">    use_gdb : bool, optional</span>
+<span class="sd">        Use GDB to analyze the IOC binary for linting of shell script commands.</span>
+<span class="sd">    use_cache : bool, optional</span>
+<span class="sd">        Load from the cache for IOCs which have been cached.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    IocLoadResult</span>
+<span class="sd">        The result of loading, including an identifier which can be used by the</span>
+<span class="sd">        caller to load the item from disk (as it&#39;s faster than using</span>
+<span class="sd">        multiprocessing).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">settings</span><span class="o">.</span><span class="n">CACHE_PATH</span><span class="p">:</span>
         <span class="n">use_cache</span> <span class="o">=</span> <span class="kc">False</span>
@@ -4986,6 +5518,123 @@ things like loading files and other core state information.</p>
 
   </div>
 
+
+
+  <div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.shell.load_cached_ioc" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">shell</span><span class="o">.</span><span class="n">load_cached_ioc</span><span class="p">(</span><span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">,</span> <span class="n">allow_failed_load</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LoadedIoc</span><span class="p">]</span></code>
+
+
+</h5>
+
+    <div class="doc doc-contents ">
+
+      <p>Load an IOC from the cache.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>md</code></td>
+        <td><code>IocMetadata</code></td>
+        <td><p>The metadata from the IOC, which determines its cache key.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>allow_failed_load</code></td>
+        <td><code>bool</code></td>
+        <td><p>A previous load of the provided IOC may have been marked as a failure.
+If set, <code>load_cached_ioc</code> will return the results of the failed load.
+If unset, <code>load_cached_ioc</code> will return <code>None</code> and allow the caller
+to treat this as a cache miss and potentially reload it from disk.</p></td>
+        <td><code>False</code></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Returns:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Optional[LoadedIoc]</code></td>
+      <td><p>The cached LoadedIoc instance.</p></td>
+    </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/shell.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">load_cached_ioc</span><span class="p">(</span>
+    <span class="n">md</span><span class="p">:</span> <span class="n">IocMetadata</span><span class="p">,</span>
+    <span class="n">allow_failed_load</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LoadedIoc</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load an IOC from the cache.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    md : IocMetadata</span>
+<span class="sd">        The metadata from the IOC, which determines its cache key.</span>
+<span class="sd">    allow_failed_load : bool, optional</span>
+<span class="sd">        A previous load of the provided IOC may have been marked as a failure.</span>
+<span class="sd">        If set, ``load_cached_ioc`` will return the results of the failed load.</span>
+<span class="sd">        If unset, ``load_cached_ioc`` will return ``None`` and allow the caller</span>
+<span class="sd">        to treat this as a cache miss and potentially reload it from disk.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Optional[LoadedIoc]</span>
+<span class="sd">        The cached LoadedIoc instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cached_md</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">from_cache</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cached_md</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cached metadata unavailable </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">md</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">!=</span> <span class="n">cached_md</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Cache key mismatch?! </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">md</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">,</span> <span class="n">cached_md</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">allow_failed_load</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="n">cached_md</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;load_failure&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">md</span><span class="o">.</span><span class="n">looks_like_sh</span>
+    <span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> allow_failed_load=True; </span><span class="si">%s</span><span class="s2">, md.looks_like_sh=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">cached_md</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;load_failure&quot;</span><span class="p">),</span>
+            <span class="n">md</span><span class="o">.</span><span class="n">looks_like_sh</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">cached_md</span><span class="o">.</span><span class="n">is_up_to_date</span><span class="p">():</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is not up-to-date&quot;</span><span class="p">,</span> <span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is up-to-date; load from cache&quot;</span><span class="p">,</span> <span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">LoadedIoc</span><span class="o">.</span><span class="n">_json_from_cache</span><span class="p">(</span><span class="n">cached_md</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is noted as up-to-date; but cache file missing&quot;</span><span class="p">,</span> <span class="n">md</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="kc">None</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
 
 
 

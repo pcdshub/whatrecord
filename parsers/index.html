@@ -628,6 +628,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#whatrecord.db.Database-attributes" class="md-nav__link">
+    Attributes
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#whatrecord.db.Database-methods" class="md-nav__link">
     Methods
   </a>
@@ -640,42 +647,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#whatrecord.db.DatabaseLint" class="md-nav__link">
+    DatabaseLint
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#whatrecord.db.DatabaseLoadFailure" class="md-nav__link">
     DatabaseLoadFailure
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#whatrecord.db.LinterResults" class="md-nav__link">
-    LinterResults
-  </a>
-  
-    <nav class="md-nav" aria-label="LinterResults">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#whatrecord.db.LinterResults-attributes" class="md-nav__link">
-    Attributes
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#whatrecord.db.LinterResults-methods" class="md-nav__link">
-    Methods
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#whatrecord.db.UnquotedString" class="md-nav__link">
-    UnquotedString
   </a>
   
 </li>
@@ -5473,19 +5453,19 @@ whatrecord.db.Database        </code>
   <tbody>
       <tr>
         <td><code>standalone_aliases</code></td>
-        <td></td>
+        <td><code>Dict[str, str]</code></td>
         <td><p>Standalone aliases are those defined outside of the record body; this
 may only be useful for faithfully reconstructing the Database according
 to its original source code.  Keyed on alias to actual record name.</p></td>
       </tr>
       <tr>
         <td><code>aliases</code></td>
-        <td></td>
+        <td><code>Dict[str, str]</code></td>
         <td><p>Alias name to record name.</p></td>
       </tr>
       <tr>
         <td><code>paths</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>The path command specifies the current search path for use when loading
 database and database definition files. The addpath appends directory
 names to the current path. The path is used to locate the initial
@@ -5494,68 +5474,73 @@ middle, or end of a non-empty path string means the current directory.</p></td>
       </tr>
       <tr>
         <td><code>addpaths</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>See 'paths' above.</p></td>
       </tr>
       <tr>
         <td><code>breaktables</code></td>
-        <td></td>
+        <td><code>Dict[str, List[str]]</code></td>
         <td><p>Breakpoint table (look-up table) of raw-to-engineering values.</p></td>
       </tr>
       <tr>
         <td><code>comments</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>Comments encountered while parsing the database.</p></td>
       </tr>
       <tr>
         <td><code>devices</code></td>
-        <td></td>
+        <td><code>List[DatabaseDevice]</code></td>
         <td><p>Device support declarations (dset).</p></td>
       </tr>
       <tr>
         <td><code>drivers</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>Driver declarations (drvet).</p></td>
       </tr>
       <tr>
         <td><code>functions</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>Exported C function names.</p></td>
       </tr>
       <tr>
         <td><code>includes</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>Inline inclusion. Not supported just yet.</p></td>
       </tr>
       <tr>
         <td><code>links</code></td>
-        <td></td>
+        <td><code>Dict[str, str]</code></td>
         <td><p>Links.</p></td>
       </tr>
       <tr>
         <td><code>menus</code></td>
-        <td></td>
+        <td><code>Dict[str, DatabaseMenu]</code></td>
         <td><p>Named value enumerations (enums).</p></td>
       </tr>
       <tr>
         <td><code>records</code></td>
-        <td></td>
+        <td><code>Dict[str, RecordInstance]</code></td>
         <td><p>Record name to RecordInstance.</p></td>
       </tr>
       <tr>
         <td><code>record_types</code></td>
-        <td></td>
+        <td><code>Dict[str, RecordType]</code></td>
         <td><p>Record type name to RecordType.</p></td>
       </tr>
       <tr>
         <td><code>registrars</code></td>
-        <td></td>
+        <td><code>List[str]</code></td>
         <td><p>Exported registrar function name.</p></td>
       </tr>
       <tr>
         <td><code>variables</code></td>
-        <td></td>
+        <td><code>Dict[str, Optional[str]]</code></td>
         <td><p>IOC shell variables.</p></td>
+      </tr>
+      <tr>
+        <td><code>lint</code></td>
+        <td><code>DatabaseLint</code></td>
+        <td><p>Any lint found when loading the database.</p></td>
       </tr>
   </tbody>
 </table>
@@ -5568,65 +5553,66 @@ middle, or end of a non-empty path string means the current directory.</p></td>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
-<span class="sd">    standalone_aliases :</span>
+<span class="sd">    standalone_aliases : Dict[str, str]</span>
 <span class="sd">        Standalone aliases are those defined outside of the record body; this</span>
 <span class="sd">        may only be useful for faithfully reconstructing the Database according</span>
 <span class="sd">        to its original source code.  Keyed on alias to actual record name.</span>
 
-<span class="sd">    aliases :</span>
+<span class="sd">    aliases : Dict[str, str]</span>
 <span class="sd">        Alias name to record name.</span>
 
-<span class="sd">    paths :</span>
+<span class="sd">    paths : List[str]</span>
 <span class="sd">        The path command specifies the current search path for use when loading</span>
 <span class="sd">        database and database definition files. The addpath appends directory</span>
 <span class="sd">        names to the current path. The path is used to locate the initial</span>
 <span class="sd">        database file and included files. An empty dir at the beginning,</span>
 <span class="sd">        middle, or end of a non-empty path string means the current directory.</span>
 
-<span class="sd">    addpaths :</span>
+<span class="sd">    addpaths : List[str]</span>
 <span class="sd">        See &#39;paths&#39; above.</span>
 
-<span class="sd">    breaktables :</span>
+<span class="sd">    breaktables : Dict[str, List[str]]</span>
 <span class="sd">        Breakpoint table (look-up table) of raw-to-engineering values.</span>
 
-<span class="sd">    comments :</span>
+<span class="sd">    comments : List[str]</span>
 <span class="sd">        Comments encountered while parsing the database.</span>
 
-<span class="sd">    devices :</span>
+<span class="sd">    devices : List[DatabaseDevice]</span>
 <span class="sd">        Device support declarations (dset).</span>
 
-<span class="sd">    drivers :</span>
+<span class="sd">    drivers : List[str]</span>
 <span class="sd">        Driver declarations (drvet).</span>
 
-<span class="sd">    functions :</span>
+<span class="sd">    functions : List[str]</span>
 <span class="sd">        Exported C function names.</span>
 
-<span class="sd">    includes :</span>
+<span class="sd">    includes : List[str]</span>
 <span class="sd">        Inline inclusion. Not supported just yet.</span>
 
-<span class="sd">    links :</span>
+<span class="sd">    links : Dict[str, str]</span>
 <span class="sd">        Links.</span>
 
-<span class="sd">    menus :</span>
+<span class="sd">    menus : Dict[str, DatabaseMenu]</span>
 <span class="sd">        Named value enumerations (enums).</span>
 
-<span class="sd">    records :</span>
+<span class="sd">    records : Dict[str, RecordInstance]</span>
 <span class="sd">        Record name to RecordInstance.</span>
 
-<span class="sd">    record_types :</span>
+<span class="sd">    record_types : Dict[str, RecordType]</span>
 <span class="sd">        Record type name to RecordType.</span>
 
-<span class="sd">    registrars :</span>
+<span class="sd">    registrars : List[str]</span>
 <span class="sd">        Exported registrar function name.</span>
 
-<span class="sd">    variables :</span>
+<span class="sd">    variables : Dict[str, Optional[str]]</span>
 <span class="sd">        IOC shell variables.</span>
+
+<span class="sd">    lint : DatabaseLint</span>
+<span class="sd">        Any lint found when loading the database.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">standalone_aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-    <span class="n">aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-    <span class="n">paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">addpaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">breaktables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">comments</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">devices</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">DatabaseDevice</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
@@ -5635,24 +5621,110 @@ middle, or end of a non-empty path string means the current directory.</p></td>
     <span class="n">includes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">links</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">menus</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DatabaseMenu</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-    <span class="n">records</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">pva_groups</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">record_types</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordType</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">records</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">registrars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">standalone_aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="n">lint</span><span class="p">:</span> <span class="n">DatabaseLint</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">DatabaseLint</span><span class="p">)</span>
+
+    <span class="n">_jinja_format_</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
+            <span class="sd">&quot;&quot;&quot;\</span>
+<span class="sd">            {% for include in includes %}</span>
+<span class="sd">            include {{ include }}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for addpath in addpaths %}</span>
+<span class="sd">            addpath {{ addpath }}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for path in paths %}</span>
+<span class="sd">            path {{ path }}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for name, menu in menus.items() %}</span>
+<span class="sd">            {{ render_object(menu, &quot;file&quot;) }}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for name, record_type in record_types.items() %}</span>
+<span class="sd">            {{ render_object(record_type, &quot;file&quot;) }}</span>
+<span class="sd">            {% for device in record_type.devices %}</span>
+<span class="sd">            {{ render_object(device, &quot;file&quot;) }}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for link, identifier in links.items() %}</span>
+<span class="sd">            link({{ link }}, {{ identifier }})</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for driver in drivers %}</span>
+<span class="sd">            driver({{ driver }})</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for registrar in registrars %}</span>
+<span class="sd">            registrar({{ registrar }})</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for function in functions %}</span>
+<span class="sd">            function({{ function }})</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for variable, type in variables.items() %}</span>
+<span class="sd">            {% if type %}</span>
+<span class="sd">            variable({{ variable }}, {{ type }})</span>
+<span class="sd">            {% else %}</span>
+<span class="sd">            variable({{ variable }})</span>
+<span class="sd">            {% endif %}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for name, breaktable in breaktables.items() %}</span>
+<span class="sd">            breaktable({{ name }}) {</span>
+<span class="sd">            {{ _indent }}{% for value in breaktable %}</span>
+<span class="sd">            {{ _indent }}{{ value }}</span>
+<span class="sd">            {{ _indent }}{% endfor %}</span>
+<span class="sd">            }</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for name, record in obj.non_aliased_records.items() %}</span>
+<span class="sd">            {{ render_object(record, &quot;file&quot;) }}</span>
+
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            {% for alias, record in standalone_aliases.items() %}</span>
+<span class="sd">            {% if record not in records or alias not in records[record].aliases %}</span>
+<span class="sd">            alias(&quot;{{ alias }}&quot;, &quot;{{ record }}&quot;)</span>
+<span class="sd">            {% endif %}</span>
+<span class="sd">            {% endfor %}</span>
+<span class="sd">            &quot;&quot;&quot;</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+        <span class="p">),</span>
+    <span class="p">}</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
         <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Load a database [definition] from a string.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load a database [definition] from a string.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        contents : str</span>
+<span class="sd">            The contents of the database file.</span>
+<span class="sd">        dbd : Union[Database, str, pathlib.Path], optional</span>
+<span class="sd">            The database definition (.dbd) path, if applicable and available.</span>
+<span class="sd">        filename : Union[str, pathlib.Path], optional</span>
+<span class="sd">            The filename to associate with the contents.</span>
+<span class="sd">        macro_context : MacroContext, optional</span>
+<span class="sd">            A macro context to use for expanding macros while loading the</span>
+<span class="sd">            database.</span>
+<span class="sd">        version : int, optional</span>
+<span class="sd">            The epics-base version to assume when loading.  Use 3 for R3.15 and under,</span>
+<span class="sd">            4 for more recent versions.</span>
+<span class="sd">        include_aliases : bool, optional</span>
+<span class="sd">            Include aliases as top-level records.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Database</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">dbd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="n">Database</span><span class="p">):</span>
             <span class="n">dbd</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
 
@@ -5663,7 +5735,7 @@ middle, or end of a non-empty path string means the current directory.</p></td>
             <span class="n">search_paths</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;grammar&quot;</span><span class="p">,</span> <span class="p">),</span>
             <span class="n">parser</span><span class="o">=</span><span class="s2">&quot;lalr&quot;</span><span class="p">,</span>
             <span class="n">lexer_callbacks</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;COMMENT&quot;</span><span class="p">:</span> <span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">},</span>
-            <span class="n">transformer</span><span class="o">=</span><span class="n">_DatabaseTransformer</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span> <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">),</span>
+            <span class="n">transformer</span><span class="o">=</span><span class="n">_DatabaseTransformer</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">),</span>
             <span class="n">maybe_placeholders</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="c1"># Per-user `gettempdir` caching of the LALR grammar analysis way of</span>
             <span class="c1"># passing ``True`` here:</span>
@@ -5672,7 +5744,7 @@ middle, or end of a non-empty path string means the current directory.</p></td>
         <span class="k">if</span> <span class="n">macro_context</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">contents</span> <span class="o">=</span> <span class="n">macro_context</span><span class="o">.</span><span class="n">expand_by_line</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
 
-        <span class="n">db</span><span class="p">,</span> <span class="n">linter_results</span> <span class="o">=</span> <span class="n">grammar</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Database</span><span class="p">,</span> <span class="n">grammar</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">contents</span><span class="p">))</span>
         <span class="n">db</span><span class="o">.</span><span class="n">comments</span> <span class="o">=</span> <span class="n">comments</span>
 
         <span class="k">if</span> <span class="n">include_aliases</span><span class="p">:</span>
@@ -5684,21 +5756,46 @@ middle, or end of a non-empty path string means the current directory.</p></td>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_file_obj</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span> <span class="n">fp</span><span class="p">,</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">fp</span><span class="p">,</span>
         <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-        <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Load a database [definition] from a file object.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load a database [definition] from a file object.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fp : file or file-like object</span>
+<span class="sd">            The file object to read from.</span>
+<span class="sd">        dbd : Union[Database, str, pathlib.Path], optional</span>
+<span class="sd">            The database definition (.dbd) path, if applicable and available.</span>
+<span class="sd">        filename : Union[str, pathlib.Path], optional</span>
+<span class="sd">            The filename to associate with the contents.  Defaults to</span>
+<span class="sd">            ``fp.name``, if available.</span>
+<span class="sd">        macro_context : MacroContext, optional</span>
+<span class="sd">            A macro context to use for expanding macros while loading the</span>
+<span class="sd">            database.</span>
+<span class="sd">        version : int, optional</span>
+<span class="sd">            The epics-base version to assume when loading.  Use 3 for R3.15 and under,</span>
+<span class="sd">            4 for more recent versions.</span>
+<span class="sd">        include_aliases : bool, optional</span>
+<span class="sd">            Include aliases as top-level records.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Database</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
             <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span>
             <span class="n">filename</span><span class="o">=</span><span class="n">filename</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
             <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
             <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-            <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">,</span>
+            <span class="n">include_aliases</span><span class="o">=</span><span class="n">include_aliases</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="nd">@classmethod</span>
@@ -5706,12 +5803,32 @@ middle, or end of a non-empty path string means the current directory.</p></td>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">fn</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span>
         <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-        <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Load a database [definition] from a filename.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load a database [definition] from a filename.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fn : str or pathlib.Path</span>
+<span class="sd">            The path to the database file.</span>
+<span class="sd">        dbd : Union[Database, str, pathlib.Path], optional</span>
+<span class="sd">            The database definition (.dbd) path, if applicable and available.</span>
+<span class="sd">        macro_context : MacroContext, optional</span>
+<span class="sd">            A macro context to use for expanding macros while loading the</span>
+<span class="sd">            database.</span>
+<span class="sd">        version : int, optional</span>
+<span class="sd">            The epics-base version to assume when loading.  Use 3 for R3.15 and under,</span>
+<span class="sd">            4 for more recent versions.</span>
+<span class="sd">        include_aliases : bool, optional</span>
+<span class="sd">            Include aliases as top-level records.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Database</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
                 <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span>
@@ -5719,7 +5836,7 @@ middle, or end of a non-empty path string means the current directory.</p></td>
                 <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
                 <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
                 <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-                <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">,</span>
+                <span class="n">include_aliases</span><span class="o">=</span><span class="n">include_aliases</span><span class="p">,</span>
             <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">field_names_by_type</span><span class="p">(</span>
@@ -5796,7 +5913,6 @@ middle, or end of a non-empty path string means the current directory.</p></td>
 <span class="sd">        Create a Database instance from multiple sources, including:</span>
 
 <span class="sd">        * Other Database instances</span>
-<span class="sd">        * LinterResults</span>
 <span class="sd">        * LoadedIoc</span>
 <span class="sd">        * ShellState</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -5807,9 +5923,6 @@ middle, or end of a non-empty path string means the current directory.</p></td>
         <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Database</span><span class="p">):</span>
                 <span class="n">db</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">LinterResults</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">db</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">db</span><span class="p">)</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="p">(</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">ShellState</span><span class="p">)):</span>
                 <span class="n">state</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">shell_state</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">LoadedIoc</span><span class="p">)</span> <span class="k">else</span> <span class="n">item</span>
                 <span class="n">new_records</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pva_database</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
@@ -5820,6 +5933,83 @@ middle, or end of a non-empty path string means the current directory.</p></td>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">_DatabaseSource</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">item</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">db</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_vendored_dbd</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load the vendored database definition file from whatrecord.</span>
+
+<span class="sd">        This is a good fallback when you have a database file without a</span>
+<span class="sd">        corresponding database definition file.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        version : int, optional</span>
+<span class="sd">            Use the old V3 style or new V3 style database grammar by specifying</span>
+<span class="sd">            3 or 4, respectively.  Defaults to 3.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        db : Database</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">version</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span>
+                <span class="n">util</span><span class="o">.</span><span class="n">MODULE_PATH</span> <span class="o">/</span> <span class="s2">&quot;tests&quot;</span> <span class="o">/</span> <span class="s2">&quot;iocs/v3_softIoc.dbd&quot;</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span>
+            <span class="n">util</span><span class="o">.</span><span class="n">MODULE_PATH</span> <span class="o">/</span> <span class="s2">&quot;tests&quot;</span> <span class="o">/</span> <span class="s2">&quot;iocs&quot;</span> <span class="o">/</span> <span class="s2">&quot;softIoc.dbd&quot;</span><span class="p">,</span>
+            <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_links_for_record</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">record</span><span class="p">:</span> <span class="n">RecordInstance</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">RecordField</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get all links - in, out, and forward links.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        record : RecordInstance</span>
+<span class="sd">            Additional information, if the database definition wasn&#39;t loaded</span>
+<span class="sd">            with this instance.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        field : RecordField</span>
+<span class="sd">        link_text: str</span>
+<span class="sd">        link_info: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">record_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">record_types</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">record_type</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">record_info</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">yield from</span> <span class="n">record_info</span><span class="o">.</span><span class="n">get_links_for_record</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">all_aliases</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;All aliases: top-level-defined and per-instance-defined.&quot;&quot;&quot;</span>
+        <span class="n">aliases</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">record_name</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">records</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">record</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
+                <span class="n">aliases</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="n">record_name</span>
+        <span class="k">return</span> <span class="n">aliases</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">non_aliased_records</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get unique and non-aliased record instances.</span>
+
+<span class="sd">        This can be used to ignore records included by the ``include_aliases``</span>
+<span class="sd">        setting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">aliases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_aliases</span>
+        <span class="k">for</span> <span class="n">record_name</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">records</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">record_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">aliases</span><span class="p">:</span>
+                <span class="n">records</span><span class="p">[</span><span class="n">record_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span>
+        <span class="k">return</span> <span class="n">records</span>
 </code></pre></div>
         </details>
 
@@ -5830,6 +6020,30 @@ middle, or end of a non-empty path string means the current directory.</p></td>
 
 
 
+<h6 id="whatrecord.db.Database-attributes">Attributes</h6>
+
+
+
+  <div class="doc doc-object doc-attribute">
+
+
+
+<h7 id="whatrecord.db.Database.all_aliases" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">all_aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-property"><code>property</code></small>
+      <small class="doc doc-property doc-property-readonly"><code>readonly</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>All aliases: top-level-defined and per-instance-defined.</p>
+    </div>
+
+  </div>
 
 
 
@@ -5839,6 +6053,31 @@ middle, or end of a non-empty path string means the current directory.</p></td>
 
 
 
+
+
+
+  <div class="doc doc-object doc-attribute">
+
+
+
+<h7 id="whatrecord.db.Database.non_aliased_records" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">non_aliased_records</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]</span></code>
+
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-property"><code>property</code></small>
+      <small class="doc doc-property doc-property-readonly"><code>readonly</code></small>
+  </span>
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Get unique and non-aliased record instances.</p>
+<p>This can be used to ignore records included by the <code>include_aliases</code>
+setting.</p>
+    </div>
+
+  </div>
 
 
 
@@ -6019,7 +6258,7 @@ unavailable and link information is requested.</p>
 
 
 <h7 id="whatrecord.db.Database.from_file" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">fn</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">fn</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
 
   <span class="doc doc-properties">
       <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
@@ -6031,6 +6270,51 @@ unavailable and link information is requested.</p>
 
       <p>Load a database [definition] from a filename.</p>
 
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>fn</code></td>
+        <td><code>Union[str, pathlib.Path]</code></td>
+        <td><p>The path to the database file.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>dbd</code></td>
+        <td><code>Optional[Union[Database, str, pathlib.Path]]</code></td>
+        <td><p>The database definition (.dbd) path, if applicable and available.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>macro_context</code></td>
+        <td><code>Optional[MacroContext]</code></td>
+        <td><p>A macro context to use for expanding macros while loading the
+database.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>version</code></td>
+        <td><code>int</code></td>
+        <td><p>The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+4 for more recent versions.</p></td>
+        <td><code>4</code></td>
+      </tr>
+      <tr>
+        <td><code>include_aliases</code></td>
+        <td><code>bool</code></td>
+        <td><p>Include aliases as top-level records.</p></td>
+        <td><code>True</code></td>
+      </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>whatrecord/db.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
@@ -6038,12 +6322,32 @@ unavailable and link information is requested.</p>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">fn</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span>
     <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-    <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Load a database [definition] from a filename.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a database [definition] from a filename.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fn : str or pathlib.Path</span>
+<span class="sd">        The path to the database file.</span>
+<span class="sd">    dbd : Union[Database, str, pathlib.Path], optional</span>
+<span class="sd">        The database definition (.dbd) path, if applicable and available.</span>
+<span class="sd">    macro_context : MacroContext, optional</span>
+<span class="sd">        A macro context to use for expanding macros while loading the</span>
+<span class="sd">        database.</span>
+<span class="sd">    version : int, optional</span>
+<span class="sd">        The epics-base version to assume when loading.  Use 3 for R3.15 and under,</span>
+<span class="sd">        4 for more recent versions.</span>
+<span class="sd">    include_aliases : bool, optional</span>
+<span class="sd">        Include aliases as top-level records.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Database</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
             <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span>
@@ -6051,7 +6355,7 @@ unavailable and link information is requested.</p>
             <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
             <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
             <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-            <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">,</span>
+            <span class="n">include_aliases</span><span class="o">=</span><span class="n">include_aliases</span><span class="p">,</span>
         <span class="p">)</span>
 </code></pre></div>
         </details>
@@ -6066,7 +6370,7 @@ unavailable and link information is requested.</p>
 
 
 <h7 id="whatrecord.db.Database.from_file_obj" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file_obj</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_file_obj</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
 
   <span class="doc doc-properties">
       <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
@@ -6078,25 +6382,102 @@ unavailable and link information is requested.</p>
 
       <p>Load a database [definition] from a file object.</p>
 
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>fp</code></td>
+        <td><code>file or file-like object</code></td>
+        <td><p>The file object to read from.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>dbd</code></td>
+        <td><code>Optional[Union[Database, str, pathlib.Path]]</code></td>
+        <td><p>The database definition (.dbd) path, if applicable and available.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>filename</code></td>
+        <td><code>Optional[Union[str, pathlib.Path]]</code></td>
+        <td><p>The filename to associate with the contents.  Defaults to
+<code>fp.name</code>, if available.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>macro_context</code></td>
+        <td><code>Optional[MacroContext]</code></td>
+        <td><p>A macro context to use for expanding macros while loading the
+database.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>version</code></td>
+        <td><code>int</code></td>
+        <td><p>The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+4 for more recent versions.</p></td>
+        <td><code>4</code></td>
+      </tr>
+      <tr>
+        <td><code>include_aliases</code></td>
+        <td><code>bool</code></td>
+        <td><p>Include aliases as top-level records.</p></td>
+        <td><code>True</code></td>
+      </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>whatrecord/db.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span> <span class="nf">from_file_obj</span><span class="p">(</span>
-    <span class="bp">cls</span><span class="p">,</span> <span class="n">fp</span><span class="p">,</span>
+    <span class="bp">cls</span><span class="p">,</span>
+    <span class="n">fp</span><span class="p">,</span>
     <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-    <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Load a database [definition] from a file object.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a database [definition] from a file object.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fp : file or file-like object</span>
+<span class="sd">        The file object to read from.</span>
+<span class="sd">    dbd : Union[Database, str, pathlib.Path], optional</span>
+<span class="sd">        The database definition (.dbd) path, if applicable and available.</span>
+<span class="sd">    filename : Union[str, pathlib.Path], optional</span>
+<span class="sd">        The filename to associate with the contents.  Defaults to</span>
+<span class="sd">        ``fp.name``, if available.</span>
+<span class="sd">    macro_context : MacroContext, optional</span>
+<span class="sd">        A macro context to use for expanding macros while loading the</span>
+<span class="sd">        database.</span>
+<span class="sd">    version : int, optional</span>
+<span class="sd">        The epics-base version to assume when loading.  Use 3 for R3.15 and under,</span>
+<span class="sd">        4 for more recent versions.</span>
+<span class="sd">    include_aliases : bool, optional</span>
+<span class="sd">        Include aliases as top-level records.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Database</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
         <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span>
         <span class="n">filename</span><span class="o">=</span><span class="n">filename</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
         <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
         <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-        <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">,</span>
+        <span class="n">include_aliases</span><span class="o">=</span><span class="n">include_aliases</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div>
         </details>
@@ -6124,7 +6505,6 @@ unavailable and link information is requested.</p>
       <p>Create a Database instance from multiple sources, including:</p>
 <ul>
 <li>Other Database instances</li>
-<li>LinterResults</li>
 <li>LoadedIoc</li>
 <li>ShellState</li>
 </ul>
@@ -6137,7 +6517,6 @@ unavailable and link information is requested.</p>
 <span class="sd">    Create a Database instance from multiple sources, including:</span>
 
 <span class="sd">    * Other Database instances</span>
-<span class="sd">    * LinterResults</span>
 <span class="sd">    * LoadedIoc</span>
 <span class="sd">    * ShellState</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -6148,9 +6527,6 @@ unavailable and link information is requested.</p>
     <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Database</span><span class="p">):</span>
             <span class="n">db</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">LinterResults</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">db</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">db</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="p">(</span><span class="n">LoadedIoc</span><span class="p">,</span> <span class="n">ShellState</span><span class="p">)):</span>
             <span class="n">state</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">shell_state</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">LoadedIoc</span><span class="p">)</span> <span class="k">else</span> <span class="n">item</span>
             <span class="n">new_records</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">database</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">pva_database</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
@@ -6174,7 +6550,7 @@ unavailable and link information is requested.</p>
 
 
 <h7 id="whatrecord.db.Database.from_string" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
 
   <span class="doc doc-properties">
       <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
@@ -6186,6 +6562,57 @@ unavailable and link information is requested.</p>
 
       <p>Load a database [definition] from a string.</p>
 
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>contents</code></td>
+        <td><code>str</code></td>
+        <td><p>The contents of the database file.</p></td>
+        <td><em>required</em></td>
+      </tr>
+      <tr>
+        <td><code>dbd</code></td>
+        <td><code>Optional[Union[Database, str, pathlib.Path]]</code></td>
+        <td><p>The database definition (.dbd) path, if applicable and available.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>filename</code></td>
+        <td><code>Optional[Union[str, pathlib.Path]]</code></td>
+        <td><p>The filename to associate with the contents.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>macro_context</code></td>
+        <td><code>Optional[MacroContext]</code></td>
+        <td><p>A macro context to use for expanding macros while loading the
+database.</p></td>
+        <td><code>None</code></td>
+      </tr>
+      <tr>
+        <td><code>version</code></td>
+        <td><code>int</code></td>
+        <td><p>The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+4 for more recent versions.</p></td>
+        <td><code>4</code></td>
+      </tr>
+      <tr>
+        <td><code>include_aliases</code></td>
+        <td><code>bool</code></td>
+        <td><p>Include aliases as top-level records.</p></td>
+        <td><code>True</code></td>
+      </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>whatrecord/db.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
@@ -6193,13 +6620,35 @@ unavailable and link information is requested.</p>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Database</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
     <span class="n">include_aliases</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">lint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinterResults</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Load a database [definition] from a string.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a database [definition] from a string.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    contents : str</span>
+<span class="sd">        The contents of the database file.</span>
+<span class="sd">    dbd : Union[Database, str, pathlib.Path], optional</span>
+<span class="sd">        The database definition (.dbd) path, if applicable and available.</span>
+<span class="sd">    filename : Union[str, pathlib.Path], optional</span>
+<span class="sd">        The filename to associate with the contents.</span>
+<span class="sd">    macro_context : MacroContext, optional</span>
+<span class="sd">        A macro context to use for expanding macros while loading the</span>
+<span class="sd">        database.</span>
+<span class="sd">    version : int, optional</span>
+<span class="sd">        The epics-base version to assume when loading.  Use 3 for R3.15 and under,</span>
+<span class="sd">        4 for more recent versions.</span>
+<span class="sd">    include_aliases : bool, optional</span>
+<span class="sd">        Include aliases as top-level records.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Database</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">dbd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="n">Database</span><span class="p">):</span>
         <span class="n">dbd</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">)</span>
 
@@ -6210,7 +6659,7 @@ unavailable and link information is requested.</p>
         <span class="n">search_paths</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;grammar&quot;</span><span class="p">,</span> <span class="p">),</span>
         <span class="n">parser</span><span class="o">=</span><span class="s2">&quot;lalr&quot;</span><span class="p">,</span>
         <span class="n">lexer_callbacks</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;COMMENT&quot;</span><span class="p">:</span> <span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">},</span>
-        <span class="n">transformer</span><span class="o">=</span><span class="n">_DatabaseTransformer</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span> <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">),</span>
+        <span class="n">transformer</span><span class="o">=</span><span class="n">_DatabaseTransformer</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">),</span>
         <span class="n">maybe_placeholders</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="c1"># Per-user `gettempdir` caching of the LALR grammar analysis way of</span>
         <span class="c1"># passing ``True`` here:</span>
@@ -6219,7 +6668,7 @@ unavailable and link information is requested.</p>
     <span class="k">if</span> <span class="n">macro_context</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">contents</span> <span class="o">=</span> <span class="n">macro_context</span><span class="o">.</span><span class="n">expand_by_line</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
 
-    <span class="n">db</span><span class="p">,</span> <span class="n">linter_results</span> <span class="o">=</span> <span class="n">grammar</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span>
+    <span class="n">db</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Database</span><span class="p">,</span> <span class="n">grammar</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">contents</span><span class="p">))</span>
     <span class="n">db</span><span class="o">.</span><span class="n">comments</span> <span class="o">=</span> <span class="n">comments</span>
 
     <span class="k">if</span> <span class="n">include_aliases</span><span class="p">:</span>
@@ -6236,41 +6685,153 @@ unavailable and link information is requested.</p>
 
 
 
-
-
-  </div>
-
-    </div>
-
-  </div>
+  <div class="doc doc-object doc-method">
 
 
 
-  <div class="doc doc-object doc-class">
+<h7 id="whatrecord.db.Database.from_vendored_dbd" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">from_vendored_dbd</span><span class="p">(</span><span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span></code>
 
+  <span class="doc doc-properties">
+      <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
+  </span>
 
-
-<h5 id="whatrecord.db.DatabaseLoadFailure" class="doc doc-heading">
-        <code>
-whatrecord.db.DatabaseLoadFailure            (<span title="Exception">Exception</span>)
-        </code>
-
-
-
-</h5>
+</h7>
 
     <div class="doc doc-contents ">
 
-      <p>Database load failure.</p>
+      <p>Load the vendored database definition file from whatrecord.</p>
+<p>This is a good fallback when you have a database file without a
+corresponding database definition file.</p>
 
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>version</code></td>
+        <td><code>int</code></td>
+        <td><p>Use the old V3 style or new V3 style database grammar by specifying
+3 or 4, respectively.  Defaults to 3.</p></td>
+        <td><code>3</code></td>
+      </tr>
+  </tbody>
+</table>
         <details class="quote">
           <summary>Source code in <code>whatrecord/db.py</code></summary>
-          <div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">DatabaseLoadFailure</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Database load failure.&quot;&quot;&quot;</span>
-    <span class="o">...</span>
+          <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">from_vendored_dbd</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Database</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load the vendored database definition file from whatrecord.</span>
+
+<span class="sd">    This is a good fallback when you have a database file without a</span>
+<span class="sd">    corresponding database definition file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    version : int, optional</span>
+<span class="sd">        Use the old V3 style or new V3 style database grammar by specifying</span>
+<span class="sd">        3 or 4, respectively.  Defaults to 3.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    db : Database</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span>
+            <span class="n">util</span><span class="o">.</span><span class="n">MODULE_PATH</span> <span class="o">/</span> <span class="s2">&quot;tests&quot;</span> <span class="o">/</span> <span class="s2">&quot;iocs/v3_softIoc.dbd&quot;</span><span class="p">,</span>
+            <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span>
+        <span class="n">util</span><span class="o">.</span><span class="n">MODULE_PATH</span> <span class="o">/</span> <span class="s2">&quot;tests&quot;</span> <span class="o">/</span> <span class="s2">&quot;iocs&quot;</span> <span class="o">/</span> <span class="s2">&quot;softIoc.dbd&quot;</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
+    <span class="p">)</span>
 </code></pre></div>
         </details>
+    </div>
 
+  </div>
+
+
+
+  <div class="doc doc-object doc-method">
+
+
+
+<h7 id="whatrecord.db.Database.get_links_for_record" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">Database</span><span class="o">.</span><span class="n">get_links_for_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">:</span> <span class="n">RecordInstance</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">RecordField</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+
+</h7>
+
+    <div class="doc doc-contents ">
+
+      <p>Get all links - in, out, and forward links.</p>
+
+<p><strong>Parameters:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td><code>record</code></td>
+        <td><code>RecordInstance</code></td>
+        <td><p>Additional information, if the database definition wasn't loaded
+with this instance.</p></td>
+        <td><em>required</em></td>
+      </tr>
+  </tbody>
+</table>
+        <details class="quote">
+          <summary>Source code in <code>whatrecord/db.py</code></summary>
+          <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">get_links_for_record</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">record</span><span class="p">:</span> <span class="n">RecordInstance</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">RecordField</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get all links - in, out, and forward links.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    record : RecordInstance</span>
+<span class="sd">        Additional information, if the database definition wasn&#39;t loaded</span>
+<span class="sd">        with this instance.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    field : RecordField</span>
+<span class="sd">    link_text: str</span>
+<span class="sd">    link_info: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">record_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">record_types</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">record_type</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">record_info</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="k">yield from</span> <span class="n">record_info</span><span class="o">.</span><span class="n">get_links_for_record</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+</code></pre></div>
+        </details>
+    </div>
+
+  </div>
+
+
+
+
+
+  </div>
 
     </div>
 
@@ -6282,9 +6843,9 @@ whatrecord.db.DatabaseLoadFailure            (<span title="Exception">Exception<
 
 
 
-<h5 id="whatrecord.db.LinterResults" class="doc doc-heading">
+<h5 id="whatrecord.db.DatabaseLint" class="doc doc-heading">
         <code>
-whatrecord.db.LinterResults        </code>
+whatrecord.db.DatabaseLint        </code>
 
 
   <span class="doc doc-properties">
@@ -6326,7 +6887,7 @@ whatrecord.db.LinterResults        </code>
         <details class="quote">
           <summary>Source code in <code>whatrecord/db.py</code></summary>
           <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">LinterResults</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">DatabaseLint</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Container for dbdlint results, with easier-to-access attributes.</span>
 
@@ -6343,119 +6904,8 @@ whatrecord.db.LinterResults        </code>
 <span class="sd">    warnings : list</span>
 <span class="sd">        List of warnings found</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">macros</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">errors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">LinterError</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">warnings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">LinterWarning</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
-    <span class="n">db</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
-        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">apischema</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">skip</span>
-    <span class="p">)</span>
-    <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
-        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">apischema</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">skip</span>
-    <span class="p">)</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_database_string</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">db</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">db_filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Lint a db (database) file using its database definition file (dbd).</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        db : str</span>
-<span class="sd">            The database source.</span>
-<span class="sd">        dbd : Database</span>
-<span class="sd">            The pre-loaded database definition.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        results : LinterResults</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">lint</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">dbd</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="n">Database</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;dbd should be a Database instance&quot;</span><span class="p">)</span>
-
-        <span class="c1"># The following fills `lint`, for better or worse</span>
-        <span class="n">database</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
-            <span class="n">db</span><span class="p">,</span> <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span> <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-            <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">db_filename</span>
-        <span class="p">)</span>
-        <span class="n">lint</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">database</span>
-        <span class="n">lint</span><span class="o">.</span><span class="n">dbd</span> <span class="o">=</span> <span class="n">dbd</span>
-        <span class="n">lint</span><span class="o">.</span><span class="n">macros</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">macro_context</span> <span class="ow">or</span> <span class="p">{})</span>
-        <span class="k">return</span> <span class="n">lint</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_database_file</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">db_filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span>
-        <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Lint a db (database) file using its database definition file (dbd).</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        db : str</span>
-<span class="sd">            The database filename.</span>
-<span class="sd">        dbd : Database</span>
-<span class="sd">            The database definition.</span>
-<span class="sd">        version : int, optional</span>
-<span class="sd">            Use the old V3 style or new V3 style database grammar by specifying</span>
-<span class="sd">            3 or 4, respectively.  Defaults to 3.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        results : LinterResults</span>
-<span class="sd">        db : Database</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">db_filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
-            <span class="n">db</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_database_string</span><span class="p">(</span>
-            <span class="n">db</span><span class="o">=</span><span class="n">db</span><span class="p">,</span>
-            <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
-            <span class="n">db_filename</span><span class="o">=</span><span class="n">db_filename</span><span class="p">,</span>
-            <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
-            <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-        <span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">record_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordType</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Defined record types.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dbd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dbd</span><span class="o">.</span><span class="n">record_types</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">record_types</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">records</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Defined V3 records.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">records</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">pva_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Defined PVAccess groups.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">pva_groups</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
-
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;records=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">records</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;pva_groups=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;errors=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">errors</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;warnings=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">warnings</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;&gt;&quot;</span>
-        <span class="p">)</span>
 </code></pre></div>
         </details>
 
@@ -6466,270 +6916,12 @@ whatrecord.db.LinterResults        </code>
 
 
 
-<h6 id="whatrecord.db.LinterResults-attributes">Attributes</h6>
 
 
 
 
 
-  <div class="doc doc-object doc-attribute">
 
-
-
-<h7 id="whatrecord.db.LinterResults.pva_groups" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="o">.</span><span class="n">pva_groups</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]]</span></code>
-
-  <span class="doc doc-properties">
-      <small class="doc doc-property doc-property-property"><code>property</code></small>
-      <small class="doc doc-property doc-property-readonly"><code>readonly</code></small>
-  </span>
-
-</h7>
-
-    <div class="doc doc-contents ">
-
-      <p>Defined PVAccess groups.</p>
-    </div>
-
-  </div>
-
-
-
-  <div class="doc doc-object doc-attribute">
-
-
-
-<h7 id="whatrecord.db.LinterResults.record_types" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="o">.</span><span class="n">record_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordType</span><span class="p">]]</span></code>
-
-  <span class="doc doc-properties">
-      <small class="doc doc-property doc-property-property"><code>property</code></small>
-      <small class="doc doc-property doc-property-readonly"><code>readonly</code></small>
-  </span>
-
-</h7>
-
-    <div class="doc doc-contents ">
-
-      <p>Defined record types.</p>
-    </div>
-
-  </div>
-
-
-
-  <div class="doc doc-object doc-attribute">
-
-
-
-<h7 id="whatrecord.db.LinterResults.records" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="o">.</span><span class="n">records</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RecordInstance</span><span class="p">]]</span></code>
-
-  <span class="doc doc-properties">
-      <small class="doc doc-property doc-property-property"><code>property</code></small>
-      <small class="doc doc-property doc-property-readonly"><code>readonly</code></small>
-  </span>
-
-</h7>
-
-    <div class="doc doc-contents ">
-
-      <p>Defined V3 records.</p>
-    </div>
-
-  </div>
-
-
-
-
-
-<h6 id="whatrecord.db.LinterResults-methods">Methods</h6>
-
-
-
-
-  <div class="doc doc-object doc-method">
-
-
-
-<h7 id="whatrecord.db.LinterResults.from_database_file" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="o">.</span><span class="n">from_database_file</span><span class="p">(</span><span class="n">db_filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span></code>
-
-  <span class="doc doc-properties">
-      <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
-  </span>
-
-</h7>
-
-    <div class="doc doc-contents ">
-
-      <p>Lint a db (database) file using its database definition file (dbd).</p>
-
-<p><strong>Parameters:</strong></p>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Description</th>
-      <th>Default</th>
-    </tr>
-  </thead>
-  <tbody>
-      <tr>
-        <td><code>db</code></td>
-        <td><code>str</code></td>
-        <td><p>The database filename.</p></td>
-        <td><em>required</em></td>
-      </tr>
-      <tr>
-        <td><code>dbd</code></td>
-        <td><code>Optional[Database]</code></td>
-        <td><p>The database definition.</p></td>
-        <td><code>None</code></td>
-      </tr>
-      <tr>
-        <td><code>version</code></td>
-        <td><code>int</code></td>
-        <td><p>Use the old V3 style or new V3 style database grammar by specifying
-3 or 4, respectively.  Defaults to 3.</p></td>
-        <td><code>3</code></td>
-      </tr>
-  </tbody>
-</table>
-        <details class="quote">
-          <summary>Source code in <code>whatrecord/db.py</code></summary>
-          <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
-<span class="k">def</span> <span class="nf">from_database_file</span><span class="p">(</span>
-    <span class="bp">cls</span><span class="p">,</span>
-    <span class="n">db_filename</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span>
-    <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Lint a db (database) file using its database definition file (dbd).</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    db : str</span>
-<span class="sd">        The database filename.</span>
-<span class="sd">    dbd : Database</span>
-<span class="sd">        The database definition.</span>
-<span class="sd">    version : int, optional</span>
-<span class="sd">        Use the old V3 style or new V3 style database grammar by specifying</span>
-<span class="sd">        3 or 4, respectively.  Defaults to 3.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    results : LinterResults</span>
-<span class="sd">    db : Database</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">db_filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
-        <span class="n">db</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-
-    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_database_string</span><span class="p">(</span>
-        <span class="n">db</span><span class="o">=</span><span class="n">db</span><span class="p">,</span>
-        <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span>
-        <span class="n">db_filename</span><span class="o">=</span><span class="n">db_filename</span><span class="p">,</span>
-        <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span>
-        <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-    <span class="p">)</span>
-</code></pre></div>
-        </details>
-    </div>
-
-  </div>
-
-
-
-  <div class="doc doc-object doc-method">
-
-
-
-<h7 id="whatrecord.db.LinterResults.from_database_string" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">LinterResults</span><span class="o">.</span><span class="n">from_database_string</span><span class="p">(</span><span class="n">db</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">db_filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span></code>
-
-  <span class="doc doc-properties">
-      <small class="doc doc-property doc-property-classmethod"><code>classmethod</code></small>
-  </span>
-
-</h7>
-
-    <div class="doc doc-contents ">
-
-      <p>Lint a db (database) file using its database definition file (dbd).</p>
-
-<p><strong>Parameters:</strong></p>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Description</th>
-      <th>Default</th>
-    </tr>
-  </thead>
-  <tbody>
-      <tr>
-        <td><code>db</code></td>
-        <td><code>str</code></td>
-        <td><p>The database source.</p></td>
-        <td><em>required</em></td>
-      </tr>
-      <tr>
-        <td><code>dbd</code></td>
-        <td><code>Optional[Database]</code></td>
-        <td><p>The pre-loaded database definition.</p></td>
-        <td><code>None</code></td>
-      </tr>
-  </tbody>
-</table>
-        <details class="quote">
-          <summary>Source code in <code>whatrecord/db.py</code></summary>
-          <div class="highlight"><pre><span></span><code><span class="nd">@classmethod</span>
-<span class="k">def</span> <span class="nf">from_database_string</span><span class="p">(</span>
-    <span class="bp">cls</span><span class="p">,</span>
-    <span class="n">db</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">dbd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Database</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">macro_context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MacroContext</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">db_filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinterResults</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Lint a db (database) file using its database definition file (dbd).</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    db : str</span>
-<span class="sd">        The database source.</span>
-<span class="sd">    dbd : Database</span>
-<span class="sd">        The pre-loaded database definition.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    results : LinterResults</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">lint</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">dbd</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dbd</span><span class="p">,</span> <span class="n">Database</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;dbd should be a Database instance&quot;</span><span class="p">)</span>
-
-    <span class="c1"># The following fills `lint`, for better or worse</span>
-    <span class="n">database</span> <span class="o">=</span> <span class="n">Database</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span>
-        <span class="n">db</span><span class="p">,</span> <span class="n">dbd</span><span class="o">=</span><span class="n">dbd</span><span class="p">,</span> <span class="n">macro_context</span><span class="o">=</span><span class="n">macro_context</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span>
-        <span class="n">lint</span><span class="o">=</span><span class="n">lint</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">db_filename</span>
-    <span class="p">)</span>
-    <span class="n">lint</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">database</span>
-    <span class="n">lint</span><span class="o">.</span><span class="n">dbd</span> <span class="o">=</span> <span class="n">dbd</span>
-    <span class="n">lint</span><span class="o">.</span><span class="n">macros</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">macro_context</span> <span class="ow">or</span> <span class="p">{})</span>
-    <span class="k">return</span> <span class="n">lint</span>
-</code></pre></div>
-        </details>
-    </div>
-
-  </div>
 
 
 
@@ -6747,9 +6939,9 @@ whatrecord.db.LinterResults        </code>
 
 
 
-<h5 id="whatrecord.db.UnquotedString" class="doc doc-heading">
+<h5 id="whatrecord.db.DatabaseLoadFailure" class="doc doc-heading">
         <code>
-whatrecord.db.UnquotedString            (<span title="str">str</span>)
+whatrecord.db.DatabaseLoadFailure            (<span title="Exception">Exception</span>)
         </code>
 
 
@@ -6758,16 +6950,12 @@ whatrecord.db.UnquotedString            (<span title="str">str</span>)
 
     <div class="doc doc-contents ">
 
-      <p>An unquoted string token found when loading a database file.</p>
-<p>May be a linter warning.</p>
+      <p>Database load failure.</p>
 
         <details class="quote">
           <summary>Source code in <code>whatrecord/db.py</code></summary>
-          <div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">UnquotedString</span><span class="p">(</span><span class="nb">str</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    An unquoted string token found when loading a database file.</span>
-<span class="sd">    May be a linter warning.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+          <div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">DatabaseLoadFailure</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Database load failure.&quot;&quot;&quot;</span>
     <span class="o">...</span>
 </code></pre></div>
         </details>
@@ -7106,7 +7294,7 @@ in this substitution file,</p>
 
         <span class="n">filename</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
         <span class="n">search_paths</span> <span class="o">=</span> <span class="n">search_paths</span> <span class="ow">or</span> <span class="p">[</span><span class="n">filename</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="p">]</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">search_paths</span><span class="o">=</span><span class="n">search_paths</span><span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -7380,7 +7568,7 @@ in this substitution file,</p>
 
     <span class="n">filename</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
     <span class="n">search_paths</span> <span class="o">=</span> <span class="n">search_paths</span> <span class="ow">or</span> <span class="p">[</span><span class="n">filename</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="p">]</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">search_paths</span><span class="o">=</span><span class="n">search_paths</span><span class="p">)</span>
 </code></pre></div>
         </details>
@@ -12632,6 +12820,7 @@ whatrecord.snl.WhileStatement            (<a title="whatrecord.snl.Statement" hr
 
 
 
+
 <h4 id="whatrecord.streamdevice-classes">Classes</h4>
 
   <div class="doc doc-object doc-class">
@@ -12922,6 +13111,7 @@ whatrecord.streamdevice.StreamDeviceState            (<a title="whatrecord.commo
 
     <span class="k">def</span> <span class="nf">find_streamdevice_protocol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">AnyPath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
         <span class="n">shell_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_handler</span>
+        <span class="k">assert</span> <span class="n">shell_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">shell_state</span><span class="o">.</span><span class="n">_fix_path_with_search_list</span><span class="p">(</span>
             <span class="n">filename</span><span class="p">,</span>
             <span class="n">shell_state</span><span class="o">.</span><span class="n">paths_from_env_var</span><span class="p">(</span><span class="s2">&quot;STREAM_PROTOCOL_PATH&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
@@ -12962,7 +13152,7 @@ whatrecord.streamdevice.StreamDeviceState            (<a title="whatrecord.commo
         <span class="n">info_field</span> <span class="o">=</span> <span class="n">info_field</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
         <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">proto_file</span><span class="p">,</span> <span class="n">proto_name</span><span class="p">,</span> <span class="o">*</span><span class="n">proto_args</span> <span class="o">=</span> <span class="n">split_words</span><span class="p">(</span><span class="n">info_field</span><span class="p">)</span><span class="o">.</span><span class="n">argv</span>
+            <span class="n">proto_file</span><span class="p">,</span> <span class="n">proto_name</span><span class="p">,</span> <span class="o">*</span><span class="n">proto_args</span> <span class="o">=</span> <span class="n">split_iocsh_line</span><span class="p">(</span><span class="n">info_field</span><span class="p">)</span><span class="o">.</span><span class="n">argv</span>
             <span class="n">proto_file</span> <span class="o">=</span> <span class="n">proto_file</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;@ &quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">results</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
@@ -13046,7 +13236,7 @@ whatrecord.streamdevice.StreamDeviceState            (<a title="whatrecord.commo
     <span class="n">info_field</span> <span class="o">=</span> <span class="n">info_field</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
     <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">proto_file</span><span class="p">,</span> <span class="n">proto_name</span><span class="p">,</span> <span class="o">*</span><span class="n">proto_args</span> <span class="o">=</span> <span class="n">split_words</span><span class="p">(</span><span class="n">info_field</span><span class="p">)</span><span class="o">.</span><span class="n">argv</span>
+        <span class="n">proto_file</span><span class="p">,</span> <span class="n">proto_name</span><span class="p">,</span> <span class="o">*</span><span class="n">proto_args</span> <span class="o">=</span> <span class="n">split_iocsh_line</span><span class="p">(</span><span class="n">info_field</span><span class="p">)</span><span class="o">.</span><span class="n">argv</span>
         <span class="n">proto_file</span> <span class="o">=</span> <span class="n">proto_file</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;@ &quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="n">results</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
