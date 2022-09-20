@@ -42,6 +42,8 @@
       >
         {{ pvagroup }}
       </router-link>
+      <br />
+      <br />
     </span>
   </template>
   <template v-else>
@@ -56,7 +58,7 @@
         &nbsp; .<script-context-one-link
           :name="field.context[0][0]"
           :line="field.context[0][1]"
-          :link_text="field.name"
+          :link_text="field.name || 'unknown'"
           class="unassuming_link"
         />
         =

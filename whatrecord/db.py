@@ -386,6 +386,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         #     })
         # }
         for field_name, field_info in md.items():
+            if not isinstance(field_info, dict):
+                continue
+
             try:
                 fieldref = group.fields[field_name]
             except KeyError:
@@ -394,22 +397,19 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     context=tuple(field_name.context),
                 )
 
-            if isinstance(field_info, dict):
-                # There, uh, is still some work left to do here.
-                channel = field_info.get("+channel", None)
-                if channel is not None:
-                    # The current record doesn't have its name yet due to how
-                    # the parser goes depth first; update it later.
-                    self._state.pva_references_to_update.append(
-                        (self._state.record, fieldref)
-                    )
-                    fieldref.field_name = channel
-                    # Linter TODO: checks that this field exists and
-                    # whatnot
+            # There, uh, is still some work left to do here.
+            channel = field_info.get("+channel", None)
+            if channel is not None:
+                # The current record doesn't have its name yet due to how
+                # the parser goes depth first; update it later.
+                self._state.pva_references_to_update.append(
+                    (self._state.record, fieldref)
+                )
+                fieldref.field_name = channel
+                # Linter TODO: checks that this field exists and
+                # whatnot
 
-                fieldref.metadata.update(field_info)
-            else:
-                fieldref.metadata[field_name] = field_info
+            fieldref.metadata.update(field_info)
 
     def _add_q_group(self, group_md: Mapping):
         """
