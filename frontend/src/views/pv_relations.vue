@@ -36,9 +36,8 @@
             <div class="p-d-flex p-jc-between">
               <Button
                 type="button"
+                id="clear-filters"
                 icon="pi pi-filter-slash"
-                label="Clear"
-                class="p-button-outlined"
                 @click="clear_group_filters()"
               />
               <span class="p-input-icon-left">
@@ -46,6 +45,7 @@
                 <InputText
                   v-model="group_filters['global'].value"
                   placeholder="Search"
+                  id="filter-input"
                 />
               </span>
             </div>
@@ -391,10 +391,7 @@ export default {
     InputSwitch,
     InputText,
   },
-  props: {
-    filename: String,
-    line: String,
-  },
+  props: {},
   data() {
     return {
       last_query: null,
@@ -519,7 +516,7 @@ export default {
       if (record && this.shown_record != record) {
         this.shown_record = record;
         axios
-          .get("/api/pv/graph", { params: { pv: record, format: "svg" }})
+          .get("/api/pv/graph", { params: { pv: record, format: "svg" } })
           .then((response) => {
             var parser = new DOMParser();
             let svg_doc = parser.parseFromString(
@@ -599,7 +596,7 @@ export default {
 }
 
 #left {
-  min-width: 15vw;
+  min-width: 17vw;
   max-width: 17vw;
   max-height: 97vh;
 }
@@ -608,5 +605,16 @@ export default {
   height: calc(100vh - 100px);
   min-width: 60vw;
   max-width: 85vw;
+}
+
+#clear-filters {
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  margin-left: 0.5em;
+  margin-right: 0.5em;
+}
+
+#filter-input {
+  width: 100%;
 }
 </style>

@@ -89,7 +89,9 @@ export const store = createStore({
       }
       try {
         await commit("start_query");
-        const response = await axios.get("/api/ioc/matches", { params: { pattern: "*" } });
+        const response = await axios.get("/api/ioc/matches", {
+          params: { pattern: "*" },
+        });
         await commit("set_ioc_info", { ioc_info: response.data.matches });
         return response.data.matches;
       } catch (error) {
@@ -180,7 +182,9 @@ export const store = createStore({
       }
       try {
         await commit("start_query");
-        const response = await axios.get("/api/pv/info", { params: { pv: record_name }});
+        const response = await axios.get("/api/pv/info", {
+          params: { pv: record_name },
+        });
         for (const [rec, rec_info] of Object.entries(response.data)) {
           await commit("add_record_info", {
             record: rec,
@@ -198,7 +202,9 @@ export const store = createStore({
     async get_ioc_records({ commit }, { ioc_name }) {
       try {
         await commit("start_query");
-        const response = await axios.get("/api/ioc/pvs", { params: { ioc: ioc_name, pv: "*" } });
+        const response = await axios.get("/api/ioc/pvs", {
+          params: { ioc: ioc_name, pv: "*" },
+        });
         const records =
           response.data.matches.length > 0 ? response.data.matches[0][1] : [];
         await commit("set_ioc_records", {
@@ -241,7 +247,9 @@ export const store = createStore({
             pattern: "*",
           },
         });
-        await commit("set_duplicates", { duplicates: response.data.duplicates });
+        await commit("set_duplicates", {
+          duplicates: response.data.duplicates,
+        });
         return response.data;
       } catch (error) {
         console.error(error);

@@ -15,6 +15,7 @@ from typing import (Any, ClassVar, Dict, Generator, Iterable, List, Optional,
                     Tuple, Union)
 
 import apischema
+import lark
 from epicsmacrolib import IocshRedirect
 
 from . import common, dbtemplate, graph, settings, util
@@ -97,11 +98,10 @@ class ShellState(ShellStateHandler):
     pva_database: Dict[str, RecordInstance] = field(default_factory=dict)
     load_context: List[MutableLoadContext] = field(default_factory=list)
     loaded_files: Dict[str, str] = field(default_factory=dict)
-    macro_context: MacroContext = field(
-        default_factory=MacroContext, metadata=apischema.metadata.skip
-    )
+    macro_context: MacroContext = field(default_factory=MacroContext)
     ioc_info: IocMetadata = field(default_factory=IocMetadata)
     db_add_paths: List[pathlib.Path] = field(default_factory=list)
+    database_grammar_version: int = 3
 
     # Sub-state handlers:
     access_security: AccessSecurityState = field(default_factory=AccessSecurityState)
@@ -308,19 +308,22 @@ class ShellState(ShellStateHandler):
     ) -> pathlib.Path:
         """Given a list of paths, find ``filename``."""
         filename = str(filename)
-        if not include_paths or "/" in filename or "\\" in filename:
+        if not include_paths or str(filename)[0] in ("/", "\\"):
             # Include path unset or even something resembling a nested path
             # automatically is used as-is
-            return self.working_directory / filename
+            return self._fix_path(self.working_directory / filename)
 
         for path in include_paths:
-            option = path / filename
+            option = self._fix_path(path) / filename
             if option.exists() and option.is_file():
                 return option
 
+        if "/" in filename or "\\" in filename:
+            return self._fix_path(self.working_directory / filename)
+
         paths = list(str(path) for path in include_paths)
         raise FileNotFoundError(
-            f"File {filename!r} not found in search path: {paths}"
+            f"File {filename!r} not found in search path: {paths} "
         )
 
     def unhandled(self, command, args):
@@ -425,24 +428,63 @@ class ShellState(ShellStateHandler):
         if self.database_definition:
             # TODO: technically this is allowed; we'll need to update
             # raise RuntimeError("dbd already loaded")
-            return "whatrecord: TODO multiple dbLoadDatabase"
+            return {
+                "error": "whatrecord: TODO multiple dbLoadDatabase"
+            }
+
         dbd_path = self._fix_path_with_search_list(dbd, self.db_include_paths)
         fn, contents = self.load_file(dbd_path)
         macro_context = MacroContext(use_environment=False)
         macro_context.define_from_string(substitutions or "")
-        self.database_definition = Database.from_string(
-            contents,
-            version=self.ioc_info.database_version_spec,
-            filename=fn,
-            macro_context=macro_context,
-        )
+
+        self.database_grammar_version = self.ioc_info.database_version_spec
+        try:
+            self.database_definition = Database.from_string(
+                contents,
+                version=self.database_grammar_version,
+                filename=fn,
+                macro_context=macro_context,
+            )
+        except lark.exceptions.ParseError as original_ex:
+            # Our guess about the EPICS version may have been wrong.
+            # Let's see if the dbd is valid for the other version.
+            other_spec = {
+                3: 4,
+                4: 3
+            }[self.database_grammar_version]
+
+            try:
+                self.database_definition = Database.from_string(
+                    contents,
+                    version=other_spec,
+                    filename=fn,
+                    macro_context=macro_context,
+                )
+            except Exception:
+                raise DatabaseLoadFailure(
+                    f"Database definition file failed to load. "
+                    f"Attempted to load with grammar version {self.database_grammar_version}, "
+                    f"and fallback version {other_spec} unsuccessfully."
+                ) from original_ex
+
+            # Our initial guess was wrong... Load further database files with
+            # the adjusted version.
+            self.database_grammar_version = other_spec
 
         for addpath in self.database_definition.addpaths:
             for path in addpath.path.split(os.pathsep):  # TODO: OS-dependent
                 self.db_add_paths.append((dbd_path.parent / path).resolve())
 
         self.aliases.update(self.database_definition.aliases)
-        return {"result": f"Loaded database: {fn}"}
+        return {
+            "context": [LoadContext(str(fn), 0)],
+            "result": "Loaded database",
+            "grammar_version": self.database_grammar_version,
+            "record_types": list(sorted(self.database_definition.record_types)),
+            "drivers": list(sorted(self.database_definition.drivers)),
+            "functions": list(sorted(self.database_definition.functions)),
+            "breaktables": list(sorted(self.database_definition.breaktables)),
+        }
 
     @_handler
     def handle_dbLoadTemplate(self, filename: str, macros: str = ""):
@@ -451,6 +493,7 @@ class ShellState(ShellStateHandler):
 
         # TODO this should be multiple load calls for the purposes of context
         result = {
+            "context": [LoadContext(str(filename), 0)],
             "total_records": 0,
             "total_groups": 0,
             "loaded_files": [],
@@ -468,7 +511,7 @@ class ShellState(ShellStateHandler):
                 context=self.get_load_context() + sub.context,
             )
             info = {
-                "filename": sub.filename,
+                "context": [LoadContext(str(sub.filename), 0)],
                 "macros": sub.macros,
                 "records": len(db.records),
                 "groups": len(db.pva_groups),
@@ -496,7 +539,7 @@ class ShellState(ShellStateHandler):
                 filename=filename,
                 dbd=self.database_definition,
                 macro_context=macro_context,
-                version=self.ioc_info.database_version_spec,
+                version=self.database_grammar_version,
             )
         except Exception as ex:
             # TODO move this around
@@ -548,9 +591,17 @@ class ShellState(ShellStateHandler):
             macros=macros or "",
             context=self.get_load_context()
         )
+
+        # TODO: add option to annotate all records without requiring
+        # per-record whatrecord queries
+        # if self.annotate_all:
+        #     for record in db.records.values():
+        #         self.annotate_record(record)
+
         return {
-            "loaded_records": len(db.records),
-            "loaded_groups": len(db.pva_groups),
+            "context": [LoadContext(str(filename), 0)],
+            "num_records": len(db.records),
+            "num_pva_groups": len(db.pva_groups),
             "lint": db.lint,
         }
 
@@ -681,6 +732,11 @@ class LoadedIoc:
     pv_relations: PVRelations = field(default_factory=dict)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            {{ render_object(script, "file") }}
+            """.rstrip(),
+        ),
         "console": textwrap.dedent(
             """\
             {{ obj | classname }}:
@@ -714,6 +770,19 @@ class LoadedIoc:
 
     @classmethod
     def _json_from_cache(cls, md: IocMetadata) -> Optional[dict]:
+        """
+        Load the serialized JSON from the cache for the given IOC.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata that identifies the IOC.
+
+        Returns
+        -------
+        dict or None
+            The cached JSON, if available.
+        """
         try:
             with open(md.ioc_cache_filename, "rb") as fp:
                 return json.load(fp)
@@ -725,11 +794,24 @@ class LoadedIoc:
 
     @classmethod
     def from_cache(cls, md: IocMetadata) -> Optional[LoadedIoc]:
+        """
+        If available, load the cached data about the provided IOC.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata that identifies the IOC.
+
+        Returns
+        -------
+        LoadedIoc or None
+        """
         json_dict = cls._json_from_cache(md)
         if json_dict is not None:
             return apischema.deserialize(cls, json_dict)
 
     def save_to_cache(self) -> bool:
+        """Save this instance to the application cache."""
         if not settings.CACHE_PATH:
             return False
 
@@ -741,6 +823,20 @@ class LoadedIoc:
     def from_errored_load(
         cls, md: IocMetadata, load_failure: IocLoadFailure
     ) -> LoadedIoc:
+        """
+        Create a LoadedIoc from a failed load, as indicated by IocLoadFailure.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata that was used to load the IOC.
+        load_failure : IocLoadFailure
+            The load failure information.
+
+        Returns
+        -------
+        LoadedIoc
+        """
         exception_line = f"{load_failure.ex_class}: {load_failure.ex_message}"
         error_lines = [exception_line] + load_failure.traceback.splitlines()
         script = IocshScript(
@@ -765,6 +861,18 @@ class LoadedIoc:
 
     @classmethod
     def from_metadata(cls, md: IocMetadata) -> LoadedIoc:
+        """
+        Generate a LoadedIoc by interpreting the startup script.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            The metadata from the IOC.
+
+        Returns
+        -------
+        LoadedIoc
+        """
         sh = ShellState(ioc_info=md)
         sh.working_directory = md.startup_directory
         sh.macro_context.define(**md.macros)
@@ -787,7 +895,23 @@ class LoadedIoc:
     def whatrec(
         self, rec: str, field: Optional[str] = None, include_pva: bool = True
     ) -> Optional[WhatRecord]:
-        """Get record information, optionally including PVAccess results."""
+        """
+        Get record information, optionally including PVAccess results.
+
+        Parameters
+        ----------
+        rec : str
+            The record name (excluding any field).
+        field : Optional[str], optional
+            An optional field name, such as ``DESC``.  Currently unused.
+        include_pva : bool, optional
+            Include PVAccess results in the query.
+
+        Returns
+        -------
+        Optional[WhatRecord]
+            Information about the provided record, if available.
+        """
         state = self.shell_state
         v3_inst = state.database.get(state.aliases.get(rec, rec), None)
         pva_inst = state.pva_database.get(rec, None) if include_pva else None
@@ -823,6 +947,24 @@ def load_cached_ioc(
     md: IocMetadata,
     allow_failed_load: bool = False,
 ) -> Optional[LoadedIoc]:
+    """
+    Load an IOC from the cache.
+
+    Parameters
+    ----------
+    md : IocMetadata
+        The metadata from the IOC, which determines its cache key.
+    allow_failed_load : bool, optional
+        A previous load of the provided IOC may have been marked as a failure.
+        If set, ``load_cached_ioc`` will return the results of the failed load.
+        If unset, ``load_cached_ioc`` will return ``None`` and allow the caller
+        to treat this as a cache miss and potentially reload it from disk.
+
+    Returns
+    -------
+    Optional[LoadedIoc]
+        The cached LoadedIoc instance.
+    """
     cached_md = md.from_cache()
     if cached_md is None:
         logger.debug("Cached metadata unavailable %s", md.name)
@@ -851,6 +993,8 @@ def load_cached_ioc(
     except FileNotFoundError:
         logger.error("%s is noted as up-to-date; but cache file missing", md.name)
 
+    return None
+
 
 @dataclass
 class IocLoadFailure:
@@ -876,6 +1020,26 @@ async def async_load_ioc(
 ) -> IocLoadResult:
     """
     Helper function for loading an IOC in a subprocess and relying on the cache.
+
+    Parameters
+    ----------
+    standin_directories :
+        Stand-in directories to use when loading the IOC.
+    identifier : Union[int, str]
+        The IOC identifier.
+    md : IocMetadata
+        Metadata tied to the IOC.
+    use_gdb : bool, optional
+        Use GDB to analyze the IOC binary for linting of shell script commands.
+    use_cache : bool, optional
+        Load from the cache for IOCs which have been cached.
+
+    Returns
+    -------
+    IocLoadResult
+        The result of loading, including an identifier which can be used by the
+        caller to load the item from disk (as it's faster than using
+        multiprocessing).
     """
     if not settings.CACHE_PATH:
         use_cache = False
@@ -924,7 +1088,14 @@ async def async_load_ioc(
         )
 
 
-def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True) -> IocLoadResult:
+def _load_ioc(
+    identifier: Union[int, str],
+    md: IocMetadata,
+    standin_directories,
+    use_gdb: bool = True,
+    use_cache: bool = True,
+) -> IocLoadResult:
+    """A synchronous wrapper around ``async_load_ioc``."""
     return asyncio.run(
         async_load_ioc(
             identifier=identifier, md=md,
@@ -935,11 +1106,13 @@ def _load_ioc(identifier, md, standin_directories, use_gdb=True, use_cache=True)
 
 
 def _sigint_handler(signum, frame):
+    """SIGINT handler for subprocesses."""
     logger.error("Subprocess killed with SIGINT; exiting.")
     sys.exit(1)
 
 
 def _process_init():
+    """Subprocess initializer; enables SIGINT handler."""
     signal.signal(signal.SIGINT, _sigint_handler)
 
 

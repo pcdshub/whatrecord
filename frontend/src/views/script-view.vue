@@ -38,25 +38,24 @@ import ScriptLine from "../components/script-line.vue";
 
 function remove_xml(filename, lines) {
   // Strip the <xml> header
-  const raw_xml = lines.slice(1).map(line => line.line).join("\n");
+  const raw_xml = lines
+    .slice(1)
+    .map((line) => line.line)
+    .join("\n");
 
   let parser = new DOMParser();
   let xml = parser.parseFromString(raw_xml, "text/xml");
 
   const sections = [
     xml.querySelectorAll("Declaration")?.item(0),
-    xml.querySelectorAll("Implementation")?.item(0)
+    xml.querySelectorAll("Implementation")?.item(0),
   ];
-  const code = sections.map(section => section?.textContent ?? "").join("\n")
+  const code = sections.map((section) => section?.textContent ?? "").join("\n");
 
-  return code.split("\n").map(
-      (line, lineno) => (
-        {
-          line: line,
-          context: [[filename, lineno + 1]],
-        }
-      )
-  )
+  return code.split("\n").map((line, lineno) => ({
+    line: line,
+    context: [[filename, lineno + 1]],
+  }));
 }
 
 export default {
@@ -65,19 +64,20 @@ export default {
     DictionaryTable,
     ScriptLine,
   },
-  props: {
-    filename: String,
-    line: String,
-  },
+  props: {},
   data() {
-    return {};
+    return {
+      filename: "",
+      line: 0,
+      last_params: null,
+    };
   },
   computed: {
     commands() {
       return this.metadata?.commands ?? {};
     },
     metadata() {
-      return this.file_info?.ioc ?? {};
+      return this.file_info?.ioc ?? null;
     },
     is_twincat_file() {
       const extension = this.filename.split(".").pop() || "";
@@ -85,7 +85,7 @@ export default {
     },
     lines() {
       if (this.is_twincat_file) {
-          return remove_xml(this.filename, this.file_info?.script.lines ?? []);
+        return remove_xml(this.filename, this.file_info?.script.lines ?? []);
       }
       return this.file_info?.script.lines ?? [];
     },
@@ -95,10 +95,6 @@ export default {
       },
     }),
   },
-  async mounted() {
-    this.$store.dispatch("get_file_info", { filename: this.filename });
-    document.title = "WhatRecord? Script " + this.filename;
-  },
   updated() {
     const lineno = this.line;
     const obj = document.getElementById(lineno);
@@ -106,7 +102,36 @@ export default {
       obj.scrollIntoView();
     }
   },
+  async created() {
+    document.title = `WhatRecord? Script`;
+    this.$watch(
+      () => this.$route.params,
+      (to_params) => {
+        this.from_params(to_params);
+      }
+    );
+    await this.from_params();
+  },
+  async mounted() {
+    await this.from_params();
+  },
   methods: {
+    async from_params() {
+      const route_params = this.$route.params;
+      const params = {
+        filename: route_params.filename,
+        line: route_params.line,
+      };
+
+      if (this.last_params != params && params.filename?.length > 0) {
+        this.last_params = params;
+        this.filename = params.filename;
+        this.line = params.line;
+
+        this.$store.dispatch("get_file_info", { filename: this.filename });
+        document.title = "WhatRecord? Script " + this.filename;
+      }
+    },
     expand_all() {
       document.body
         .querySelectorAll("details")
@@ -117,7 +142,7 @@ export default {
         );
     },
     get_line_id(line) {
-        return line?.context?.map((ctx) => ctx[1]).join(":") ?? [];
+      return line?.context?.map((ctx) => ctx[1]).join(":") ?? [];
     },
   },
 };

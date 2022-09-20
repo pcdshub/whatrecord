@@ -1,6 +1,7 @@
 """Smoke tests to see if the provided IOCs load without crashing."""
 
 import os
+import pathlib
 
 import apischema
 import pytest
@@ -10,7 +11,7 @@ from ..parse import parse
 from ..shell import LoadedIoc, ShellState
 from . import conftest
 
-empty_db_iocs = {"fake_ad", }
+empty_db_iocs = {"fake_ad", "ioc_failure"}
 
 
 @conftest.startup_scripts
@@ -62,23 +63,24 @@ def test_load_and_whatrec(startup_script):
         assert rec == state.pva_database[pvname]
 
 
-friendly_param = pytest.mark.parametrize(
-    "friendly",
+output_formats = pytest.mark.parametrize(
+    "output_format",
     [
-        pytest.param(True, id="friendly"),
-        pytest.param(False, id="json"),
-    ]
+        "json",
+        "console",
+        "file",
+    ],
 )
 
 
 @conftest.startup_scripts
-@friendly_param
-def test_load_dump(startup_script, friendly):
+@output_formats
+def test_load_dump(startup_script: pathlib.Path, output_format: str):
     os.environ["PWD"] = str(startup_script.resolve().parent)
-    main(startup_script, friendly=friendly)
+    main(startup_script, output_format=output_format)
 
 
-@friendly_param
+@output_formats
 @pytest.mark.parametrize(
     "filename",
     [
@@ -91,6 +93,6 @@ def test_load_dump(startup_script, friendly):
         ]
     ]
 )
-def test_load_misc(filename, friendly):
+def test_load_misc(filename: pathlib.Path, output_format: str):
     os.environ["PWD"] = str(filename.resolve().parent)
-    main(filename, friendly=friendly)
+    main(filename, output_format=output_format)

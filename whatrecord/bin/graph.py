@@ -42,7 +42,8 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "--format",
+        "-if",
+        "--input-format",
         type=str,
         required=False,
         help=(
@@ -52,7 +53,8 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=str,
         required=False,
         help="Output file to write to.  Defaults to standard output.",
@@ -176,7 +178,7 @@ def main(
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
     use_gdb: bool = False,
-    format: Optional[str] = None,
+    input_format: Optional[str] = None,
     expand: bool = False,
     highlight: Optional[List[str]] = None,
     v3: bool = False,
@@ -192,7 +194,7 @@ def main(
             standin_directory=standin_directory,
             macros=macros,
             use_gdb=use_gdb,
-            format=format,
+            format=input_format,
             expand=expand,
             v3=v3,
         )

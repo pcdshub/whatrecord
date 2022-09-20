@@ -15,6 +15,17 @@
             </span>
           </summary>
 
+          <template v-if="command_info_table != null">
+            <br />
+            <dictionary-table
+              :dict="command_info_table"
+              key_column="Argument"
+              value_column="Value"
+              cls="command_info_table"
+              :skip_keys="[]"
+            />
+          </template>
+
           <span v-if="line.error != null" class="error-block">
             <template v-if="typeof line.error == 'string'">
               <pre>{{ line.error }}</pre>
@@ -35,21 +46,17 @@
               <dictionary-table
                 :dict="line.result"
                 cls="result"
-                :skip_keys="['arguments']"
+                :skip_keys="['arguments', 'lint']"
+              />
+
+              <linter-results
+                :warnings="line.result.lint.warnings"
+                :errors="line.result.lint.errors"
+                cls="result"
+                v-if="line.result.lint != null"
               />
             </template>
           </span>
-
-          <template v-if="command_info_table != null">
-            <br />
-            <dictionary-table
-              :dict="command_info_table"
-              key_column="Argument"
-              value_column="Value"
-              cls="command_info_table"
-              :skip_keys="[]"
-            />
-          </template>
         </details>
       </template>
     </td>
@@ -86,15 +93,12 @@ export default {
       }
 
       let info_table = {};
-      if (
-        this.command_info == null ||
-        this.command_info.length == 0
-      ) {
+      if (this.command_info == null || this.command_info.length == 0) {
         if (this.line?.result?.arguments?.length > 0) {
           // whatrecord-suppplied argument information as a backup to
           // what gdb could more accurately provide
           this.line.result.arguments.forEach(
-            arg => (info_table[`${arg.name} (${arg.type})`] = arg.value)
+            (arg) => (info_table[`${arg.name} (${arg.type})`] = arg.value)
           );
           return info_table;
         }

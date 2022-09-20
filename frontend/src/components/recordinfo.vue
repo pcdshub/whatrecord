@@ -117,7 +117,12 @@
       </template>
       <template v-for="(table, idx) in autosave_restore_tables" :key="idx">
         <DataTable :value="Object.values(table)" dataKey="name">
-          <Column field="field" header="Field" :sortable="true" style="width: 10%" />
+          <Column
+            field="field"
+            header="Field"
+            :sortable="true"
+            style="width: 10%"
+          />
           <Column field="value" header="Value" :sortable="true" />
           <Column field="context" header="Context" :sortable="true">
             <template #body="{ data }">
@@ -133,7 +138,10 @@
         </template>
       </template>
     </AccordionTab>
-    <AccordionTab header="Gateway" v-if="record?.metadata?.gateway?.matches?.length > 0">
+    <AccordionTab
+      header="Gateway"
+      v-if="record?.metadata?.gateway?.matches?.length > 0"
+    >
       <gateway-matches :matches="record.metadata.gateway.matches" />
     </AccordionTab>
     <AccordionTab header="Access Security Group" v-if="asg != null">
@@ -198,7 +206,8 @@ export default {
   },
   computed: {
     appliance_viewer_url() {
-      const appliance_viewer_url = process.env.VUE_APP_WHATRECORD_ARCHIVER_URL || "";
+      const appliance_viewer_url =
+        process.env.VUE_APP_WHATRECORD_ARCHIVER_URL || "";
       if (!appliance_viewer_url || !this.record) {
         return null;
       }

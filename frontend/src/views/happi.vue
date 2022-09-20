@@ -134,7 +134,7 @@
         field="active"
         header="Active"
         :sortable="true"
-        style="width: 10%"
+        style="width: 13%"
       >
         <template #body="{ data }">
           <i :class="['pi', data.active ? 'pi-check' : 'pi-times']" />

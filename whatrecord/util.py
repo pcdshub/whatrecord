@@ -2,9 +2,11 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import pathlib
+import sys
 import textwrap
-from typing import Dict, Generator, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, TypeVar, Union
 
 import apischema
 
@@ -245,3 +247,55 @@ def lines_between(
                 break
             elif line_lowercase or include_blank:
                 yield line
+
+
+def write_to_file(
+    obj: Any,
+    filename: Optional[str] = None,
+    format: str = "json",
+    catch_broken_pipe: bool = True
+) -> str:
+    """
+    Write ``obj`` to ``filename`` in the specified ``format``.
+
+    Parameters
+    ----------
+    obj : Any
+        The object to write to the file.
+    filename : Optional[str], optional
+        If None, defaults to standard output.
+    format : str, optional
+        The format to use.  "json" is supported for all types. Other types
+        may only support "console" or "file".
+
+    Returns
+    -------
+    data : str
+        The data written to the file.
+    """
+    if format == "json":
+        json_info = apischema.serialize(obj)
+        to_write = json.dumps(json_info, indent=settings.INDENT)
+    else:
+        from .format import FormatContext
+        fmt = FormatContext()
+        to_write = fmt.render_object(obj, format)
+
+    if filename is None:
+        try:
+            print(to_write, flush=True)
+        except BrokenPipeError:
+            if not catch_broken_pipe:
+                raise
+
+            # Ref: https://docs.python.org/3/library/signal.html#note-on-sigpipe
+            # Python flushes standard streams on exit; redirect remaining
+            # output to devnull to avoid another BrokenPipeError at shutdown
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+            sys.exit(1)  # Python exits with error code 1 on EPIPE
+    else:
+        with open(filename, "wt") as fp:
+            fp.write(to_write)
+
+    return to_write

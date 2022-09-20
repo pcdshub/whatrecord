@@ -2,9 +2,12 @@ IMAGE ?= pcdshub/whatrecord:latest
 RUN_ARGS ?=
 TEST_ARGS ?= pytest --pyargs whatrecord -v
 INSPECT_ARGS ?= /bin/bash --login
-CACHE_VOLUME_NAME ?= docker_whatrecord-cache
 IOC_BINARY ?= $(shell which softIoc)
-EXTRA_RUN_ARGS ?= -v "$(CACHE_VOLUME_NAME):/var/lib/whatrecord/cache" -v $(PWD)/support:/usr/share/whatrecord/support --env-file .env
+EXTRA_RUN_ARGS ?= --rm -v $(PWD)/support:/usr/share/whatrecord/support --env-file .env
+
+# Cache is currently disabled:
+CACHE_VOLUME_NAME ?= docker_whatrecord-cache
+CACHE_ARGS ?= -v "$(CACHE_VOLUME_NAME):/var/lib/whatrecord/cache"
 
 all: build-image run-test
 
@@ -25,6 +28,9 @@ run-test:
 
 inspect:
 	docker run -it $(EXTRA_RUN_ARGS) $(IMAGE) $(INSPECT_ARGS)
+
+clear-cache:
+	rm -f ./cache/*.json
 
 gdb-info:
 	if [ ! -f "$(IOC_BINARY)" ]; then \

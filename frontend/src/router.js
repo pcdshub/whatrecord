@@ -13,8 +13,10 @@ import DuplicateView from "./views/duplicates.vue";
 import LclsEpicsArchView from "./views/lcls_epicsarch.vue";
 
 import {
-    happi_enabled, twincat_pytmc_enabled, netconfig_enabled,
-    epicsarch_enabled
+  happi_enabled,
+  twincat_pytmc_enabled,
+  netconfig_enabled,
+  epicsarch_enabled,
 } from "./settings.js";
 
 let routes = [
@@ -31,10 +33,6 @@ let routes = [
     name: "file",
     path: "/file/:filename/:line?",
     component: ScriptView,
-    props: (route) => ({
-      filename: route.params.filename || "",
-      line: route.params.line || 0,
-    }),
   },
   {
     name: "iocs",

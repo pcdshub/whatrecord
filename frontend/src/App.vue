@@ -60,7 +60,13 @@ body {
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  max-width: 97vw;
+  max-width: 99.5vw;
+  padding-left: 0.5vw;
+  padding-right: 0.5vw;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 a {
   text-decoration: none;

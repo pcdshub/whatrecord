@@ -3,18 +3,19 @@ from __future__ import annotations
 import logging
 import math
 import pathlib
+import textwrap
 import typing
 from dataclasses import field
-from typing import (Any, Dict, FrozenSet, Generator, List, Mapping, Optional,
-                    Tuple, Union, cast)
+from typing import (Any, ClassVar, Dict, FrozenSet, Generator, List, Mapping,
+                    Optional, Tuple, Union, cast)
 
 import lark
 
 from . import transformer, util
 from .common import (DatabaseDevice, DatabaseMenu, LinterError, LinterMessage,
-                     LinterWarning, PVAFieldReference, RecordField,
-                     RecordInstance, RecordType, RecordTypeField,
-                     StringWithContext, dataclass)
+                     LinterWarning, LoadContext, PVAFieldReference,
+                     RecordField, RecordInstance, RecordType, RecordTypeField,
+                     StringWithContext, UnquotedString, dataclass)
 from .macro import MacroContext
 from .transformer import context_from_token
 
@@ -32,14 +33,6 @@ def split_record_and_field(pvname) -> Tuple[str, str]:
 
 class DatabaseLoadFailure(Exception):
     """Database load failure."""
-    ...
-
-
-class UnquotedString(str):
-    """
-    An unquoted string token found when loading a database file.
-    May be a linter warning.
-    """
     ...
 
 
@@ -146,12 +139,17 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             reference.record_name = record.name
 
         # Update top-level standalone aliases
-        for alias_name, record_name in self._state.standalone_aliases.items():
+        for alias_name, record_name in list(self._state.standalone_aliases.items()):
             self.db.standalone_aliases[alias_name] = record_name
             self.db.aliases[alias_name] = record_name
             if record_name in self.db.records:
                 self.db.records[record_name].aliases.append(alias_name)
             # else:  linter error
+
+        for device in self.db.devices:
+            record_type = self.record_types.get(device.record_type, None)
+            if record_type is not None:
+                record_type.devices.append(device)
 
         return self.db
 
@@ -177,7 +175,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     menu_head = transformer.pass_through
     menu_body = transformer.dictify
 
-    def device(self, _, record_type, link_type, dset_name, choice_string):
+    def device(
+        self, _, record_type: str, link_type: str, dset_name: str, choice_string: str
+    ):
         self.db.devices.append(
             DatabaseDevice(record_type, link_type, dset_name, choice_string)
         )
@@ -194,8 +194,8 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
     def function(self, _, name):
         self.db.functions.append(name)
 
-    def variable(self, _, name, value=None):
-        self.db.variables[name] = value
+    def variable(self, _, name, dtype=None):
+        self.db.variables[name] = dtype
 
     def breaktable(self, _, name, values):
         self.db.breaktables[name] = list(values)
@@ -356,7 +356,7 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
             self._add_lint(
                 LinterWarning(
                     name="unquoted_field",
-                    line=field_token.line,
+                    context=[LoadContext(self.fn, field_token.line)],
                     message=f"Unquoted field value {name!r}"
                 ),
             )
@@ -386,6 +386,9 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
         #     })
         # }
         for field_name, field_info in md.items():
+            if not isinstance(field_info, dict):
+                continue
+
             try:
                 fieldref = group.fields[field_name]
             except KeyError:
@@ -394,22 +397,19 @@ class _DatabaseTransformer(lark.visitors.Transformer_InPlaceRecursive):
                     context=tuple(field_name.context),
                 )
 
-            if isinstance(field_info, dict):
-                # There, uh, is still some work left to do here.
-                channel = field_info.pop("+channel", None)
-                if channel is not None:
-                    # The current record doesn't have its name yet due to how
-                    # the parser goes depth first; update it later.
-                    self._state.pva_references_to_update.append(
-                        (self._state.record, fieldref)
-                    )
-                    fieldref.field_name = channel
-                    # Linter TODO: checks that this field exists and
-                    # whatnot
+            # There, uh, is still some work left to do here.
+            channel = field_info.get("+channel", None)
+            if channel is not None:
+                # The current record doesn't have its name yet due to how
+                # the parser goes depth first; update it later.
+                self._state.pva_references_to_update.append(
+                    (self._state.record, fieldref)
+                )
+                fieldref.field_name = channel
+                # Linter TODO: checks that this field exists and
+                # whatnot
 
-                fieldref.metadata.update(field_info)
-            else:
-                fieldref.metadata[field_name] = field_info
+            fieldref.metadata.update(field_info)
 
     def _add_q_group(self, group_md: Mapping):
         """
@@ -454,59 +454,62 @@ class Database:
 
     Attributes
     ----------
-    standalone_aliases :
+    standalone_aliases : Dict[str, str]
         Standalone aliases are those defined outside of the record body; this
         may only be useful for faithfully reconstructing the Database according
         to its original source code.  Keyed on alias to actual record name.
 
-    aliases :
+    aliases : Dict[str, str]
         Alias name to record name.
 
-    paths :
+    paths : List[str]
         The path command specifies the current search path for use when loading
         database and database definition files. The addpath appends directory
         names to the current path. The path is used to locate the initial
         database file and included files. An empty dir at the beginning,
         middle, or end of a non-empty path string means the current directory.
 
-    addpaths :
+    addpaths : List[str]
         See 'paths' above.
 
-    breaktables :
+    breaktables : Dict[str, List[str]]
         Breakpoint table (look-up table) of raw-to-engineering values.
 
-    comments :
+    comments : List[str]
         Comments encountered while parsing the database.
 
-    devices :
+    devices : List[DatabaseDevice]
         Device support declarations (dset).
 
-    drivers :
+    drivers : List[str]
         Driver declarations (drvet).
 
-    functions :
+    functions : List[str]
         Exported C function names.
 
-    includes :
+    includes : List[str]
         Inline inclusion. Not supported just yet.
 
-    links :
+    links : Dict[str, str]
         Links.
 
-    menus :
+    menus : Dict[str, DatabaseMenu]
         Named value enumerations (enums).
 
-    records :
+    records : Dict[str, RecordInstance]
         Record name to RecordInstance.
 
-    record_types :
+    record_types : Dict[str, RecordType]
         Record type name to RecordType.
 
-    registrars :
+    registrars : List[str]
         Exported registrar function name.
 
-    variables :
+    variables : Dict[str, Optional[str]]
         IOC shell variables.
+
+    lint : DatabaseLint
+        Any lint found when loading the database.
     """
 
     addpaths: List[str] = field(default_factory=list)
@@ -527,19 +530,102 @@ class Database:
     standalone_aliases: Dict[str, str] = field(default_factory=dict)
     variables: Dict[str, Optional[str]] = field(default_factory=dict)
 
-    lint: Optional[DatabaseLint] = field(default_factory=DatabaseLint)
+    lint: DatabaseLint = field(default_factory=DatabaseLint)
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            {% for include in includes %}
+            include {{ include }}
+            {% endfor %}
+            {% for addpath in addpaths %}
+            addpath {{ addpath }}
+            {% endfor %}
+            {% for path in paths %}
+            path {{ path }}
+            {% endfor %}
+            {% for name, menu in menus.items() %}
+            {{ render_object(menu, "file") }}
+            {% endfor %}
+            {% for name, record_type in record_types.items() %}
+            {{ render_object(record_type, "file") }}
+            {% for device in record_type.devices %}
+            {{ render_object(device, "file") }}
+            {% endfor %}
+            {% endfor %}
+            {% for link, identifier in links.items() %}
+            link({{ link }}, {{ identifier }})
+            {% endfor %}
+            {% for driver in drivers %}
+            driver({{ driver }})
+            {% endfor %}
+            {% for registrar in registrars %}
+            registrar({{ registrar }})
+            {% endfor %}
+            {% for function in functions %}
+            function({{ function }})
+            {% endfor %}
+            {% for variable, type in variables.items() %}
+            {% if type %}
+            variable({{ variable }}, {{ type }})
+            {% else %}
+            variable({{ variable }})
+            {% endif %}
+            {% endfor %}
+            {% for name, breaktable in breaktables.items() %}
+            breaktable({{ name }}) {
+            {{ _indent }}{% for value in breaktable %}
+            {{ _indent }}{{ value }}
+            {{ _indent }}{% endfor %}
+            }
+            {% endfor %}
+            {% for name, record in obj.non_aliased_records.items() %}
+            {{ render_object(record, "file") }}
+
+            {% endfor %}
+            {% for alias, record in standalone_aliases.items() %}
+            {% if record not in records or alias not in records[record].aliases %}
+            alias("{{ alias }}", "{{ record }}")
+            {% endif %}
+            {% endfor %}
+            """.rstrip()
+        ),
+    }
 
     @classmethod
     def from_string(
         cls,
         contents: str,
         dbd: Optional[Union[Database, str, pathlib.Path]] = None,
-        filename: Union[str, pathlib.Path] = None,
+        filename: Optional[Union[str, pathlib.Path]] = None,
         macro_context: Optional[MacroContext] = None,
         version: int = 4,
         include_aliases: bool = True,
     ) -> Database:
-        """Load a database [definition] from a string."""
+        """
+        Load a database [definition] from a string.
+
+        Parameters
+        ----------
+        contents : str
+            The contents of the database file.
+        dbd : Union[Database, str, pathlib.Path], optional
+            The database definition (.dbd) path, if applicable and available.
+        filename : Union[str, pathlib.Path], optional
+            The filename to associate with the contents.
+        macro_context : MacroContext, optional
+            A macro context to use for expanding macros while loading the
+            database.
+        version : int, optional
+            The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+            4 for more recent versions.
+        include_aliases : bool, optional
+            Include aliases as top-level records.
+
+        Returns
+        -------
+        Database
+        """
         if dbd is not None and not isinstance(dbd, Database):
             dbd = Database.from_file(dbd, version=version)
 
@@ -571,19 +657,46 @@ class Database:
 
     @classmethod
     def from_file_obj(
-        cls, fp,
+        cls,
+        fp,
         dbd: Optional[Union[Database, str, pathlib.Path]] = None,
-        filename: Union[str, pathlib.Path] = None,
+        filename: Optional[Union[str, pathlib.Path]] = None,
         macro_context: Optional[MacroContext] = None,
         version: int = 4,
+        include_aliases: bool = True,
     ) -> Database:
-        """Load a database [definition] from a file object."""
+        """
+        Load a database [definition] from a file object.
+
+        Parameters
+        ----------
+        fp : file or file-like object
+            The file object to read from.
+        dbd : Union[Database, str, pathlib.Path], optional
+            The database definition (.dbd) path, if applicable and available.
+        filename : Union[str, pathlib.Path], optional
+            The filename to associate with the contents.  Defaults to
+            ``fp.name``, if available.
+        macro_context : MacroContext, optional
+            A macro context to use for expanding macros while loading the
+            database.
+        version : int, optional
+            The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+            4 for more recent versions.
+        include_aliases : bool, optional
+            Include aliases as top-level records.
+
+        Returns
+        -------
+        Database
+        """
         return cls.from_string(
             fp.read(),
             filename=filename or getattr(fp, "name", None),
             dbd=dbd,
             macro_context=macro_context,
             version=version,
+            include_aliases=include_aliases,
         )
 
     @classmethod
@@ -591,11 +704,32 @@ class Database:
         cls,
         fn: Union[str, pathlib.Path],
         dbd: Optional[Union[Database, str, pathlib.Path]] = None,
-        filename: Union[str, pathlib.Path] = None,
         macro_context: Optional[MacroContext] = None,
         version: int = 4,
+        include_aliases: bool = True,
     ) -> Database:
-        """Load a database [definition] from a filename."""
+        """
+        Load a database [definition] from a filename.
+
+        Parameters
+        ----------
+        fn : str or pathlib.Path
+            The path to the database file.
+        dbd : Union[Database, str, pathlib.Path], optional
+            The database definition (.dbd) path, if applicable and available.
+        macro_context : MacroContext, optional
+            A macro context to use for expanding macros while loading the
+            database.
+        version : int, optional
+            The epics-base version to assume when loading.  Use 3 for R3.15 and under,
+            4 for more recent versions.
+        include_aliases : bool, optional
+            Include aliases as top-level records.
+
+        Returns
+        -------
+        Database
+        """
         with open(fn, "rt") as fp:
             return cls.from_string(
                 fp.read(),
@@ -603,6 +737,7 @@ class Database:
                 dbd=dbd,
                 macro_context=macro_context,
                 version=version,
+                include_aliases=include_aliases,
             )
 
     def field_names_by_type(
@@ -752,6 +887,30 @@ class Database:
             return
 
         yield from record_info.get_links_for_record(record)
+
+    @property
+    def all_aliases(self) -> Dict[str, str]:
+        """All aliases: top-level-defined and per-instance-defined."""
+        aliases = dict(self.aliases)
+        for record_name, record in self.records.items():
+            for alias in record.aliases:
+                aliases[alias] = record_name
+        return aliases
+
+    @property
+    def non_aliased_records(self) -> Dict[str, RecordInstance]:
+        """
+        Get unique and non-aliased record instances.
+
+        This can be used to ignore records included by the ``include_aliases``
+        setting.
+        """
+        records = {}
+        aliases = self.all_aliases
+        for record_name, record in self.records.items():
+            if record_name not in aliases:
+                records[record_name] = record
+        return records
 
 
 _DatabaseSource = Union["LoadedIoc", "ShellState", Database]

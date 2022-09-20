@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class FileFormat(str, enum.Enum):
+    """
+    File type enum that covers all formats supported by whatrecord.
+    """
     iocsh = 'iocsh'
     database = 'database'
     database_definition = 'database_definition'
@@ -70,7 +73,10 @@ class FileFormat(str, enum.Enum):
 
 @dataclass(frozen=True)
 class LoadContext:
+    """File and line context information."""
+    #: The filename (or other identifier) to identify the context.
     name: str
+    #: The line number of ``name`` this applies to.
     line: int
 
     def __repr__(self):
@@ -84,6 +90,9 @@ class LoadContext:
 
 @apischema.deserializer
 def _load_context_from_tuple(items: Sequence[Union[str, int]]) -> LoadContext:
+    """
+    A deserializer that takes in e.g., ["file", line] and turns it into a LoadContext.
+    """
     return LoadContext(*items)
 
 
@@ -95,6 +104,9 @@ AnyPath = Union[str, pathlib.Path]
 
 @dataclass(repr=False)
 class MutableLoadContext:
+    """
+    A mutable (i.e., changeable) version of :class:`LoadContext`.
+    """
     name: str
     line: int
 
@@ -102,6 +114,7 @@ class MutableLoadContext:
         return f"{self.name}:{self.line}"
 
     def to_load_context(self) -> LoadContext:
+        """Convert this to an immutable LoadContext."""
         return LoadContext(self.name, self.line)
 
 
@@ -132,7 +145,7 @@ class IocshResult:
 {%- endfor %} {{ line }}
 {% if error %}
     ** ERROR on line {% if context %}{{ context[0].line }}{% endif %} **
-    {{ error | indent(4) }}
+    {{ error | indent(_fmt.indent) }}
 {% endif %}
 {% if outputs != [line] %}
 {% for output in outputs %}
@@ -148,24 +161,33 @@ class IocshResult:
 
 @dataclass
 class IocshScript:
+    """An IOC Shell script (i.e., st.cmd) that was loaded and interpreted."""
+    #: The path to the script.
     path: str
-    # lines: Tuple[IocshResult, ...]
+    #: Interpreted lines of the script.
     lines: List[IocshResult]
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            {%- for line in lines %}
+            {% if line.context | length == 1 %}
+            {{ line.line }}
+            {% endif %}
+            {%- endfor -%}
+            """.rstrip(),
+        ),
         "console": textwrap.dedent(
             """\
             {%- for line in lines %}
-            {% set line = render_object(line, "console") %}
-            {{ line }}
+            {{ render_object(line, "console") }}
             {%- endfor %}
             """.rstrip(),
         ),
         "console-verbose": textwrap.dedent(
             """\
             {%- for line in lines -%}
-            {% set line = render_object(line, "console-verbose") %}
-            {{ line }}
+            {{ render_object(line, "console-verbose") }}
             {%- endfor %}
             """.rstrip(),
         )
@@ -173,6 +195,21 @@ class IocshScript:
 
     @classmethod
     def from_metadata(cls, md: IocMetadata, sh: ShellState) -> IocshScript:
+        """
+        Create an IocshScript provided IocMetadata and ShellState.
+
+        Parameters
+        ----------
+        md : IocMetadata
+            Metadata identifying the IOC.
+        sh : ShellState
+            The state of the shell interpreter after interpreting the IOC
+            startup script.
+
+        Returns
+        -------
+        IocshScript
+        """
         if md.looks_like_sh:
             if md.base_version == settings.DEFAULT_BASE_VERSION:
                 md.base_version = "unknown"
@@ -194,6 +231,23 @@ class IocshScript:
         contents: str,
         sh: ShellState
     ) -> IocshScript:
+        """
+        Create an IocshScript provided a filename, its contents, and ShellState.
+
+        Parameters
+        ----------
+        filename : str
+            The script filename.
+        contents : str
+            The decoded string contents of the file.
+        sh : ShellState
+            The state of the shell interpreter after interpreting the IOC
+            startup script.
+
+        Returns
+        -------
+        IocshScript
+        """
         return cls(
             path=str(filename),
             lines=tuple(
@@ -205,7 +259,21 @@ class IocshScript:
         )
 
     @classmethod
-    def from_general_file(cls, filename: Union[pathlib.Path, str]):
+    def from_general_file(cls, filename: Union[pathlib.Path, str]) -> IocshScript:
+        """
+        Create an IocshScript from any given file, even non-startup scripts.
+
+        This can be used to transfer database files over to the frontend, for
+        example.
+
+        Parameters
+        ----------
+        filename : Union[pathlib.Path, str]
+            The filename.
+
+        Returns
+        -------
+        """
         # For use when shoehorning in a file that's not _really_ an IOC script
         # TODO: instead rework the api
         with open(filename, "rt") as fp:
@@ -225,48 +293,117 @@ class IocshScript:
 
 @dataclass
 class IocshArgument:
+    """A single argument in a shell command."""
+    #: The name of the argument.
     name: str
+    #: Its type, according to EPICS.
     type: str
 
 
 @dataclass
 class IocshCommand:
+    """
+    A registered shell command.
+
+    Largely used as part of the gdb binary information tool.
+    """
+    #: The name of the command.
     name: str
+    #: Arguments the user can pass to the command.
     args: List[IocshArgument] = field(default_factory=list)
+    #: Usage information.
     usage: Optional[str] = None
+    #: Where this command information came from.
     context: Optional[FullLoadContext] = None
 
 
 @dataclass
 class IocshVariable:
+    """
+    A registered shell variable.
+
+    Largely used as part of the gdb binary information tool.
+    """
+    #: The name of the variable.
     name: str
+    #: The last value of the variable.
     value: Optional[str] = None
+    #: The type of the variable, according to EPICS.
     type: Optional[str] = None
 
 
 @dataclass
 class GdbBinaryInfo:
+    """
+    GDB-derived binary information.
+
+    This is populated by deserializing the output of
+    ``whatrecord.plugins.gdb_binary_info``, which is interpreted by GDB itself.
+    """
+    #: Commands that are available to the user in an EPICS IOC shell.
     commands: Dict[str, IocshCommand]
+    #: The base version detected in the binary.
     base_version: Optional[str]
+    #: Variables available to be set in the shell.
     variables: Dict[str, IocshVariable]
+    #: GDB plugin error information.
     error: Optional[str]
+
+
+def get_grammar_version_by_base_version(base_version: str) -> int:
+    """
+    Database grammar version to use, provided the epics-base version.
+
+    Returns
+    -------
+    base_version : str
+        The epics-base version number.
+
+    Returns
+    -------
+    int
+        If R3.15 or under, ``3``, otherwise ``4``.
+    """
+    base_version = base_version.lstrip("vRr")
+    major_minor = tuple(
+        int(v) for v in base_version.split(".")[:2]
+    )
+    return 3 if major_minor < (3, 16) else 4
 
 
 @dataclass
 class IocMetadata:
+    """
+    Metadata identifying an IOC.
+    """
+    #: The name of the IOC.
     name: str = "unset"
+    #: The IOC startup script.
     script: pathlib.Path = field(default_factory=pathlib.Path)
+    #: The startup directory to use when interpreting the script.
     startup_directory: pathlib.Path = field(default_factory=pathlib.Path)
+    #: The host that the IOC will be run on, if available.
     host: Optional[str] = None
+    #: The port on the host that the IOC will be available on, if available.
     port: Optional[int] = None
+    #: The path to the IOC binary.
     binary: Optional[str] = None
+    #: The EPICS-base version.
     base_version: str = settings.DEFAULT_BASE_VERSION
+    #: User-specified metadata about the IOC.
     metadata: Dict[str, Any] = field(default_factory=dict)
+    #: Macros to include when loading the IOC.
     macros: Dict[str, str] = field(default_factory=dict)
+    #: Stand-in directories to use when interpreting a script outside of its
+    #: normal environment.
     standin_directories: Dict[str, str] = field(default_factory=dict)
+    #: Commands available to be used in the IOC shell.
     commands: Dict[str, IocshCommand] = field(default_factory=dict)
+    #: Variables that are defined for usage in the shell.
     variables: Dict[str, IocshVariable] = field(default_factory=dict)
+    #: Files that were loaded with their hash as a value.
     loaded_files: Dict[str, str] = field(default_factory=dict)
+    #: Whether the IOC was successfully loaded or not.
     load_success: bool = True
 
     def update(self, other: IocMetadata, merge: bool = False):
@@ -336,15 +473,18 @@ class IocMetadata:
 
     @property
     def cache_filename(self) -> pathlib.Path:
+        """The cache filename for this metadata."""
         metadata_fn = f"{self._cache_key}.IocMetadata.json"
         return pathlib.Path(settings.CACHE_PATH) / metadata_fn
 
     @property
     def ioc_cache_filename(self) -> pathlib.Path:
+        """The cache filename for the entire interpreted IOC."""
         metadata_fn = f"{self._cache_key}.LoadedIoc.json"
         return pathlib.Path(settings.CACHE_PATH) / metadata_fn
 
     def from_cache(self) -> Optional[IocMetadata]:
+        """Load metadata from the cache, if available."""
         if not settings.CACHE_PATH:
             return
 
@@ -358,6 +498,7 @@ class IocMetadata:
             ...
 
     def save_to_cache(self) -> bool:
+        """Save this metadata to the cache, if enabled."""
         if not settings.CACHE_PATH:
             return False
 
@@ -379,6 +520,19 @@ class IocMetadata:
         """
         Add filename to the loaded file dictionary, optionally updating an
         existing hash.
+
+        Parameters
+        ----------
+        filename : Union[pathlib.Path, str]
+            The filename.
+        update : bool, optional
+            Update a hash if the filename is already in the loaded_files
+            dictionary.
+
+        Returns
+        -------
+        bool
+            Set if a hash was updated in the loaded_files dictionary.
         """
         filename = pathlib.Path(self.startup_directory) / filename
         if str(filename) not in self.loaded_files or update:
@@ -387,6 +541,12 @@ class IocMetadata:
         return False
 
     async def get_binary_information(self) -> Optional[GdbBinaryInfo]:
+        """
+        Get binary information using the GDB plugin.
+
+        Requires that gdb be available, along with the ``.binary`` be set
+        to a valid file.
+        """
         if not self.binary or not pathlib.Path(self.binary).exists():
             return
 
@@ -428,20 +588,23 @@ class IocMetadata:
 
     @property
     def database_version_spec(self) -> int:
-        """Load databases with this specification."""
-        # TODO: better version parsing
-        try:
-            base_major_minor = tuple(
-                int(v) for v in self.base_version.split(".")[:2]
-            )
-            return 3 if base_major_minor < (3, 16) else 4
-        except Exception:
-            return 3
+        """
+        Load databases with this specification.
 
-    @classmethod
-    def empty(cls):
-        return cls(name="unset", script=pathlib.Path(),
-                   startup_directory=pathlib.Path())
+        Returns
+        -------
+        version_spec : int
+            If R3.15 or under, ``3``, otherwise ``4``.
+        """
+        # TODO: better version parsing
+
+        for base_version in [self.base_version, settings.DEFAULT_BASE_VERSION]:
+            try:
+                return get_grammar_version_by_base_version(base_version)
+            except Exception:
+                ...
+
+        return 3
 
     @classmethod
     def from_file(
@@ -457,8 +620,44 @@ class IocMetadata:
         binary: Optional[str] = None,
         base_version: Optional[str] = settings.DEFAULT_BASE_VERSION,
         **metadata
-    ):
-        """Given at minimum a filename, guess the rest."""
+    ) -> IocMetadata:
+        """
+        Given at minimum a filename, guess the rest of the metadata.
+
+        Parameters
+        ----------
+        filename : pathlib.Path or str
+            The IOC startup script filename.
+        name : str, optional
+            The name of the IOC.  Defaults to the startup script's parent
+            directory name.
+        host : str, optional
+            The host on which the IOC runs.
+        port : int, optional
+            The port on which the IOC will be accessible from the host.
+        startup_directory : pathlib.Path, optional
+            The directory in which the script should be started.  Defaults
+            to the parent directory of ``filename``.
+        macros : Dict[str, str], optional
+            Macros to use when interpreting the startup script.
+        standin_directories : Dict[str, str], optional
+            Stand-in directories to use when interpreting a script outside of
+            its normal environment.
+        binary : str, optional
+            The binary used to run the startup script normally. That is, an
+            EPICS IOC binary.  If not specified, this will be determined
+            based on the startup script hashbang (if available).
+        base_version : str, optional
+            The epics-base version to use when interpreting the startup script.
+            This may be overridden automatically when interpreting the startup
+            script.
+        **metadata :
+            User-specified metadata.
+
+        Returns
+        -------
+        IocMetadata
+        """
         filename = pathlib.Path(filename).expanduser().resolve()
         name = name or filename.parts[-2]  # iocBoot/((ioc-something))/st.cmd
         if "/" in name:
@@ -484,14 +683,21 @@ class IocMetadata:
     from_filename = from_file
 
     @classmethod
-    def from_dict(cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None):
+    def from_dict(
+        cls, iocdict: IocInfoDict, macros: Optional[Dict[str, str]] = None
+    ) -> IocMetadata:
         """
-        Pick apart a given dictionary, relegating extra info to ``.metadata``.
+        Create an IocMetadata instance.
+
+        Pick apart a given ``iocdict`` dictionary, relegating extra info to
+        ``.metadata``.
 
         Parameters
         ----------
         iocdict : dict
             IOC information dictionary.
+        macros : dict, optional
+            Additional macros to use at startup.
         """
         ioc = dict(iocdict)
         name = ioc.pop("name")
@@ -518,7 +724,7 @@ class IocMetadata:
 @dataclass
 class LinterMessage:
     name: str
-    line: int
+    context: FullLoadContext
     message: str
 
 
@@ -537,6 +743,9 @@ PVAJsonField = Dict[str, str]
 
 @dataclass
 class RecordField:
+    """
+    A field with a value, as part of a EPICS V3 RecordInstance.
+    """
     dtype: str
     name: str
     value: Any
@@ -544,9 +753,15 @@ class RecordField:
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
         "console": """field({{name}}, "{{value}}")""",
-        "console-verbose": """\
-field({{name}}, "{{value}}")  # {{dtype}}{% if context %}; {{context[-1]}}{% endif %}\
-""",
+        "console-verbose": textwrap.dedent(
+            """\
+            field({{name}}, "{{value}}")  # {{dtype}}
+            {%- if context %}; {{context[-1]}}{% endif %}\
+            """.rstrip(),
+        ),
+        "file": """
+            field({{name}}, {{ _json_dump(value) }})
+        """.strip(),
     }
 
     def update_from_record_type(
@@ -662,6 +877,14 @@ class RecordInstanceSummary:
         )
 
 
+class UnquotedString(str):
+    """
+    An unquoted string token found when loading a database file.
+    May be a linter warning.
+    """
+    ...
+
+
 class StringWithContext(str):
     """A string with LoadContext."""
     __slots__ = ("context", )
@@ -675,10 +898,17 @@ class StringWithContext(str):
 
 @dataclass
 class PVAFieldReference:
+    """
+    Part of a PVAccess group which references another record.
+    """
     context: FullLoadContext
+    #: THe name of this field.
     name: str = ""
+    #: The referenced record name.
     record_name: str = ""
+    #: The referenced record's field.
     field_name: str = ""
+    #: Metadata from the field definition.
     metadata: Dict[str, str] = field(default_factory=dict)
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
@@ -686,6 +916,7 @@ class PVAFieldReference:
 PVAFieldReference: {{ record_name }}.{{ field_name }}
                  - {{ metadata }}
 """,
+        "file": "",
     }
 
 
@@ -694,51 +925,179 @@ AnyField = Union[RecordField, PVAFieldReference]
 
 @dataclass
 class DatabaseMenu:
+    """An enumeration (menu) from a dbd file."""
     context: FullLoadContext
+    #: The name of the menu.
     name: str
+    #: Possible options for the menu - user-facing string identifier to
+    #: internal identifier.
     choices: Dict[str, str]
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            menu({{ name }}) {
+            {% for name, choice in choices.items() %}
+            {{ _indent }}choice({{ name }}, "{{ choice }}")
+            {% endfor %}
+            }
+            """.rstrip(),
+        ),
+    }
 
 
 @dataclass
 class DatabaseDevice:
+    """A per-record-type device definition, part of a dbd file."""
     record_type: str
     link_type: str
     dset_name: str
     choice_string: str
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            device({{ record_type }}, {{ link_type }}, {{ dset_name }}, "{{ choice_string }}")
+            """.rstrip(),
+        ),
+    }
+
 
 @apischema.fields.with_fields_set
 @dataclass
 class RecordTypeField:
+    """
+    An EPICS V3 RecordType field definition, part of a database definition (dbd).
+    """
     context: FullLoadContext
+    #: Record type name.
     name: str
+    #: The data type (e.g., DBF_STRING)
     type: str
+    #: Access security level (ASL0, ASL1, or None)
     asl: Optional[str] = None
+    #: Initial value for the field.
     initial: Optional[str] = None
+    #: Grouping for the field in user interfaces.
     promptgroup: Optional[str] = None
+    #: User interface information about the field.
     prompt: Optional[str] = None
+    #: "Special" settings such as SPC_NOMOD (no write access)
+    #: SPC_NOMOD      Field must not be modified
+    #: SPC_DBADDR     db_name_to_addr must call cvt_dbaddr
+    #: SPC_SCAN       scan related field is being changed
+    #: SPC_ALARMACK   Special Alarm Acknowledgement
+    #: SPC_AS         Access Security
+    #: SPC_ATTRIBUTE  psuedo field, i.e. attribute field
+    #:                useful when record support must be notified of a field
+    #:                changing value
+    #: SPC_MOD        used by all records that support a reset field
+    #: SPC_RESET      The res field is being modified
+    #:
+    #: Specific to conversion:
+    #: SPC_LINCONV  A linear conversion field is being changed
+    #:
+    #: Specific to calculation records
+    #: SPC_CALC     The CALC field is being changed
     special: Optional[str] = None
+    #: Process passive.
     pp: Optional[str] = None
+    #: Process passive. TURE/FALSE.
     interest: Optional[str] = None
+    #: Base: e.g., HEX
     base: Optional[str] = None
+    #: Number of elements.
     size: Optional[str] = None
+    #: Extra debug information.
     extra: Optional[str] = None
+    #: Enum (menu) options for the field.
     menu: Optional[str] = None
+    #: Property- YES/NO
     prop: Optional[str] = None
     # -> bundle the remainder in "body", even if unrecognized
     body: Dict[str, str] = field(default_factory=dict)
 
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            field({{ name }}, {{ type }}) {
+            {{ obj._get_file_repr() | indent(_fmt.indent) }}
+            }
+            """.rstrip(),
+        ),
+    }
+
+    def _get_file_repr(self) -> str:
+        # This is too slow to let jinja take care of....
+        def get_value_repr(value: str):
+            if isinstance(value, UnquotedString):
+                return str(value)
+            return f'"{value}"'
+
+        return "\n".join(
+            f"{attr}({get_value_repr(value)})"
+            for attr, value in self.get_all_set_entries().items()
+        )
+
+    def get_all_set_entries(self) -> Dict[str, str]:
+        """
+        Get all field entries that have been set in the database definition.
+
+        Returns
+        -------
+        dict
+            e.g., {"initial": "5"}
+        """
+        entries = {}
+        for attr in (
+            # Order defined in dbStaticLib.c
+            "prompt",
+            "initial",
+            "promptgroup",
+            "special",
+            "extra",
+            "menu",
+            "size",
+            "pp",
+            "prop",
+            "base",
+            "interest",
+            "asl",
+        ):
+            value = getattr(self, attr)
+            if value is not None:
+                entries[attr] = value
+        entries.update(self.body)
+        return entries
+
 
 @dataclass
 class RecordType:
+    """
+    An EPICS V3 record type definition, part of a database definition (dbd).
+    """
     context: FullLoadContext
     name: str
     cdefs: List[str] = field(default_factory=list)
     fields: Dict[str, RecordTypeField] = field(default_factory=dict)
-    devices: Dict[str, DatabaseDevice] = field(default_factory=dict)
-    aliases: List[str] = field(default_factory=list)
-    info: Dict[str, str] = field(default_factory=dict)
-    is_grecord: bool = False
+    devices: List[DatabaseDevice] = field(default_factory=list)
+
+    _jinja_format_: ClassVar[Dict[str, str]] = {
+        "file": textwrap.dedent(
+            """\
+            recordtype({{ name }}) {
+            {% for cdef in cdefs %}
+            {{ _indent }}%{{ cdef }}
+            {% endfor %}
+            {% for field_name, field in fields.items() %}
+            {{ _indent }}field({{ field.name }}, {{ field.type }}) {
+            {{ _indent }}{{ _indent }}{{ field._get_file_repr() | indent(_fmt.indent * 2) }}
+            {{ _indent }}}
+            {% endfor %}
+            }
+            """.rstrip(),
+        ),
+    }
 
     def get_links_for_record(
         self, record: RecordInstance
@@ -780,9 +1139,7 @@ class RecordType:
             if fld.type in types:
                 yield fld
 
-    def get_link_fields(
-        self,
-    ) -> Generator[Tuple[RecordTypeField, str, Tuple[str, ...]], None, None]:
+    def get_link_fields(self) -> Generator[RecordTypeField, None, None]:
         """
         Get all link fields - in, out, and forward links.
 
@@ -795,11 +1152,20 @@ class RecordType:
 
 @dataclass
 class RecordInstance:
+    """
+    An instance of a RecordType, loaded from a db file.
+    """
     context: FullLoadContext
+    #: The name of the record.
     name: str
+    #: The record type name.
     record_type: str
+    #: Whether or not there is corresponding information in the dbd file.
     has_dbd_info: bool = False
+    #: Field information - field name to details.  May be either a V3
+    #: RecordField or a PVAFieldReference.
     fields: Dict[str, AnyField] = field(default_factory=dict)
+    #:
     info: Dict[StringWithContext, Any] = field(default_factory=dict)
     metadata: Dict[StringWithContext, Any] = field(default_factory=dict)
     aliases: List[str] = field(default_factory=list)
@@ -811,20 +1177,40 @@ class RecordInstance:
     owner: str = ""
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-record("{{record_type}}", "{{name}}") {
-{% if owner %}
-    # Part of {{ owner }}
-{% endif %}
-{% for ctx in context %}
-    # {{ctx}}
-{% endfor %}
-{% for name, field_inst in fields.items() | sort %}
-{% set field_text = render_object(field_inst, "console") %}
-    {{ field_text | indent(4) }}
-{% endfor %}
-}
-""",
+        "console": textwrap.dedent(
+            """\
+            record({ record_type }}, "{{ name }}") {
+            {% if owner %}
+            {{ _indent }}# Part of {{ owner }}
+            {% endif %}
+            {% for ctx in context %}
+            {{ _indent }}# {{ ctx }}
+            {% endfor %}
+            {% for name, field_inst in fields.items() | sort %}
+            {{ _indent }}{{ render_object(field_inst, "console") | indent(_fmt.indent) }}
+            {% endfor %}
+            }
+            """.rstrip()
+        ),
+        "file": textwrap.dedent(
+            """\
+            {% if is_grecord %}
+            grecord({{ record_type }}, "{{ name }}") {
+            {% else %}
+            record({{ record_type }}, "{{ name }}") {
+            {% endif %}
+            {% for alias in aliases %}
+            {{ _indent }}alias("{{ alias }}")
+            {% endfor %}
+            {% for name, field_inst in fields.items() | sort %}
+            {{ _indent }}{{ render_object(field_inst, "file") | indent(_fmt.indent) }}
+            {% endfor %}
+            {% for name, info_value in info.items() | sort %}
+            {{ _indent }}info({{ name }}, {{ _json_dump(info_value) | indent(_fmt.indent) }})
+            {% endfor %}
+            }
+            """.rstrip()
+        ),
     }
 
     @property
@@ -880,7 +1266,7 @@ record("{{record_type}}", "{{name}}") {
             return [
                 LinterError(
                     name="combine_pva_and_v3",
-                    line=0,
+                    context=tuple(self.context) + tuple(other.context),
                     message="Cannot combine PVA group with V3 record"
                 )
             ]
@@ -899,7 +1285,7 @@ record("{{record_type}}", "{{name}}") {
             return [
                 LinterError(
                     name="record_type_mismatch",
-                    line=0,
+                    context=self.context,
                     message=(
                         f"Record type mismatch in provided database files: "
                         f"{self.name} {self.record_type} {other.record_type}"
@@ -946,6 +1332,7 @@ class AsynPortBase:
 
 @dataclass
 class ShellStateHandler:
+    """A helper to work with interpreting commands from shell scripts."""
     metadata_key: ClassVar[str]
     parent: Optional[ShellStateHandler] = field(
         default=None, metadata=apischema.metadata.skip,
@@ -1076,10 +1463,8 @@ class RecordDefinitionAndInstance:
     instance: RecordInstance
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-{% set instance_info = render_object(instance, "console") %}
-{{ instance_info }}
-""",
+        "console": """{{ render_object(instance, "console") }}""",
+        "file": """{{ render_object(instance, "file") }}""",
     }
 
 
@@ -1113,21 +1498,34 @@ class WhatRecord:
     ioc: Optional[IocMetadata] = None
 
     _jinja_format_: ClassVar[Dict[str, str]] = {
-        "console": """\
-{{ name }}:
-    Owner: {{ present }}
-{% set ioc_info = render_object(ioc, "console") %}
-    IOC: {{ ioc_info }}
-{% if record %}
-{% set instance_info = render_object(record, "console") %}
-    {{ instance_info | indent(4)}}
-{% endif %}
-{% if pva_group %}
-{% set instance_info = render_object(pva_group, "console") %}
-    {{ instance_info | indent(4)}}
-{% endif %}
-}
-""",
+        "console": textwrap.dedent(
+            """\
+            {{ name }}:
+            {{ _indent }}{Owner: {{ present }}
+            {{ _indent }}{IOC: {{ render_object(ioc, "console") }}
+            {% if record %}
+            {{ _indent }}{{ render_object(record, "console") | indent(_fmt.indent)}}
+            {% endif %}
+            {% if pva_group %}
+            {{ _indent }}{{ render_object(pva_group, "console") | indent(_fmt.indent)}}
+            {% endif %}
+            }
+            """.rstrip()
+        ),
+        "file": textwrap.dedent(
+            """\
+            {{ name }}:
+            {{ _indent }}{Owner: {{ present }}
+            {{ _indent }}{IOC: {{ render_object(ioc, "file") }}
+            {% if record %}
+            {{ _indent }}{{ render_object(record, "file") | indent(_fmt.indent)}}
+            {% endif %}
+            {% if pva_group %}
+            {{ _indent }}{{ render_object(pva_group, "file") | indent(_fmt.indent)}}
+            {% endif %}
+            }
+            """.rstrip(),
+        ),
     }
 
 

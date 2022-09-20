@@ -44,7 +44,6 @@ SIGNAL_CLASSES = (
     EpicsSignalBase,
     ophyd.EpicsMotor,
     ophyd.EpicsScaler,
-    ophyd.EpicsMCA
 )
 
 
@@ -364,7 +363,12 @@ def main(search_criteria: str, pretty: bool = False):
 
         if happi_md.name not in results.record_to_metadata_keys[record]:
             results.record_to_metadata_keys[record].append(happi_md.name)
-            md = results.metadata_by_key[happi_md.name]
+            try:
+                md = results.metadata_by_key[happi_md.name]
+            except KeyError:
+                # Mismatched _id and name
+                continue
+
             if "_whatrecord" not in md:
                 md["_whatrecord"] = {"records": []}
             if sig.root is not root:

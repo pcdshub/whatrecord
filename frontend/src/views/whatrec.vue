@@ -84,6 +84,7 @@ export default {
 
 #right {
   margin: 1em;
-  min-width: 50%;
+  min-width: 75%;
+  max-width: 100%;
 }
 </style>

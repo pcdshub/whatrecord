@@ -6,7 +6,7 @@ import html
 import logging
 import textwrap
 from dataclasses import dataclass
-from typing import ClassVar, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
 import graphviz as gv
 
@@ -33,6 +33,8 @@ class GraphNode:
     options: dict = dataclasses.field(default_factory=dict)
     #: Highlight the node in the graph?
     highlighted: bool = False
+    #: User-specified metadata
+    metadata: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def add_text_line(self, line: str, delimiter: str = "\n", only_unique: bool = True):
         """
@@ -64,8 +66,26 @@ class GraphEdge:
     source: GraphNode
     #: The destination node.
     destination: GraphNode
+    #: The source node.
+    source_port: Optional[str] = None
+    #: The destination node.
+    destination_port: Optional[str] = None
     #: Options to pass to graphviz.
     options: dict = dataclasses.field(default_factory=dict)
+
+    @property
+    def source_with_port(self) -> str:
+        """Source name including the port name, for graphviz."""
+        if self.source_port is None:
+            return self.source.id
+        return f"{self.source.id}:{self.source_port}_value:e"
+
+    @property
+    def destination_with_port(self) -> str:
+        """Destination name including the port name, for graphviz."""
+        if self.destination_port is None:
+            return self.destination.id
+        return f"{self.destination.id}:{self.destination_port}_name:w"
 
 
 class _GraphHelper:
@@ -112,13 +132,17 @@ class _GraphHelper:
         source: str,
         destination: str,
         allow_dupes: bool = False,
+        source_port: Optional[str] = None,
+        dest_port: Optional[str] = None,
         **options
     ) -> GraphEdge:
         """Create a new edge in the graph."""
         edge = GraphEdge(
             self.get_node(source),
             self.get_node(destination),
-            options
+            source_port=source_port,
+            destination_port=dest_port,
+            options=options
         )
         if edge in self.edges and not allow_dupes:
             return self.edges[self.edges.index(edge)]
@@ -167,7 +191,7 @@ class _GraphHelper:
             text = self.newline.join(node.text.splitlines())
             graph.node(
                 node.id,
-                label="< {} >".format(text),
+                label=f"< {text} >",
                 shape=self.shapes[node.highlighted],
                 fillcolor=self.fill_colors[node.highlighted],
                 style="filled",
@@ -176,7 +200,11 @@ class _GraphHelper:
 
         # add all of the edges between graphs
         for edge in self.edges:
-            graph.edge(edge.source.id, edge.destination.id, **edge.options)
+            graph.edge(
+                edge.source_with_port,
+                edge.destination_with_port,
+                **edge.options
+            )
         return graph
 
     @staticmethod
@@ -593,14 +621,19 @@ class RecordLinkGraph(_GraphHelper):
 
     database: Database
     starting_records: List[str]
-    newline: str = '<br align="left"/>'
-    header_format: str = 'record({rtype}, "{name}")'
+    newline: str = '\n'
+    header_format: str = '{name} ({rtype})'
     field_format: str = '{field}: "{value}"'
     text_format: str = (
-        f"<b>{{header}}</b>"
-        f"{_GraphHelper.newline}"
-        f"{_GraphHelper.newline}"
-        f"{{field_lines}}"
+        """
+        <TABLE BORDER="0" CELLBORDER="0">
+        <TR>
+            <TD>{rtype}</TD>
+            <TD><b>{name}</b></TD>
+        </TR>
+        {field_lines}
+        </TABLE>
+        """.strip()
     )
     sort_fields: bool
     show_empty: bool
@@ -608,21 +641,33 @@ class RecordLinkGraph(_GraphHelper):
     record_types: Dict[str, RecordType]
     default_edge_kwargs: Dict[str, str] = {
         "style": "solid",
-        "color": "black",
     }
 
     edge_kwargs: ClassVar[Dict[str, Dict[str, str]]] = {
         "style": {
-            "PP": "",
-            "CPP": "",
-            "CP": "",
+            "PP": "bold",
+            "CPP": "bold",
+            "CP": "bold",
         },
-        "color": {
-            "MS": "red",
-            "MSS": "red",
-            "MSI": "red",
-        }
+        # "color": {
+        #     "MS": "",
+        #     "MSS": "",
+        #     "MSI": "",
+        # }
     }
+
+    # Edge colors to cycle through: black is reserved for FLNK.
+    edge_colors: ClassVar[List[str]] = textwrap.dedent(
+        """\
+        brown
+        darkblue
+        darkcyan
+        darkgreen
+        darkmagenta
+        darkred
+        olive
+        """.rstrip()
+    ).split()
 
     def __init__(
         self,
@@ -649,6 +694,14 @@ class RecordLinkGraph(_GraphHelper):
         if database is not None:
             self.add_database(database)
 
+    def get_node(
+        self, label: str, text: Optional[str] = None
+    ) -> GraphNode:
+        node = super().get_node(label, text=text)
+        if not node.metadata:
+            node.metadata["fields"] = {}
+        return node
+
     def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
         """Add records from the given database to the graph."""
         if isinstance(database, Database):
@@ -662,6 +715,7 @@ class RecordLinkGraph(_GraphHelper):
                 self.database.records, record_types=self.database.record_types
             )
 
+        edge_color_idx = 0
         for li in find_record_links(
             self.database.records, self.starting_records, relations=self.relations
         ):
@@ -672,9 +726,18 @@ class RecordLinkGraph(_GraphHelper):
                 if field.name == "PROC":
                     ...
                 elif field.value or self.show_empty:
-                    node.add_text_line(
-                        self.field_format.format(field=field.name, value=field.value)
-                    )
+                    node.metadata["fields"][field.name] = textwrap.dedent(
+                        f"""\
+                        <TR>
+                            <TD PORT="{field.name}_name" BORDER="1">
+                                <B>{field.name}</B>
+                            </TD>
+                            <TD PORT="{field.name}_value" BORDER="1">
+                                {field.value}
+                            </TD>
+                        </TR>
+                        """
+                    ).rstrip()
 
             if li.field1.dtype == "DBF_INLINK":
                 src, dest = dest, src
@@ -691,12 +754,25 @@ class RecordLinkGraph(_GraphHelper):
 
             if (src, dest) not in set(self.edge_pairs):
                 if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
-                    edge_kw["xlabel"] = "FLNK"
+                    edge_kw["taillabel"] = "FLNK"
+                    self.add_edge(src.label, dest.label, color="black", **edge_kw)
                 else:
-                    edge_kw["xlabel"] = f"{li.field1.name}/{li.field2.name}"
+                    # edge_kw["taillabel"] = f"{li.field1.name}"
+                    # edge_kw["headlabel"] = f"{li.field2.name}"
                     if li.info:
-                        edge_kw["xlabel"] += f"\n{' '.join(li.info)}"
-                self.add_edge(src.label, dest.label, **edge_kw)
+                        edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
+
+                    edge_color_idx += 1
+                    color = self.edge_colors[edge_color_idx % len(self.edge_colors)]
+
+                    self.add_edge(
+                        f"{src.label}",
+                        f"{dest.label}",
+                        source_port=li.field1.name,
+                        dest_port=li.field2.name,
+                        color=color,
+                        **edge_kw,
+                    )
 
         if not self.nodes:
             # No relationship found; at least show the records
@@ -705,29 +781,39 @@ class RecordLinkGraph(_GraphHelper):
                     self.get_node(rec_name)
 
         for node in self.nodes.values():
-            if self.sort_fields:
-                node.text = "\n".join(sorted(node.text.splitlines()))
-
-            if node.text.strip() and not node.text.endswith("\n\n"):
-                node.add_text_line("\n", only_unique=False)
-
+            # if self.sort_fields:
+            #     node.text = "\n".join(sorted(node.text.splitlines()))
             rec = self.database.records[node.label]
-            header = self.header_format.format(rtype=rec.record_type, name=rec.name)
             if rec.aliases:
-                header += f"\nAlias: {', '.join(rec.aliases)}"
-            escaped_header = html.escape(header, quote=False)
+                sub_header = html.escape(f"\nAlias: {', '.join(rec.aliases)}")
+                sub_header = f"""<TR><TD>{sub_header}</TD></TR>"""
+            else:
+                sub_header = ""
+
+            fields = list(sorted(node.metadata["fields"].items()))
+            field_text = "\n".join(text for _, text in fields)
             node.text = self.text_format.format(
-                header=escaped_header.replace("\n", self.newline),
-                field_lines=self.newline.join(
-                    html.escape(line, quote=False)
-                    for line in node.text.splitlines()
-                ),
+                rtype=html.escape(rec.record_type),
+                name=html.escape(rec.name),
+                field_lines=(sub_header + field_text).strip(),
             )
+
+    @property
+    def graphed_records(self) -> List[str]:
+        """All graphed record names (i.e., node labels)."""
+        return [
+            node.label
+            for node in self.nodes.values()
+        ]
 
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""
+        all_match = set(self.graphed_records) <= set(self.starting_records)
         for node in self.nodes.values():
-            node.highlighted = node.label in self.starting_records
+            node.highlighted = (
+                not all_match and
+                node.label in self.starting_records
+            )
 
 
 def graph_links(
@@ -795,9 +881,27 @@ def graph_links(
 
 def build_script_relations(
     database: Dict[str, RecordInstance],
-    by_record: Dict[str, RecordInstance],
+    by_record: PVRelations,
     limit_to_records: Optional[List[str]] = None
 ) -> ScriptPVRelations:
+    """
+    Build a relational map of IOCs that include inter-IOC PV relationships.
+
+    Parameters
+    ----------
+    database : Dict[str, RecordInstance]
+        The full composite database.
+    by_record : PVRelations
+        PV relationships, as generated by ``build_database_relations``.
+        This is a mapping of PV1 to {"PV2": [FieldRelation, ...]}.
+    limit_to_records : List[str], optional
+        Limit the relationships to only the provided records.  If not set,
+        defaults to all records in the composite database.
+
+    Returns
+    -------
+    ScriptPVRelations
+    """
     if not limit_to_records:
         record_items = by_record.items()
     else:

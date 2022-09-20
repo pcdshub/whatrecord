@@ -32,5 +32,22 @@
         "name": "motor2",
         "prefix": "IOC:KFE:B:One",
         "type": "OphydItem"
+    },
+    "mca1": {
+        "_id": "mca1",
+        "active": true,
+        "args": [
+            "{{prefix}}"
+        ],
+        "creation": "Thu Jul 23 17:06:44 2020",
+        "device_class": "ophyd.mca.EpicsMCA",
+        "documentation": null,
+        "kwargs": {
+            "name": "{{name}}"
+        },
+        "last_edit": "Thu Jul 23 17:06:44 2020",
+        "name": "mca1",
+        "prefix": "IOC:KFE:C:One",
+        "type": "OphydItem"
     }
 }

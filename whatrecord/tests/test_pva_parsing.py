@@ -1,12 +1,15 @@
-"""Placeholder for PVA parsing tests, for the most part..."""
+"""PVA/V4-related parsing tests"""
 
 import math
+import textwrap
+from typing import Optional
 
 import lark
 import pytest
 
 from ..common import LoadContext
 from ..db import Database, PVAFieldReference, RecordField, RecordInstance
+from ..format import FormatContext, FormatOptions
 
 
 def test_simple():
@@ -38,14 +41,14 @@ record(ai, "rec:Y") {
                 name="X",
                 record_name="rec:X",
                 field_name="VAL",
-                metadata={},
+                metadata={"+channel": "VAL"},
             ),
             "Y": PVAFieldReference(
                 context=(LoadContext("None", 12), ),
                 name="Y",
                 record_name="rec:Y",
                 field_name="VAL",
-                metadata={},
+                metadata={"+channel": "VAL"},
             ),
         }
     )
@@ -161,3 +164,167 @@ record(ai, "rec:X") {
     val = db.records["rec:X"].fields["VAL"]
     assert isinstance(val, RecordField)
     assert val.value == ("test value",)
+
+
+@pytest.mark.parametrize(
+    "input_text, expected",
+    [
+        pytest.param(
+            """\
+            menu(stringoutPOST) {
+                choice(stringoutPOST_OnChange, "On Change")
+                choice(stringoutPOST_Always, "Always")
+            }
+            recordtype(ai) {
+                %#include "epicsTypes.h"
+                %#include "link.h"
+                field(NAME, DBF_STRING) {
+                    prompt("Record Name")
+                    special(SPC_NOMOD)
+                    size(61)
+                }
+            }
+            device(ai, CONSTANT, devAaiSoft, "Soft Channel")
+            link(state, lnkStateIf)
+            registrar(rsrvRegistrar)
+            variable(dbBptNotMonotonic, int)
+            """,
+            None,
+            id="dbd_basic"
+        ),
+        pytest.param(
+            """\
+            record(ai, "rec:X") {
+                field(A, "test")
+                field(B, "test")
+                info(info, "X")
+            }
+            """,
+            None,
+            id="record_basic"
+        ),
+        pytest.param(
+            """\
+            record(ai, "rec:X") {
+                field(VAL, [
+                    "test value"
+                ])
+            }
+            """,
+            None,
+            id="record_array"
+        ),
+        # TODO: quotes indicate transformer or grammar priority issue?
+        pytest.param(
+            """\
+            record(ai, "value") {
+                field(HEXINT, 0x10)
+            }
+            """,
+            None,
+            marks=pytest.mark.xfail(reason="TODO"),
+            id="record_hexint"
+        ),
+        # TODO: quotes indicate transformer or grammar priority issue?
+        pytest.param(
+            """\
+            record(ai, "value") {
+                field(NAN, NaN)
+                field(VAL, {
+                    "a": 1e10
+                })
+            }
+            """,
+            None,
+            marks=pytest.mark.xfail(reason="TODO"),
+            id="record_misc_types"
+        ),
+        pytest.param(
+            """\
+            record(ai, "rec:X") {
+                info(Q:group, {
+                    "grp:name": {
+                        "X": {
+                            "+channel": "VAL"
+                        }
+                    }
+                })
+            }
+
+            record(ai, "rec:Y") {
+                info(Q:group, {
+                    "grp:name": {
+                        "Y": {
+                            "+channel": "VAL"
+                        }
+                    }
+                })
+            }
+            """,
+            None,
+            id="pva_group_1",
+        ),
+        pytest.param(
+            """\
+            record(ai, "time_tag") {
+                info(Q:time:tag, "nsec:lsb:20")
+            }
+
+            record(ai, "display_form_hint") {
+                info(Q:form, "Default")
+            }
+
+            record(longin, "tgt3") {
+            }
+
+            record(longin, "src3") {
+                field(INP, {
+                    "pva": {
+                        "pv": "tgt3",
+                        "field": "",
+                        "local": false,
+                        "Q": "4",
+                        "pipeline": false,
+                        "proc": "none",
+                        "sevr": false,
+                        "time": false,
+                        "monorder": "0",
+                        "retry": false,
+                        "always": false,
+                        "defer": false
+                    }
+                })
+            }
+            """,
+            None,
+            id="pva_group_2",
+        ),
+        pytest.param(
+            """\
+            record(longin, "src3") {
+                field(INP, {
+                    "pva": {
+                        "Q": 4,
+                        "proc": none,
+                        "monorder": 0
+                    }
+                })
+            }
+            """,
+            None,
+            marks=pytest.mark.xfail(reason="TODO"),
+            id="pva_group_3",
+        ),
+    ],
+)
+def test_roundtrip_format(input_text: str, expected: Optional[str]):
+    input_text = textwrap.dedent(input_text)
+    ctx = FormatContext(options=FormatOptions(indent=4))
+
+    db = Database.from_string(input_text, version=4)
+    result = ctx.render_object(db, "file")
+    if expected is None:
+        assert result.strip() == input_text.strip()
+    else:
+        expected = textwrap.dedent(expected)
+        assert result.strip() == expected.strip()

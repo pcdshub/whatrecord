@@ -123,7 +123,11 @@
             </Dropdown>
           </template>
         </Column>
-        <Column field="ioc_name" header="IOC" v-if="selected_ioc_names.length > 1" />
+        <Column
+          field="ioc_name"
+          header="IOC"
+          v-if="selected_ioc_names.length > 1"
+        />
       </DataTable>
     </div>
   </div>

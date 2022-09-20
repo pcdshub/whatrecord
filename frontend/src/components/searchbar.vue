@@ -1,9 +1,11 @@
 <template>
   <div class="p-grid option">
     <div class="p-col-6">
-    </div>
-    <div class="p-col-6">
-      <SelectButton v-model="search_mode" :options="search_mode_options" @click="do_search" />
+      <SelectButton
+        v-model="search_mode"
+        :options="search_mode_options"
+        @click="do_search"
+      />
     </div>
   </div>
   <div class="p-grid search">
@@ -18,12 +20,7 @@
       </form>
     </div>
     <div class="p-col-2">
-      <Button
-        @click="do_search()"
-        label=""
-        icon="pi pi-search"
-        :loading="searching"
-      />
+      <Button @click="do_search()" icon="pi pi-search" :loading="searching" />
     </div>
   </div>
   <DataTable
@@ -44,7 +41,7 @@ import { mapState } from "vuex";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import SelectButton from 'primevue/selectbutton';
+import SelectButton from "primevue/selectbutton";
 import DataTable from "primevue/datatable";
 import InputText from "primevue/inputtext";
 
@@ -64,10 +61,7 @@ export default {
       table_selection: [],
       input_record_glob: "*",
       search_mode: "Glob",
-      search_mode_options: [
-        "Glob",
-        "Regex",
-      ],
+      search_mode_options: ["Glob", "Regex"],
     };
   },
   computed: {
@@ -165,11 +159,11 @@ export default {
 
 <style scoped>
 .p-grid .search {
-  padding: 0.5em;
+  padding: 1em;
 }
 
 .p-grid .option {
-  padding: 0em;
+  padding: 1em;
 }
 
 .input_search {

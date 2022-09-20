@@ -7,16 +7,12 @@ for correct functionality.
 """
 
 import argparse
-import json
 import logging
-import sys
 from typing import List, Optional
 
-import apischema
-
 from ..common import AnyPath
-from ..format import FormatContext
 from ..makefile import DependencyGroup, DependencyGroupGraph, Makefile
+from ..util import write_to_file
 from .graph import render_graph_to_file
 
 logger = logging.getLogger(__name__)
@@ -50,10 +46,10 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
-        "--friendly",
-        dest="friendly",
-        action="store_true",
-        help="Output user-friendly text instead of JSON",
+        "-of", "--output-format",
+        default="json",
+        type=str,
+        help="Output format to use (json, console, file)",
     )
 
     parser.add_argument(
@@ -75,7 +71,7 @@ def build_arg_parser(parser=None):
         "-o", "--graph-output",
         type=str,
         required=False,
-        help="Output file to write to.  Defaults to standard output.",
+        help="Graph output filename.  Defaults to standard output.",
     )
 
     return parser
@@ -83,13 +79,12 @@ def build_arg_parser(parser=None):
 
 def main(
     path: AnyPath,
-    friendly: bool = False,
     no_recurse: bool = False,
     keep_os_env: bool = False,
     graph: bool = False,
     graph_output: Optional[str] = None,
+    output_format: str = "json",
     defines: Optional[List[str]] = None,
-    file=sys.stdout,
 ):
     variables = dict(variable.split("=", 1) for variable in defines or [])
     makefile_path = Makefile.find_makefile(path)
@@ -105,11 +100,6 @@ def main(
         render_graph_to_file(group_graph.to_digraph(), filename=graph_output)
         # An alternative to 'whatrecord graph'; both should have the same
         # result in the end.
-        return
 
-    if not friendly:
-        json_info = apischema.serialize(info)
-        print(json.dumps(json_info, indent=4))
-    else:
-        fmt = FormatContext()
-        print(fmt.render_object(info, "console"), file=file)
+    if not graph or graph_output is None:
+        write_to_file(info, format=output_format)

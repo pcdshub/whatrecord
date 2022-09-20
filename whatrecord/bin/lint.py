@@ -72,7 +72,7 @@ def lint_command(
     file: IO[str] = sys.stdout,
     fmt: FormatContext = None,
 ):
-    """Lint a command given its argumenet information."""
+    """Lint a command given its argument information."""
     if not command_info:
         print(f"  ! Warning: Unknown command: {argv[0]}")
         return
