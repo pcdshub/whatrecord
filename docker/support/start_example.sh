@@ -15,10 +15,12 @@ echo Cache contents:
 ls -la /var/lib/whatrecord/cache
 
 echo Startup scripts to use:
-ls -la /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd
+STARTUP_SCRIPTS=${STARTUP_SCRIPTS-/usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd}
+
+ls -la ${STARTUP_SCRIPTS}
 
 echo Running API server on port ${API_PORT}...
 whatrecord server \
   --port=${API_PORT} \
   --gateway-config=/usr/share/whatrecord/support/gateway/ \
-  --scripts /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd
+  --scripts ${STARTUP_SCRIPTS}

@@ -19,6 +19,9 @@ services:
   whatrecord:
     env_file:
       - .env
+    environment:
+        STARTUP_SCRIPTS: /usr/local/src/whatrecord/whatrecord/tests/iocs/*/st.cmd
+       # STARTUP_SCRIPTS: /ics/examples/iocBoot/*/st.cmd
     build:
       context: ../
       # with respect to the build context:
@@ -32,6 +35,8 @@ services:
     volumes:
       - ./cache/:/var/lib/whatrecord/cache
       - ./support:/usr/share/whatrecord/support
+      # Add arbitrary IOCs to the list and switch up STARTUP_SCRIPTS above.
+      # - /Users/klauer/docs/conferences/EPICS_Meeting_2022/ics/examples:/ics/examples
       # Uncomment this to reinstall whatrecord from source without
       # having to rebuild the image:
       - ../:/usr/local/src/dev-whatrecord
