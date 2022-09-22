@@ -76,15 +76,19 @@ def parse(
     standin_directories = standin_directories or {}
 
     if str(filename) == "-":
-        contents = sys.stdin.read()
-        filename = pathlib.Path("/dev/stdin")
-
         if format is None:
             options = [fmt.name for fmt in list(FileFormat)]
             raise ValueError(
                 f"Format must be specified when piping data from standard "
                 f"input.  Choose one of: {options}"
             )
+        if format == FileFormat.iocsh:
+            raise ValueError(
+                "IOC shell script parsing not supported through standard input"
+            )
+
+        contents = sys.stdin.read()
+        filename = pathlib.Path(sys.stdin.name)
     else:
         with open(filename, "rt") as fp:
             contents = fp.read()
@@ -112,11 +116,6 @@ def parse(
         )
 
     if format == FileFormat.iocsh:
-        if filename == pathlib.Path("/dev/stdin"):
-            raise ValueError(
-                "IOC shell script parsing not supported through standard input"
-            )
-
         md = IocMetadata.from_filename(
             filename,
             standin_directories=standin_directories,
