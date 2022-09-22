@@ -5,6 +5,7 @@ Generic parsing tools, for parsing when you know a file name or file type.
 import asyncio
 import logging
 import pathlib
+import sys
 from typing import Dict, Optional, Union
 
 from .access_security import AccessSecurityConfig
@@ -74,7 +75,20 @@ def parse(
     """
     standin_directories = standin_directories or {}
 
-    filename = pathlib.Path(filename)
+    if str(filename) == "-":
+        contents = sys.stdin.read()
+        filename = pathlib.Path("/dev/stdin")
+
+        if format is None:
+            options = [fmt.name for fmt in list(FileFormat)]
+            raise ValueError(
+                f"Format must be specified when piping data from standard "
+                f"input.  Choose one of: {options}"
+            )
+    else:
+        with open(filename, "rt") as fp:
+            contents = fp.read()
+        filename = pathlib.Path(filename)
 
     # The shared macro context - used in different ways below:
     macro_context = MacroContext(macro_string=macros or "")
@@ -84,17 +98,26 @@ def parse(
 
     if format in (FileFormat.database, FileFormat.database_definition):
         if format == FileFormat.database_definition or not dbd:
-            return Database.from_file(
-                filename, macro_context=macro_context, version=3 if v3 else 4
+            return Database.from_string(
+                contents,
+                filename=filename,
+                macro_context=macro_context,
+                version=3 if v3 else 4
             )
-        return Database.from_file(
-            filename,
+        return Database.from_string(
+            contents,
+            filename=filename,
             dbd=Database.from_file(dbd, version=3 if v3 else 4),
             macro_context=macro_context
         )
 
     if format == FileFormat.iocsh:
-        md = IocMetadata.from_file(
+        if filename == pathlib.Path("/dev/stdin"):
+            raise ValueError(
+                "IOC shell script parsing not supported through standard input"
+            )
+
+        md = IocMetadata.from_filename(
             filename,
             standin_directories=standin_directories,
             macros=dict(macro_context),
@@ -108,7 +131,7 @@ def parse(
         return LoadedIoc.from_metadata(md)
 
     if format == FileFormat.substitution:
-        template = TemplateSubstitution.from_file(filename)
+        template = TemplateSubstitution.from_string(contents, filename=filename)
         if not expand:
             return template
 
@@ -124,10 +147,7 @@ def parse(
         )
 
     if format == FileFormat.state_notation:
-        return SequencerProgram.from_file(filename)
-
-    with open(filename, "rt") as fp:
-        contents = fp.read()
+        return SequencerProgram.from_string(contents, filename=filename)
 
     if macros:
         contents = macro_context.expand_file(contents)
