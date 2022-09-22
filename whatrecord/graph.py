@@ -739,7 +739,7 @@ class RecordLinkGraph(_GraphHelper):
                         """
                     ).rstrip()
 
-            if li.field1.dtype == "DBF_INLINK":
+            if li.field1.dtype == "DBF_INLINK" or li.field2.dtype == "DBF_OUTLINK":
                 src, dest = dest, src
                 li.field1, li.field2 = li.field2, li.field1
 
@@ -753,9 +753,24 @@ class RecordLinkGraph(_GraphHelper):
                         break
 
             if (src, dest) not in set(self.edge_pairs):
-                if "DBF_FWDLINK" in (li.field1.dtype, li.field2.dtype):
-                    edge_kw["taillabel"] = "FLNK"
-                    self.add_edge(src.label, dest.label, color="black", **edge_kw)
+                if li.field1.dtype == "DBF_FWDLINK":
+                    # edge_kw["taillabel"] = "FLNK"
+                    self.add_edge(
+                        src.label,
+                        dest.label,
+                        color="black",
+                        source_port=li.field1.name,
+                        **edge_kw
+                    )
+                elif li.field2.dtype == "DBF_FWDLINK":
+                    # edge_kw["taillabel"] = "FLNK"
+                    self.add_edge(
+                        dest.label,
+                        src.label,
+                        color="black",
+                        source_port=li.field2.name,
+                        **edge_kw
+                    )
                 else:
                     # edge_kw["taillabel"] = f"{li.field1.name}"
                     # edge_kw["headlabel"] = f"{li.field2.name}"
