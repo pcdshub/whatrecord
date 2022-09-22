@@ -739,7 +739,7 @@ class RecordLinkGraph(_GraphHelper):
                         """
                     ).rstrip()
 
-            if li.field1.dtype == "DBF_INLINK":
+            if li.field1.dtype == "DBF_INLINK" or li.field2.dtype == "DBF_OUTLINK":
                 src, dest = dest, src
                 li.field1, li.field2 = li.field2, li.field1
 
