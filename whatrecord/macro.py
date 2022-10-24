@@ -79,8 +79,8 @@ def should_serialize_key(key: str, value: str) -> bool:
     * WHATRECORD_MACRO_KEY_SKIP (str) - keys to skip, specified by regular
       expressions.  Should be valid Python syntax for a list of strings, as it
       will be handed to ``ast.literal_eval``.
-    * WHATRECORD_MACRO_NO_ENV (bool) - do not serialize *any* environment
-      variables if set to 1.
+    * WHATRECORD_MACRO_INCLUDE_ENV (bool) - serialize environment variables if
+      set to 1.
     * WHATRECORD_MACRO_VALUE_MAX_LENGTH (int) - maximum length of macro values
       to serialize. 0 to disable maximum length check.
 
@@ -99,9 +99,12 @@ def should_serialize_key(key: str, value: str) -> bool:
     if settings.MACRO_VALUE_MAX_LENGTH > 0:
         if len(value) > settings.MACRO_VALUE_MAX_LENGTH:
             return False
-    if settings.MACRO_NO_ENV and key in os.environ:
+
+    # Throw out environment variables if MACRO_INCLUDE_ENV is unset:
+    if not settings.MACRO_INCLUDE_ENV and key in os.environ:
         return False
-    # Bad key or one that matches regular expressions in RE_MACRO_KEY_SKIP#
+
+    # Bad key or one that matches regular expressions in RE_MACRO_KEY_SKIP
     # (by way of 'WHATRECORD_MACRO_KEY_SKIP')
     if not key:
         return False
