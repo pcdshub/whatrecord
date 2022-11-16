@@ -29,6 +29,7 @@ softioc_unavailable_skip = pytest.mark.skipif(
 )
 
 
+@pytest.mark.xfail(reason="Makes too many SLAC/LCLS/PCDS/ECS assumptions.")
 @platform_skip
 @gdb_unavailable_skip
 @softioc_unavailable_skip
