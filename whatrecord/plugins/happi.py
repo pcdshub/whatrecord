@@ -22,6 +22,8 @@ from .util import suppress_output_decorator
 
 try:
     import happi
+    import happi.backends
+    import happi.backends.json_db
     import ophyd
     from ophyd.ophydobj import OphydObject
     from ophyd.signal import EpicsSignalBase
@@ -333,6 +335,27 @@ def _get_argparser(parser: typing.Optional[argparse.ArgumentParser] = None):
     return parser
 
 
+def get_all_happi_items(client: happi.Client) -> Generator[happi.SearchResult, None, None]:
+    """
+    Get all happi search results from the given client.
+
+    Parameters
+    ----------
+    client : happi.Client
+        The happi client instance.
+
+    Yields
+    ------
+    SearchResult
+        The happi item wrapped in a SearchResult.
+    """
+    for name in client:
+        try:
+            yield client[name]
+        except Exception:
+            logger.debug("Failed to get happi item: %s", name, exc_info=True)
+
+
 @suppress_output_decorator
 def main(search_criteria: str, pretty: bool = False):
     client = happi.Client.from_config()
@@ -348,8 +371,8 @@ def main(search_criteria: str, pretty: bool = False):
         files_to_monitor=files_to_monitor,
         record_to_metadata_keys=collections.defaultdict(list),
         metadata_by_key={
-            item["name"]: dict(item)
-            for item in dict(client).values()
+            result.item["name"]: dict(result.item)
+            for result in get_all_happi_items(client)
         },
         execution_info={},
     )
