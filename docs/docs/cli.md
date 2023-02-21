@@ -135,7 +135,6 @@ optional arguments:
 
 ::: whatrecord.bin
 ::: whatrecord.bin.main
-
 ::: whatrecord.bin.lint
 ::: whatrecord.bin.parse
 ::: whatrecord.bin.server

@@ -2,5 +2,5 @@
 mkdocs
 mkdocs-autorefs
 mkdocs-material
-mkdocstrings
+mkdocstrings[python]
 pytkdocs[numpy-style]
