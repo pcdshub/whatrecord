@@ -5,10 +5,11 @@ requires = [ "setuptools>=45", "setuptools_scm[toml]>=6.2",]
 [project]
 classifiers = [ "Development Status :: 2 - Pre-Alpha", "Natural Language :: English", "Programming Language :: Python :: 3",]
 description = "EPICS IOC record search and meta information tool"
-dynamic = [ "version", "readme", "dependencies", "optional-dependencies", "optional-dependencies",]
+dynamic = [ "version", "readme", "dependencies", "optional-dependencies", ]
 keywords = []
 name = "whatrecord"
 requires-python = ">=3.9"
+
 [[project.authors]]
 name = "SLAC National Accelerator Laboratory"
 
@@ -38,3 +39,6 @@ file = [ "requirements.txt",]
 
 [tool.setuptools.dynamic.optional-dependencies.test]
 file = "dev-requirements.txt"
+
+[tool.setuptools.dynamic.optional-dependencies.doc]
+file = "docs-requirements.txt"

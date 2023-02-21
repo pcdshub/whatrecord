@@ -6,13 +6,6 @@ pytest
 pytest-aiohttp
 pytest-cov
 
-# docs-related dependencies:
-mkdocs
-mkdocs-autorefs
-mkdocs-material
-mkdocstrings
-pytkdocs[numpy-style]
-
 # plugin dependencies
 happi
 python-ldap
