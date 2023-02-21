@@ -25,5 +25,7 @@ jobs:
       conda-system-packages: ""
       # System packages to be installed only for pip-based testing:
       pip-system-packages: "libldap2-dev libsasl2-dev gdb graphviz"
+      # System packages to be installed only for documentation:
+      docs-system-packages: ""
       # Set if using setuptools-scm for the conda-build workflow
       use-setuptools-scm: true
