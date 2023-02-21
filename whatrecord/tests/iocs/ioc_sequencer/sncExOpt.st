@@ -12,8 +12,8 @@ ss ss1
 	state low
 	{
             option +t; /* The default is +t, so thsi has no effect */
-	    entry
-	    {
+	    entry 
+	    { 
 		printf("Will do this on entry");
 		printf("Another thing to do on entry");
 	    }
@@ -21,7 +21,7 @@ ss ss1
 	    {
 		printf("now changing to high\n");
 	    } state high
-	    when(delay(.1))
+	    when(delay(.1)) 
 	    {
 		/* Pause of .1 on every iteration */
 	    } state low
@@ -36,7 +36,7 @@ ss ss1
 	    when(delay(.1))
 	    {
 		/* After 1st pause of .1 sec, state high will enter a tight loop
-                   entering this condition on each iteration until v is
+                   entering this condition on each iteration until v is 
                    set to less <= 5.0 */
 	    } state high
 	}

@@ -11,8 +11,8 @@ ss ss1
 {
 	state low
 	{
-	    entry
-	    {
+	    entry 
+	    { 
 		printf("Will do this on entry");
 		printf("Another thing to do on entry");
 	    }
@@ -20,11 +20,11 @@ ss ss1
 	    {
 		printf("now changing to high\n");
 	    } state high
-	    when(delay(.1))
+	    when(delay(.1)) 
 	    {
 	    } state low
-	    exit
-	    {
+	    exit 
+	    { 
 		printf("Something to do on exit");
 	    }
 

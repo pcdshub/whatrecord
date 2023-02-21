@@ -16,7 +16,7 @@ ss ss1
 	    {
 		printf("now changing to high\n");
 	    } state high
-	    when(delay(.1))
+	    when(delay(.1)) 
 	    {
 	    } state low
 	}
