@@ -1,6 +1,5 @@
-from . import _version
+from .version import __version__  # noqa: F401
 
-__version__ = _version.get_versions()['version']
 
 from .access_security import AccessSecurityConfig
 from .common import FileFormat
