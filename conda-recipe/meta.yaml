@@ -16,11 +16,11 @@ build:
 
 requirements:
   build:
-  - python {{PY_VER}}*
+  - python >=3.9
   - pip
   - setuptools_scm
   run:
-  - python {{PY_VER}}*
+  - python >=3.9
   - aiohttp
   - apischema
   - graphviz
@@ -40,7 +40,7 @@ test:
     - pytmc
   imports:
     - whatrecord
-  
+
 about:
   home: https://github.com/pcdshub/whatrecord
   license: SLAC Open License
