@@ -3,6 +3,7 @@
 exclude: |
   (?x)^(
     whatrecord/_version.py|
+   .*\.st$|
   )$
 
 repos:
@@ -31,3 +32,9 @@ repos:
     rev: 5.12.0
     hooks:
     -   id: isort
+
+-   repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.7.1
+    hooks:
+    -   id: prettier
+        types_or: [css, javascript, vue]
