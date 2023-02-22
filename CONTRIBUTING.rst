@@ -63,7 +63,7 @@ Ready to contribute? Here's how to set up `whatrecord` for local development.
 
 3. Install your local copy into a new conda environment. Assuming you have conda installed, this is how you set up your fork for local development::
 
-    $ conda create -n whatrecord python=3.7
+    $ conda create -n whatrecord python=3.9 pip
     $ cd whatrecord/
     $ pip install -e .
 
@@ -73,13 +73,14 @@ Ready to contribute? Here's how to set up `whatrecord` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8::
+5. Install and enable ``pre-commit`` for this repository::
 
-    $ flake8 whatrecord
+    $ pip install pre-commit
+    $ pre-commit install
 
 6. Add new tests for any additional functionality or bugs you may have discovered.  And, of course, be sure that all previous tests still pass by running::
 
-    $ python run_tests.py -v
+    $ pytest -v
 
 7. Commit your changes and push your branch to GitHub::
 
@@ -98,6 +99,5 @@ Before you submit a pull request, check that it meets these guidelines:
 2. If the pull request adds functionality, the docs should be updated. Put your
    new functionality into a function with a docstring, and add the feature to
    the list in README.rst.
-3. The pull request should work for Python 3.5 and up. Check
-   https://travis-ci.org/pcdshub/whatrecord/pull_requests
+3. The pull request should work for Python 3.9 and up. Check the GitHub Actions status
    and make sure that the tests pass for all supported Python versions.

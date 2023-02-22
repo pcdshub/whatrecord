@@ -1,7 +1,3 @@
-from . import _version
-
-__version__ = _version.get_versions()['version']
-
 from .access_security import AccessSecurityConfig
 from .common import FileFormat
 from .db import Database
@@ -14,6 +10,7 @@ from .parse import parse
 from .plugins.epicsarch import LclsEpicsArchFile
 from .snl import SequencerProgram
 from .streamdevice import StreamProtocol
+from .version import __version__  # noqa: F401
 
 __all__ = [
     "AccessSecurityConfig",

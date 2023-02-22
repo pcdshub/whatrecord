@@ -25,7 +25,6 @@ import blark
 import blark.summary
 import pytmc
 import pytmc.bin.db
-import pytmc.code
 from blark import dependency_store
 
 from .. import cache, client, util

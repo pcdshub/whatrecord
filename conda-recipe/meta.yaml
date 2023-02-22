@@ -1,38 +1,45 @@
-{% set data = load_setup_py_data() %}
+{% set package_name = "whatrecord" %}
+{% set import_name = "whatrecord" %}
+{% set version = load_file_regex(load_file=os.path.join(import_name, "_version.py"), regex_pattern=".*version = '(\S+)'").group(1) %}
 
 package:
-    name: whatrecord
-    version: {{ data.get('version') }}
+  name: {{ package_name }}
+  version: {{ version }}
 
 source:
-    path: ..
+  path: ..
 
 build:
-    number: 0
-    noarch: python
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv
 
 requirements:
-    build:
-      - python {{PY_VER}}*
-      - pip
-    run:
-      - python {{PY_VER}}*
-      - aiohttp
-      - apischema
-      - graphviz
-      - jinja2
-      - lark-parser
-      - python-graphviz <0.18
+  build:
+  - python >=3.9
+  - pip
+  - setuptools_scm
+  run:
+  - python >=3.9
+  - aiohttp
+  - apischema
+  - graphviz
+  - jinja2
+  - lark-parser
+  - python-graphviz <0.18
 
-# NOTE: this is skipped for now as epicsmacrolib is missing on conda, so
-# we have another pip install step prior to being able to run tests.
-# test:
-#     imports:
-#       - whatrecord
-#     requires:
-#       - pytest
-#       - pytest-aiohttp
-#       - epics-base
+test:
+  requirements:
+    - codecov
+    - flake8
+    - happi
+    - pytest
+    - pytest-aiohttp
+    - pytest-cov
+    - python-ldap
+    - pytmc
+  imports:
+    - whatrecord
 
 about:
   home: https://github.com/pcdshub/whatrecord

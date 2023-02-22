@@ -37,10 +37,7 @@ def parse_iocsh_line(
        A partially filled IocshResult, ready for interpreting by a
        higher-level function.
     """
-    result = IocshResult(
-       context=context,
-       line=line,
-    )
+    result = IocshResult(context=context, line=line)
     # Skip leading whitespace
     line = line.lstrip()
 

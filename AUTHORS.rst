@@ -10,4 +10,4 @@ Maintainer
 Contributors
 ------------
 
-Interested? See: CONTRIBUTING.rst
+Interested? See: `CONTRIBUTING.rst <CONTRIBUTING.rst>`_

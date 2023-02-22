@@ -35,20 +35,29 @@ plugins:
 - mkdocstrings:
     handlers:
       python:
-        setup_commands:
-          - import sys; sys.path.insert(0, '..')
-        selection:
+        python:
+          paths: [..]
+        options:
           docstring_style: numpy
-        rendering:
-          inherited_members: false
-          show_root_heading: true
-          show_root_toc_entry: true
-          show_root_full_path: true
-          show_object_full_path: true
-          show_category_heading: true
-          show_signature_annotations: true
+          docstring_options:
+            ignore_init_summary: no
           heading_level: 3
-          members: true
+          show_root_heading: yes
+          show_root_toc_entry: yes
+          show_root_full_path: yes
+          show_root_members_full_path: no
+          show_object_full_path: yes
+          show_category_heading: yes
+          show_if_no_docstring: no
+          show_signature: yes
+          show_signature_annotations: yes
+          separate_signature: no
+          line_length: 80,
+          merge_init_into_class: yes
+          show_source: yes
+          show_bases: yes
+          show_submodules: no
+          group_by_category: yes
           import:
             - https://docs.python.org/3/objects.inv
             - https://lark-parser.readthedocs.io/en/latest/objects.inv
