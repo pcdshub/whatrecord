@@ -1,9 +1,12 @@
+include AUTHORS.rst
+include CONTRIBUTING.rst
 include LICENSE.md
+include Makefile
 include README.rst
-include dev-requirements.txt
-include pyproject.toml
+
 include requirements.txt
-include versioneer.py
+include dev-requirements.txt
+include docs-requirements.txt
 
 recursive-include src/_whatrecord *.pyx
 recursive-include whatrecord/grammar *.lark
