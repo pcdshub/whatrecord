@@ -1,0 +1,1720 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+        <meta name="author" content="SLAC National Accelerator Laboratory">
+      
+      
+      
+        <link rel="prev" href="../server_client/">
+      
+      
+        <link rel="next" href="../utilities/">
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.14">
+    
+    
+      
+        <title>Plugins - whatrecord</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.113286f1.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../css/mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="lightblue" data-md-color-accent="purple">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#plugins" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="whatrecord" class="md-header__button md-logo" aria-label="whatrecord" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4.41 3 3 4.41 5.69 7.1A7.924 7.924 0 0 0 4 12c0 1.85.63 3.55 1.69 4.9L3 19.59 4.41 21l2.69-2.69A7.924 7.924 0 0 0 12 20c1.85 0 3.55-.63 4.9-1.69L19.59 21 21 19.59l-2.69-2.69A7.924 7.924 0 0 0 20 12c0-1.85-.63-3.55-1.69-4.9L21 4.41 19.59 3 16.9 5.69A7.924 7.924 0 0 0 12 4c-1.85 0-3.55.63-4.9 1.69L4.41 3M12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            whatrecord
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Plugins
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="lightblue" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5c-.84 0-1.65.15-2.39.42L12 2M3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29L3.34 7m.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14L3.36 17M20.65 7l-1.77 3.79a7.023 7.023 0 0 0-2.38-4.15l4.15.36m-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29L20.64 17M12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44L12 22Z"/></svg>
+            </label>
+          
+        
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="lime"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3 3.19.09m3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95 2.06.05m-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href=".." class="md-tabs__link">
+      whatrecord
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../parsers/" class="md-tabs__link">
+      Parsers
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../cli/" class="md-tabs__link">
+      CLI
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../server_client/" class="md-tabs__link">
+      Server / client
+    </a>
+  </li>
+
+      
+        
+  
+  
+    
+  
+
+
+  <li class="md-tabs__item">
+    <a href="./" class="md-tabs__link md-tabs__link--active">
+      Plugins
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../utilities/" class="md-tabs__link">
+      Shared / Utilities
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../iocsh/" class="md-tabs__link">
+      IOC Shell-Related
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../lcls/" class="md-tabs__link">
+      LCLS
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../tests/" class="md-tabs__link">
+      Tests
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="whatrecord" class="md-nav__button md-logo" aria-label="whatrecord" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4.41 3 3 4.41 5.69 7.1A7.924 7.924 0 0 0 4 12c0 1.85.63 3.55 1.69 4.9L3 19.59 4.41 21l2.69-2.69A7.924 7.924 0 0 0 12 20c1.85 0 3.55-.63 4.9-1.69L19.59 21 21 19.59l-2.69-2.69A7.924 7.924 0 0 0 20 12c0-1.85-.63-3.55-1.69-4.9L21 4.41 19.59 3 16.9 5.69A7.924 7.924 0 0 0 12 4c-1.85 0-3.55.63-4.9 1.69L4.41 3M12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6Z"/></svg>
+
+    </a>
+    whatrecord
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        whatrecord
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parsers/" class="md-nav__link">
+        Parsers
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        CLI
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server_client/" class="md-nav__link">
+        Server / client
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Plugins
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Plugins
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    Usage
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    API
+  </a>
+  
+    <nav class="md-nav" aria-label="API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi" class="md-nav__link">
+    happi
+  </a>
+  
+    <nav class="md-nav" aria-label="happi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi-classes" class="md-nav__link">
+    Classes
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.find_signal_metadata_pairs" class="md-nav__link">
+    find_signal_metadata_pairs()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.find_signals" class="md-nav__link">
+    find_signals()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.get_all_devices" class="md-nav__link">
+    get_all_devices()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.get_all_happi_items" class="md-nav__link">
+    get_all_happi_items()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.get_components_matching" class="md-nav__link">
+    get_components_matching()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.get_devices_by_criteria" class="md-nav__link">
+    get_devices_by_criteria()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.patch_and_use_dummy_shim" class="md-nav__link">
+    patch_and_use_dummy_shim()
+  </a>
+  
+    <nav class="md-nav" aria-label="patch_and_use_dummy_shim()">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.happi.patch_and_use_dummy_shim--warning" class="md-nav__link">
+    Warning
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.netconfig" class="md-nav__link">
+    netconfig
+  </a>
+  
+    <nav class="md-nav" aria-label="netconfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.netconfig-classes" class="md-nav__link">
+    Classes
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.netconfig-functions" class="md-nav__link">
+    Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.netconfig.decode_ldap_attrs" class="md-nav__link">
+    decode_ldap_attrs()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecord.plugins.util" class="md-nav__link">
+    util
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whatrecordpluginsgdb_binary_info" class="md-nav__link">
+    whatrecord.plugins.gdb_binary_info
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        Shared / Utilities
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../iocsh/" class="md-nav__link">
+        IOC Shell-Related
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lcls/" class="md-nav__link">
+        LCLS
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tests/" class="md-nav__link">
+        Tests
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<h1 id="plugins">Plugins</h1>
+<h2 id="usage">Usage</h2>
+<h2 id="api">API</h2>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h3 id="whatrecord.plugins.happi" class="doc doc-heading">
+          <code>whatrecord.plugins.happi</code>
+
+
+</h3>
+
+  <div class="doc doc-contents first">
+  
+      <p>happi whatrecord plugin</p>
+<p>Match your happi devices to IOCs and records.</p>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+<h4 id="whatrecord.plugins.happi-classes">Classes</h4>
+<h4 id="whatrecord.plugins.happi-functions">Functions</h4>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.find_signal_metadata_pairs" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">find_signal_metadata_pairs</span><span class="p">(</span><span class="n">criteria</span><span class="p">:</span> <span class="n">CriteriaDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OphydObject</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">EpicsSignalBase</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Find all signal metadata that match the given criteria.</p>
+
+  <p><strong>Yields:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>root</code></td>          <td>
+                <code><span title="ophyd.ophydobj.OphydObject">OphydObject</span></code>
+          </td>
+          <td><p>The root OphydObject - may be the same as signal.  This is guaranteed
+to have happi metadata on it as the <code>md</code> attribute.</p></td>
+        </tr>
+    </tbody>
+  </table>
+      <p>pvname : str
+    The PV name.</p>
+<p>signal : EpicsSignal, EpicsSignalRO, ...
+    The signal instance, one of <code>SIGNAL_CLASSES</code>.</p>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">find_signal_metadata_pairs</span><span class="p">(</span>
+    <span class="n">criteria</span><span class="p">:</span> <span class="n">CriteriaDict</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OphydObject</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">EpicsSignalBase</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find all signal metadata that match the given criteria.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    root : OphydObject</span>
+<span class="sd">        The root OphydObject - may be the same as signal.  This is guaranteed</span>
+<span class="sd">        to have happi metadata on it as the ``md`` attribute.</span>
+
+<span class="sd">    pvname : str</span>
+<span class="sd">        The PV name.</span>
+
+<span class="sd">    signal : EpicsSignal, EpicsSignalRO, ...</span>
+<span class="sd">        The signal instance, one of ``SIGNAL_CLASSES``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">attributes</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;pvname&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;setpoint_pvname&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">sig</span> <span class="ow">in</span> <span class="n">find_signals</span><span class="p">(</span><span class="n">criteria</span><span class="p">,</span> <span class="n">signal_class</span><span class="o">=</span><span class="n">SIGNAL_CLASSES</span><span class="p">):</span>
+        <span class="n">found_pvs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">attributes</span><span class="p">:</span>
+            <span class="n">pvname</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">pvname</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pvname</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">found_pvs</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">pvname</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">found_pvs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">pvname</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">found_pvs</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">root</span><span class="p">,</span> <span class="n">pvname</span><span class="p">,</span> <span class="n">sig</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Then it&#39;s the prefix - possibly</span>
+            <span class="n">pvname</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="s2">&quot;prefix&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">pvname</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">root</span><span class="p">,</span> <span class="n">pvname</span><span class="p">,</span> <span class="n">sig</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.find_signals" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">find_signals</span><span class="p">(</span><span class="n">criteria</span><span class="p">:</span> <span class="n">CriteriaDict</span><span class="p">,</span> <span class="n">signal_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OphydObject</span><span class="p">,</span> <span class="n">T</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Find all signal metadata that match the given criteria.</p>
+
+  <p><strong>Yields:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>root</code></td>          <td>
+                <code><span title="ophyd.ophydobj.OphydObject">OphydObject</span></code>
+          </td>
+          <td><p>The root OphydObject - may be the same as signal.  This is guaranteed
+to have happi metadata on it as the <code>md</code> attribute.</p></td>
+        </tr>
+    </tbody>
+  </table>
+      <p>sig : signal_class
+    Signals of type <code>signal_class</code>.</p>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">find_signals</span><span class="p">(</span>
+    <span class="n">criteria</span><span class="p">:</span> <span class="n">CriteriaDict</span><span class="p">,</span>
+    <span class="n">signal_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OphydObject</span><span class="p">,</span> <span class="n">T</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find all signal metadata that match the given criteria.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    root : OphydObject</span>
+<span class="sd">        The root OphydObject - may be the same as signal.  This is guaranteed</span>
+<span class="sd">        to have happi metadata on it as the ``md`` attribute.</span>
+
+<span class="sd">    sig : signal_class</span>
+<span class="sd">        Signals of type `signal_class`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">patch_and_use_dummy_shim</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">is_of_class</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">signal_class</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">criteria</span><span class="p">:</span>
+        <span class="n">devices</span> <span class="o">=</span> <span class="n">get_all_devices</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">devices</span> <span class="o">=</span> <span class="n">get_devices_by_criteria</span><span class="p">(</span><span class="n">criteria</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">dev</span> <span class="ow">in</span> <span class="n">devices</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span> <span class="s2">&quot;md&quot;</span><span class="p">):</span>
+            <span class="c1"># This should be a guarantee, but check just in case.</span>
+            <span class="k">continue</span>
+
+        <span class="k">for</span> <span class="n">sig</span> <span class="ow">in</span> <span class="n">get_components_matching</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="n">is_of_class</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">dev</span><span class="p">,</span> <span class="n">sig</span>
+        <span class="c1"># Top-level devices are OK too</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span> <span class="n">signal_class</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">dev</span><span class="p">,</span> <span class="n">dev</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.get_all_devices" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">get_all_devices</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Get all devices from a given happi client.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>client</code></td>
+          <td>
+                <code><span title="happi.backends.json_db">happi</span>.<span title="happi.backends.json_db.Client">Client</span>, optional</code>
+          </td>
+          <td><p>The happi client to use.  Defaults to using one from the environment
+configuration.</p></td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Yields:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>ophyd.<span title="ophyd.Device">Device</span></code>
+          </td>
+          <td></td>
+        </tr>
+    </tbody>
+  </table>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span>
+<span class="normal">89</span>
+<span class="normal">90</span>
+<span class="normal">91</span>
+<span class="normal">92</span>
+<span class="normal">93</span>
+<span class="normal">94</span>
+<span class="normal">95</span>
+<span class="normal">96</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_all_devices</span><span class="p">(</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get all devices from a given happi client.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    client : happi.Client, optional</span>
+<span class="sd">        The happi client to use.  Defaults to using one from the environment</span>
+<span class="sd">        configuration.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    ophyd.Device</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">backend</span><span class="p">,</span> <span class="s2">&quot;_load_or_initialize&quot;</span><span class="p">):</span>
+        <span class="c1"># HACK: TODO: avoid re-re-re-reading the JSON database; happi needs</span>
+        <span class="c1"># some work.</span>
+        <span class="n">loaded_database</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">_load_or_initialize</span><span class="p">()</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">_load_or_initialize</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">loaded_database</span>
+
+    <span class="k">for</span> <span class="n">dev</span> <span class="ow">in</span> <span class="n">client</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">client</span><span class="p">[</span><span class="n">dev</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to instantiate device: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dev</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">obj</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.get_all_happi_items" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">get_all_happi_items</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">happi</span><span class="o">.</span><span class="n">SearchResult</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Get all happi search results from the given client.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>client</code></td>
+          <td>
+                <code><span title="happi.backends.json_db">happi</span>.<span title="happi.backends.json_db.Client">Client</span></code>
+          </td>
+          <td><p>The happi client instance.</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Yields:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>SearchResult</code>
+          </td>
+          <td><p>The happi item wrapped in a SearchResult.</p></td>
+        </tr>
+    </tbody>
+  </table>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_all_happi_items</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">happi</span><span class="o">.</span><span class="n">SearchResult</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get all happi search results from the given client.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    client : happi.Client</span>
+<span class="sd">        The happi client instance.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    SearchResult</span>
+<span class="sd">        The happi item wrapped in a SearchResult.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">client</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">client</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Failed to get happi item: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.get_components_matching" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">get_components_matching</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="p">,</span> <span class="n">predicate</span><span class="p">:</span> <span class="n">callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">OphydObject</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Find signals of a specific type from a given ophyd Device.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>obj</code></td>
+          <td>
+                <code>ophyd.<span title="ophyd.Device">Device</span></code>
+          </td>
+          <td><p>The ophyd Device.</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+      <p>predicate : callable
+    Callable that should return True on a match.</p>
+
+  <p><strong>Yields:</strong></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+<td><code>obj</code></td>          <td>
+                <code><span title="ophyd.ophydobj.OphydObject">OphydObject</span></code>
+          </td>
+          <td></td>
+        </tr>
+    </tbody>
+  </table>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_components_matching</span><span class="p">(</span>
+    <span class="n">obj</span><span class="p">:</span> <span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="p">,</span>
+    <span class="n">predicate</span><span class="p">:</span> <span class="n">callable</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">OphydObject</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find signals of a specific type from a given ophyd Device.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    obj : ophyd.Device</span>
+<span class="sd">        The ophyd Device.</span>
+
+<span class="sd">    predicate : callable</span>
+<span class="sd">        Callable that should return True on a match.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    obj : OphydObject</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">dev</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">walk_subdevices</span><span class="p">(</span><span class="n">include_lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">included</span> <span class="o">=</span> <span class="n">predicate</span><span class="p">(</span><span class="n">dev</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to check predicate against </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dev</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">included</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">dev</span>
+
+    <span class="k">for</span> <span class="n">walk</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">walk_signals</span><span class="p">(</span><span class="n">include_lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">included</span> <span class="o">=</span> <span class="n">predicate</span><span class="p">(</span><span class="n">walk</span><span class="o">.</span><span class="n">item</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to check predicate against </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">walk</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">included</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">walk</span><span class="o">.</span><span class="n">item</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.get_devices_by_criteria" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">get_devices_by_criteria</span><span class="p">(</span><span class="n">search_criteria</span><span class="p">:</span> <span class="n">CriteriaDict</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">client</span><span class="p">:</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">regex</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Get all devices from a given happi client.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>search_criteria</code></td>
+          <td>
+                <code>dict</code>
+          </td>
+          <td><p>Dictionary of <code>{'happi_key': 'search_value'}</code>.</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+      <p>client : happi.Client, optional
+    The happi client to use.  Defaults to using one from the environment
+    configuration.</p>
+
+  <p><strong>Yields:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code>ophyd.<span title="ophyd.Device">Device</span></code>
+          </td>
+          <td></td>
+        </tr>
+    </tbody>
+  </table>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_devices_by_criteria</span><span class="p">(</span>
+    <span class="n">search_criteria</span><span class="p">:</span> <span class="n">CriteriaDict</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">regex</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get all devices from a given happi client.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    search_criteria : dict</span>
+<span class="sd">        Dictionary of ``{&#39;happi_key&#39;: &#39;search_value&#39;}``.</span>
+
+<span class="sd">    client : happi.Client, optional</span>
+<span class="sd">        The happi client to use.  Defaults to using one from the environment</span>
+<span class="sd">        configuration.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    ophyd.Device</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">happi</span><span class="o">.</span><span class="n">Client</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
+
+    <span class="n">search_method</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">search_regex</span> <span class="k">if</span> <span class="n">regex</span> <span class="k">else</span> <span class="n">client</span><span class="o">.</span><span class="n">search</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">search_method</span><span class="p">(</span><span class="o">**</span><span class="n">search_criteria</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to instantiate device: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">obj</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.happi.patch_and_use_dummy_shim" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">happi</span><span class="o">.</span><span class="n">patch_and_use_dummy_shim</span><span class="p">()</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Hack ophyd and its dummy shim.  We don't want <em>any</em> control-layer
+connections being made while we're looking for signals.</p>
+<h6 id="whatrecord.plugins.happi.patch_and_use_dummy_shim--warning">Warning</h6>
+<p>Under no circumstances should this be used in a production environment
+where you intend to actually <em>use</em> ophyd for its intended purpose.</p>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/happi.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">patch_and_use_dummy_shim</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Hack ophyd and its dummy shim.  We don&#39;t want _any_ control-layer</span>
+<span class="sd">    connections being made while we&#39;re looking for signals.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Under no circumstances should this be used in a production environment</span>
+<span class="sd">    where you intend to actually _use_ ophyd for its intended purpose.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ophyd</span><span class="o">.</span><span class="n">Device</span><span class="o">.</span><span class="n">lazy_wait_for_connection</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_no_op</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="o">...</span>
+
+    <span class="k">class</span> <span class="nc">_PVStandIn</span><span class="p">:</span>
+        <span class="n">_reference_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pvname</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pvname</span> <span class="o">=</span> <span class="n">pvname</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connected</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">add_callback</span> <span class="o">=</span> <span class="n">_no_op</span>
+        <span class="n">remove_callback</span> <span class="o">=</span> <span class="n">_no_op</span>
+        <span class="n">clear_callbacks</span> <span class="o">=</span> <span class="n">_no_op</span>
+        <span class="n">get</span> <span class="o">=</span> <span class="n">_no_op</span>
+        <span class="n">put</span> <span class="o">=</span> <span class="n">_no_op</span>
+        <span class="n">get_with_metadata</span> <span class="o">=</span> <span class="n">_no_op</span>
+        <span class="n">wait_for_connection</span> <span class="o">=</span> <span class="n">_no_op</span>
+
+    <span class="k">def</span> <span class="nf">get_pv</span><span class="p">(</span><span class="n">pvname</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_PVStandIn</span><span class="p">(</span><span class="n">pvname</span><span class="p">)</span>
+
+    <span class="kn">from</span> <span class="nn">ophyd</span> <span class="kn">import</span> <span class="n">_dummy_shim</span>
+
+    <span class="n">_dummy_shim</span><span class="o">.</span><span class="n">get_pv</span> <span class="o">=</span> <span class="n">get_pv</span>
+    <span class="n">_dummy_shim</span><span class="o">.</span><span class="n">release_pvs</span> <span class="o">=</span> <span class="n">_no_op</span>
+    <span class="n">ophyd</span><span class="o">.</span><span class="n">set_cl</span><span class="p">(</span><span class="s2">&quot;dummy&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h3 id="whatrecord.plugins.netconfig" class="doc doc-heading">
+          <code>whatrecord.plugins.netconfig</code>
+
+
+</h3>
+
+  <div class="doc doc-contents first">
+  
+      <p>LDAP Configuration summary plugin</p>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+<h4 id="whatrecord.plugins.netconfig-classes">Classes</h4>
+<h4 id="whatrecord.plugins.netconfig-functions">Functions</h4>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h5 id="whatrecord.plugins.netconfig.decode_ldap_attrs" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">whatrecord</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">netconfig</span><span class="o">.</span><span class="n">decode_ldap_attrs</span><span class="p">(</span><span class="n">attrs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]],</span> <span class="n">encoding</span> <span class="o">=</span> <span class="n">LDAP_ENCODING</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span></code>
+
+</h5>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Decode byte-filled LDAP attrs dictionary.</p>
+
+      <details class="quote">
+        <summary>Source code in <code>whatrecord/plugins/netconfig.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">decode_ldap_attrs</span><span class="p">(</span>
+    <span class="n">attrs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]],</span> <span class="n">encoding</span><span class="o">=</span><span class="n">LDAP_ENCODING</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Decode byte-filled LDAP attrs dictionary.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">decode_value</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">part</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">encoding</span><span class="p">,</span> <span class="s2">&quot;replace&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">decode_value</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h3 id="whatrecord.plugins.util" class="doc doc-heading">
+          <code>whatrecord.plugins.util</code>
+
+
+</h3>
+
+  <div class="doc doc-contents first">
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+  </div>
+
+</div><h3 id="whatrecordpluginsgdb_binary_info">whatrecord.plugins.gdb_binary_info</h3>
+<p>A GDB script to get useful information out of IOC binaries.</p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      (C) 2023 SLAC National Accelerator Laboratory
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.top", "toc.integrate"], "search": "../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.2a6f1dda.min.js"></script>
+      
+    
+  </body>
+</html>
