@@ -1,6 +1,7 @@
 site_name: whatrecord
 site_author: SLAC National Accelerator Laboratory
-copyright: (C) 2021 SLAC National Accelerator Laboratory
+copyright: (C) 2023 SLAC National Accelerator Laboratory
+site_dir: build/html
 
 theme:
   name: "material"

@@ -128,4 +128,3 @@ pnpm-debug.log*
 *.cache
 
 /tags
-/docs/site
