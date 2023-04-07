@@ -10,6 +10,7 @@ on:
 jobs:
   standard:
     uses: pcdshub/pcds-ci-helpers/.github/workflows/python-standard.yml@master
+    secrets: inherit
     with:
       # The workflow needs to know the package name.  This can be determined
       # automatically if the repository name is the same as the import name.
@@ -28,4 +29,3 @@ jobs:
       docs-system-packages: ""
       # Set if using setuptools-scm for the conda-build workflow
       use-setuptools-scm: true
-    secrets: inherit
