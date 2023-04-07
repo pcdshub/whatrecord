@@ -28,3 +28,4 @@ jobs:
       docs-system-packages: ""
       # Set if using setuptools-scm for the conda-build workflow
       use-setuptools-scm: true
+    secrets: inherit
