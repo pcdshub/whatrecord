@@ -7,12 +7,12 @@ services:
     image: node:18.9-alpine
     working_dir: /usr/src/app
     ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+      - "${WHATRECORD_FRONTEND_PORT}:${WHATRECORD_FRONTEND_PORT}"
     volumes:
       - ../frontend:/usr/src/app
       - ./support:/usr/share/whatrecord/support
     entrypoint: /bin/sh
-    command: /usr/share/whatrecord/support/run_frontend.sh
+    command: /usr/share/whatrecord/support/start_frontend.sh
     depends_on:
       - whatrecord
 
@@ -31,7 +31,7 @@ services:
     image: pcdshub/whatrecord:latest
     command: bash /usr/share/whatrecord/support/start_example.sh
     ports:
-      - "${API_PORT}:${API_PORT}"
+      - "${WHATRECORD_API_PORT}:${WHATRECORD_API_PORT}"
     volumes:
       - ./cache/:/var/lib/whatrecord/cache
       - ./support:/usr/share/whatrecord/support

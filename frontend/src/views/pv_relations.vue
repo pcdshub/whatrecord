@@ -67,7 +67,7 @@
 
 <script>
 import { mapState } from "vuex";
-const axios = require("axios").default;
+import axios from "axios";
 
 import Button from "primevue/button";
 import InputSwitch from "primevue/inputswitch";
