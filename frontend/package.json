@@ -13,7 +13,7 @@
     "cytoscape": "^3.25.0",
     "cytoscape-fcose": "^2.2.0",
     "es6-promise": "^4.2.8",
-    "primeflex": "^2.0.0",
+    "primeflex": "^3.3.0",
     "primeicons": "^6.0.1",
     "primevue": "3.29.1",
     "vue": "^3.3.4",

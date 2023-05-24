@@ -20,7 +20,7 @@
       :globalFilterFields="global_filter_fields"
     >
       <template #header>
-        <div class="p-d-flex p-jc-between">
+        <div class="flex justify-content-between">
           <MultiSelect
             :modelValue="selected_columns"
             :options="columns"

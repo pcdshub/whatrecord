@@ -1,6 +1,6 @@
 <template>
-  <div class="p-grid option">
-    <div class="p-col-6">
+  <div class="grid option">
+    <div class="col-6">
       <SelectButton
         v-model="search_mode"
         :options="search_mode_options"
@@ -8,8 +8,8 @@
       />
     </div>
   </div>
-  <div class="p-grid search">
-    <div class="p-col-10">
+  <div class="grid search">
+    <div class="col-10">
       <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
         <InputText
           type="text"
@@ -19,7 +19,7 @@
         />
       </form>
     </div>
-    <div class="p-col-2">
+    <div class="col-2">
       <Button @click="do_search()" icon="pi pi-search" :loading="searching" />
     </div>
   </div>
@@ -158,11 +158,11 @@ export default {
 </script>
 
 <style scoped>
-.p-grid .search {
+.grid .search {
   padding: 1em;
 }
 
-.p-grid .option {
+.grid .option {
   padding: 1em;
 }
 

@@ -93,7 +93,7 @@
           :rows="400"
         >
           <template #header>
-            <div class="p-d-flex p-jc-between">
+            <div class="flex justify-content-between">
               <Button
                 type="button"
                 icon="pi pi-filter-slash"

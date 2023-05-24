@@ -9,7 +9,7 @@
       :globalFilterFields="['pattern', 'full_command', 'error', 'file']"
     >
       <template #header>
-        <div class="p-d-flex p-jc-between">
+        <div class="flex justify-content-between">
           <span class="p-input-icon-left">
             <i class="pi pi-search" />
             <InputText
