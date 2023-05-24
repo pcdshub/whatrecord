@@ -124,9 +124,9 @@ export default {
       }
 
       if ((selected_records?.length ?? 0) > 0) {
-        document.title = `WhatRecord? ${selected_records}`;
+        document.title = `whatrecord? ${selected_records}`;
       } else {
-        document.title = "WhatRecord?";
+        document.title = "whatrecord?";
       }
 
       await this.$store.dispatch("find_record_matches", {

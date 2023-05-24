@@ -24,7 +24,7 @@ export default {
     try {
       const response = await axios.get("/api/logs/get", { params: {} });
       this.log_lines = response.data;
-      document.title = "WhatRecord? Server logs";
+      document.title = "whatrecord? Server logs";
     } catch (error) {
       console.error(error);
     }

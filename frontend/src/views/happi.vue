@@ -270,7 +270,7 @@ export default {
     }),
   },
   created() {
-    document.title = `WhatRecord? happi plugin`;
+    document.title = `whatrecord? happi plugin`;
     this.init_filters();
   },
   mounted() {

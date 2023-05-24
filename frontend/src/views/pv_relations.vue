@@ -441,7 +441,7 @@ export default {
     }),
   },
   async created() {
-    document.title = `WhatRecord? PV Map`;
+    document.title = `whatrecord? PV Map`;
     this.init_group_filters();
     this.$watch(
       () => this.$route.params,

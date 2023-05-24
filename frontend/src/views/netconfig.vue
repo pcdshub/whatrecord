@@ -162,7 +162,7 @@ export default {
     }),
   },
   created() {
-    document.title = `WhatRecord? netconfig ${this.item_name}`;
+    document.title = `whatrecord? netconfig ${this.item_name}`;
     this.init_filters();
   },
   mounted() {

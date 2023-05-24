@@ -272,7 +272,7 @@ export default {
           }
         }
       }
-      document.title = `WhatRecord? ${iocs_from_route}`;
+      document.title = `whatrecord? ${iocs_from_route}`;
     },
 
     new_ioc_selection() {

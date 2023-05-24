@@ -289,7 +289,7 @@ export default {
     }),
   },
   async created() {
-    document.title = `WhatRecord? TwinCAT pytmc plugin`;
+    document.title = `whatrecord? TwinCAT pytmc plugin`;
     this.init_filters();
     this.$watch(
       () => this.$route.params,

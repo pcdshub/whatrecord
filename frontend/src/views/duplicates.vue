@@ -108,7 +108,7 @@ export default {
     }),
   },
   created() {
-    document.title = `WhatRecord? duplicates`;
+    document.title = `whatrecord? duplicates`;
     this.init_filters();
   },
   mounted() {
