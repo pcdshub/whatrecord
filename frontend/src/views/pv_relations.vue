@@ -33,7 +33,7 @@
           :globalFilterFields="['iocs']"
         >
           <template #header>
-            <div class="p-d-flex p-jc-between">
+            <div class="flex justify-content-between">
               <Button
                 type="button"
                 id="clear-filters"
@@ -67,7 +67,7 @@
 
 <script>
 import { mapState } from "vuex";
-const axios = require("axios").default;
+import axios from "axios";
 
 import Button from "primevue/button";
 import InputSwitch from "primevue/inputswitch";
@@ -441,7 +441,7 @@ export default {
     }),
   },
   async created() {
-    document.title = `WhatRecord? PV Map`;
+    document.title = `whatrecord? PV Map`;
     this.init_group_filters();
     this.$watch(
       () => this.$route.params,

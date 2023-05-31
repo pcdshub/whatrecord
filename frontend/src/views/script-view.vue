@@ -103,7 +103,7 @@ export default {
     }
   },
   async created() {
-    document.title = `WhatRecord? Script`;
+    document.title = `whatrecord? Script`;
     this.$watch(
       () => this.$route.params,
       (to_params) => {
@@ -129,7 +129,7 @@ export default {
         this.line = params.line;
 
         this.$store.dispatch("get_file_info", { filename: this.filename });
-        document.title = "WhatRecord? Script " + this.filename;
+        document.title = "whatrecord? Script " + this.filename;
       }
     },
     expand_all() {

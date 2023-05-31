@@ -22,7 +22,7 @@
         ]"
       >
         <template #header>
-          <div class="p-d-flex p-jc-between">
+          <div class="flex justify-content-between">
             <Button
               type="button"
               icon="pi pi-filter-slash"
@@ -73,7 +73,7 @@
         :globalFilterFields="['record.name', 'record.record_type']"
       >
         <template #header>
-          <div class="p-d-flex p-jc-between">
+          <div class="flex justify-content-between">
             <Button
               type="button"
               icon="pi pi-filter-slash"
@@ -272,7 +272,7 @@ export default {
           }
         }
       }
-      document.title = `WhatRecord? ${iocs_from_route}`;
+      document.title = `whatrecord? ${iocs_from_route}`;
     },
 
     new_ioc_selection() {

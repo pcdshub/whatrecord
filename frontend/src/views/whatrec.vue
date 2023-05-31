@@ -53,7 +53,7 @@ export default {
   },
   created() {
     console.debug(
-      `WhatRecord Mounted: glob=${this.record_glob} PVs=${this.selected_records}`
+      `whatrecord Mounted: glob=${this.record_glob} PVs=${this.selected_records}`
     );
   },
 };

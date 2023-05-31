@@ -93,7 +93,7 @@
           :rows="400"
         >
           <template #header>
-            <div class="p-d-flex p-jc-between">
+            <div class="flex justify-content-between">
               <Button
                 type="button"
                 icon="pi pi-filter-slash"
@@ -289,7 +289,7 @@ export default {
     }),
   },
   async created() {
-    document.title = `WhatRecord? TwinCAT pytmc plugin`;
+    document.title = `whatrecord? TwinCAT pytmc plugin`;
     this.init_filters();
     this.$watch(
       () => this.$route.params,

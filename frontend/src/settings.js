@@ -1,5 +1,5 @@
 export const enabled_plugins = (
-  process.env.VUE_APP_WHATRECORD_PLUGINS || "happi twincat_pytmc netconfig"
+  import.meta.env.WHATRECORD_PLUGINS || "happi twincat_pytmc netconfig"
 ).split(" ");
 export const happi_enabled = enabled_plugins.indexOf("happi") >= 0;
 export const netconfig_enabled = enabled_plugins.indexOf("netconfig") >= 0;

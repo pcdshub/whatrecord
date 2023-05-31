@@ -3,31 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "serve": "NODE_OPTIONS='--openssl-legacy-provider' vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "serve": "vite preview",
+    "build": "vite build",
+    "dev": "vite",
+    "lint": "eslint --ext .js,.vue --ignore-path ../.gitignore --fix src"
   },
   "dependencies": {
-    "axios": "^0.21.1",
-    "core-js": "^3.6.5",
-    "cytoscape": "^3.19.0",
-    "cytoscape-fcose": "^2.1.0",
+    "axios": "^1.4.0",
+    "cytoscape": "^3.25.0",
+    "cytoscape-fcose": "^2.2.0",
     "es6-promise": "^4.2.8",
-    "primeflex": "^2.0.0",
-    "primeicons": "^4.1.0",
-    "primevue": "3.6.0",
-    "vue": "^3.0.0",
-    "vue-router": "^4.0.8",
-    "vuex": "^4.0.1"
+    "primeflex": "^3.3.0",
+    "primeicons": "^6.0.1",
+    "primevue": "3.29.1",
+    "vue": "^3.3.4",
+    "vue-router": "^4.2.1",
+    "vuex": "^4.1.0"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "~4.5.0",
-    "@vue/cli-plugin-eslint": "~4.5.0",
-    "@vue/cli-service": "~4.5.0",
-    "@vue/compiler-sfc": "^3.0.0",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^6.7.2",
-    "eslint-plugin-vue": "^7.0.0"
+    "@vitejs/plugin-vue": "^4.2.3",
+    "eslint": "8",
+    "eslint-plugin-vue": "9.14.0",
+    "vite": "^4.3.8"
   },
   "eslintConfig": {
     "root": true,
@@ -38,9 +35,6 @@
       "plugin:vue/vue3-essential",
       "eslint:recommended"
     ],
-    "parserOptions": {
-      "parser": "babel-eslint"
-    },
     "rules": {}
   },
   "browserslist": [

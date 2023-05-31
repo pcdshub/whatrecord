@@ -12,8 +12,8 @@
 </template>
 
 <script>
-import DictionaryTable from "./dictionary-table.vue";
-import ScriptContextLink from "./script-context-link.vue";
+import DictionaryTable from "@/components/dictionary-table.vue";
+import ScriptContextLink from "@/components/script-context-link.vue";
 
 export default {
   name: "LinterResults",
@@ -21,10 +21,8 @@ export default {
   props: ["errors", "warnings"],
   beforeCreate() {
     // TODO: I don't think these are circular; why am I running into this?
-    this.$options.components.DictionaryTable =
-      require("./dictionary-table.vue").default;
-    this.$options.components.ScriptContextLink =
-      require("./script-context-link.vue").default;
+    this.$options.components.DictionaryTable = DictionaryTable;
+    this.$options.components.ScriptContextLink = ScriptContextLink;
   },
 };
 </script>

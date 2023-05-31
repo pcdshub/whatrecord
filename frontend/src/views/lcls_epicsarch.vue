@@ -25,7 +25,7 @@
           :globalFilterFields="['name']"
         >
           <template #header>
-            <div class="p-d-flex p-jc-between">
+            <div class="flex justify-content-between">
               <Button
                 type="button"
                 icon="pi pi-filter-slash"
@@ -79,7 +79,7 @@
           :globalFilterFields="['record.name', 'record.record_type']"
         >
           <template #header>
-            <div class="p-d-flex p-jc-between">
+            <div class="flex justify-content-between">
               <Button
                 type="button"
                 icon="pi pi-filter-slash"
@@ -255,7 +255,7 @@ export default {
     }),
   },
   created() {
-    document.title = `WhatRecord? epicsArch ${this.item_name}`;
+    document.title = `whatrecord? epicsArch ${this.item_name}`;
     this.init_filters();
   },
   async mounted() {
@@ -315,7 +315,7 @@ export default {
     from_params(params) {
       const selected_filename = params.selected_file;
       this.selected_file = this.filename_to_table(selected_filename);
-      document.title = `WhatRecord? epicsArch ${selected_filename}`;
+      document.title = `whatrecord? epicsArch ${selected_filename}`;
     },
   },
 };

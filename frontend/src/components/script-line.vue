@@ -165,11 +165,8 @@ export default {
   },
   beforeCreate() {
     // TODO: I don't think this is circular; why am I running into this?
-    // V2 ref: https://vuejs.org/v2/guide/components-edge-cases.html#Circular-References-Between-Components
-    this.$options.components.LinterResults =
-      require("./linter-results.vue").default;
-    this.$options.components.DictionaryTable =
-      require("./dictionary-table.vue").default;
+    this.$options.components.LinterResults = LinterResults;
+    this.$options.components.DictionaryTable = DictionaryTable;
   },
 };
 </script>

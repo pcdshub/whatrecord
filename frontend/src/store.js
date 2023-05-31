@@ -1,7 +1,6 @@
+import axios from "axios";
 import "es6-promise/auto";
 import { createStore } from "vuex";
-
-const axios = require("axios").default;
 
 export const store = createStore({
   state: () => ({

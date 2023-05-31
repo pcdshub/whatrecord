@@ -8,7 +8,7 @@
     :globalFilterFields="['name', 'iocs']"
   >
     <template #header>
-      <div class="p-d-flex p-jc-between">
+      <div class="flex justify-content-between">
         <Button
           type="button"
           icon="pi pi-filter-slash"
@@ -108,7 +108,7 @@ export default {
     }),
   },
   created() {
-    document.title = `WhatRecord? duplicates`;
+    document.title = `whatrecord? duplicates`;
     this.init_filters();
   },
   mounted() {
