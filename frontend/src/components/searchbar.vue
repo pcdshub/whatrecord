@@ -4,28 +4,28 @@
       <SelectButton
         v-model="search_mode"
         :options="search_mode_options"
-        @click="do_search"
+        @click="push_route"
       />
     </div>
   </div>
   <div class="grid search">
     <div class="col-10">
-      <form @submit.prevent="do_search" v-on:keyup.enter="do_search">
+      <form @submit.prevent="push_route" v-on:keyup.enter="push_route">
         <InputText
           type="text"
-          v-model.trim.lazy="input_record_glob"
+          v-model.trim.lazy="user_pattern"
           placeholder="*PV Glob*"
           class="input_search"
         />
       </form>
     </div>
     <div class="col-2">
-      <Button @click="do_search()" icon="pi pi-search" :loading="searching" />
+      <Button @click="push_route()" icon="pi pi-search" :loading="searching" />
     </div>
   </div>
   <DataTable
     :value="table_data"
-    v-model:selection="table_selection"
+    v-model:selection="user_table_selection"
     selectionMode="multiple"
     dataKey="pv"
     class="p-datatable-sm"
@@ -36,14 +36,19 @@
   </DataTable>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
 import SelectButton from "primevue/selectbutton";
 import DataTable from "primevue/datatable";
 import InputText from "primevue/inputtext";
+import { nextTick } from "vue";
+
+interface TableData {
+  pv: string;
+}
 
 export default {
   name: "Searchbar",
@@ -54,104 +59,137 @@ export default {
     SelectButton,
     InputText,
   },
-  props: [],
+  props: {
+    pattern: {
+      type: String,
+      required: true,
+    },
+    use_regex: {
+      type: Boolean,
+      default: false,
+    },
+    record: {
+      type: Array<string>,
+      required: true,
+    },
+  },
+  setup() {
+    const store = use_configured_store();
+    return { store };
+  },
   data() {
     return {
       max_pvs: 200,
-      table_selection: [],
-      input_record_glob: "*",
+      user_table_selection: [] as TableData[],
+      user_pattern: "*",
       search_mode: "Glob",
+      last_query: {},
       search_mode_options: ["Glob", "Regex"],
     };
   },
   computed: {
-    regex() {
+    user_regex(): boolean {
       return this.search_mode === "Regex";
     },
-    table_selection_list() {
-      let as_list = [];
-      Object.values(this.table_selection).forEach((d) => as_list.push(d.pv));
+    user_table_selection_list(): string[] {
+      let as_list: string[] = [];
+      Object.values(this.user_table_selection).forEach((d) =>
+        as_list.push(d.pv),
+      );
       return as_list;
     },
 
-    pattern() {
-      return this.$route.params.record_glob || "";
+    searching() {
+      return this.store.query_in_progress;
     },
-    ...mapState({
-      searching: (state) => state.query_in_progress,
-
-      table_data(state) {
-        const pattern_to_pvs = this.regex
-          ? state.regex_to_pvs
-          : state.glob_to_pvs;
-        if (this.pattern in pattern_to_pvs) {
-          const pvs = pattern_to_pvs[this.pattern];
-          return pvs.map((value) => ({ pv: value }));
-        }
-        return [];
-      },
-    }),
+    table_data(): TableData[] {
+      const pattern_to_pvs = this.user_regex
+        ? this.store.regex_to_pvs
+        : this.store.glob_to_pvs;
+      if (this.pattern in pattern_to_pvs) {
+        const pvs = pattern_to_pvs[this.pattern];
+        return pvs.map((value) => ({ pv: value }));
+      }
+      return [];
+    },
   },
 
   emits: [],
 
-  async created() {
-    this.$watch(
-      () => this.$route.params,
-      (to_params) => {
-        this.from_route(to_params, this.$route.query);
-      }
-    );
-    await this.from_route(this.$route.params, this.$route.query);
+  async mounted() {
+    this.user_pattern = this.pattern;
+    this.search_mode = this.use_regex ? "Regex" : "Glob";
+    this.update_table_selection(this.record);
+    await this.update_store();
+  },
+
+  async updated() {
+    await this.update_store();
+  },
+
+  watch: {
+    async $route() {
+      // Wait until the prop is updated, then update the table DOM:
+      await nextTick();
+      this.update_table_selection(this.record);
+    },
   },
 
   methods: {
-    async from_route(params, query) {
-      const regex = (query.regex || "false") == "true";
-      const pattern = params.record_glob;
-      const selected_records = params.selected_records;
-
-      this.search_mode = regex ? "Regex" : "Glob";
-      this.input_record_glob = pattern || (regex ? ".*" : "*");
-
-      // Get all the record info we need in the background
+    update_table_selection(records: string[]) {
+      if (records == this.user_table_selection_list) {
+        return;
+      }
       let table_selection = [];
-      for (const rec of (selected_records || "").split("|")) {
+      for (const rec of records) {
         if (rec.length > 0) {
-          this.$store.dispatch("get_record_info", { record_name: rec });
           table_selection.push({ pv: rec });
         }
       }
+      this.user_table_selection = table_selection;
+    },
 
-      if ((selected_records?.length ?? 0) > 0) {
-        document.title = `whatrecord? ${selected_records}`;
-      } else {
-        document.title = "whatrecord?";
+    async update_store() {
+      await this.update_record_search(this.user_pattern, this.user_regex);
+      await this.update_selected_record_store();
+    },
+
+    async update_selected_record_store() {
+      const record = this.record ?? "";
+      document.title = `whatrecord? ${record}`;
+
+      for (const rec of this.record) {
+        if (rec.length > 0) {
+          await this.store.get_record_info({ record_name: rec });
+        }
       }
-
-      await this.$store.dispatch("find_record_matches", {
+    },
+    async update_record_search(pattern: string, regex: boolean) {
+      this.search_mode = regex ? "Regex" : "Glob";
+      // this.user_pattern = pattern || (regex ? ".*" : "*");
+      await this.store.find_record_matches({
         pattern: pattern,
         max_pvs: this.max_pvs,
         regex: regex,
       });
-      // Only after we have populated the table, set the selection
-      this.table_selection = table_selection;
     },
+    push_route() {
+      const query = {
+        pattern: this.user_pattern,
+        record: this.user_table_selection_list,
+        regex: this.user_regex.toString(),
+      };
 
-    do_search() {
-      this.$router.push({
-        params: {
-          record_glob: this.input_record_glob,
-          selected_records: this.table_selection_list.join("|"),
-        },
-        query: {
-          regex: this.regex,
-        },
-      });
+      if (query != this.last_query) {
+        this.$router.push({
+          query: query,
+        });
+        this.last_query = query;
+      }
     },
 
     on_table_selection() {
-      this.do_search();
+      this.push_route();
     },
   },
 };

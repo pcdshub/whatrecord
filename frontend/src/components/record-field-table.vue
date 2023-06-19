@@ -13,15 +13,19 @@
   </DataTable>
 </template>
 
-<script>
+<script lang="ts">
 import ScriptContextLink from "./script-context-link.vue";
 import Column from "primevue/column";
 import DataTable from "primevue/datatable";
+import { PropType } from "vue";
 
 export default {
   name: "RecordFieldTable",
   props: {
-    fields: Object,
+    fields: {
+      type: Object as PropType<Record<string, Object>>,
+      required: true,
+    },
     pva: Boolean,
   },
   components: {

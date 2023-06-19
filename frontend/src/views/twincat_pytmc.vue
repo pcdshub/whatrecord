@@ -10,7 +10,12 @@
     <h3>Related Records</h3>
     <ul>
       <li v-for="rec of related_records" :key="rec">
-        <router-link :to="`/whatrec/${rec}/${rec}`">
+        <router-link
+          :to="{
+            name: 'whatrec',
+            query: { pattern: rec, record: rec, use_regex: 'false' },
+          }"
+        >
           {{ rec }}
         </router-link>
       </li>
@@ -117,9 +122,10 @@
             style="width: 40%"
           >
             <template #body="{ data }">
-              <router-link :to="`/twincat_pytmc/${data.full_name}`">{{
-                data.name
-              }}</router-link>
+              <router-link
+                :to="{ name: 'twincat_pytmc', query: { plc: data.full_name } }"
+                >{{ data.name }}</router-link
+              >
             </template>
             <template #filter="{ filterModel, filterCallback }">
               <InputText
@@ -172,20 +178,65 @@
   </template>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 import InputText from "primevue/inputtext";
 import { FilterMatchMode } from "primevue/api";
 
 import ScriptContextLink from "../components/script-context-link.vue";
 import DictionaryTable from "../components/dictionary-table.vue";
+import { computed } from "vue";
+import { FullLoadContext } from "@/types";
+
+const plugin_name: string = "twincat_pytmc";
+
+interface TableData {
+  plc: string;
+}
+
+interface NCAxis {}
+
+interface PlcNC {
+  axes: NCAxis[];
+}
+
+interface Dependency {
+  name: string;
+  vendor: string;
+  version: string;
+}
+
+interface PlcMetadata {
+  dependencies?: Dependency[];
+  nc: PlcNC;
+}
+
+interface PlcSymbolMetadata {
+  context: FullLoadContext;
+  name: string;
+  type: string;
+  records: string[];
+}
+
+interface SymbolDisplayInfo extends PlcSymbolMetadata {
+  full_name: string;
+  plc: string;
+}
 
 export default {
   name: "TwincatPytmcView",
+  setup() {
+    const store = use_configured_store();
+    const plugin_info = computed(() => store.plugin_info.twincat_pytmc ?? null);
+    const plugin_nested_info = computed(
+      () => store.plugin_nested_info.twincat_pytmc ?? null,
+    );
+    return { store, plugin_info, plugin_nested_info };
+  },
   components: {
     Button,
     Column,
@@ -199,16 +250,16 @@ export default {
   },
   data() {
     return {
-      filters: null,
-      selected_plc: null,
+      filters: {} as Record<string, DataTableFilterMetaData>,
+      selected_plc: {} as TableData,
     };
   },
   computed: {
-    selected_item_plc() {
+    selected_item_plc(): string {
       return this.item_name?.split(":")[0] ?? "";
     },
 
-    selected_plc_name() {
+    selected_plc_name(): string {
       return this.selected_plc?.plc ?? "";
     },
 
@@ -228,7 +279,7 @@ export default {
       }
       let records = [];
       for (const [record, symbols] of Object.entries(
-        this.plc_info.record_to_metadata_keys || {}
+        this.plc_info.record_to_metadata_keys || {},
       )) {
         for (const symbol of symbols) {
           if (symbol == this.item_name) {
@@ -240,12 +291,13 @@ export default {
     },
 
     symbols() {
-      return Object.values(this.plc_info?.metadata_by_key ?? {}).map(function (
-        info
-      ) {
-        let obj = { ...info };
-        obj.full_name = info.name;
-        [obj.plc, obj.name] = obj.full_name.split(":");
+      return Object.values(this.plc_metadata_by_key ?? {}).map(function (info) {
+        let obj: SymbolDisplayInfo = {
+          ...info,
+          full_name: info.name,
+          plc: info.name.split(":")[0],
+          name: info.name.split(":")[1],
+        };
         return obj;
       });
     },
@@ -254,69 +306,73 @@ export default {
       return this.plcs.map((name) => ({ plc: name }));
     },
 
+    plc_metadata(): PlcMetadata | null {
+      return (this.plc_info?.metadata as PlcMetadata) ?? null;
+    },
+
+    plc_metadata_by_key() {
+      return (
+        (this.plc_info?.metadata_by_key as Record<string, PlcSymbolMetadata>) ??
+        null
+      );
+    },
+
     nc_axes() {
-      return Object.values(this.plc_info?.metadata?.nc?.axes || []);
+      return Object.values(this.plc_metadata?.nc?.axes || []);
     },
 
     plc_dependencies() {
-      return Object.values(this.plc_info?.metadata?.dependencies || {});
+      return Object.values(this.plc_metadata?.dependencies || {});
     },
 
-    ...mapState({
-      plcs(state) {
-        return state.plugin_nested_info.twincat_pytmc?.keys ?? [];
-      },
+    plcs() {
+      return this.plugin_nested_info.keys ?? [];
+    },
 
-      plcs_ready(state) {
-        return state.plugin_nested_info.twincat_pytmc?.keys.length > 0 ?? false;
-      },
+    plcs_ready() {
+      return this.plcs.length > 0;
+    },
 
-      plc_info(state) {
-        return (
-          state.plugin_nested_info.twincat_pytmc?.info[
-            this.selected_plc_name
-          ] ?? {}
-        );
-      },
+    plc_info() {
+      return this.plugin_nested_info.info[this.selected_plc_name] ?? {};
+    },
 
-      info_ready(state) {
-        return (
-          this.selected_plc_name &&
-          this.selected_plc_name in
-            (state.plugin_nested_info.twincat_pytmc?.info ?? {})
-        );
-      },
-    }),
+    info_ready() {
+      return (
+        this.selected_plc_name &&
+        this.selected_plc_name in (this.plugin_nested_info.info ?? {})
+      );
+    },
   },
   async created() {
     document.title = `whatrecord? TwinCAT pytmc plugin`;
     this.init_filters();
     this.$watch(
-      () => this.$route.params,
-      (to_params) => {
-        this.from_params(to_params);
-      }
+      () => this.$route.query,
+      (_to_params) => {
+        this.from_params();
+      },
     );
     await this.from_params();
   },
   async mounted() {
     if (!this.plcs_ready) {
-      await this.$store.dispatch("get_plugin_nested_keys", {
-        plugin: "twincat_pytmc",
+      await this.store.get_plugin_nested_keys({
+        plugin: plugin_name,
       });
     }
     await this.from_params();
   },
   methods: {
     async from_params() {
-      const route_params = this.$route.params;
       const route_query = this.$route.query;
-      const item_plc = route_params.item_name?.split(":")[0];
-      const plc = item_plc || route_query.plc;
+      const item_plc = route_query.item_name?.toString().split(":")[0] ?? "";
+      let plc = item_plc || route_query.plc;
 
       if (plc) {
-        await this.$store.dispatch("get_plugin_nested_info", {
-          plugin: "twincat_pytmc",
+        plc = plc.toString();
+        await this.store.get_plugin_nested_info({
+          plugin: plugin_name,
           key: plc,
         });
         if (this.selected_plc_name != plc) {
@@ -339,10 +395,8 @@ export default {
     },
     push_route() {
       this.$router.push({
-        params: {
-          item_name: this.item_name ?? "",
-        },
         query: {
+          item: this.item_name ?? "",
           plc: this.selected_plc_name,
         },
       });

@@ -50,10 +50,10 @@
               />
 
               <linter-results
-                :warnings="line.result.lint.warnings"
-                :errors="line.result.lint.errors"
+                :warnings="lint.warnings"
+                :errors="lint.errors"
                 cls="result"
-                v-if="line.result.lint != null"
+                v-if="lint != null"
               />
             </template>
           </span>
@@ -63,23 +63,40 @@
   </tr>
 </template>
 
-<script>
+<script lang="ts">
+import { PropType } from "vue";
 import DictionaryTable from "./dictionary-table.vue";
 import LinterResults from "./linter-results.vue";
+import { DatabaseLint, IocshCommand, IocshResult } from "@/types";
+import { IocshResultArgument } from "@/types";
+
+interface TypicalResult {
+  // whatrecord needs some uniformity here
+  arguments?: IocshResultArgument[];
+}
 
 export default {
   name: "ScriptLine",
-  components: [DictionaryTable, LinterResults],
-  props: ["line", "all_commands"],
+  components: { DictionaryTable, LinterResults },
+  props: {
+    line: {
+      type: Object as PropType<IocshResult>,
+      required: true,
+    },
+    all_commands: {
+      type: Object as PropType<Record<string, IocshCommand>>,
+      required: true,
+    },
+  },
   computed: {
-    command() {
+    command(): string | null {
       if (this.line.argv != null && this.line.argv.length > 0) {
         return this.line.argv[0];
       }
       return null;
     },
 
-    command_info() {
+    command_info(): IocshCommand | null {
       const command = this.command;
       if (command && command in this.all_commands) {
         return this.all_commands[command];
@@ -88,31 +105,35 @@ export default {
     },
 
     command_info_table() {
-      if (!this.line.argv) {
+      if (!this.line || !this.line.argv) {
         return null;
       }
 
-      let info_table = {};
-      if (this.command_info == null || this.command_info.length == 0) {
-        if (this.line?.result?.arguments?.length > 0) {
+      let info_table: Record<string, any> = {};
+      const result = this.line.result as TypicalResult;
+      if (!this.command_info && result != null) {
+        const args: IocshResultArgument[] = result.arguments ?? [];
+        if (args.length > 0) {
           // whatrecord-suppplied argument information as a backup to
           // what gdb could more accurately provide
-          this.line.result.arguments.forEach(
-            (arg) => (info_table[`${arg.name} (${arg.type})`] = arg.value)
+          args.forEach(
+            (arg) => (info_table[`${arg.name} (${arg.type})`] = arg.value),
           );
           return info_table;
         }
         return null;
       }
 
-      if (this.command_info["usage"]) {
-        info_table["usage"] = this.command_info["usage"];
-      }
-      for (const [idx, arg_info] of this.command_info["args"].entries()) {
-        const argv_idx = idx + 1;
-        const arg_value =
-          argv_idx < this.line.argv.length ? this.line.argv[argv_idx] : "";
-        info_table[arg_info.name] = arg_value;
+      if (this.command_info != null) {
+        if (this.command_info.usage) {
+          info_table["usage"] = this.command_info.usage;
+        }
+        for (const [idx, arg_info] of this.command_info.args.entries()) {
+          const argv_idx = idx + 1;
+          const arg_value =
+            argv_idx < this.line.argv.length ? this.line.argv[argv_idx] : "";
+          info_table[arg_info.name] = arg_value;
+        }
       }
       return info_table;
     },
@@ -147,7 +168,7 @@ export default {
     script_line_class() {
       if (
         this.line.context.length > 0 &&
-        this.line.context[0][1] == this.$route.params.line
+        this.line.context[0][1].toString() == this.$route.query.line
       ) {
         return ["script-line-selected", "script-line"];
       }
@@ -155,18 +176,28 @@ export default {
     },
 
     is_db_load_error() {
-      return (
-        this.line.result instanceof Object &&
-        "load_count" in this.line.result &&
-        (this.line.result.errors.length > 0 ||
-          this.line.result.warnings.length > 0)
-      );
+      const lint = this.lint;
+      if (lint === null) {
+        return false;
+      }
+      // Warnings/errors and 'load_count' from dbLoad:
+      const result = this.line.result as Object;
+      return "load_count" in result;
     },
-  },
-  beforeCreate() {
-    // TODO: I don't think this is circular; why am I running into this?
-    this.$options.components.LinterResults = LinterResults;
-    this.$options.components.DictionaryTable = DictionaryTable;
+
+    lint(): DatabaseLint | null {
+      const result = this.line.result;
+      if (
+        result instanceof Object &&
+        "warnings" in result &&
+        "errors" in result
+      ) {
+        if (result.errors.length > 0 || result.warnings.length > 0) {
+          return result as DatabaseLint;
+        }
+      }
+      return null;
+    },
   },
 };
 </script>

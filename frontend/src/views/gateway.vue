@@ -5,6 +5,8 @@
       dataKey="name"
       class="p-datatable-sm"
       filterDisplay="row"
+      :paginator="true"
+      :rows="200"
       v-model:filters="filters"
       :globalFilterFields="['pattern', 'full_command', 'error', 'file']"
     >
@@ -58,8 +60,7 @@
           <router-link
             :to="{
               name: 'whatrec',
-              params: { record_glob: data.pattern },
-              query: { regex: 'true' },
+              query: { pattern: data.pattern, record: [], use_regex: 'true' },
             }"
           >
             {{ data.pattern }}
@@ -93,7 +94,7 @@
           <router-link
             :to="{
               name: 'file',
-              params: { filename: data.filename, line: data.line },
+              query: { filename: data.filename, line: data.line },
             }"
           >
             {{ data.short_fn }}
@@ -115,20 +116,29 @@
   </div>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 import Dropdown from "primevue/dropdown";
 import InputText from "primevue/inputtext";
 import { FilterMatchMode, FilterService } from "primevue/api";
+import { computed } from "vue";
 
 const RegexFilter = "REGEX_FILTER";
 
 export default {
   name: "GatewayView",
+  setup() {
+    const store = use_configured_store();
+    const gateway_settings = computed(() => store.gateway_info);
+    const filename_to_pvlist_info = computed(
+      () => store.gateway_info?.pvlists ?? null,
+    );
+    return { store, gateway_settings, filename_to_pvlist_info };
+  },
   components: {
     Button,
     Column,
@@ -139,24 +149,31 @@ export default {
   props: [],
   data() {
     return {
-      filters: null,
+      filters: {} as Record<string, DataTableFilterMetaData>,
+      filter: null,
     };
   },
   computed: {
-    filenames() {
-      return Object.keys(this.file_to_info).map((fn) =>
-        fn.replace(/^.*[\\/]/, "")
+    filenames(): string[] {
+      if (!this.filename_to_pvlist_info) {
+        return [];
+      }
+      return Object.keys(this.filename_to_pvlist_info).map((fn) =>
+        fn.replace(/^.*[\\/]/, ""),
       );
     },
     gateway_rows() {
+      if (!this.filename_to_pvlist_info) {
+        return [];
+      }
       let table = [];
-      for (const [fn, info] of Object.entries(this.file_to_info)) {
+      for (const [fn, info] of Object.entries(this.filename_to_pvlist_info)) {
         const short_fn = fn.replace(/^.*[\\/]/, "");
         for (const rule of info.rules) {
           const context = rule.context[0];
           let details = "";
           if (rule.command == "ALLOW") {
-            details = rule.access ? rule.access : "(DEFAULT)";
+            details = rule.access ? rule.access.toString() : "(DEFAULT)";
           } else if (rule.command == "DENY") {
             details = rule.hosts ? rule.hosts.join(" ") : "(all hosts)";
           } else if (rule.command == "ALIAS") {
@@ -185,17 +202,11 @@ export default {
       }
       return table;
     },
-
-    ...mapState({
-      file_to_info(state) {
-        return state.gateway_info || {};
-      },
-    }),
   },
   created() {
     this.init_filters();
   },
-  mounted() {
+  async mounted() {
     FilterService.register(RegexFilter, (value, filter) => {
       if (filter === undefined || filter === null || filter.trim() === "") {
         return true;
@@ -217,8 +228,8 @@ export default {
       }
     });
 
-    if (Object.keys(this.file_to_info).length == 0) {
-      this.$store.dispatch("update_gateway_info");
+    if (this.filename_to_pvlist_info === null) {
+      await this.store.update_gateway_info();
     }
   },
 

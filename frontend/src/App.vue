@@ -3,9 +3,9 @@
   <router-view />
 </template>
 
-<script>
+<script lang="ts">
 import TabMenu from "primevue/tabmenu";
-import { plugins } from "./settings.js";
+import { plugins } from "./settings.ts";
 
 export default {
   name: "App",
@@ -14,8 +14,8 @@ export default {
   },
   data() {
     let tab_menu_items = [
-      { label: "Records", icon: "pi pi-fw pi-tags", to: "/" },
-      { label: "IOCs", icon: "pi pi-fw pi-sitemap", to: "/iocs" },
+      { label: "Records", icon: "pi pi-fw pi-tags", to: { name: "whatrec" } },
+      { label: "IOCs", icon: "pi pi-fw pi-sitemap", to: { name: "iocs" } },
       {
         label: "PV Map",
         icon: "pi pi-fw pi-compass",
@@ -26,23 +26,23 @@ export default {
       tab_menu_items.push({
         label: plugin.label,
         icon: plugin.icon,
-        to: "/" + plugin.name,
+        to: { name: plugin.name },
       });
     }
     tab_menu_items.push({
       label: "Gateway",
       icon: "pi pi-fw pi-shield",
-      to: "/gateway",
+      to: { name: "gateway" },
     });
     tab_menu_items.push({
       label: "Duplicates",
       icon: "pi pi-pause",
-      to: "/duplicates",
+      to: { name: "duplicates" },
     });
     tab_menu_items.push({
       label: "Logs",
       icon: "pi pi-fw pi-list",
-      to: "/logs",
+      to: { name: "logs" },
     });
     return {
       tab_menu_items: tab_menu_items,

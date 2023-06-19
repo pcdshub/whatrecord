@@ -2,7 +2,7 @@
   <template v-if="item_name">
     <h2>{{ item_name }} - Metadata</h2>
     <dictionary-table
-      :dict="netconfig_info.metadata[item_name]"
+      :dict="plugin_metadata[item_name]"
       :cls="'metadata'"
       :skip_keys="[]"
     />
@@ -55,9 +55,10 @@
           />
         </template>
         <template #body="{ data }">
-          <router-link :to="`/netconfig/${data.cn[0]}`">{{
-            data.cn[0]
-          }}</router-link>
+          <router-link
+            :to="{ name: 'netconfig', query: { item: data.cn[0] } }"
+            >{{ data.cn[0] }}</router-link
+          >
           <template v-if="data.cname">
             <br />({{ data.cname.join(", ") }})
           </template>
@@ -88,27 +89,38 @@
   </template>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 /* import Dropdown from "primevue/dropdown"; */
 import InputText from "primevue/inputtext";
 import MultiSelect from "primevue/multiselect";
 import { FilterMatchMode } from "primevue/api";
 
 import DictionaryTable from "../components/dictionary-table.vue";
+import { computed } from "vue";
+
+interface ColumnData {
+  field: string;
+  header: string;
+  style: string;
+}
 
 export default {
   name: "NetconfigView",
+  setup() {
+    const store = use_configured_store();
+    const plugin_info = computed(() => store.plugin_info.netconfig ?? null);
+    return { store, plugin_info };
+  },
   components: {
     Button,
     Column,
     DataTable,
     DictionaryTable,
-    /* Dropdown, */
     InputText,
     MultiSelect,
   },
@@ -117,8 +129,9 @@ export default {
   },
   data() {
     return {
-      filters: null,
-      selected_columns: null,
+      filters: {} as Record<string, DataTableFilterMetaData>,
+      columns: [] as ColumnData[],
+      selected_columns: [] as ColumnData[],
       nice_names: {
         description: "Description",
         location: "Location",
@@ -128,15 +141,15 @@ export default {
         pcNumber: "PC Number",
         o: "Organization",
         ou: "Organization Unit",
-      },
+      } as Record<string, string>,
     };
   },
   computed: {
     netconfig_items() {
-      if (Object.keys(this.netconfig_info).length == 0) {
+      if (this.plugin_info === null) {
         return [];
       }
-      return Object.values(this.netconfig_info.metadata);
+      return Object.values(this.plugin_info.metadata);
     },
 
     global_filter_fields() {
@@ -146,28 +159,20 @@ export default {
       }
       return fields;
     },
-    ...mapState({
-      netconfig_info_ready(state) {
-        return Object.keys(state.plugin_info.netconfig || {}).length > 0;
-      },
-      netconfig_info(state) {
-        if (!state.plugin_info) {
-          return {};
-        }
-        const netconfig_info = state.plugin_info.netconfig || {
-          metadata: {},
-        };
-        return netconfig_info;
-      },
-    }),
+    netconfig_info_ready() {
+      return this.plugin_info !== null;
+    },
+    plugin_metadata(): Record<string, Object> {
+      return this.plugin_info.metadata as Record<string, Object>;
+    },
   },
   created() {
     document.title = `whatrecord? netconfig ${this.item_name}`;
     this.init_filters();
   },
-  mounted() {
+  async mounted() {
     if (!this.netconfig_info_ready) {
-      this.$store.dispatch("update_plugin_info", { plugin: "netconfig" });
+      await this.store.update_plugin_info({ plugin: "netconfig" });
     }
   },
   methods: {
@@ -186,14 +191,14 @@ export default {
         objectClass: { value: "", matchMode: FilterMatchMode.CONTAINS },
       };
       this.columns = [
-        { field: "description", style: "" },
-        { field: "location", style: "" },
-        { field: "dc", style: "" },
-        { field: "ipHostNumber", style: "" },
-        { field: "macAddress", style: "" },
-        { field: "pcNumber", style: "" },
-        { field: "manager", style: "" },
-        { field: "objectClass", style: "" },
+        { field: "description", style: "", header: "" },
+        { field: "location", style: "", header: "" },
+        { field: "dc", style: "", header: "" },
+        { field: "ipHostNumber", style: "", header: "" },
+        { field: "macAddress", style: "", header: "" },
+        { field: "pcNumber", style: "", header: "" },
+        { field: "manager", style: "", header: "" },
+        { field: "objectClass", style: "", header: "" },
       ];
       for (let col of this.columns) {
         col["header"] = this.nice_names[col.field] ?? col.field;
@@ -203,8 +208,8 @@ export default {
     clear_filters() {
       this.init_filters();
     },
-    onToggle(value) {
-      this.selected_columns = value;
+    onToggle(value: any) {
+      this.selected_columns = value as ColumnData[];
     },
   },
 };

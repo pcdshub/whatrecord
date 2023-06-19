@@ -4,14 +4,28 @@
   </router-link>
 </template>
 
-<script>
+<script lang="ts">
 export default {
   name: "ScriptContextOneLink",
   props: {
-    name: String,
-    line: Number,
-    short: Number,
-    link_text: String,
+    name: {
+      type: String,
+      required: true,
+    },
+    line: {
+      type: Number,
+      required: true,
+    },
+    short: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
+    link_text: {
+      type: String,
+      required: false,
+      default: "",
+    },
   },
   computed: {
     displayed_link_text() {
@@ -32,7 +46,7 @@ export default {
       return parts.slice(-this.short).join("/");
     },
     link() {
-      return { name: "file", params: { filename: this.name, line: this.line } };
+      return { name: "file", query: { filename: this.name, line: this.line } };
     },
   },
 };

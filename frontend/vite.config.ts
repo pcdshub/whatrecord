@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
 
-const path = require("path");
+import * as path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
@@ -10,18 +10,20 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   console.log(
     "Starting up whatrecord frontend on port",
-    env.WHATRECORD_FRONTEND_PORT
+    env.WHATRECORD_FRONTEND_PORT,
   );
   console.log(
     "Expecting backend to be running on http://" +
       env.WHATRECORD_API_HOST +
       ":" +
-      env.WHATRECORD_API_PORT
+      env.WHATRECORD_API_PORT,
   );
   return {
     define: {
       __APP_ENV__: env.APP_ENV,
+      __VUE_PROD_DEVTOOLS__: mode !== "production",
     },
+    // base: "./",
     mode: mode,
     plugins: [vue()],
     envPrefix: "WHATRECORD_",
