@@ -619,7 +619,7 @@ class RecordLinkGraph(_GraphHelper):
     """Record link graph."""
     # TODO: create node and color when not in database?
 
-    database: Database
+    database: Optional[Database]
     starting_records: List[str]
     newline: str = '\n'
     header_format: str = '{name} ({rtype})'
@@ -639,7 +639,7 @@ class RecordLinkGraph(_GraphHelper):
     show_empty: bool
     relations: Optional[PVRelations]
     record_types: Dict[str, RecordType]
-    default_edge_kwargs: Dict[str, str] = {
+    default_edge_kwargs: Dict[str, Any] = {
         "style": "solid",
     }
 
@@ -682,7 +682,8 @@ class RecordLinkGraph(_GraphHelper):
         record_types: Optional[Dict[str, RecordType]] = None,
     ):
         super().__init__()
-        self.database = Database(record_types=dict(record_types or {}))
+        self._built = False
+        self.database = None
         self.starting_records = starting_records or []
         self.header_format = header_format or type(self).header_format
         self.field_format = field_format or type(self).field_format
@@ -694,6 +695,13 @@ class RecordLinkGraph(_GraphHelper):
         if database is not None:
             self.add_database(database)
 
+        if record_types is not None:
+            if self.database is None:
+                self.database = Database()
+            self.database.record_types.update(record_types)
+
+        self.relations = relations
+
     def get_node(
         self, label: str, text: Optional[str] = None
     ) -> GraphNode:
@@ -704,16 +712,26 @@ class RecordLinkGraph(_GraphHelper):
 
     def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
         """Add records from the given database to the graph."""
-        if isinstance(database, Database):
+        if self.database is None:
+            if isinstance(database, Database):
+                self.database = database.shallow_copy()
+            else:
+                self.database = Database(
+                    records=database,
+                )
+        elif isinstance(database, Database):
             self.database.append(database)
         else:
             for record in database.values():
                 self.database.add_or_update_record(record)
 
-        if not self.relations:
-            self.relations = build_database_relations(
-                self.database.records, record_types=self.database.record_types
-            )
+        self._built = False
+        self.relations = None
+
+    def build(self):
+        """Build the graph from the provided databases."""
+        if self.database is None:
+            raise ValueError("No database or records were added")
 
         edge_color_idx = 0
         for li in find_record_links(
@@ -813,6 +831,8 @@ class RecordLinkGraph(_GraphHelper):
                 field_lines=(sub_header + field_text).strip(),
             )
 
+        self._built = True
+
     @property
     def graphed_records(self) -> List[str]:
         """All graphed record names (i.e., node labels)."""
@@ -823,6 +843,9 @@ class RecordLinkGraph(_GraphHelper):
 
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""
+        if not self._built:
+            self.build()
+
         all_match = set(self.graphed_records) <= set(self.starting_records)
         for node in self.nodes.values():
             node.highlighted = (
@@ -986,6 +1009,9 @@ class ScriptLinkGraph(_GraphHelper):
     # TODO: create node and color when not in database?
 
     newline: str = '<br align="center"/>'
+    _built: bool
+    limit_to_records: List[str]
+    script_relations: Optional[ScriptPVRelations]
 
     def __init__(
         self,
@@ -996,33 +1022,57 @@ class ScriptLinkGraph(_GraphHelper):
         record_types: Optional[Dict[str, RecordType]] = None,
     ):
         super().__init__()
-        self.database = Database(record_types=dict(record_types or {}))
+        self.database = None
         self.limit_to_records = limit_to_records or []
-        self.relations = relations
-        self.script_relations = script_relations
+        self._built = False
 
         if database is not None:
             self.add_database(database)
 
+        if record_types is not None:
+            if self.database is None:
+                self.database = Database()
+            self.database.record_types.update(record_types)
+
+        self.relations = relations
+        self.script_relations = script_relations
+
     def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
         """Add records from the given database to the graph."""
-        if isinstance(database, Database):
+        if self.database is None:
+            if isinstance(database, Database):
+                self.database = database.shallow_copy()
+            else:
+                self.database = Database(
+                    records=database,
+                )
+        elif isinstance(database, Database):
             self.database.append(database)
         else:
             for record in database.values():
                 self.database.add_or_update_record(record)
 
-        # if not self.script_relations:
-        self.relations = build_database_relations(
-            self.database.records,
-            record_types=self.database.record_types,
-        )
+        self._built = False
+        self.relations = None
+        self.script_relations = None
 
-        self.script_relations = build_script_relations(
-            database=self.database.records,
-            by_record=self.relations,
-            limit_to_records=self.limit_to_records,
-        )
+    def build(self):
+        """Build the graph from the provided databases."""
+        if self.database is None:
+            raise ValueError("No database or records were added")
+
+        if self.relations is None:
+            self.relations = build_database_relations(
+                self.database.records,
+                record_types=self.database.record_types,
+            )
+
+        if self.script_relations is None:
+            self.script_relations = build_script_relations(
+                database=self.database.records,
+                by_record=self.relations,
+                limit_to_records=self.limit_to_records,
+            )
 
         for script_a, script_a_relations in self.script_relations.items():
             self.get_node(script_a, text=script_a)
@@ -1049,8 +1099,12 @@ class ScriptLinkGraph(_GraphHelper):
                 if rec_name in self.database.records:
                     self.get_node(rec_name)
 
+        self._built = True
+
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""
+        if not self._built:
+            self.build()
         for node in self.nodes.values():
             node.highlighted = node.label in self.limit_to_records
 

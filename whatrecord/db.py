@@ -777,6 +777,33 @@ class Database:
         else:
             existing_record.update(record)
 
+    def shallow_copy(self) -> Database:
+        """A shallow copy of the database with new dictionaries/lists."""
+
+        return type(self)(
+            addpaths=list(self.addpaths),
+            aliases=dict(self.aliases),
+            breaktables=dict(self.breaktables),
+            comments=list(self.comments),
+            devices=list(self.devices),
+            drivers=list(self.drivers),
+            functions=list(self.functions),
+            includes=list(self.includes),
+            links=dict(self.links),
+            menus=dict(self.menus),
+            paths=list(self.paths),
+            pva_groups=dict(self.pva_groups),
+            record_types=dict(self.record_types),
+            records=dict(self.records),
+            registrars=list(self.registrars),
+            standalone_aliases=dict(self.standalone_aliases),
+            variables=dict(self.variables),
+            lint=DatabaseLint(
+                warnings=list(self.lint.warnings),
+                errors=list(self.lint.errors),
+            )
+        )
+
     def append(self, other: Database):
         """
         Append the other database, best-effort updating existing entries.
