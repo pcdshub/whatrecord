@@ -262,6 +262,12 @@ class ServerState:
             "pv_graphs": await self.dump_pv_graphs(),
             "pv_relations": await self.dump_pv_relations(),
         }
+
+        # Remove some duplicated infomration - PV relations are tracked
+        # at the top-level:
+        for item in dumped["iocs"].values():
+            item["ioc"].pop("pv_relations")
+
         elapsed = time.monotonic() - t0
         logger.info(
             (

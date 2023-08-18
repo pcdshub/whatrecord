@@ -199,7 +199,7 @@ export const cached_local_store = defineStore("cached", {
       }
 
       if (this.query_in_progress) {
-        await this.wait_for_other_queries(5000);
+        await this.wait_for_other_queries(60000);
         if (this.cache != null) {
           console.debug("Avoided hitting the cache again");
           return this.cache;
