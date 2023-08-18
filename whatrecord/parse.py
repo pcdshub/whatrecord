@@ -13,7 +13,7 @@ from .common import AnyPath, FileFormat, IocMetadata
 from .db import Database
 from .dbtemplate import TemplateSubstitution
 from .gateway import PVList as GatewayPVList
-from .macro import MacroContext
+from .macro import MacroContext, PassthroughMacroContext
 from .makefile import Makefile
 from .shell import LoadedIoc
 from .snl import SequencerProgram
@@ -39,6 +39,7 @@ def parse(
     dbd: Optional[str] = None,
     standin_directories: Optional[Dict[str, str]] = None,
     macros: Optional[str] = None,
+    disable_macros: bool = False,
     use_gdb: bool = False,
     format: Optional[FileFormat] = None,
     expand: bool = False,
@@ -66,6 +67,9 @@ def parse(
 
     macros : str, optional
         Macro string to use when parsing the file.
+
+    disable_macros : bool, optional
+        Disable macro handling, leaving unexpanded macros in the output.
 
     expand : bool, optional
         Expand a substitutions file.
@@ -95,7 +99,10 @@ def parse(
         filename = pathlib.Path(filename)
 
     # The shared macro context - used in different ways below:
-    macro_context = MacroContext(macro_string=macros or "")
+    if disable_macros:
+        macro_context = PassthroughMacroContext()
+    else:
+        macro_context = MacroContext(macro_string=macros or "")
 
     if format is None:
         format = FileFormat.from_filename(filename)
