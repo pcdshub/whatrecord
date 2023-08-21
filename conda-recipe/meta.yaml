@@ -30,6 +30,7 @@ requirements:
 
 test:
   requires:
+    - blark
     - codecov
     - flake8
     - happi
