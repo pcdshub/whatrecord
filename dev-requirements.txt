@@ -7,6 +7,7 @@ pytest-aiohttp
 pytest-cov
 
 # plugin dependencies
+blark
 happi
 python-ldap
 pytmc

@@ -29,7 +29,8 @@ requirements:
   - python-graphviz <0.18
 
 test:
-  requirements:
+  requires:
+    - blark
     - codecov
     - flake8
     - happi

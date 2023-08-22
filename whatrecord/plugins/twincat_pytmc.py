@@ -1,5 +1,5 @@
 """
-TwinCAT / pytmc whatrecord plugin
+TwinCAT / pytmc / blark whatrecord plugin
 
 Match your TwinCAT project symbols to EPICS records.
 
@@ -7,25 +7,29 @@ Set ``project`` to generate metadata for one particular PLC project.
 
 Alternatively, the plugin will query WHATRECORD_SERVER for all IOCs and attempt
 to find ads-ioc-based IOCs with associated TwinCAT projects.
+
+To annotate library-level information in dependencies (i.e., to let users "go
+to the source code of dependency-library-sourced symbols"), be sure to
+set ``BLARK_TWINCAT_ROOT`` per blark's documentation.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import logging
 import pathlib
 import re
 import typing
 from dataclasses import dataclass
-from typing import Dict, Generator, Iterable, List, Optional, Tuple
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, cast
 
 import apischema
 import blark
+import blark.dependency_store
 import blark.summary
-import pytmc
-import pytmc.bin.db
-from blark import dependency_store
+import pytmc.parser
 
 from .. import cache, client, util
 from ..common import AnyPath, FullLoadContext, IocMetadata, LoadContext
@@ -38,23 +42,26 @@ logger = logging.getLogger(__name__)
 DESCRIPTION = __doc__.strip()
 
 
+def _stringify_path(path: AnyPath) -> str:
+    """Uniform strings from a pathlib.Path or string."""
+    if isinstance(path, str):
+        path = pathlib.Path(path)
+    return str(path.resolve())
+
+
 @dataclass
-class PytmcPluginResults(PluginResults):
-    def merge(self, results: PytmcPluginResults) -> None:
+class TwincatPluginResults(PluginResults):
+    def merge(self, results: TwincatPluginResults) -> None:
         self.files_to_monitor.update(results.files_to_monitor)
         self.record_to_metadata_keys.update(results.record_to_metadata_keys)
         self.metadata_by_key.update(results.metadata_by_key)
         self.execution_info.update(results.execution_info)
-        self.nested.update(results.nested)
+        if self.nested is not None:
+            self.nested.update(results.nested or {})
 
     @classmethod
-    def from_metadata(cls, md: PlcMetadata) -> PytmcPluginResults:
-        def _stringify_path(path):
-            if isinstance(path, str):
-                return path
-            return str(path.resolve())
-
-        plc_results = PytmcPluginResults(
+    def from_metadata(cls, md: PlcMetadata) -> TwincatPluginResults:
+        plc_results = TwincatPluginResults(
             files_to_monitor={
                 _stringify_path(path): shasum
                 for path, shasum in md.loaded_files.items()
@@ -69,7 +76,7 @@ class PytmcPluginResults(PluginResults):
             },
             execution_info={},
         )
-        return PytmcPluginResults(
+        return TwincatPluginResults(
             nested={
                 md.name: plc_results
             }
@@ -78,10 +85,10 @@ class PytmcPluginResults(PluginResults):
     @classmethod
     def from_metadata_items(
         cls, mds: Iterable[PlcMetadata]
-    ) -> Optional[PytmcPluginResults]:
+    ) -> TwincatPluginResults:
         results = None
         for plc_md in mds:
-            single = PytmcPluginResults.from_metadata(plc_md)
+            single = TwincatPluginResults.from_metadata(plc_md)
             if results is None:
                 results = single
             else:
@@ -90,7 +97,7 @@ class PytmcPluginResults(PluginResults):
         if results is not None:
             return results
 
-        return PytmcPluginResults(
+        return TwincatPluginResults(
             files_to_monitor={},
             record_to_metadata_keys={},
             metadata_by_key={},
@@ -148,29 +155,46 @@ class NCAxis:
 class NCAxes:
     """Top-level NC axis information."""
     context: FullLoadContext
-    filename: str
+    filename: pathlib.Path
     hash: str
     axes: List[NCAxis]
 
     @classmethod
     def from_pytmc(
         cls,
-        plc: pytmc.parser.Plc,
+        project: pytmc.parser.TwincatItem,
+        loaded_files: Optional[Dict[str, str]] = None,
     ) -> Optional[NCAxes]:
-        """Create an NCAxes instance from a pytmc-parsed Plc."""
+        """Create an NCAxes instance from a project filename."""
         try:
-            nc = next(plc.root.find(pytmc.parser.NC))
+            nc: pytmc.parser.NC = next(project.root.find(pytmc.parser.NC))
         except StopIteration:
-            return
+            return None
 
-        filename = str(nc.filename.resolve())
-
-        return cls(
-            context=(LoadContext(filename, 0), ),
-            filename=filename,
-            hash=get_file_sha256(filename),
+        nc_filename = _stringify_path(nc.filename)
+        nc = cls(
+            context=(LoadContext(nc_filename, 0), ),
+            filename=nc.filename,
+            hash=get_file_sha256(nc_filename),
             axes=[NCAxis.from_pytmc(axis) for axis in nc.axes],
         )
+
+        if loaded_files is not None:
+            loaded_files[_stringify_path(nc.filename)] = nc.hash
+            for axis in nc.axes:
+                loaded_files[_stringify_path(axis.filename)] = axis.hash
+
+        return nc
+
+    @classmethod
+    def from_project_filename(
+        cls,
+        filename: pathlib.Path,
+        loaded_files: Optional[Dict[str, str]] = None,
+    ) -> Optional[NCAxes]:
+        """Create an NCAxes instance from a project filename."""
+        project = pytmc.parser.parse(filename)
+        return cls.from_pytmc(project, loaded_files)
 
 
 @dataclass
@@ -209,7 +233,7 @@ def load_context_from_path(path: List[blark.summary.Summary]) -> FullLoadContext
 
 
 def get_symbol_metadata(
-    blark_md: dependency_store.PlcMetadata,
+    blark_md: blark.dependency_store.PlcMetadata,
     symbol: pytmc.parser.Symbol,
     require_records: bool = True,
     add_project_prefix: bool = True,
@@ -217,7 +241,9 @@ def get_symbol_metadata(
     """Get symbol metadata given a pytmc Symbol."""
     symbol_type_name = symbol.data_type.qualified_type_name
     for pkg in pytmc.pragmas.record_packages_from_symbol(
-        symbol, yield_exceptions=True, allow_no_pragma=False
+        symbol,
+        yield_exceptions=True,
+        allow_no_pragma=False,
     ):
         if isinstance(pkg, Exception):
             # Eat these up rather than raising
@@ -253,13 +279,78 @@ def get_symbol_metadata(
 
 
 @dataclass
+class PytmcMetadata:
+    tsproj: pytmc.parser.TcSmProject
+    plcproj: pytmc.parser.PlcProject
+    tmc: Optional[pytmc.parser.TcModuleClass] = None
+    nc: Optional[NCAxes] = None
+
+    @classmethod
+    def from_tsproj(
+        cls,
+        tsproj: blark.solution.Project,
+        plc_name: str,
+        *,
+        loaded_files: Optional[Dict[str, str]] = None,
+    ) -> PytmcMetadata:
+        if loaded_files is None:
+            loaded_files = {}
+        if tsproj.local_path is None:
+            raise ValueError("Project without path")
+
+        try:
+            pytmc_tsproj = cast(
+                pytmc.parser.TcSmProject,
+                pytmc.parser.parse(tsproj.local_path)
+            )
+        except Exception as ex:
+            raise ValueError(f"Failed to parse project: {tsproj.name}") from ex
+
+        try:
+            pytmc_plc = cast(
+                pytmc.parser.PlcProject,
+                pytmc_tsproj.plcs_by_name[plc_name]
+            )
+        except KeyError as ex:
+            raise ValueError(f"Unable to find PLC project: {tsproj.name}") from ex
+
+        md = cls(
+            tsproj=pytmc_tsproj,
+            plcproj=pytmc_plc,
+            tmc=getattr(pytmc_plc, "tmc", None),
+        )
+
+        try:
+            md.nc = NCAxes.from_pytmc(
+                pytmc_tsproj,
+                loaded_files=loaded_files,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to load NC settings from project: %s",
+                tsproj.local_path,
+            )
+        return md
+
+
+@dataclass
 class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
     """This metadata is keyed on PlcMetadataCacheKey."""
     context: FullLoadContext
     symbols: Dict[str, PlcSymbolMetadata]
-    loaded_files: Dict[pathlib.Path, str]
+    loaded_files: Dict[str, str]
     record_to_symbol: Dict[str, str]
-    dependencies: Dict[str, dependency_store.ResolvedDependency]
+    # dependencies: Dict[str, blark.solution.DependencyInformation]
+    # TODO
+    dependencies: Dict[str, blark.dependency_store.DependencyVersion]
+    blark_md: Optional[blark.dependency_store.PlcProjectMetadata] = dataclasses.field(
+        default=None,
+        metadata=apischema.metadata.skip
+    )
+    tsproj: Optional[blark.solution.Project] = dataclasses.field(
+        default=None,
+        metadata=apischema.metadata.skip
+    )
     nc: Optional[NCAxes] = None
 
     @classmethod
@@ -296,36 +387,54 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
     @classmethod
     def from_blark(
         cls,
-        blark_md: dependency_store.PlcProjectMetadata,
+        blark_md: blark.dependency_store.PlcProjectMetadata,
+        tsproj: blark.solution.Project,
         include_dependencies: bool = True,
         use_cache: bool = True,
     ) -> PlcMetadata:
         """Create a PlcMetadata instance from a pytmc-parsed one."""
-        loaded_files = dict(blark_md.loaded_files)
-        nc = NCAxes.from_pytmc(blark_md.plc)
+        loaded_files = {
+            _stringify_path(path): hash_
+            for path, hash_ in blark_md.loaded_files.items()
+        }
 
-        if nc is not None:
-            loaded_files[nc.filename] = nc.hash
-            for axis in nc.axes:
-                loaded_files[axis.filename] = axis.hash
+        pytmc_md = PytmcMetadata.from_tsproj(
+            tsproj,
+            plc_name=blark_md.name,
+            loaded_files=loaded_files,
+        )
 
-        tmc = blark_md.plc.tmc
-        if tmc is None:
-            logger.debug("%s: No TMC file for symbols; skipping...", blark_md.plc.name)
-            return PlcMetadata(
+        # TODO: blark - not capturing tsproj
+        if tsproj.local_path is not None:
+            loaded_files[_stringify_path(tsproj.local_path)] = get_file_sha256(
+                tsproj.local_path
+            )
+
+        plc_fn = _stringify_path(blark_md.filename)
+        if blark_md.plc is None or pytmc_md.tmc is None:
+            logger.debug(
+                "%s (%s): No TMC file for symbols; skipping...",
+                plc_fn,
+                blark_md.name,
+            )
+            return cls(
                 name=blark_md.name,
-                code={},
+                filename=plc_fn,
+                include_dependencies=include_dependencies,
+                context=(LoadContext(plc_fn, 0), ),
+                dependencies=blark_md.dependencies,
                 symbols={},
                 record_to_symbol={},
                 nc=None,
                 loaded_files=loaded_files,
+                tsproj=tsproj,
+                blark_md=blark_md,
             )
 
-        filename = blark_md.plc.filename.resolve()
         if use_cache:
             key = PlcMetadataCacheKey(
-                name=blark_md.plc.name,
-                filename=str(filename),
+                name=blark_md.name,
+                filename=plc_fn,
                 include_dependencies=include_dependencies,
             )
             cached = cls.from_cache(key)
@@ -333,23 +442,26 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
                 if util.check_files_up_to_date(cached.loaded_files):
                     return cached
 
-        loaded_files[filename] = util.get_file_sha256(filename)
+        loaded_files[plc_fn] = util.get_file_sha256(plc_fn)
 
         md = cls(
-            name=blark_md.plc.name,
-            filename=filename,
+            name=blark_md.plc.name or blark_md.name,
+            filename=plc_fn,
             include_dependencies=include_dependencies,
-            context=(LoadContext(filename, 0), ),
+            context=(LoadContext(plc_fn, 0), ),
             symbols={},
             record_to_symbol={},
             dependencies=blark_md.dependencies,
             loaded_files=loaded_files,
-            nc=nc,
+            nc=pytmc_md.nc,
+            tsproj=tsproj,
+            blark_md=blark_md,
         )
 
         def by_name(symbol):
             return symbol.name
 
+        tmc = pytmc_md.tmc
         for symbol in sorted(pytmc.pragmas.find_pytmc_symbols(tmc), key=by_name):
             for symbol_md in get_symbol_metadata(blark_md, symbol):
                 md.symbols[symbol_md.name] = symbol_md
@@ -357,9 +469,8 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
                     md.record_to_symbol[record] = symbol_md.name
 
         logger.debug(
-            "PLC %s: Found %d symbols (%d generated metadata; %d records)",
+            "PLC %s: Found %d symbols which generated metadata -> %d records",
             blark_md.plc.name,
-            len(blark_md.tmc_symbols),
             len(md.symbols),
             len(md.record_to_symbol),
         )
@@ -374,21 +485,48 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
         project: AnyPath,
         include_dependencies: bool = True,
         plc_whitelist: Optional[List[str]] = None,
+        loaded_files: Optional[Dict[str, str]] = None,
+        use_cache: bool = True,
     ) -> Generator[PlcMetadata, None, None]:
         """Given a project/solution filename, get all PlcMetadata."""
-        projects = dependency_store.load_projects(
-            project,
-            include_dependencies=include_dependencies,
-            plc_whitelist=plc_whitelist,
+        if loaded_files is None:
+            loaded_files = {}
+        solution = blark.solution.make_solution_from_files(project)
+        logger.debug(
+            "Solution path %s projects %s", solution.filename, solution.projects
         )
-        for project in projects:
-            logger.debug("Found plc project %s from %s", project.name, project.filename)
-            plc_md = cls.from_blark(
-                project,
-                include_dependencies=include_dependencies,
-            )
-            if plc_md is not None:
-                yield plc_md
+        for tsproj_project in solution.projects:
+            logger.debug("Found tsproj %s", tsproj_project.name)
+            try:
+                parsed_tsproj = tsproj_project.load()
+            except Exception:
+                logger.exception("Failed to load project %s", tsproj_project.name)
+                continue
+
+            for plc_name, plc in parsed_tsproj.plcs_by_name.items():
+                if plc_whitelist and plc_name not in plc_whitelist:
+                    continue
+
+                logger.debug("Found PLC project %s", plc_name)
+                plc_md = blark.dependency_store.PlcProjectMetadata.from_plcproject(
+                    plc,
+                    include_dependencies=include_dependencies,
+                )
+                if plc_md is None:
+                    continue
+
+                logger.debug(
+                    "tsproj %s: Found plc project %s from %s",
+                    tsproj_project.name,
+                    plc_md.name,
+                    plc_md.filename,
+                )
+                yield cls.from_blark(
+                    blark_md=plc_md,
+                    tsproj=tsproj_project,
+                    include_dependencies=include_dependencies,
+                    use_cache=use_cache,
+                )
 
 
 MAKEFILE_VAR_RE = re.compile(r"^([A-Z_][A-Z0-9_]+)\s*:?=\s*(.*)$", re.IGNORECASE | re.MULTILINE)
@@ -447,7 +585,7 @@ async def _cli_main():
     parser = _get_argparser()
     args = parser.parse_args()
     results = await main(**vars(args))
-    whatrecord_results = PytmcPluginResults.from_metadata_items(results)
+    whatrecord_results = TwincatPluginResults.from_metadata_items(results)
     json_results = apischema.serialize(whatrecord_results)
     dump_args = {"indent": 4} if args.pretty else {}
     print(json.dumps(json_results, sort_keys=True, **dump_args))

@@ -1,0 +1,3 @@
+[submodule "whatrecord/tests/blark-twincat-root-example"]
+	path = whatrecord/tests/blark_root
+	url = https://github.com/klauer/blark-twincat-root-example
