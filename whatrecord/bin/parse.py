@@ -2,6 +2,9 @@
 "whatrecord parse" is used to parse and interpret any of whatrecord's supported
 file formats, dumping the results to the console (standard output) in JSON
 format, by default.
+
+Unless ``--disable-macros`` is specified, all text will go through the macro
+context as if the files were being loaded in an IOC shell.
 """
 
 import argparse
@@ -68,6 +71,12 @@ def build_arg_parser(parser=None):
     )
 
     parser.add_argument(
+        "--disable-macros",
+        action="store_true",
+        help="Disable macro handling, leaving unexpanded macros in the output."
+    )
+
+    parser.add_argument(
         "-o", "--output",
         type=str,
         required=False,
@@ -105,6 +114,7 @@ def parse_from_cli_args(
     dbd: Optional[str] = None,
     standin_directory: Optional[List[str]] = None,
     macros: Optional[str] = None,
+    disable_macros: bool = False,
     use_gdb: bool = False,
     format: Optional[str] = None,
     expand: bool = False,
@@ -115,6 +125,9 @@ def parse_from_cli_args(
 
     This variant uses the raw CLI arguments, mapping them on to those that
     `parse` expects.  For programmatic usage, please use ``parse()`` directly.
+
+    Unless ``disable_macros`` is set, all text will go through the macro
+    context as if the files were being loaded in an IOC shell.
 
     Parameters
     ----------
@@ -128,7 +141,11 @@ def parse_from_cli_args(
         A list of substitute directories of the form ``DirectoryA=DirectoryB``.
 
     macros : str, optional
-        Macro string to use when parsing the file.
+        Macro string to use when parsing the file.  Ignored if
+        ``disable_macros`` is set.
+
+    disable_macros : bool, optional
+        Disable macro handling, leaving unexpanded macros in the output.
 
     expand : bool, optional
         Expand a substitutions file.
@@ -163,6 +180,7 @@ def parse_from_cli_args(
         dbd=dbd,
         standin_directories=standin_directories,
         macros=macros,
+        disable_macros=disable_macros,
         use_gdb=use_gdb,
         format=format,
         expand=expand,
@@ -178,6 +196,7 @@ def main(
     output_format: str = "json",
     output: Optional[str] = None,
     macros: Optional[str] = None,
+    disable_macros: bool = False,
     use_gdb: bool = False,
     expand: bool = False,
     v3: bool = False,
@@ -187,6 +206,7 @@ def main(
         dbd=dbd,
         standin_directory=standin_directory,
         macros=macros,
+        disable_macros=disable_macros,
         use_gdb=use_gdb,
         format=input_format,
         expand=expand,
