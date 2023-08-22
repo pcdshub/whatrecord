@@ -369,7 +369,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
             return
 
         loaded_files = {
-            makefile_path: makefile_hash or get_file_sha256(makefile_path)
+            str(makefile_path): makefile_hash or get_file_sha256(makefile_path)
         }
 
         project, plc_name = project_info
@@ -377,12 +377,11 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
             "Found a PLC for this project: %s %s (%s)",
             md.name, plc_name, project
         )
-        for blark_md in PlcMetadata.from_project_filename(
+        yield from PlcMetadata.from_project_filename(
             project,
             plc_whitelist=[plc_name],
-        ):
-            blark_md.loaded_files.update(loaded_files)
-            yield cls(**vars(blark_md))
+            loaded_files=loaded_files,
+        )
 
     @classmethod
     def from_blark(
