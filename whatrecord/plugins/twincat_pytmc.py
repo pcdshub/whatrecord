@@ -27,8 +27,8 @@ from typing import Dict, Generator, Iterable, List, Optional, Tuple, cast
 
 import apischema
 import blark
+import blark.dependency_store
 import blark.summary
-from blark import dependency_store
 
 import pytmc.parser
 
@@ -234,7 +234,7 @@ def load_context_from_path(path: List[blark.summary.Summary]) -> FullLoadContext
 
 
 def get_symbol_metadata(
-    blark_md: dependency_store.PlcMetadata,
+    blark_md: blark.dependency_store.PlcMetadata,
     symbol: pytmc.parser.Symbol,
     require_records: bool = True,
     add_project_prefix: bool = True,
@@ -343,8 +343,8 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
     record_to_symbol: Dict[str, str]
     # dependencies: Dict[str, blark.solution.DependencyInformation]
     # TODO
-    dependencies: Dict[str, dependency_store.DependencyVersion]
-    blark_md: Optional[dependency_store.PlcProjectMetadata] = dataclasses.field(
+    dependencies: Dict[str, blark.dependency_store.DependencyVersion]
+    blark_md: Optional[blark.dependency_store.PlcProjectMetadata] = dataclasses.field(
         default=None,
         metadata=apischema.metadata.skip
     )
@@ -387,7 +387,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
     @classmethod
     def from_blark(
         cls,
-        blark_md: dependency_store.PlcProjectMetadata,
+        blark_md: blark.dependency_store.PlcProjectMetadata,
         tsproj: blark.solution.Project,
         include_dependencies: bool = True,
         use_cache: bool = True,
@@ -508,7 +508,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
                     continue
 
                 logger.debug("Found PLC project %s", plc_name)
-                plc_md = dependency_store.PlcProjectMetadata.from_plcproject(
+                plc_md = blark.dependency_store.PlcProjectMetadata.from_plcproject(
                     plc,
                     include_dependencies=include_dependencies,
                 )
