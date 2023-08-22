@@ -29,7 +29,6 @@ import apischema
 import blark
 import blark.dependency_store
 import blark.summary
-
 import pytmc.parser
 
 from .. import cache, client, util
