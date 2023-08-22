@@ -344,10 +344,12 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
     # dependencies: Dict[str, blark.solution.DependencyInformation]
     # TODO
     dependencies: Dict[str, dependency_store.DependencyVersion]
-    blark_md: blark.solution.PlcProjectMetadata = dataclasses.field(
+    blark_md: Optional[dependency_store.PlcProjectMetadata] = dataclasses.field(
+        default=None,
         metadata=apischema.metadata.skip
     )
-    tsproj: blark.solution.Project = dataclasses.field(
+    tsproj: Optional[blark.solution.Project] = dataclasses.field(
+        default=None,
         metadata=apischema.metadata.skip
     )
     nc: Optional[NCAxes] = None

@@ -150,5 +150,6 @@ def test_plugin_results(project_c_md: IocMetadata):
     # The TwinCAT Plugin uses "nested" metadata, allowing the server to
     # only give you per-project information if you want.  So not everything is
     # in the top-level dictionary.
+    assert results.nested is not None
     assert "PREFIX:fOutput_RBV" in results.nested["ProjectC"].record_to_metadata_keys
     assert "ProjectC:MAIN.fOutput" in results.nested["ProjectC"].metadata_by_key

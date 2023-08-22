@@ -11,11 +11,13 @@ from types import ModuleType
 from typing import Dict, List, Optional, Union
 
 import apischema
+import blark
 import pytest
 
 from .. import (access_security, asyn, autosave, cache, common, ioc_finder,
                 motor, shell, snl)
 from ..common import FullLoadContext, LoadContext
+from ..plugins import twincat_pytmc
 
 MODULE_PATH = Path(__file__).parent
 
@@ -25,6 +27,7 @@ SKIP_CLASSES = (
     cache.Cached,
     ioc_finder.IocScriptStaticInfoList,
     ioc_finder.IocScriptStaticList,
+    twincat_pytmc.PytmcMetadata,  # should not serialize
 )
 
 SKIP_DESERIALIZATION = {
@@ -114,6 +117,8 @@ init_args_by_type = {
     Optional[common.RecordType]: None,
     Union[snl.Declarator, snl.Variable]: snl.Variable(context=[], name="test"),
     snl.OptionalExpression: None,
+    blark.dependency_store.PlcProjectMetadata: None,  # non-serialized
+    blark.solution.Project: None,  # non-serialized
 }
 
 
