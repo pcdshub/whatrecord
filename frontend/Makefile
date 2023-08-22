@@ -13,10 +13,12 @@ dev:
 	@echo "* Starting up the dev server on port ${FRONTEND_PORT} with yarn..."
 	@echo "* Expecting 'whatrec server' to be running on ${API_HOST}:${API_PORT}"
 	@echo "* (see .env or .env.local to customize this)"
-	yarn serve --port "${FRONTEND_PORT}"
+	yarn build --mode="development"
+	yarn serve --port "${FRONTEND_PORT}" --host --strictPort --mode="development"
 
 dev-setup:
 	yarn install
+	yarn build --mode="development"
 
 docker-dev:
 	@echo "* Starting up the dev server via docker on port ${FRONTEND_PORT}..."

@@ -29,7 +29,12 @@
       {{ selected_item_plc }}
     </router-link>
     <h4>Dependencies</h4>
-    <DataTable :value="plc_dependencies" class="p-datatable-sm" dataKey="name">
+    <DataTable
+      :value="plc_dependencies"
+      class="p-datatable-sm"
+      dataKey="name"
+      style="width: 50%"
+    >
       <Column field="name" header="Name" />
       <Column field="vendor" header="Vendor" />
       <Column field="version" header="Version" />
@@ -123,7 +128,10 @@
           >
             <template #body="{ data }">
               <router-link
-                :to="{ name: 'twincat_pytmc', query: { plc: data.full_name } }"
+                :to="{
+                  name: 'twincat_pytmc',
+                  query: { plc: data.plc, item: data.full_name },
+                }"
                 >{{ data.name }}</router-link
               >
             </template>
@@ -157,7 +165,7 @@
             field="context"
             header="Context"
             :sortable="true"
-            style="width: 30%"
+            style="width: 50%"
           >
             <template #body="{ data }">
               <script-context-link :context="data.context" :short="3" />
@@ -246,6 +254,7 @@ export default {
     ScriptContextLink,
   },
   props: {
+    plc: String,
     item_name: String,
   },
   data() {
@@ -326,7 +335,7 @@ export default {
     },
 
     plcs() {
-      return this.plugin_nested_info.keys ?? [];
+      return this.plugin_nested_info?.keys ?? [];
     },
 
     plcs_ready() {
@@ -366,7 +375,7 @@ export default {
   methods: {
     async from_params() {
       const route_query = this.$route.query;
-      const item_plc = route_query.item_name?.toString().split(":")[0] ?? "";
+      const item_plc = route_query.item?.toString().split(":")[0] ?? "";
       let plc = item_plc || route_query.plc;
 
       if (plc) {

@@ -26,21 +26,21 @@
         v-for="[plugin, plugin_match] of Object.entries(pair.plugin_matches)"
         :key="plugin_match"
       >
-        <details>
-          <summary>
-            {{ plugin }} - {{ plugin_match.name }}
-            <router-link
-              :to="{ name: plugin, query: { item: plugin_match.name } }"
-            >
-              (Details)
-            </router-link>
-          </summary>
-          <dictionary-table
-            :dict="plugin_match"
-            :cls="'metadata'"
-            :skip_keys="['_whatrecord']"
-          />
-        </details>
+        <template v-for="item of plugin_match">
+          <details>
+            <summary>
+              {{ plugin }} - {{ item.name }}
+              <router-link :to="{ name: plugin, query: { item: item.name } }">
+                (Details)
+              </router-link>
+            </summary>
+            <dictionary-table
+              :dict="item"
+              :cls="'metadata'"
+              :skip_keys="['_whatrecord']"
+            />
+          </details>
+        </template>
         <br />
       </template>
     </template>
@@ -212,7 +212,7 @@ interface PluginMatch {
 interface DisplayedRecords {
   definition: RecordType | null;
   instance: RecordInstance;
-  plugin_matches: Record<string, PluginMatch>;
+  plugin_matches: Record<string, PluginMatch[]>;
 }
 
 function get_plugin_matches(
@@ -271,6 +271,7 @@ export default {
           instance: this.record,
           plugin_matches: get_plugin_matches(this.record.metadata),
         });
+        console.log("matches", result);
       }
       if (this.pva_group != null) {
         result.push({

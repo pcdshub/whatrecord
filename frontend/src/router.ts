@@ -80,6 +80,7 @@ if (twincat_pytmc_enabled) {
     path: "/plugins/twincat_pytmc",
     component: TwincatPytmcView,
     props: (route) => ({
+      plc: route.query.plc || null,
       item_name: route.query.item || null,
     }),
   });

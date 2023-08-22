@@ -1,6 +1,6 @@
 <template>
   <div class="grid option">
-    <div class="col-6">
+    <div class="col-12">
       <SelectButton
         v-model="search_mode"
         :options="search_mode_options"
