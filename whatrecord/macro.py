@@ -35,6 +35,23 @@ def macros_from_string(
     return macro_context.define_from_string(macro_string)
 
 
+class PassthroughMacroContext(MacroContext):
+    """
+    A stand-in MacroContext which performs no macro expansion.
+
+    That is, a pass-through/no-operation macro context.
+    """
+
+    def expand(self, value: str, **_) -> str:
+        return value
+
+    def expand_by_line(self, contents: str, *, delimiter: str = "\n") -> str:
+        return delimiter.join(
+            line
+            for line in contents.splitlines()
+        )
+
+
 @dataclasses.dataclass
 class _SerializedMacroContext:
     #: Show warnings
@@ -43,6 +60,8 @@ class _SerializedMacroContext:
     string_encoding: str
     #: The macros, including any environment variables (if use_environment set).
     macros: Dict[str, str]
+    #: If the context is a passthrough one.
+    passthrough: bool
 
 
 RE_MACRO_KEY_SKIP = []
@@ -124,6 +143,7 @@ def _serialize_macro_context(ctx: MacroContext) -> Dict[str, Any]:
             show_warnings=ctx.show_warnings,
             string_encoding=ctx.string_encoding,
             macros=macros,
+            passthrough=isinstance(ctx, PassthroughMacroContext),
         )
     )
 
@@ -134,7 +154,9 @@ def _deserialize_macro_context(info: Dict[str, Any]) -> MacroContext:
         _SerializedMacroContext,
         info
     )
-    return MacroContext(
+
+    cls = PassthroughMacroContext if obj.passthrough else MacroContext
+    return cls(
         show_warnings=obj.show_warnings,
         string_encoding=obj.string_encoding,
         use_environment=False,
@@ -142,4 +164,4 @@ def _deserialize_macro_context(info: Dict[str, Any]) -> MacroContext:
     )
 
 
-__all__ = ["MacroContext", "macros_from_string"]
+__all__ = ["MacroContext", "PassthroughMacroContext", "macros_from_string"]
