@@ -4,7 +4,7 @@ import apischema
 import pytest
 
 from .. import settings
-from ..macro import MacroContext
+from ..macro import MacroContext, PassthroughMacroContext
 
 
 def test_skip_keys(monkeypatch):
@@ -46,8 +46,21 @@ def test_env_include_exclude(monkeypatch, include: bool):
     monkeypatch.setattr(settings, "MACRO_INCLUDE_ENV", include)
     ctx = MacroContext(use_environment=True)
     keys = set(apischema.serialize(MacroContext, ctx)["macros"])
+    assert not apischema.serialize(MacroContext, ctx)["passthrough"]
 
     if not include:
         assert set(keys) == set()
     else:
         assert 0 < len(set(keys)) <= len(os.environ)
+
+
+def test_passthrough():
+    ctx = PassthroughMacroContext()
+    assert ctx.expand("$(ABC)") == "$(ABC)"
+
+    serialized = apischema.serialize(MacroContext, ctx)
+    assert serialized["passthrough"]
+
+    deserialized = apischema.deserialize(MacroContext, serialized)
+    assert isinstance(deserialized, PassthroughMacroContext)
+    assert deserialized.expand("$(ABC)") == "$(ABC)"
