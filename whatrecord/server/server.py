@@ -136,6 +136,10 @@ class ServerState:
             return
 
         for ioc in self.container.scripts.values():
+            logger.info(
+                "Annotating %d records for IOC %s",
+                len(ioc.shell_state.database), ioc.name,
+            )
             for record in ioc.shell_state.database.values():
                 record.metadata.update(self.get_record_annnotations(ioc, record))
                 for fn, hash_ in ioc.shell_state.loaded_files.items():
@@ -212,10 +216,12 @@ class ServerState:
         return plugins
 
     def dump_files(self) -> dict:
-        return {
-            fn: self.dump_file(fn, hash)
-            for fn, hash in self.container.loaded_files.items()
-        }
+        result = {}
+        for fn, hash_ in self.container.loaded_files.items():
+            if hash_ not in result:
+                result[hash_] = self.dump_file(fn, hash_)
+            result[fn] = hash_
+        return result
 
     async def dump_pv_relations(self) -> dict:
         return apischema.serialize(
@@ -236,7 +242,7 @@ class ServerState:
                     record,
                     len(self.container.pv_relations[record]),
                 )
-                graph = self.get_graph(  # get_graph_rendered
+                graph = self.get_graph(
                     (record,),
                     graph_type="record",
                     # format="svg",
