@@ -25,7 +25,7 @@ import { nullable_string_to_array } from "./util";
 let routes: RouteRecordRaw[] = [
   {
     path: "/",
-    redirect: "/whatrec/*/",
+    redirect: "/whatrec",
   },
   {
     name: "whatrec",
