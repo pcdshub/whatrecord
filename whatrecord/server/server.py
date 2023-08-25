@@ -209,10 +209,6 @@ class ServerState:
                 metadata=self.gateway_config,
             )
         )
-        # apischema.serialize(
-        #     Dict[pathlib.Path, gateway.PVList],
-        #     self.gateway_config.pvlists,
-        # )
         return plugins
 
     def dump_files(self) -> dict:
