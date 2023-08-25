@@ -15,7 +15,7 @@ ARG PIP_EXTRAS
 WORKDIR /root
 
 COPY . /usr/local/src/whatrecord
-RUN pip install /usr/local/src/whatrecord ${PIP_EXTRAS}
+RUN pip install /usr/local/src/whatrecord -r /usr/local/src/whatrecord/dev-requirements.txt ${PIP_EXTRAS}
 
 WORKDIR /ioc
 
