@@ -21,16 +21,15 @@ _show_settings:
 	@echo "* (see .env or .env.local to customize this)"
 
 dev: _show_settings
-	yarn build --mode="development"
-	yarn serve --port "${WHATRECORD_FRONTEND_PORT}" --host --strictPort --mode="development"
+	yarn build --mode=development
+	yarn serve --port "${WHATRECORD_FRONTEND_PORT}" --host --strictPort --mode=development
 
 dev-watch:
 	@echo "Building and monitoring source files for changes..."
-	yarn build --mode="development" --watch
+	yarn build --mode=development --minify=false --watch
 
 dev-setup:
 	yarn install
-	yarn build --mode="development"
 
 docker-dev: _show_settings
 	docker run -it --rm \
