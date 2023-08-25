@@ -127,6 +127,11 @@ class ServerState:
         for plugin in self.plugins:
             await self._update_plugin(plugin)
 
+        self.container.pv_relations = graph.build_database_relations(
+            database=self.container.database,
+            record_types=self.container.record_types,  # <-- inaccurate?
+            aliases=self.container.aliases,
+        )
         self.script_relations = graph.build_script_relations(
             self.container.database,
             self.container.pv_relations,
