@@ -73,6 +73,11 @@ class GraphEdge:
     #: Options to pass to graphviz.
     options: dict = dataclasses.field(default_factory=dict)
 
+    def __hash__(self) -> int:
+        return hash(
+            (self.source.id, self.destination.id, self.source_port, self.destination_port)
+        )
+
     @property
     def source_with_port(self) -> str:
         """Source name including the port name, for graphviz."""
@@ -733,6 +738,30 @@ class RecordLinkGraph(_GraphHelper):
         if self.database is None:
             raise ValueError("No database or records were added")
 
+        edge_cache = set()
+
+        def add_edge(
+            source: GraphNode,
+            destination: GraphNode,
+            source_port: Optional[str] = None,
+            dest_port: Optional[str] = None,
+            **options
+        ) -> None:
+            key = (source.id, destination.id)
+            if key in edge_cache:
+                return
+            edge_cache.add(key)
+            # Avoid bottleneck of checking the edge list... ?
+            self.edges.append(
+                GraphEdge(
+                    source,
+                    destination,
+                    source_port=source_port,
+                    destination_port=dest_port,
+                    options=options
+                )
+            )
+
         edge_color_idx = 0
         for li in find_record_links(
             self.database.records, self.starting_records, relations=self.relations
@@ -744,18 +773,16 @@ class RecordLinkGraph(_GraphHelper):
                 if field.name == "PROC":
                     ...
                 elif field.value or self.show_empty:
-                    node.metadata["fields"][field.name] = textwrap.dedent(
-                        f"""\
-                        <TR>
-                            <TD PORT="{field.name}_name" BORDER="1">
-                                <B>{field.name}</B>
-                            </TD>
-                            <TD PORT="{field.name}_value" BORDER="1">
-                                {field.value}
-                            </TD>
-                        </TR>
-                        """
-                    ).rstrip()
+                    node.metadata["fields"][field.name] = (
+                        f'<TR>'
+                        f'<TD PORT="{field.name}_name" BORDER="1">'
+                        f'<B>{field.name}</B>'
+                        f'</TD>'
+                        f'<TD PORT="{field.name}_value" BORDER="1">'
+                        f'{field.value}'
+                        f'</TD>'
+                        f'</TR>'
+                    )
 
             if li.field1.dtype == "DBF_INLINK" or li.field2.dtype == "DBF_OUTLINK":
                 src, dest = dest, src
@@ -770,42 +797,44 @@ class RecordLinkGraph(_GraphHelper):
                         edge_kw[key] = value
                         break
 
-            if (src, dest) not in set(self.edge_pairs):
-                if li.field1.dtype == "DBF_FWDLINK":
-                    # edge_kw["taillabel"] = "FLNK"
-                    self.add_edge(
-                        src.label,
-                        dest.label,
-                        color="black",
-                        source_port=li.field1.name,
-                        **edge_kw
-                    )
-                elif li.field2.dtype == "DBF_FWDLINK":
-                    # edge_kw["taillabel"] = "FLNK"
-                    self.add_edge(
-                        dest.label,
-                        src.label,
-                        color="black",
-                        source_port=li.field2.name,
-                        **edge_kw
-                    )
-                else:
-                    # edge_kw["taillabel"] = f"{li.field1.name}"
-                    # edge_kw["headlabel"] = f"{li.field2.name}"
-                    if li.info:
-                        edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
+            if (src.id, dest.id) in edge_cache:
+                continue
 
-                    edge_color_idx += 1
-                    color = self.edge_colors[edge_color_idx % len(self.edge_colors)]
+            if li.field1.dtype == "DBF_FWDLINK":
+                # edge_kw["taillabel"] = "FLNK"
+                add_edge(
+                    src,
+                    dest,
+                    color="black",
+                    source_port=li.field1.name,
+                    **edge_kw
+                )
+            elif li.field2.dtype == "DBF_FWDLINK":
+                # edge_kw["taillabel"] = "FLNK"
+                add_edge(
+                    dest,
+                    src,
+                    color="black",
+                    source_port=li.field2.name,
+                    **edge_kw
+                )
+            else:
+                # edge_kw["taillabel"] = f"{li.field1.name}"
+                # edge_kw["headlabel"] = f"{li.field2.name}"
+                if li.info:
+                    edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
 
-                    self.add_edge(
-                        f"{src.label}",
-                        f"{dest.label}",
-                        source_port=li.field1.name,
-                        dest_port=li.field2.name,
-                        color=color,
-                        **edge_kw,
-                    )
+                edge_color_idx += 1
+                color = self.edge_colors[edge_color_idx % len(self.edge_colors)]
+
+                add_edge(
+                    src,
+                    dest,
+                    source_port=li.field1.name,
+                    dest_port=li.field2.name,
+                    color=color,
+                    **edge_kw,
+                )
 
         if not self.nodes:
             # No relationship found; at least show the records
