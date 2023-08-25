@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import pathlib
+import tempfile
 
 import pytest
 
@@ -59,4 +61,15 @@ def test_misc(ready_state: ServerState):
     assert what.pva_group is not None
     assert what.pva_group == ready_state.pva_database[pvname]
 
-    # script = ready_state.container.scripts[iocname]
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "format, full",
+    [
+        pytest.param(".json", False, id="uncompressed-partial"),
+        pytest.param(".json.gz", True, id="compressed-full"),
+    ]
+)
+async def test_dump_to_file(ready_state: ServerState, format: str, full: bool):
+    with tempfile.NamedTemporaryFile(suffix=format) as fp:
+        await ready_state.dump_to_file(filename=pathlib.Path(fp.name), full=full)

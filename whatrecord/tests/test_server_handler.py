@@ -1,7 +1,6 @@
 """Requires pytest-aiohttp"""
 import json
 import logging
-import pathlib
 from typing import Any, Dict, Optional, Type, TypeVar
 
 import aiohttp
@@ -9,6 +8,7 @@ import aiohttp.test_utils
 import aiohttp.web
 import apischema
 import pytest
+import pytest_asyncio
 
 from .. import gateway
 from ..common import RecordInstance, WhatRecord
@@ -37,7 +37,7 @@ def server(handler: ServerHandler) -> aiohttp.web.Application:
     return app
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def client(server: aiohttp.web.Application, aiohttp_client):
     return await aiohttp_client(server)
 
@@ -48,7 +48,8 @@ T = TypeVar("T")
 
 
 async def get_response(
-    client: aiohttp.web.Application, url: str,
+    client: aiohttp.web.Application,
+    url: str,
     params: Optional[Dict[str, str]] = None
 ) -> aiohttp.ClientResponse:
     logger.debug("Request: %s (params=%s)", url, params)
@@ -75,6 +76,7 @@ async def get_and_deserialize(
     return apischema.deserialize(cls, data)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "url, cls, params, expected",
     [
@@ -127,7 +129,8 @@ async def get_and_deserialize(
     ],
 )
 async def test_request(
-    client, server: aiohttp.web.Application,
+    client,
+    server: aiohttp.web.Application,
     url: str,
     cls: Type[T],
     params: Dict[str, str],
@@ -142,6 +145,7 @@ async def test_request(
     assert response == expected
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "url, params",
     [
@@ -196,6 +200,7 @@ async def test_request_smoke(
     assert len(response)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "url, params",
     [
@@ -212,7 +217,8 @@ async def test_request_smoke(
     ],
 )
 async def test_graph_smoke(
-    client, server: aiohttp.web.Application,
+    client,
+    server: aiohttp.web.Application,
     url: str,
     params: Dict[str, str],
 ):
@@ -257,6 +263,7 @@ async def test_graph_smoke(
         ),
     ],
 )
+@pytest.mark.asyncio
 async def test_record_metadata(
     client, server: aiohttp.web.Application,
     pvname: str,
@@ -284,6 +291,7 @@ async def test_record_metadata(
     "regex",
     [True, False]
 )
+@pytest.mark.asyncio
 async def test_get_duplicates(
     client, server: aiohttp.web.Application, regex: bool
 ):
@@ -300,6 +308,7 @@ async def test_get_duplicates(
     )
 
 
+@pytest.mark.asyncio
 async def test_get_matches(
     client, server: aiohttp.web.Application,
 ):
@@ -316,6 +325,7 @@ async def test_get_matches(
     assert response.matches[1].name == "ioc_d"
 
 
+@pytest.mark.asyncio
 async def test_gateway_info(
     client, server: aiohttp.web.Application,
 ):
@@ -323,10 +333,10 @@ async def test_gateway_info(
         client,
         url="/api/gateway/info",
         params=dict(),
-        cls=Dict[pathlib.Path, gateway.PVList],
+        cls=gateway.GatewayConfig,
     )
 
-    filename, kfe_pvlist = list(info.items())[0]
+    filename, kfe_pvlist = list(info.pvlists.items())[0]
     assert filename.name == "kfe.pvlist"
     assert kfe_pvlist.evaluation_order == "ALLOW, DENY"
 
