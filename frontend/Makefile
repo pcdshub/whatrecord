@@ -24,6 +24,10 @@ dev: _show_settings
 	yarn build --mode="development"
 	yarn serve --port "${WHATRECORD_FRONTEND_PORT}" --host --strictPort --mode="development"
 
+dev-watch:
+	@echo "Building and monitoring source files for changes..."
+	yarn build --mode="development" --watch
+
 dev-setup:
 	yarn install
 	yarn build --mode="development"
@@ -43,4 +47,4 @@ prod:
 clean:
 	rm -rf ./dist ./node_modules
 
-.PHONY: _show_settings dev dev-setup prod clean
+.PHONY: _show_settings dev dev-watch dev-setup prod clean

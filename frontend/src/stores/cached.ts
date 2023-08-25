@@ -494,15 +494,17 @@ export const cached_local_store = defineStore("cached", {
           }
         }
       }
+
+      // Limit the results and also what we cache
+      if (max_pvs > 0) {
+        matches = matches.slice(0, max_pvs);
+      }
+
       this.add_record_search_results({
         pattern: pattern,
         pv_list: Array.from(new Set(matches)).sort(),
         regex: regex,
       });
-
-      if (max_pvs > 0) {
-        return matches.slice(0, max_pvs);
-      }
       return matches;
     },
   },
