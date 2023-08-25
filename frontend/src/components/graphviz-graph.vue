@@ -47,7 +47,9 @@ export default {
         save_element.hidden = (this.dot_source ?? "") === "";
       }
       const graph = graphviz("#d3-rendered-graph");
-      graph.renderDot(this.dot_source ?? "");
+      const dot_source = this.dot_source ?? "";
+      console.debug("Rendering graph source:", dot_source);
+      graph.renderDot(dot_source);
       if (this.fit_graph) {
         graph.fit(this.fit_graph);
       } else {
@@ -55,6 +57,7 @@ export default {
         graph.height(Math.max(this.height, 300));
         graph.fit(true);
       }
+      console.debug("Rendering graph...");
       graph.render(this.finished_d3_graph_render);
     },
     finished_d3_graph_render() {

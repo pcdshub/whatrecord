@@ -162,7 +162,7 @@ function get_nodes(
 
   for (const [pv1, pv2s] of Object.entries(relations.pv_relations)) {
     const node1 = pv_to_node[pv1];
-    const ioc1_node = ioc_to_node[node1.parent ?? ""];
+    const ioc1_node = ioc_to_node[node1?.parent ?? ""];
     if (node1 == null || ioc1_node == null) {
       continue;
     }
@@ -170,7 +170,7 @@ function get_nodes(
     // Full field info with context and all; may be too huge to serialize
     for (const [pv2, fields] of Object.entries(pv2s)) {
       const node2 = pv_to_node[pv2];
-      const ioc2_node = ioc_to_node[node2.parent ?? ""];
+      const ioc2_node = ioc_to_node[node2?.parent ?? ""];
       if (pv1 === pv2 || node2 == null || ioc2_node == null) {
         continue;
       }
