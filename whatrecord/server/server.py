@@ -216,12 +216,19 @@ class ServerState:
         )
         return plugins
 
-    def dump_files(self) -> dict:
+    def dump_files(self, *, exclude_extensions: Optional[list[str]]) -> dict:
+        exclude_extensions = exclude_extensions or []
         result = {}
+        hash_to_contents = result["hash_to_contents"] = {}
+        hash_to_file = result["hash_to_file"] = {}
         for fn, hash_ in self.container.loaded_files.items():
-            if hash_ not in result:
-                result[hash_] = self.dump_file(fn, hash_)
-            result[fn] = hash_
+            if exclude_extensions:
+                if os.path.splitext(fn)[1].lower() in exclude_extensions:
+                    continue
+
+            if hash_ not in hash_to_contents:
+                hash_to_contents[hash_] = self.dump_file(fn, hash_)
+            hash_to_file.setdefault(hash_, []).append(fn)
         return result
 
     async def dump_pv_relations(self) -> dict:
@@ -260,17 +267,30 @@ class ServerState:
 
         return relation_graphs
 
-    async def dump(self) -> dict:
+    def _prune_for_partial_dump(self) -> None:
+        # TODO: this shouldn't have to be destructive
+        logger.info("Pruning database definitions for a partial dump")
+        for ioc in self.container.scripts.values():
+            ioc.shell_state.database_definition = None
+
+    async def dump(self, full: bool = True) -> dict:
         t0 = time.monotonic()
+
         dumped = {
             "plugins": self.dump_plugins(),
-            "files": self.dump_files(),
-            "iocs": self.dump_iocs(),
             "pv_graphs": await self.dump_pv_graphs(),
             "pv_relations": await self.dump_pv_relations(),
         }
 
-        # Remove some duplicated infomration - PV relations are tracked
+        if not full:
+            self._prune_for_partial_dump()
+
+        dumped["iocs"] = self.dump_iocs()
+        dumped["files"] = self.dump_files(
+            exclude_extensions=[] if full else [".dbd"]
+        )
+
+        # Remove some duplicated information - PV relations are tracked
         # at the top-level:
         for item in dumped["iocs"].values():
             item["ioc"].pop("pv_relations")
@@ -295,6 +315,7 @@ class ServerState:
         filename: pathlib.Path,
         indent: Optional[int] = None,
         encoding: str = "utf-8",
+        full: bool = True,
     ) -> None:
         if filename.suffix.lower() not in (".json", ".gz"):
             raise RuntimeError(
@@ -303,7 +324,7 @@ class ServerState:
                 f"to use the frontend with these results."
             )
 
-        output = await self.dump()
+        output = await self.dump(full=full)
         dumped = json.dumps(output, sort_keys=True, indent=indent)
         if filename.suffix.lower() in (".json", ):
             with open(filename, "wt") as fp:
@@ -1162,6 +1183,7 @@ def main(
     use_tracemalloc: bool = False,
     offline_dump_target: Optional[AnyPath] = None,
     start: bool = True,
+    partial_dump: bool = False,
 ):
     if use_tracemalloc and tracemalloc is not None:
         tracemalloc.start()
@@ -1182,7 +1204,9 @@ def main(
     else:
         # Dump to a file - but don't start the server.
         asyncio.run(state.trigger_manual_update(annotate_records=True))
-        asyncio.run(state.dump_to_file(pathlib.Path(offline_dump_target)))
+        asyncio.run(
+            state.dump_to_file(pathlib.Path(offline_dump_target), full=not partial_dump)
+        )
         run = False
 
     app = _new_server(handler, port=port, run=run)

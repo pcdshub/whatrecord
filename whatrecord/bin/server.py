@@ -75,6 +75,12 @@ def build_arg_parser(parser=None):
         help='Dump the server state for offline usage of the whatrecord frontend'
     )
 
+    parser.add_argument(
+        "--partial-dump",
+        action="store_true",
+        help="Reduce size of the dump by removing less important things (.dbd files, etc)"
+    )
+
     return parser
 
 
