@@ -343,7 +343,7 @@ export default {
     },
 
     plc_info() {
-      return this.plugin_nested_info.info[this.selected_plc_name] ?? {};
+      return this.plugin_nested_info?.info[this.selected_plc_name] ?? {};
     },
 
     info_ready() {

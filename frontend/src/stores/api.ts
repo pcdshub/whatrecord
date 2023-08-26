@@ -54,7 +54,7 @@ export const api_server_store = defineStore("api-server", {
       file_info: {},
       gateway_info: null,
       glob_to_pvs: {},
-      ioc_info: [],
+      ioc_info: null,
       ioc_to_records: {},
       plugin_info: {},
       plugin_nested_info: {},
@@ -102,6 +102,8 @@ export const api_server_store = defineStore("api-server", {
       try {
         return await axios.get<T>(url, config);
       } catch (error) {
+        await new Promise((r) => setTimeout(r, 500));
+        // Delay a bit before returning
         console.error(error);
         return null;
       } finally {
@@ -156,7 +158,7 @@ export const api_server_store = defineStore("api-server", {
     },
 
     async update_ioc_info(): Promise<IocMetadata[]> {
-      if (this.ioc_info.length > 0) {
+      if (this.ioc_info !== null) {
         return this.ioc_info;
       }
       const response = await this.run_query<IocMatches>("/api/ioc/matches", {

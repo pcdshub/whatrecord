@@ -215,7 +215,7 @@ export const cached_local_store = defineStore("cached", {
     },
 
     async update_ioc_info(): Promise<IocMetadata[]> {
-      if (this.ioc_info.length > 0) {
+      if (this.ioc_info !== null) {
         return this.ioc_info;
       }
       const cache: StoreCache = await this.load_cached_whatrecord_data();

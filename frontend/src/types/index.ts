@@ -39,7 +39,7 @@ export interface State {
   file_info: Record<string, FileInfo>;
   gateway_info: GatewaySettings | null;
   glob_to_pvs: Record<string, string[]>;
-  ioc_info: IocMetadata[];
+  ioc_info: IocMetadata[] | null;
   ioc_to_records: Record<string, RecordInstance[]>;
   is_online: boolean;
   plugin_info: Record<string, PluginResults>;

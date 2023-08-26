@@ -245,7 +245,7 @@ export default {
 
     ioc_info_by_name(): Record<string, IocMetadata> {
       let iocs: Record<string, IocMetadata> = {};
-      for (const ioc of this.ioc_info) {
+      for (const ioc of this.ioc_info ?? []) {
         iocs[ioc.name] = ioc;
       }
       return iocs;
@@ -304,6 +304,9 @@ export default {
   methods: {
     async update_store() {
       await this.store.update_ioc_info();
+      if (this.ioc_info === null) {
+        return;
+      }
 
       for (const ioc of this.user_selected_iocs) {
         if (ioc.name && ioc.name in this.ioc_info === false) {
