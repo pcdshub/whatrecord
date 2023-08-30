@@ -73,6 +73,11 @@ class GraphEdge:
     #: Options to pass to graphviz.
     options: dict = dataclasses.field(default_factory=dict)
 
+    def __hash__(self) -> int:
+        return hash(
+            (self.source.id, self.destination.id, self.source_port, self.destination_port)
+        )
+
     @property
     def source_with_port(self) -> str:
         """Source name including the port name, for graphviz."""
@@ -619,7 +624,7 @@ class RecordLinkGraph(_GraphHelper):
     """Record link graph."""
     # TODO: create node and color when not in database?
 
-    database: Database
+    database: Optional[Database]
     starting_records: List[str]
     newline: str = '\n'
     header_format: str = '{name} ({rtype})'
@@ -639,7 +644,7 @@ class RecordLinkGraph(_GraphHelper):
     show_empty: bool
     relations: Optional[PVRelations]
     record_types: Dict[str, RecordType]
-    default_edge_kwargs: Dict[str, str] = {
+    default_edge_kwargs: Dict[str, Any] = {
         "style": "solid",
     }
 
@@ -682,7 +687,8 @@ class RecordLinkGraph(_GraphHelper):
         record_types: Optional[Dict[str, RecordType]] = None,
     ):
         super().__init__()
-        self.database = Database(record_types=dict(record_types or {}))
+        self._built = False
+        self.database = None
         self.starting_records = starting_records or []
         self.header_format = header_format or type(self).header_format
         self.field_format = field_format or type(self).field_format
@@ -694,6 +700,13 @@ class RecordLinkGraph(_GraphHelper):
         if database is not None:
             self.add_database(database)
 
+        if record_types is not None:
+            if self.database is None:
+                self.database = Database()
+            self.database.record_types.update(record_types)
+
+        self.relations = relations
+
     def get_node(
         self, label: str, text: Optional[str] = None
     ) -> GraphNode:
@@ -704,15 +717,49 @@ class RecordLinkGraph(_GraphHelper):
 
     def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
         """Add records from the given database to the graph."""
-        if isinstance(database, Database):
+        if self.database is None:
+            if isinstance(database, Database):
+                self.database = database.shallow_copy()
+            else:
+                self.database = Database(
+                    records=database,
+                )
+        elif isinstance(database, Database):
             self.database.append(database)
         else:
             for record in database.values():
                 self.database.add_or_update_record(record)
 
-        if not self.relations:
-            self.relations = build_database_relations(
-                self.database.records, record_types=self.database.record_types
+        self._built = False
+        self.relations = None
+
+    def build(self):
+        """Build the graph from the provided databases."""
+        if self.database is None:
+            raise ValueError("No database or records were added")
+
+        edge_cache = set()
+
+        def add_edge(
+            source: GraphNode,
+            destination: GraphNode,
+            source_port: Optional[str] = None,
+            dest_port: Optional[str] = None,
+            **options
+        ) -> None:
+            key = (source.id, destination.id)
+            if key in edge_cache:
+                return
+            edge_cache.add(key)
+            # Avoid bottleneck of checking the edge list... ?
+            self.edges.append(
+                GraphEdge(
+                    source,
+                    destination,
+                    source_port=source_port,
+                    destination_port=dest_port,
+                    options=options
+                )
             )
 
         edge_color_idx = 0
@@ -726,18 +773,16 @@ class RecordLinkGraph(_GraphHelper):
                 if field.name == "PROC":
                     ...
                 elif field.value or self.show_empty:
-                    node.metadata["fields"][field.name] = textwrap.dedent(
-                        f"""\
-                        <TR>
-                            <TD PORT="{field.name}_name" BORDER="1">
-                                <B>{field.name}</B>
-                            </TD>
-                            <TD PORT="{field.name}_value" BORDER="1">
-                                {field.value}
-                            </TD>
-                        </TR>
-                        """
-                    ).rstrip()
+                    node.metadata["fields"][field.name] = (
+                        f'<TR>'
+                        f'<TD PORT="{field.name}_name" BORDER="1">'
+                        f'<B>{field.name}</B>'
+                        f'</TD>'
+                        f'<TD PORT="{field.name}_value" BORDER="1">'
+                        f'{field.value}'
+                        f'</TD>'
+                        f'</TR>'
+                    )
 
             if li.field1.dtype == "DBF_INLINK" or li.field2.dtype == "DBF_OUTLINK":
                 src, dest = dest, src
@@ -752,42 +797,44 @@ class RecordLinkGraph(_GraphHelper):
                         edge_kw[key] = value
                         break
 
-            if (src, dest) not in set(self.edge_pairs):
-                if li.field1.dtype == "DBF_FWDLINK":
-                    # edge_kw["taillabel"] = "FLNK"
-                    self.add_edge(
-                        src.label,
-                        dest.label,
-                        color="black",
-                        source_port=li.field1.name,
-                        **edge_kw
-                    )
-                elif li.field2.dtype == "DBF_FWDLINK":
-                    # edge_kw["taillabel"] = "FLNK"
-                    self.add_edge(
-                        dest.label,
-                        src.label,
-                        color="black",
-                        source_port=li.field2.name,
-                        **edge_kw
-                    )
-                else:
-                    # edge_kw["taillabel"] = f"{li.field1.name}"
-                    # edge_kw["headlabel"] = f"{li.field2.name}"
-                    if li.info:
-                        edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
+            if (src.id, dest.id) in edge_cache:
+                continue
 
-                    edge_color_idx += 1
-                    color = self.edge_colors[edge_color_idx % len(self.edge_colors)]
+            if li.field1.dtype == "DBF_FWDLINK":
+                # edge_kw["taillabel"] = "FLNK"
+                add_edge(
+                    src,
+                    dest,
+                    color="black",
+                    source_port=li.field1.name,
+                    **edge_kw
+                )
+            elif li.field2.dtype == "DBF_FWDLINK":
+                # edge_kw["taillabel"] = "FLNK"
+                add_edge(
+                    dest,
+                    src,
+                    color="black",
+                    source_port=li.field2.name,
+                    **edge_kw
+                )
+            else:
+                # edge_kw["taillabel"] = f"{li.field1.name}"
+                # edge_kw["headlabel"] = f"{li.field2.name}"
+                if li.info:
+                    edge_kw["xlabel"] = f"\n{' '.join(li.info)}"
 
-                    self.add_edge(
-                        f"{src.label}",
-                        f"{dest.label}",
-                        source_port=li.field1.name,
-                        dest_port=li.field2.name,
-                        color=color,
-                        **edge_kw,
-                    )
+                edge_color_idx += 1
+                color = self.edge_colors[edge_color_idx % len(self.edge_colors)]
+
+                add_edge(
+                    src,
+                    dest,
+                    source_port=li.field1.name,
+                    dest_port=li.field2.name,
+                    color=color,
+                    **edge_kw,
+                )
 
         if not self.nodes:
             # No relationship found; at least show the records
@@ -813,6 +860,8 @@ class RecordLinkGraph(_GraphHelper):
                 field_lines=(sub_header + field_text).strip(),
             )
 
+        self._built = True
+
     @property
     def graphed_records(self) -> List[str]:
         """All graphed record names (i.e., node labels)."""
@@ -823,6 +872,9 @@ class RecordLinkGraph(_GraphHelper):
 
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""
+        if not self._built:
+            self.build()
+
         all_match = set(self.graphed_records) <= set(self.starting_records)
         for node in self.nodes.values():
             node.highlighted = (
@@ -986,6 +1038,9 @@ class ScriptLinkGraph(_GraphHelper):
     # TODO: create node and color when not in database?
 
     newline: str = '<br align="center"/>'
+    _built: bool
+    limit_to_records: List[str]
+    script_relations: Optional[ScriptPVRelations]
 
     def __init__(
         self,
@@ -996,33 +1051,57 @@ class ScriptLinkGraph(_GraphHelper):
         record_types: Optional[Dict[str, RecordType]] = None,
     ):
         super().__init__()
-        self.database = Database(record_types=dict(record_types or {}))
+        self.database = None
         self.limit_to_records = limit_to_records or []
-        self.relations = relations
-        self.script_relations = script_relations
+        self._built = False
 
         if database is not None:
             self.add_database(database)
 
+        if record_types is not None:
+            if self.database is None:
+                self.database = Database()
+            self.database.record_types.update(record_types)
+
+        self.relations = relations
+        self.script_relations = script_relations
+
     def add_database(self, database: Union[Dict[str, RecordInstance], Database]):
         """Add records from the given database to the graph."""
-        if isinstance(database, Database):
+        if self.database is None:
+            if isinstance(database, Database):
+                self.database = database.shallow_copy()
+            else:
+                self.database = Database(
+                    records=database,
+                )
+        elif isinstance(database, Database):
             self.database.append(database)
         else:
             for record in database.values():
                 self.database.add_or_update_record(record)
 
-        # if not self.script_relations:
-        self.relations = build_database_relations(
-            self.database.records,
-            record_types=self.database.record_types,
-        )
+        self._built = False
+        self.relations = None
+        self.script_relations = None
 
-        self.script_relations = build_script_relations(
-            database=self.database.records,
-            by_record=self.relations,
-            limit_to_records=self.limit_to_records,
-        )
+    def build(self):
+        """Build the graph from the provided databases."""
+        if self.database is None:
+            raise ValueError("No database or records were added")
+
+        if self.relations is None:
+            self.relations = build_database_relations(
+                self.database.records,
+                record_types=self.database.record_types,
+            )
+
+        if self.script_relations is None:
+            self.script_relations = build_script_relations(
+                database=self.database.records,
+                by_record=self.relations,
+                limit_to_records=self.limit_to_records,
+            )
 
         for script_a, script_a_relations in self.script_relations.items():
             self.get_node(script_a, text=script_a)
@@ -1049,8 +1128,12 @@ class ScriptLinkGraph(_GraphHelper):
                 if rec_name in self.database.records:
                     self.get_node(rec_name)
 
+        self._built = True
+
     def _ready_for_digraph(self, graph: gv.Digraph):
         """Hook when the user calls ``to_digraph``."""
+        if not self._built:
+            self.build()
         for node in self.nodes.values():
             node.highlighted = node.label in self.limit_to_records
 

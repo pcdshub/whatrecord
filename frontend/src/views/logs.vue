@@ -4,7 +4,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import axios from "axios";
 
 export default {
@@ -30,7 +30,10 @@ export default {
     }
   },
   updated() {
-    document.getElementById("script").scrollIntoView({ block: "end" });
+    const script = document.getElementById("script");
+    if (script != null) {
+      script.scrollIntoView({ block: "end" });
+    }
   },
 };
 </script>

@@ -8,7 +8,7 @@ import json
 import logging
 from typing import List
 
-from ..common import IocMetadata
+from ..common import AnyPath, IocInfoDict
 from ..iocmanager import get_iocs_from_configs
 
 logger = logging.getLogger(__name__)
@@ -26,10 +26,19 @@ def build_arg_parser(parser=None):
         "configs", type=str, nargs="+", help="Configuration file location(s)"
     )
 
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Limit the number of IOCs to output"
+    )
+
     return parser
 
 
-def main(configs) -> List[IocMetadata]:
+def main(configs: list[AnyPath], limit: int = 0) -> List[IocInfoDict]:
     iocs = get_iocs_from_configs(configs)
-    print(json.dumps(iocs, indent=4))
+    if limit:
+        dumped = json.dumps(iocs[-limit:], indent=4)
+    else:
+        dumped = json.dumps(iocs, indent=4)
+
+    print(dumped)
     return iocs

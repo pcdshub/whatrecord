@@ -8,14 +8,19 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import { PropType } from "vue";
 import ScriptContextOneLink from "./script-context-one-link.vue";
+import { FullLoadContext } from "../types";
 
 export default {
   name: "ScriptContextLink",
   props: {
-    context: Array,
-    short: Number,
+    context: Array as PropType<FullLoadContext>,
+    short: {
+      type: Number,
+      default: 0,
+    },
     prefix: {
       type: String,
       default: ">",

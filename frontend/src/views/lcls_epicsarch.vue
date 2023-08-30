@@ -2,7 +2,7 @@
   <template v-if="item_name">
     <h2>{{ item_name }} - Metadata</h2>
     <dictionary-table
-      :dict="epicsarch_info.metadata[item_name]"
+      :dict="epicsarch_metadata[item_name]"
       :cls="'metadata'"
       :skip_keys="[]"
     />
@@ -53,7 +53,7 @@
               :dict="warning"
               :cls="'metadata'"
               :skip_keys="[]"
-              :key="warning.context"
+              :key="warning.context.toString()"
               v-if="file_warnings"
             />
           </template>
@@ -85,7 +85,7 @@
                 icon="pi pi-filter-slash"
                 label="Clear"
                 class="p-button-outlined"
-                @click="clear_record_filters()"
+                @click="clear_file_filters()"
               />
               <span class="p-input-icon-left">
                 <i class="pi pi-search" />
@@ -98,9 +98,17 @@
           </template>
           <Column field="name" header="PV">
             <template #body="{ data }">
-              <router-link :to="`/whatrec/${data.name}/${data.name}`">{{
-                data.name
-              }}</router-link>
+              <router-link
+                :to="{
+                  name: 'whatrec',
+                  query: {
+                    pattern: data.name,
+                    record: data.name,
+                    use_regex: 'false',
+                  },
+                }"
+                >{{ data.name }}</router-link
+              >
             </template>
             <template #filter="{ filterModel, filterCallback }">
               <InputText
@@ -169,21 +177,67 @@
   </template>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 import Dropdown from "primevue/dropdown";
 import InputText from "primevue/inputtext";
 import { FilterMatchMode } from "primevue/api";
 
 import ScriptContextLink from "../components/script-context-link.vue";
 import DictionaryTable from "../components/dictionary-table.vue";
+import { computed } from "vue";
+import { FullLoadContext } from "@/types";
+import { LocationQueryRaw } from "vue-router";
+
+interface ColumnData {
+  name: string;
+  filename: string;
+}
+
+interface Comment {
+  context: FullLoadContext;
+  text: string;
+}
+
+interface Warning {
+  context: FullLoadContext;
+  type_: string;
+  text: string;
+}
+
+interface DaqPV {
+  context: FullLoadContext;
+  name: string;
+  alias: string;
+  provider: string;
+  comments: Comment[];
+}
+
+interface EpicsArchMetadata {
+  pvs: Record<string, DaqPV>;
+  aliases: Record<string, string>;
+  warnings: Warning[];
+  filename: string | null;
+  loaded_files: Record<string, string>;
+}
+
+interface Query {
+  selected_file?: string;
+  file_filter?: string;
+  record_filter?: string;
+}
 
 export default {
   name: "NetconfigView",
+  setup() {
+    const store = use_configured_store();
+    const plugin_info = computed(() => store.plugin_info.epicsarch ?? null);
+    return { store, plugin_info };
+  },
   components: {
     Button,
     Column,
@@ -198,16 +252,16 @@ export default {
   },
   data() {
     return {
-      file_filters: null,
-      info_filters: null,
-      selected_columns: null,
-      selected_file: null,
+      file_filters: {} as Record<string, DataTableFilterMetaData>,
+      info_filters: {} as Record<string, DataTableFilterMetaData>,
+      selected_columns: [] as ColumnData[],
+      selected_file: { name: "", filename: "" } as ColumnData,
     };
   },
   computed: {
     epicsarch_file_table() {
       return this.epicsarch_files.map((filename) =>
-        this.filename_to_table(filename)
+        this.filename_to_table(filename),
       );
     },
 
@@ -215,7 +269,7 @@ export default {
       if (!this.epicsarch_info_ready) {
         return [];
       }
-      return Object.keys(this.epicsarch_info.metadata_by_key);
+      return Object.keys(this.plugin_info.metadata_by_key);
     },
 
     file_warnings() {
@@ -229,7 +283,9 @@ export default {
         };
       }
 
-      const metadata = this.epicsarch_info.metadata_by_key[filename];
+      const metadata = this.plugin_info.metadata_by_key[
+        filename
+      ] as EpicsArchMetadata;
       return {
         pvs: Object.values(metadata.pvs),
         warnings: metadata.warnings,
@@ -239,20 +295,12 @@ export default {
       };
     },
 
-    ...mapState({
-      epicsarch_info_ready(state) {
-        return Object.keys(state.plugin_info.epicsarch || {}).length > 0;
-      },
-      epicsarch_info(state) {
-        if (!state.plugin_info) {
-          return {};
-        }
-        const epicsarch_info = state.plugin_info.epicsarch || {
-          metadata_by_key: {},
-        };
-        return epicsarch_info;
-      },
-    }),
+    epicsarch_metadata() {
+      return (this.plugin_info?.metadata as Record<string, Object>) ?? null;
+    },
+    epicsarch_info_ready() {
+      return this.plugin_info !== null;
+    },
   },
   created() {
     document.title = `whatrecord? epicsArch ${this.item_name}`;
@@ -260,22 +308,22 @@ export default {
   },
   async mounted() {
     if (!this.epicsarch_info_ready) {
-      await this.$store.dispatch("update_plugin_info", { plugin: "epicsarch" });
+      await this.store.update_plugin_info({ plugin: "epicsarch" });
     }
-    this.from_params(this.$route.params);
+    this.from_query(this.$route.query);
   },
 
   // eslint-disable-next-line no-unused-vars
-  async beforeRouteUpdate(to, from) {
-    this.from_params(to.params);
+  async beforeRouteUpdate(to, _from) {
+    this.from_query(to.query);
   },
 
   methods: {
-    filename_to_table(filename) {
+    filename_to_table(filename: string) {
       return {
         name: filename.replace(
           /^.cds.group.pcds.dist.pds.(.*).misc.(.*?)/i,
-          "$1 $2"
+          "$1 $2",
         ),
         filename: filename,
       };
@@ -294,27 +342,32 @@ export default {
         alias: { value: "", matchMode: FilterMatchMode.CONTAINS },
       };
     },
-    clear_filters() {
+    clear_file_filters() {
       this.init_filters();
     },
-    onToggle(value) {
-      this.selected_columns = value;
+    onToggle(value: any) {
+      this.selected_columns = value as ColumnData[];
+    },
+    view_as_query(): Query {
+      return {
+        selected_file: this.selected_file?.filename ?? "",
+        file_filter: this.file_filters["global"].value,
+        record_filter: this.info_filters["global"].value,
+      };
     },
     new_file_selection() {
       this.$router.push({
-        params: {
-          selected_file: this.selected_file?.filename || "",
-        },
-        query: {
-          file_filter: this.file_filters["global"].value,
-          record_filter: this.info_filters["global"].value,
-        },
+        query: this.view_as_query() as LocationQueryRaw,
       });
     },
 
-    from_params(params) {
-      const selected_filename = params.selected_file;
-      this.selected_file = this.filename_to_table(selected_filename);
+    from_query(query: Query) {
+      const selected_filename = query.selected_file;
+      if (selected_filename) {
+        this.selected_file = this.filename_to_table(
+          selected_filename.toString(),
+        );
+      }
       document.title = `whatrecord? epicsArch ${selected_filename}`;
     },
   },

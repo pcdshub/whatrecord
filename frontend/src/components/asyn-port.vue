@@ -15,20 +15,20 @@
   </template>
 </template>
 
-<script>
-import DictionaryTable from "@/components/dictionary-table.vue";
+<script lang="ts">
+import { PropType } from "vue";
+import DictionaryTable from "./dictionary-table.vue";
+import { AsynPort } from "@/types/asyn";
 
 export default {
   name: "AsynPort",
   props: {
-    asyn_port: Object,
+    asyn_port: {
+      type: Object as PropType<AsynPort>,
+      required: true,
+    },
   },
-  components: [DictionaryTable],
-  beforeCreate() {
-    // TODO: I don't think this is circular; why am I running into this?
-    // V2 ref: https://vuejs.org/v2/guide/components-edge-cases.html#Circular-References-Between-Components
-    this.$options.components.DictionaryTable = DictionaryTable;
-  },
+  components: { DictionaryTable },
 };
 </script>
 

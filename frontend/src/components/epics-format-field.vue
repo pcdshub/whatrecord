@@ -1,18 +1,18 @@
 <template>
   <div :title="tooltip">
-    &nbsp;field(<template v-if="field_info?.context?.length > 0">
+    &nbsp;field(<template v-if="link_context">
       <script-context-one-link
-        :name="field_info.context[0][0]"
-        :line="field_info.context[0][1]"
+        :name="link_context[0]"
+        :line="link_context[1]"
         :link_text="field.name"
         class="unassuming_link"
       />
     </template>
     <template v-else> {{ field.name }} </template>,
-    <template v-if="field?.context?.length > 0">
+    <template v-if="link_context">
       <script-context-one-link
-        :name="field.context[0][0]"
-        :line="field.context[0][1]"
+        :name="link_context[0]"
+        :line="link_context[1]"
         :link_text="`&quot;${display_value}&quot;`"
         class="unassuming_link"
       />)
@@ -22,21 +22,32 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import { PropType } from "vue";
 import ScriptContextOneLink from "./script-context-one-link.vue";
+import { DatabaseMenu, RecordField, RecordTypeField } from "../types";
 
 export default {
   name: "EpicsFormatField",
   props: {
-    autosave: Object,
-    field: Object,
-    field_info: Object,
-    menus: Object,
+    autosave_value: Object as PropType<Object | null>,
+    field: {
+      type: Object as PropType<RecordField>,
+      required: true,
+    },
+    field_info: Object as PropType<RecordTypeField | null>,
+    menus: Object as PropType<Record<string, DatabaseMenu> | null>,
   },
   components: {
     ScriptContextOneLink,
   },
   computed: {
+    link_context(): [string, number] | null {
+      if (!this.field) {
+        return null;
+      }
+      return this.field.context?.[0] ?? null;
+    },
     field_info_text() {
       const info = this.field_info;
       if (!info || !Object.keys(info).length) {
@@ -90,14 +101,14 @@ export default {
     },
 
     menu_options() {
-      if (!this.field_info?.menu) {
+      if (!this.field_info?.menu || !this.menus) {
         return null;
       }
       return this.menus[this.field_info.menu]?.choices;
     },
 
     raw_value() {
-      return this.autosave?.value ?? this.field.value;
+      return this.autosave_value ?? this.field?.value ?? "?";
     },
 
     menu_text() {
@@ -105,7 +116,7 @@ export default {
       if (!menu_options) {
         return null;
       }
-      const field_value = parseInt(this.raw_value);
+      const field_value = parseInt(this.raw_value.toString());
       if (isNaN(field_value)) {
         return null;
       }
@@ -113,6 +124,9 @@ export default {
     },
 
     tooltip() {
+      if (!this.field) {
+        return;
+      }
       const ctx = this.field.context?.join(":");
       if (ctx === null) {
         return "";
@@ -122,7 +136,7 @@ Data type: ${this.field.dtype}
 Context: ${ctx}
 -
 Database value: ${this.field.value}
-Autosave value: ${this.autosave?.value}
+Autosave value: ${this.autosave_value}
 -
 ${this.field_info_text}
 `.trim();

@@ -1,4 +1,5 @@
 import * as VueRouter from "vue-router";
+import { RouteRecordRaw } from "vue-router";
 
 import WhatRec from "./views/whatrec.vue";
 import ScriptView from "./views/script-view.vue";
@@ -17,31 +18,42 @@ import {
   twincat_pytmc_enabled,
   netconfig_enabled,
   epicsarch_enabled,
-} from "./settings.js";
+} from "./settings.ts";
 
-let routes = [
+import { nullable_string_to_array } from "./util";
+
+let routes: RouteRecordRaw[] = [
   {
     path: "/",
-    redirect: "/whatrec/*/",
+    redirect: "/whatrec",
   },
   {
     name: "whatrec",
-    path: "/whatrec/:record_glob?/:selected_records?",
+    path: "/whatrec",
     component: WhatRec,
+    props: (route) => ({
+      pattern: route.query.pattern ?? "*",
+      use_regex: route.query.regex === "true",
+      record: nullable_string_to_array(route.query.record),
+    }),
   },
   {
     name: "file",
-    path: "/file/:filename/:line?",
+    path: "/file",
     component: ScriptView,
+    props: (route) => ({
+      filename: route.query.filename,
+      line: route.query.line ? parseInt(route.query.line.toString()) : 0,
+    }),
   },
   {
     name: "iocs",
-    path: "/iocs/:selected_iocs_in?",
+    path: "/iocs/",
     component: IocView,
     props: (route) => ({
-      selected_iocs_in: route.params.selected_iocs_in || "",
-      ioc_filter: route.query.ioc_filter || "",
-      record_filter: route.query.record_filter || "",
+      selected_iocs: nullable_string_to_array(route.query.ioc),
+      ioc_filter: route.query.ioc_filter ?? "",
+      record_filter: route.query.record_filter ?? "",
     }),
   },
   {
@@ -54,10 +66,10 @@ let routes = [
 if (happi_enabled) {
   routes.push({
     name: "happi",
-    path: "/happi/:item_name?",
+    path: "/plugins/happi",
     component: HappiView,
     props: (route) => ({
-      item_name: route.params.item_name || null,
+      item_name: route.query.item || null,
     }),
   });
 }
@@ -65,10 +77,11 @@ if (happi_enabled) {
 if (twincat_pytmc_enabled) {
   routes.push({
     name: "twincat_pytmc",
-    path: "/twincat_pytmc/:item_name?",
+    path: "/plugins/twincat_pytmc",
     component: TwincatPytmcView,
     props: (route) => ({
-      item_name: route.params.item_name || null,
+      plc: route.query.plc || null,
+      item_name: route.query.item || null,
     }),
   });
 }
@@ -76,10 +89,10 @@ if (twincat_pytmc_enabled) {
 if (netconfig_enabled) {
   routes.push({
     name: "netconfig",
-    path: "/netconfig/:item_name?",
+    path: "/plugins/netconfig",
     component: NetconfigView,
     props: (route) => ({
-      item_name: route.params.item_name || null,
+      item_name: route.query.item || null,
     }),
   });
 }
@@ -87,10 +100,10 @@ if (netconfig_enabled) {
 if (epicsarch_enabled) {
   routes.push({
     name: "epicsarch",
-    path: "/epicsarch/:selected_file?",
+    path: "/plugins/epicsarch",
     component: LclsEpicsArchView,
     props: (route) => ({
-      item_name: route.params.item_name || null,
+      item_name: route.query.item || null,
     }),
   });
 }
@@ -117,6 +130,9 @@ export const router = VueRouter.createRouter({
   history: VueRouter.createWebHistory(),
   routes: routes,
   scrollBehavior() {
-    document.getElementById("app").scrollIntoView();
+    const app = document.getElementById("app");
+    if (app !== null) {
+      app.scrollIntoView();
+    }
   },
 });

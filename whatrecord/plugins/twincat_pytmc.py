@@ -369,7 +369,7 @@ class PlcMetadata(cache.InlineCached, PlcMetadataCacheKey):
             return
 
         loaded_files = {
-            str(makefile_path): makefile_hash or get_file_sha256
+            str(makefile_path): makefile_hash or get_file_sha256(makefile_path)
         }
 
         project, plc_name = project_info

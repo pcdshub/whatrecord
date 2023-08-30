@@ -17,8 +17,11 @@
           <router-link
             :to="{
               name: 'whatrec',
-              params: { record_glob: match.rule.pattern },
-              query: { regex: 'true' },
+              query: {
+                pattern: match.rule.pattern,
+                record: [],
+                use_regex: 'true',
+              },
             }"
           >
             {{ match.rule.pattern }}
@@ -45,13 +48,16 @@
   </table>
 </template>
 
-<script>
+<script lang="ts">
 import ScriptContextLink from "./script-context-link.vue";
 
 export default {
   name: "GatewayMatches",
   props: {
-    matches: Object,
+    matches: {
+      type: Object,
+      required: true,
+    },
   },
   components: {
     ScriptContextLink,

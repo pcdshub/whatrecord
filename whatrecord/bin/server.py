@@ -68,6 +68,19 @@ def build_arg_parser(parser=None):
         help='[Debug] Use tracemalloc to debug server memory usage'
     )
 
+    parser.add_argument(
+        '--dump-for-offline-usage',
+        dest="offline_dump_target",
+        type=str,
+        help='Dump the server state for offline usage of the whatrecord frontend'
+    )
+
+    parser.add_argument(
+        "--partial-dump",
+        action="store_true",
+        help="Reduce size of the dump by removing less important things (.dbd files, etc)"
+    )
+
     return parser
 
 

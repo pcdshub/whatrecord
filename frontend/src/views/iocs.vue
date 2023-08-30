@@ -5,7 +5,7 @@
         id="ioc_info_table"
         :value="ioc_info"
         dataKey="name"
-        v-model:selection="selected_iocs"
+        v-model:selection="user_selected_iocs"
         class="p-datatable-sm"
         selectionMode="multiple"
         @rowSelect="new_ioc_selection"
@@ -42,7 +42,7 @@
         <Column field="name" header="IOC Name" :sortable="true">
           <template #body="{ data }">
             <router-link
-              :to="{ name: 'file', params: { filename: data.script, line: 0 } }"
+              :to="{ name: 'file', query: { filename: data.script, line: 0 } }"
               >{{ data.name }}</router-link
             >
           </template>
@@ -93,7 +93,14 @@
         <Column field="record.name" header="Record">
           <template #body="{ data }">
             <router-link
-              :to="`/whatrec/${data.record.name}/${data.record.name}`"
+              :to="{
+                name: 'whatrec',
+                query: {
+                  pattern: data.record.name,
+                  record: data.record.name,
+                  use_regex: 'false',
+                },
+              }"
               >{{ data.record.name }}</router-link
             >
           </template>
@@ -126,27 +133,46 @@
         <Column
           field="ioc_name"
           header="IOC"
-          v-if="selected_ioc_names.length > 1"
+          v-if="user_selected_ioc_names.length > 1"
         />
       </DataTable>
     </div>
   </div>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 import Dropdown from "primevue/dropdown";
 import InputText from "primevue/inputtext";
 import { FilterMatchMode } from "primevue/api";
 
-import IocInfo from "../components/ioc-info.vue";
+import IocInfo from "@/components/ioc-info.vue";
+import { computed, nextTick } from "vue";
+import { IocMetadata } from "@/types";
+
+interface SelectedIOC {
+  // TODO: primevue + typescript?
+  name: string;
+}
+
+interface FileLoadedInIOC {
+  ioc: string;
+  name: string;
+  hash: string;
+}
 
 export default {
   name: "IOCs",
+  setup() {
+    const store = use_configured_store();
+    const ioc_info = computed(() => store.ioc_info);
+    const ioc_to_records = computed(() => store.ioc_to_records);
+    return { store, ioc_info, ioc_to_records };
+  },
   components: {
     Button,
     Column,
@@ -155,30 +181,46 @@ export default {
     InputText,
     IocInfo,
   },
-  props: ["ioc_filter", "record_filter", "selected_iocs_in"],
+  props: {
+    ioc_filter: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    record_filter: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    selected_iocs: {
+      type: Array<string>,
+      required: false,
+      default: [],
+    },
+  },
   data() {
     return {
-      selected_iocs: [],
-      ioc_filters: null,
-      record_filters: null,
+      user_selected_iocs: [] as SelectedIOC[],
+      ioc_filters: {} as Record<string, DataTableFilterMetaData>,
+      record_filters: {} as Record<string, DataTableFilterMetaData>,
     };
   },
   computed: {
-    selected_ioc_names() {
+    user_selected_ioc_names(): string[] {
       let iocs = [];
-      for (const ioc_info of this.selected_iocs) {
+      for (const ioc_info of this.user_selected_iocs) {
         iocs.push(ioc_info.name);
       }
       return iocs;
     },
 
     file_list_by_ioc() {
-      let files = {};
-      for (const ioc_name of this.selected_ioc_names) {
+      let files: Record<string, FileLoadedInIOC[]> = {};
+      for (const ioc_name of this.user_selected_ioc_names) {
         files[ioc_name] = [];
         if (ioc_name in this.ioc_info_by_name) {
           for (const [file, hash] of Object.entries(
-            this.ioc_info_by_name[ioc_name].loaded_files
+            this.ioc_info_by_name[ioc_name].loaded_files,
           )) {
             files[ioc_name].push({
               ioc: ioc_name,
@@ -193,7 +235,7 @@ export default {
 
     selected_ioc_infos() {
       let info = [];
-      for (const ioc_name of this.selected_ioc_names) {
+      for (const ioc_name of this.user_selected_ioc_names) {
         if (ioc_name in this.ioc_info_by_name) {
           info.push(this.ioc_info_by_name[ioc_name]);
         }
@@ -201,86 +243,96 @@ export default {
       return info;
     },
 
-    ...mapState({
-      ioc_info: (state) => state.ioc_info,
-      ioc_records: (state) => state.ioc_to_records,
+    ioc_info_by_name(): Record<string, IocMetadata> {
+      let iocs: Record<string, IocMetadata> = {};
+      for (const ioc of this.ioc_info ?? []) {
+        iocs[ioc.name] = ioc;
+      }
+      return iocs;
+    },
 
-      ioc_info_by_name(state) {
-        let iocs = {};
-        for (const ioc of state.ioc_info) {
-          iocs[ioc.name] = ioc;
-        }
-        return iocs;
-      },
-
-      record_list(state) {
-        let records = [];
-        for (const ioc_name of this.selected_ioc_names) {
-          if (ioc_name in state.ioc_to_records) {
-            for (const record of state.ioc_to_records[ioc_name]) {
-              records.push({
-                ioc_name: ioc_name,
-                ioc: ioc_name,
-                record: record,
-              });
-            }
+    record_list() {
+      let records = [];
+      for (const ioc_name of this.user_selected_ioc_names) {
+        if (ioc_name in this.ioc_to_records) {
+          for (const record of this.ioc_to_records[ioc_name]) {
+            records.push({
+              ioc_name: ioc_name,
+              ioc: ioc_name,
+              record: record,
+            });
           }
         }
-        return records;
-      },
-      record_types(state) {
-        let record_types = new Set();
-        for (const ioc_name of this.selected_ioc_names) {
-          if (ioc_name in state.ioc_to_records) {
-            for (const record of state.ioc_to_records[ioc_name]) {
-              record_types.add(record.record_type);
-            }
+      }
+      return records;
+    },
+    record_types() {
+      let record_types = new Set();
+      for (const ioc_name of this.user_selected_ioc_names) {
+        if (ioc_name in this.ioc_to_records) {
+          for (const record of this.ioc_to_records[ioc_name]) {
+            record_types.add(record.record_type);
           }
         }
-        return Array.from(record_types).sort();
-      },
-    }),
+      }
+      return Array.from(record_types).sort();
+    },
   },
+
   created() {
     this.init_record_filters();
     this.init_ioc_filters();
   },
-  mounted() {
-    this.from_params(this.$route.params);
+  async mounted() {
+    this.update_table_selection(this.selected_iocs);
+    await this.update_store();
   },
 
-  // eslint-disable-next-line no-unused-vars
-  async beforeRouteUpdate(to, from) {
-    this.from_params(to.params);
+  async updated() {
+    await this.update_store();
+  },
+
+  watch: {
+    async $route() {
+      // Wait until the prop is updated, then update the table DOM:
+      await nextTick();
+      this.update_table_selection(this.selected_iocs);
+      console.log(this.selected_iocs);
+    },
   },
 
   methods: {
-    from_params(params) {
-      this.$store.dispatch("update_ioc_info");
+    async update_store() {
+      await this.store.update_ioc_info();
+      if (this.ioc_info === null) {
+        return;
+      }
 
-      const iocs_from_route = params.selected_iocs_in
-        ? params.selected_iocs_in.split("|")
-        : [];
-      if (iocs_from_route != this.selected_iocs_list) {
-        this.selected_iocs = [];
-        for (const ioc_name of iocs_from_route) {
-          if (ioc_name) {
-            this.selected_iocs.push({ name: ioc_name });
-            if (ioc_name in this.$store.state.ioc_to_records === false) {
-              this.$store.dispatch("get_ioc_records", { ioc_name: ioc_name });
-            }
-          }
+      for (const ioc of this.user_selected_iocs) {
+        if (ioc.name && ioc.name in this.ioc_info === false) {
+          await this.store.get_ioc_records({ ioc_name: ioc.name });
         }
       }
-      document.title = `whatrecord? ${iocs_from_route}`;
+      document.title = `whatrecord? ${this.user_selected_ioc_names}`;
+    },
+
+    update_table_selection(iocs: string[]) {
+      if (iocs == this.user_selected_ioc_names) {
+        return;
+      }
+      let table_selection = [];
+      for (const ioc of iocs) {
+        if (ioc.length > 0) {
+          table_selection.push({ name: ioc });
+        }
+      }
+      this.user_selected_iocs = table_selection;
     },
 
     new_ioc_selection() {
       this.$router.push({
-        params: {
-          selected_iocs_in: this.selected_ioc_names.join("|"),
-        },
         query: {
+          ioc: this.user_selected_ioc_names,
           ioc_filter: this.ioc_filters["global"].value,
           record_filter: this.record_filters["global"].value,
         },

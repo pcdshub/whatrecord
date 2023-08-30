@@ -1,7 +1,7 @@
 <template>
   <div id="contents">
     <div id="left" class="column">
-      <Searchbar />
+      <Searchbar :pattern="pattern" :record="record" :use_regex="use_regex" />
     </div>
     <div id="right" class="column">
       <div v-for="match in record_info" :key="match.pv_name">
@@ -15,8 +15,8 @@
   </div>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Recordinfo from "../components/recordinfo.vue";
 import Searchbar from "../components/searchbar.vue";
@@ -27,33 +27,41 @@ export default {
     Recordinfo,
     Searchbar,
   },
-  props: [],
+  props: {
+    pattern: {
+      type: String,
+      required: true,
+    },
+    use_regex: {
+      type: Boolean,
+      default: false,
+    },
+    record: {
+      type: Array<string>,
+      required: true,
+    },
+  },
+  setup() {
+    const store = use_configured_store();
+    return { store };
+  },
   computed: {
-    record_glob() {
-      return this.$route.params.record_glob || "";
-    },
-    selected_records() {
-      const records = this.$route.params.selected_records;
-      return (records || "").split("|");
-    },
-    ...mapState({
-      record_info(state) {
-        let record_info = [];
-        for (const rec of this.selected_records) {
-          if (rec in state.record_info) {
-            record_info.push(state.record_info[rec]);
-          }
+    record_info() {
+      let record_info = [];
+      for (const rec of this.record) {
+        if (rec in this.store.record_info) {
+          record_info.push(this.store.record_info[rec]);
         }
-        return record_info;
-      },
-    }),
+      }
+      return record_info;
+    },
   },
   data() {
     return {};
   },
   created() {
     console.debug(
-      `whatrecord Mounted: glob=${this.record_glob} PVs=${this.selected_records}`
+      `whatrecord Mounted: glob=${this.pattern} PVs=${this.record}`,
     );
   },
 };

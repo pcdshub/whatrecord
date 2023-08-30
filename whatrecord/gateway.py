@@ -307,17 +307,32 @@ class PVListMatches:
     matches: List[PVListMatch]
 
 
+@dataclass
 class GatewayConfig:
+    path: pathlib.Path
+    glob_str: str
     pvlists: Dict[pathlib.Path, PVList]
 
-    def __init__(self, path: Union[str, pathlib.Path], glob_str: str = "*.pvlist"):
-        path = pathlib.Path(path).resolve()
-        if path.is_file():
-            filenames = [path]
+    def __init__(
+        self,
+        path: Union[str, pathlib.Path],
+        glob_str: str = "*.pvlist",
+        pvlists: Optional[Dict[pathlib.Path, PVList]] = None,
+    ):
+        self.path = pathlib.Path(path).resolve()
+        self.glob_str = glob_str
+        if pvlists is not None:
+            self.pvlists = pvlists
         else:
-            filenames = [p.resolve() for p in path.glob(glob_str)]
+            self.pvlists = self._load_from_files()
 
-        self.pvlists = {
+    def _load_from_files(self) -> Dict[pathlib.Path, PVList]:
+        """Load all PVList files from the current path/glob settings."""
+        if self.path.is_file():
+            filenames = [self.path]
+        else:
+            filenames = [p.resolve() for p in self.path.glob(self.glob_str)]
+        return {
             filename: PVList.from_file(filename) for filename in filenames
         }
 

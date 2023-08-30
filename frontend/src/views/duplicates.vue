@@ -27,7 +27,11 @@
         <router-link
           :to="{
             name: 'whatrec',
-            params: { record_glob: data.name, selected_records: data.name },
+            query: {
+              pattern: data.name,
+              record: data.name,
+              use_regex: 'false',
+            },
           }"
           >{{ data.name }}</router-link
         >
@@ -45,10 +49,9 @@
     <Column field="iocs" header="IOCs" :sortable="true">
       <template #body="{ data }">
         <template v-for="ioc in data.iocs" :key="ioc">
-          <router-link
-            :to="{ name: 'iocs', params: { selected_iocs_in: ioc } }"
-            >{{ ioc }}</router-link
-          >
+          <router-link :to="{ name: 'iocs', query: { ioc: data.iocs } }">{{
+            ioc
+          }}</router-link>
           <br />
         </template>
       </template>
@@ -65,17 +68,21 @@
   </DataTable>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 import InputText from "primevue/inputtext";
 import { FilterMatchMode } from "primevue/api";
 
 export default {
   name: "DuplicateView",
+  setup() {
+    const store = use_configured_store();
+    return { store };
+  },
   components: {
     Button,
     Column,
@@ -87,33 +94,28 @@ export default {
   },
   data() {
     return {
-      filters: null,
+      filters: {} as Record<string, DataTableFilterMetaData>,
       selected_columns: null,
     };
   },
   computed: {
     duplicate_table() {
-      return Object.entries(this.duplicates).map(([record, iocs]) => ({
+      return Object.entries(this.store.duplicates).map(([record, iocs]) => ({
         name: record,
         iocs: iocs,
       }));
     },
-    ...mapState({
-      duplicates_ready(state) {
-        return Object.keys(state.duplicates || {}).length > 0;
-      },
-      duplicates(state) {
-        return state.duplicates;
-      },
-    }),
+    duplicates_ready() {
+      return Object.keys(this.store.duplicates || {}).length > 0;
+    },
   },
   created() {
     document.title = `whatrecord? duplicates`;
     this.init_filters();
   },
-  mounted() {
+  async mounted() {
     if (!this.duplicates_ready) {
-      this.$store.dispatch("update_duplicates");
+      await this.store.update_duplicates();
     }
   },
   methods: {

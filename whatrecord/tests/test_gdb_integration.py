@@ -1,11 +1,9 @@
-import asyncio
 import shutil
 import sys
-from typing import Optional
 
 import pytest
 
-from ..common import GdbBinaryInfo, IocMetadata
+from ..common import IocMetadata
 
 SUPPORTED_PLATFORM = sys.platform in {"linux"}
 
@@ -30,18 +28,14 @@ softioc_unavailable_skip = pytest.mark.skipif(
 
 
 @pytest.mark.xfail(reason="Makes too many SLAC/LCLS/PCDS/ECS assumptions.")
+@pytest.mark.asyncio
 @platform_skip
 @gdb_unavailable_skip
 @softioc_unavailable_skip
-def test_gdb_info():
+async def test_gdb_info():
     md = IocMetadata(binary=str(softioc))
 
-    async def inner() -> Optional[GdbBinaryInfo]:
-        return await md.get_binary_information()
-
-    loop = asyncio.get_event_loop()
-    info = loop.run_until_complete(inner())
-
+    info = await md.get_binary_information()
     assert info is not None, "Script appears to have failed"
     print("Got information", info)
 

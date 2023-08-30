@@ -13,7 +13,7 @@
       <Column field="name" header="Command" :sortable="true" />
       <Column field="args" header="Arguments" :sortable="true">
         <template #body="{ data }">
-          {{ data.args.map((arg) => arg.name).join(", ") }}
+          {{ data.args.map((arg: IocshArgument) => arg.name).join(", ") }}
         </template>
       </Column>
 
@@ -31,7 +31,7 @@
       <Column field="name" header="File name">
         <template #body="{ data }">
           <router-link
-            :to="{ name: 'file', params: { filename: data.name, line: 0 } }"
+            :to="{ name: 'file', query: { filename: data.name, line: 0 } }"
           >
             {{ data.name }}
           </router-link>
@@ -47,7 +47,7 @@
       <Column field="name" header="File name">
         <template #body="{ data }">
           <router-link
-            :to="{ name: 'file', params: { filename: data.name, line: 0 } }"
+            :to="{ name: 'file', query: { filename: data.name, line: 0 } }"
           >
             {{ data.name }}
           </router-link>
@@ -59,24 +59,31 @@
   <br />
 </template>
 
-<script>
+<script lang="ts">
 import Column from "primevue/column";
 import DataTable from "primevue/datatable";
 
 import DictionaryTable from "./dictionary-table.vue";
 import ScriptContextLink from "../components/script-context-link.vue";
+import { IocshCommand, IocMetadata, IocshArgument } from "@/types";
+import { PropType } from "vue";
 
 const startup_extensions = ["cmd", "db", "dbd"];
 
-function get_extension(filename) {
+function get_extension(filename: string): string {
   return (
     filename.substring(filename.lastIndexOf(".") + 1, filename.length) ||
     filename
   );
 }
 
-function is_startup_file(filename) {
+function is_startup_file(filename: string): boolean {
   return startup_extensions.indexOf(get_extension(filename).toLowerCase()) >= 0;
+}
+
+interface FileAndHash {
+  name: string;
+  hash: string;
 }
 
 export default {
@@ -87,15 +94,20 @@ export default {
     DictionaryTable,
     ScriptContextLink,
   },
-  props: ["ioc_info"],
+  props: {
+    ioc_info: {
+      type: Object as PropType<IocMetadata>,
+      required: true,
+    },
+  },
   data() {
     return {};
   },
   computed: {
-    all_files() {
-      let files = [];
+    all_files(): FileAndHash[] {
+      let files: FileAndHash[] = [];
       for (const [file, hash] of Object.entries(
-        this.ioc_info?.loaded_files || {}
+        this.ioc_info?.loaded_files || {},
       )) {
         files.push({
           name: file,
@@ -104,11 +116,12 @@ export default {
       }
       return files;
     },
-    startup_file_list() {
+
+    startup_file_list(): FileAndHash[] {
       return this.all_files.filter(({ name }) => is_startup_file(name));
     },
 
-    commands() {
+    commands(): IocshCommand[] {
       return Object.values(this.ioc_info?.commands || {});
     },
 

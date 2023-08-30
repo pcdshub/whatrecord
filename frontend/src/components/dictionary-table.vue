@@ -15,7 +15,7 @@
 
         <td v-if="key == 'context'" class="value">
           <script-context-link
-            :context="value"
+            :context="value as FullLoadContext"
             :short="4"
           ></script-context-link>
         </td>
@@ -30,7 +30,7 @@
         <td v-else-if="value instanceof Array" class="value">
           <ul>
             <li v-for="item of value" :key="item">
-              <template v-if="item && Object.keys(item)[0] != 0">
+              <template v-if="item != null && typeof item == 'object'">
                 <dictionary-table :dict="item" cls="metadata" :skip_keys="[]" />
               </template>
               <template v-else>
@@ -55,15 +55,21 @@
   </table>
 </template>
 
-<script>
+<script lang="ts">
+import { PropType } from "vue";
 import ScriptContextLink from "./script-context-link.vue";
+import { FullLoadContext } from "../types";
 
 export default {
   name: "DictionaryTable",
   props: {
     cls: String,
-    dict: Object,
-    skip_keys: Array,
+    dict: Object as PropType<Record<string, any>>,
+    skip_keys: {
+      type: Object as PropType<string[]>,
+      default: [],
+      required: false,
+    },
     key_column: String,
     value_column: String,
     path: String,
@@ -83,12 +89,12 @@ export default {
       return `nested-${this.nest_level}`;
     },
     filtered_dict() {
-      let filtered = {};
+      let filtered: Record<string, Object> = {};
       if (this.dict === null || this.dict === undefined) {
         return filtered;
       }
       for (const [key, value] of Object.entries(this.dict)) {
-        if (this.skip_keys.indexOf(key) < 0 && value != null) {
+        if (this.skip_keys.indexOf(key) < 0 && value !== null) {
           const looks_worth_displaying =
             typeof value == "boolean" ||
             typeof value == "number" ||

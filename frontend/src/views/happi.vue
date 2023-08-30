@@ -22,7 +22,16 @@
           >
             <tr v-for="rec in records" :key="rec.name">
               <td class="pv">
-                <router-link :to="`/whatrec/${rec.name}/${rec.name}`">
+                <router-link
+                  :to="{
+                    name: 'whatrec',
+                    query: {
+                      pattern: rec.name,
+                      record: rec.name,
+                      use_regex: 'false',
+                    },
+                  }"
+                >
                   {{ rec.name }}
                 </router-link>
               </td>
@@ -30,7 +39,7 @@
                 {{ rec.signal }}
               </td>
               <td class="pv">
-                {{ kind.replaceAll("Kind.", "") }}
+                {{ kind.replace(/Kind./g, "") }}
               </td>
             </tr>
           </template>
@@ -76,7 +85,9 @@
       </template>
       <Column field="name" header="Name" :sortable="true" style="width: 12%">
         <template #body="{ data }">
-          <router-link :to="`/happi/${data.name}`">{{ data.name }}</router-link>
+          <router-link :to="{ name: 'happi', query: { item: data.name } }">{{
+            data.name
+          }}</router-link>
         </template>
         <template #filter="{ filterModel, filterCallback }">
           <InputText
@@ -116,7 +127,16 @@
       </Column>
       <Column field="prefix" header="Prefix" :sortable="true">
         <template #body="{ data }">
-          <router-link :to="`/whatrec/${data.prefix}*/${data.prefix}`">
+          <router-link
+            :to="{
+              name: 'whatrec',
+              query: {
+                pattern: data.prefix + '*',
+                record: data.prefix,
+                use_regex: 'false',
+              },
+            }"
+          >
             {{ data.prefix }}
           </router-link>
         </template>
@@ -173,21 +193,58 @@
   </template>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import Button from "primevue/button";
 import Column from "primevue/column";
-import DataTable from "primevue/datatable";
+import DataTable, { DataTableFilterMetaData } from "primevue/datatable";
 import Dropdown from "primevue/dropdown";
 import InputText from "primevue/inputtext";
 import MultiSelect from "primevue/multiselect";
 import { FilterMatchMode } from "primevue/api";
 
 import DictionaryTable from "../components/dictionary-table.vue";
+import { PluginResults } from "../types";
+import { computed } from "vue";
+
+interface ColumnData {
+  field: string;
+  header: string;
+  style: string;
+}
+
+interface HappiItemRecord {
+  name: string;
+  kind: string;
+  signal: string;
+}
+
+interface HappiItemWhatrecordAnnotation {
+  records: HappiItemRecord[];
+}
+
+interface HappiItem {
+  device_class: string;
+  name: string;
+  error?: string;
+  _whatrecord: HappiItemWhatrecordAnnotation;
+}
+
+const EmptyHappiItem: HappiItem = {
+  device_class: "",
+  name: "",
+  error: "",
+  _whatrecord: { records: [] },
+};
 
 export default {
   name: "HappiView",
+  setup() {
+    const store = use_configured_store();
+    const plugin_info = computed(() => store.plugin_info.happi ?? null);
+    return { store, plugin_info };
+  },
   components: {
     Button,
     Column,
@@ -202,19 +259,24 @@ export default {
   },
   data() {
     return {
-      filters: null,
-      selected_columns: null,
+      filters: {} as Record<string, DataTableFilterMetaData>,
+      columns: [] as ColumnData[],
+      selected_columns: [] as ColumnData[],
     };
   },
   computed: {
-    happi_item_info() {
+    happi_item_info(): HappiItem {
       if (!this.item_name || !this.happi_items || !this.happi_info_ready) {
-        return {
-          error: "",
-          _whatrecord: { records: [] },
-        };
+        return EmptyHappiItem;
       }
-      return this.happi_info.metadata_by_key[this.item_name];
+      const happi_info: PluginResults | null = this.plugin_info;
+      if (!happi_info) {
+        return EmptyHappiItem;
+      }
+      return (
+        (happi_info.metadata_by_key[this.item_name] as HappiItem) ??
+        EmptyHappiItem
+      );
     },
     device_classes() {
       let classes = new Set();
@@ -223,15 +285,12 @@ export default {
       }
       return Array.from(classes).sort();
     },
-    kind_to_related_records() {
+    kind_to_related_records(): Record<string, HappiItemRecord[]> {
       const info = this.happi_item_info;
-      if (!info) {
+      if (!info.name) {
         return {};
       }
-      let result = {
-        "Kind.hinted": [],
-        "Kind.normal": [],
-      };
+      let result: Record<string, HappiItemRecord[]> = {};
       for (const rec of info._whatrecord.records) {
         if (rec.kind in result === false) {
           result[rec.kind] = [];
@@ -240,11 +299,11 @@ export default {
       }
       return result;
     },
-    happi_items() {
-      if (Object.keys(this.happi_info).length == 0) {
+    happi_items(): HappiItem[] {
+      if (this.plugin_info === null) {
         return [];
       }
-      return Object.values(this.happi_info.metadata_by_key);
+      return Object.values(this.plugin_info.metadata_by_key) as HappiItem[];
     },
 
     global_filter_fields() {
@@ -254,28 +313,17 @@ export default {
       }
       return fields;
     },
-    ...mapState({
-      happi_info_ready(state) {
-        return Object.keys(state.plugin_info.happi || {}).length > 0;
-      },
-      happi_info(state) {
-        if (!state.plugin_info) {
-          return {};
-        }
-        const happi_info = state.plugin_info.happi || {
-          metadata_by_key: {},
-        };
-        return happi_info;
-      },
-    }),
+    happi_info_ready() {
+      return this.plugin_info !== null;
+    },
   },
   created() {
     document.title = `whatrecord? happi plugin`;
     this.init_filters();
   },
-  mounted() {
+  async mounted() {
     if (!this.happi_info_ready) {
-      this.$store.dispatch("update_plugin_info", { plugin: "happi" });
+      await this.store.update_plugin_info({ plugin: "happi" });
     }
   },
   methods: {
@@ -306,8 +354,8 @@ export default {
     clear_filters() {
       this.init_filters();
     },
-    onToggle(value) {
-      this.selected_columns = value;
+    onToggle(value: any) {
+      this.selected_columns = value as ColumnData[];
     },
   },
 };

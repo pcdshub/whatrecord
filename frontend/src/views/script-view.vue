@@ -30,13 +30,15 @@
   </div>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script lang="ts">
+import { use_configured_store } from "../stores";
 
 import DictionaryTable from "../components/dictionary-table.vue";
 import ScriptLine from "../components/script-line.vue";
+import { IocMetadata, IocshCommand, IocshResult, FileInfo } from "../types";
+import { FullLoadContext } from "../types";
 
-function remove_xml(filename, lines) {
+function remove_xml(filename: string, lines: IocshResult[]): IocshResult[] {
   // Strip the <xml> header
   const raw_xml = lines
     .slice(1)
@@ -52,85 +54,106 @@ function remove_xml(filename, lines) {
   ];
   const code = sections.map((section) => section?.textContent ?? "").join("\n");
 
-  return code.split("\n").map((line, lineno) => ({
-    line: line,
-    context: [[filename, lineno + 1]],
-  }));
+  return code.split("\n").map(
+    (line, lineno) =>
+      ({
+        context: [[filename, lineno + 1]] as FullLoadContext,
+        line: line,
+        outputs: [],
+        argv: [],
+        error: "",
+        redirects: [],
+        result: null,
+      }) as IocshResult,
+  );
 }
 
 export default {
   name: "ScriptView",
+  setup() {
+    const store = use_configured_store();
+    return { store };
+  },
   components: {
     DictionaryTable,
     ScriptLine,
   },
-  props: {},
+  props: {
+    filename: {
+      type: String,
+      required: true,
+    },
+    line: {
+      type: Number,
+      required: true,
+    },
+  },
   data() {
     return {
-      filename: "",
-      line: 0,
-      last_params: null,
+      last_filename: "",
     };
   },
   computed: {
-    commands() {
+    commands(): Record<string, IocshCommand> {
       return this.metadata?.commands ?? {};
     },
-    metadata() {
+    metadata(): IocMetadata | null {
       return this.file_info?.ioc ?? null;
     },
     is_twincat_file() {
       const extension = this.filename.split(".").pop() || "";
-      return ["tcpou", "tcgvl", "tcdut"].indexOf(extension.toLowerCase()) >= 0;
+      return (
+        ["tcpou", "tcgvl", "tcdut", "tcio"].indexOf(extension.toLowerCase()) >=
+        0
+      );
     },
-    lines() {
+    lines(): IocshResult[] {
+      if (this.file_info === null) {
+        return [];
+      }
       if (this.is_twincat_file) {
-        return remove_xml(this.filename, this.file_info?.script.lines ?? []);
+        return remove_xml(this.filename, this.file_info.script.lines ?? []);
       }
-      return this.file_info?.script.lines ?? [];
+      return this.file_info.script.lines ?? [];
     },
-    ...mapState({
-      file_info(state) {
-        return state.file_info[this.filename] || null;
-      },
-    }),
+    file_info(): FileInfo | null {
+      return this.store.file_info[this.filename] ?? null;
+    },
   },
-  updated() {
-    const lineno = this.line;
-    const obj = document.getElementById(lineno);
-    if (obj != null) {
-      obj.scrollIntoView();
-    }
-  },
-  async created() {
-    document.title = `whatrecord? Script`;
-    this.$watch(
-      () => this.$route.params,
-      (to_params) => {
-        this.from_params(to_params);
-      }
-    );
-    await this.from_params();
-  },
+
   async mounted() {
-    await this.from_params();
+    await this.load_and_scroll();
   },
+
+  async updated() {
+    await this.load_and_scroll();
+  },
+
+  watch: {
+    async $route() {
+      await this.load_and_scroll();
+    },
+  },
+
   methods: {
-    async from_params() {
-      const route_params = this.$route.params;
-      const params = {
-        filename: route_params.filename,
-        line: route_params.line,
-      };
-
-      if (this.last_params != params && params.filename?.length > 0) {
-        this.last_params = params;
-        this.filename = params.filename;
-        this.line = params.line;
-
-        this.$store.dispatch("get_file_info", { filename: this.filename });
-        document.title = "whatrecord? Script " + this.filename;
+    async load_and_scroll() {
+      await this.update_store();
+      this.scroll_into_view();
+    },
+    scroll_into_view() {
+      const lineno = this.line;
+      const obj = document.getElementById(lineno.toString());
+      if (obj != null) {
+        obj.scrollIntoView();
       }
+    },
+    async update_store() {
+      if (this.filename == this.last_filename) {
+        return;
+      }
+      this.last_filename = this.filename;
+      document.title = "whatrecord? Script " + this.filename;
+      await this.store.get_file_info({ filename: this.filename });
     },
     expand_all() {
       document.body
@@ -138,11 +161,11 @@ export default {
         .forEach((details) =>
           details.hasAttribute("open")
             ? details.removeAttribute("open")
-            : details.setAttribute("open", true)
+            : details.setAttribute("open", "true"),
         );
     },
-    get_line_id(line) {
-      return line?.context?.map((ctx) => ctx[1]).join(":") ?? [];
+    get_line_id(line: IocshResult): string {
+      return line.context?.map((ctx) => ctx[1]).join(":") ?? "";
     },
   },
 };
