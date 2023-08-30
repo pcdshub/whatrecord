@@ -1,1 +1,4 @@
 .git_archival.txt  export-subst
+# bash scripts cannot have CRLF on Windows:
+*.sh eol=lf
+*.cmd eol=lf
