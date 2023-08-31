@@ -3,7 +3,7 @@
 codecov
 flake8
 pytest
-pytest-aiohttp
+pytest-asyncio
 pytest-cov
 
 # plugin dependencies

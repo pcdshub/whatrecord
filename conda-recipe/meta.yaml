@@ -23,6 +23,7 @@ requirements:
   - python >=3.9
   - aiohttp
   - apischema
+  - epicsmacrolib
   - graphviz
   - jinja2
   - lark-parser
@@ -35,7 +36,7 @@ test:
     - flake8
     - happi
     - pytest
-    - pytest-aiohttp
+    - pytest-asyncio
     - pytest-cov
     - python-ldap
     - pytmc
