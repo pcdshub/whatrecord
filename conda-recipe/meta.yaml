@@ -23,6 +23,7 @@ requirements:
   - python >=3.9
   - aiohttp
   - apischema
+  - epicsmacrolib
   - graphviz
   - jinja2
   - lark-parser
