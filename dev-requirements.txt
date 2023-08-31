@@ -3,6 +3,7 @@
 codecov
 flake8
 pytest
+pytest-asyncio
 pytest-aiohttp
 pytest-cov
 

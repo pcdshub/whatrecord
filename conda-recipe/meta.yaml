@@ -36,6 +36,7 @@ test:
     - flake8
     - happi
     - pytest
+    - pytest-asyncio
     - pytest-aiohttp
     - pytest-cov
     - python-ldap
