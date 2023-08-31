@@ -1,7 +1,8 @@
 """Requires pytest-aiohttp"""
 import json
 import logging
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import (Any, Awaitable, Callable, Dict, Generator, Optional, Type,
+                    TypeVar, Union)
 
 import aiohttp
 import aiohttp.test_utils
@@ -9,6 +10,8 @@ import aiohttp.web
 import apischema
 import pytest
 import pytest_asyncio
+from aiohttp.test_utils import BaseTestServer, TestClient, TestServer
+from aiohttp.web import Application
 
 from .. import gateway
 from ..common import RecordInstance, WhatRecord
@@ -21,6 +24,8 @@ from .conftest import MODULE_PATH, STARTUP_SCRIPTS
 logger = logging.getLogger(__name__)
 
 from .test_server_state import ready_state, state  # noqa
+
+AiohttpClient = Callable[[Union[Application, BaseTestServer]], Awaitable[TestClient]]
 
 
 @pytest.fixture()
@@ -35,6 +40,45 @@ def server(handler: ServerHandler) -> aiohttp.web.Application:
     # for the purposes of testing
     app.on_startup.remove(handler.async_init)
     return app
+
+
+@pytest_asyncio.fixture
+async def aiohttp_client() -> Generator[AiohttpClient, None, None]:
+    """
+    Factory to create a TestClient instance.
+
+    Borrowed and modified from pytest-aiohttp, as a recent version is
+    unavailable on conda-forge for our testing purposes.
+
+    aiohttp_client(app, **kwargs)
+    aiohttp_client(server, **kwargs)
+    aiohttp_client(raw_server, **kwargs)
+    """
+    clients = []
+
+    async def go(
+        __param: Union[Application, BaseTestServer],
+        *,
+        server_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> TestClient:
+        if isinstance(__param, Application):
+            server_kwargs = server_kwargs or {}
+            server = TestServer(__param, **server_kwargs)
+            client = TestClient(server, **kwargs)
+        elif isinstance(__param, BaseTestServer):
+            client = TestClient(__param, **kwargs)
+        else:
+            raise ValueError(f"Unknown argument type: {type(__param)}")
+
+        await client.start_server()
+        clients.append(client)
+        return client
+
+    yield go
+
+    while clients:
+        await clients.pop().close()
 
 
 @pytest_asyncio.fixture()

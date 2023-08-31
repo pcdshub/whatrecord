@@ -37,7 +37,6 @@ test:
     - happi
     - pytest
     - pytest-asyncio
-    - pytest-aiohttp
     - pytest-cov
     - python-ldap
     - pytmc
