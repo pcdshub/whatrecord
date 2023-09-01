@@ -510,4 +510,5 @@ export interface StoreCache {
   iocs: Record<string, CachedStartupScript>;
   plugins: Record<string, PluginResults>;
   pv_graphs: Record<string, CachedPVGraph>;
+  logs: string[];
 }

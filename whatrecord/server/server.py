@@ -295,6 +295,7 @@ class ServerState:
         for item in dumped["iocs"].values():
             item["ioc"].pop("pv_relations")
 
+        dumped["logs"] = self.get_log_messages()
         elapsed = time.monotonic() - t0
         logger.info(
             (
@@ -359,6 +360,14 @@ class ServerState:
     def update_count(self) -> int:
         """The number of times IOCs have been updated."""
         return self._update_count
+
+    def get_log_messages(self) -> list[str]:
+        """Get the server's log messages."""
+        return list(
+            _log_handler.messages
+            if _log_handler is not None
+            else ["Logger not initialized"]
+        )
 
     async def stop(self):
         """Stop any background updates."""
@@ -1030,13 +1039,7 @@ class ServerHandler:
 
     @routes.get("/api/logs/get")
     async def api_logs_get(self, request: web.Request):
-        return web.json_response(
-            list(
-                _log_handler.messages
-                if _log_handler is not None
-                else ["Logger not initialized"]
-            )
-        )
+        return web.json_response(self.state.get_log_messages())
 
     @routes.get("/api/pv/relations")
     async def api_pv_get_relations(self, request: web.Request):

@@ -1,4 +1,5 @@
 import axios from "axios";
+import pako from "pako";
 import "es6-promise/auto";
 import { defineStore } from "pinia";
 import wcmatch from "wildcard-match";
@@ -182,14 +183,18 @@ export const cached_local_store = defineStore("cached", {
       const response = await axios.get(
         import.meta.env.WHATRECORD_CACHE_FILE_URL,
         {
-          decompress: true,
+          decompress: false, // trouble with our web server?
+          responseType: "arraybuffer",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/gzip",
           },
         },
       );
-      return response.data;
+      // I know axios should be able to do this for us, but I didn't have
+      // luck with our internal web server. Any tips?
+      const decompressed = pako.inflate(response.data, { to: "string" });
+      return JSON.parse(decompressed);
     },
 
     async load_cached_whatrecord_data(): Promise<StoreCache> {
@@ -506,6 +511,10 @@ export const cached_local_store = defineStore("cached", {
         regex: regex,
       });
       return matches;
+    },
+    async get_server_logs(): Promise<string[]> {
+      const cache: StoreCache = await this.load_cached_whatrecord_data();
+      return cache?.logs ?? ["Logs unavailable"];
     },
   },
 });

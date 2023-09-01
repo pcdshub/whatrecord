@@ -1,6 +1,7 @@
 export const enabled_plugins = (
   import.meta.env.WHATRECORD_PLUGINS || "happi twincat_pytmc netconfig"
 ).split(" ");
+export const plugins_only_mode = import.meta.env.WHATRECORD_PLUGINS_ONLY == "1";
 export const happi_enabled = enabled_plugins.indexOf("happi") >= 0;
 export const netconfig_enabled = enabled_plugins.indexOf("netconfig") >= 0;
 export const twincat_pytmc_enabled =

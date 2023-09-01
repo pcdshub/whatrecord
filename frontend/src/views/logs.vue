@@ -5,29 +5,25 @@
 </template>
 
 <script lang="ts">
-import axios from "axios";
+import { use_configured_store } from "../stores";
 
 export default {
   name: "ServerLogView",
   components: {},
-  props: {
-    filename: String,
-    line: String,
-  },
+  props: {},
   data() {
     return {
-      log_lines: [],
+      log_lines: [] as string[],
       metadata: null,
     };
   },
+  setup() {
+    const store = use_configured_store();
+    return { store };
+  },
   async mounted() {
-    try {
-      const response = await axios.get("/api/logs/get", { params: {} });
-      this.log_lines = response.data;
-      document.title = "whatrecord? Server logs";
-    } catch (error) {
-      console.error(error);
-    }
+    document.title = "whatrecord? Server logs";
+    this.log_lines = await this.store.get_server_logs();
   },
   updated() {
     const script = document.getElementById("script");

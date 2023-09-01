@@ -28,16 +28,6 @@ let routes: RouteRecordRaw[] = [
     redirect: "/whatrec",
   },
   {
-    name: "whatrec",
-    path: "/whatrec",
-    component: WhatRec,
-    props: (route) => ({
-      pattern: route.query.pattern ?? "*",
-      use_regex: route.query.regex === "true",
-      record: nullable_string_to_array(route.query.record),
-    }),
-  },
-  {
     name: "file",
     path: "/file",
     component: ScriptView,
@@ -46,7 +36,21 @@ let routes: RouteRecordRaw[] = [
       line: route.query.line ? parseInt(route.query.line.toString()) : 0,
     }),
   },
-  {
+];
+
+if (true) {
+  routes.push({
+    name: "whatrec",
+    path: "/whatrec",
+    component: WhatRec,
+    props: (route) => ({
+      pattern: route.query.pattern ?? "*",
+      use_regex: route.query.regex === "true",
+      record: nullable_string_to_array(route.query.record),
+    }),
+  });
+
+  routes.push({
     name: "iocs",
     path: "/iocs/",
     component: IocView,
@@ -55,13 +59,20 @@ let routes: RouteRecordRaw[] = [
       ioc_filter: route.query.ioc_filter ?? "",
       record_filter: route.query.record_filter ?? "",
     }),
-  },
-  {
+  });
+
+  routes.push({
     name: "pv-relations",
     path: "/pv-relations",
     component: PVRelationsView,
-  },
-];
+  });
+
+  routes.push({
+    name: "duplicates",
+    path: "/duplicates",
+    component: DuplicateView,
+  });
+}
 
 if (happi_enabled) {
   routes.push({
@@ -109,12 +120,6 @@ if (epicsarch_enabled) {
 }
 
 routes.push({
-  name: "duplicates",
-  path: "/duplicates",
-  component: DuplicateView,
-});
-
-routes.push({
   name: "logs",
   path: "/logs",
   component: ServerLogView,
@@ -127,7 +132,7 @@ routes.push({
 });
 
 export const router = VueRouter.createRouter({
-  history: VueRouter.createWebHistory(),
+  history: VueRouter.createWebHashHistory(import.meta.env.BASE_URL),
   routes: routes,
   scrollBehavior() {
     const app = document.getElementById("app");

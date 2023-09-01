@@ -443,5 +443,11 @@ export const api_server_store = defineStore("api-server", {
       }
       return matches;
     },
+    async get_server_logs(): Promise<string[]> {
+      const response = await this.run_query<string[]>("/api/logs/get", {
+        params: {},
+      });
+      return response?.data ?? ["(Error loading logs)"];
+    },
   },
 });
