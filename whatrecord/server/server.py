@@ -19,9 +19,10 @@ from aiohttp import web
 from .. import common, gateway, graph, ioc_finder, settings
 from ..common import (AnyPath, LoadContext, RecordInstance, StringWithContext,
                       WhatRecord)
-from ..shell import (IocshScript, LoadedIoc, ScriptContainer, ShellState,
+from ..shell import (LoadedIoc, ScriptContainer, ShellState,
                      load_startup_scripts_with_metadata)
-from .common import (IocGetDuplicatesResponse, IocGetMatchesResponse,
+from .common import (FileInfoRawResponse, FileInfoResponse,
+                     IocGetDuplicatesResponse, IocGetMatchesResponse,
                      IocGetMatchingRecordsResponse, IocMetadata, PluginResults,
                      PVGetInfo, PVGetMatchesResponse, PVRelationshipResponse,
                      PVShortRelationshipResponse, ServerPluginSpec,
@@ -157,7 +158,7 @@ class ServerState:
                         )
                         self.container.loaded_files[fn] = hash_
 
-    def dump_file(self, filename: AnyPath, recorded_hash: str = "") -> dict:
+    def get_file_info(self, filename: AnyPath, recorded_hash: str = "") -> FileInfoResponse:
         # TODO recorded hash may differ from what's on disk!
         ioc_name = self.container.startup_script_to_ioc.get(str(filename), None)
         if ioc_name:
@@ -165,10 +166,10 @@ class ServerState:
             loaded_ioc = self.container.scripts[ioc_name]
             script_info = loaded_ioc.script
             ioc_md = loaded_ioc.metadata
-            return {
-                "script": apischema.serialize(IocshScript, script_info),
-                "ioc": apischema.serialize(IocMetadata, ioc_md),
-            }
+            return FileInfoResponse(
+                script=script_info,
+                ioc=ioc_md,
+            )
 
         try:
             with open(filename, "rt") as fp:
@@ -179,16 +180,15 @@ class ServerState:
                 f"{ex.__class__.__name__}: {ex}"
             ]
 
-        # TODO: make these into serialized dataclass responses
-        return {
-            "script": None,
-            "ioc": None,
-            "raw": {
-                "lines": lines,
-                "path": str(filename),
-                "hash": recorded_hash,
-            },
-        }
+        return FileInfoResponse(
+            script=None,
+            ioc=None,
+            raw=FileInfoRawResponse(
+                lines=lines,
+                path=str(filename),
+                hash=recorded_hash,
+            ),
+        )
 
     def dump_iocs(self) -> dict:
         return {
@@ -208,6 +208,7 @@ class ServerState:
             )
             for plugin in self.plugins
         }
+
         plugins["gateway"] = apischema.serialize(
             PluginResults,
             PluginResults(
@@ -221,14 +222,24 @@ class ServerState:
         result = {}
         hash_to_contents = result["hash_to_contents"] = {}
         hash_to_file = result["hash_to_file"] = {}
-        for fn, hash_ in self.container.loaded_files.items():
-            if exclude_extensions:
-                if os.path.splitext(fn)[1].lower() in exclude_extensions:
-                    continue
 
-            if hash_ not in hash_to_contents:
-                hash_to_contents[hash_] = self.dump_file(fn, hash_)
-            hash_to_file.setdefault(hash_, []).append(fn)
+        file_to_hash_dicts = [
+            self.container.loaded_files,
+            *[plugin.files_to_monitor for plugin in self.plugins],
+            # TODO nested plugin results (pytmc)
+        ]
+        for file_to_hash in file_to_hash_dicts:
+            for fn, hash_ in file_to_hash.items():
+                if exclude_extensions:
+                    if os.path.splitext(fn)[1].lower() in exclude_extensions:
+                        continue
+
+                if hash_ not in hash_to_contents:
+                    hash_to_contents[hash_] = apischema.serialize(
+                        self.get_file_info(fn, hash_)
+                    )
+                hash_to_file.setdefault(hash_, []).append(fn)
+
         return result
 
     async def dump_pv_relations(self) -> dict:

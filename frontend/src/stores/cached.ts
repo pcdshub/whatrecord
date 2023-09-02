@@ -5,7 +5,7 @@ import { defineStore } from "pinia";
 import wcmatch from "wildcard-match";
 
 import {
-  State,
+  CacheState,
   Relations,
   RecordInstance,
   StoreCache,
@@ -37,7 +37,8 @@ export const cached_local_store = defineStore("cached", {
       record_info: {},
       regex_to_pvs: {},
       is_online: false,
-    }) as State,
+      file_to_hash: {},
+    }) as CacheState,
   actions: {
     async wait_for_other_queries(timeout: number) {
       const t0 = Date.now();
@@ -96,14 +97,15 @@ export const cached_local_store = defineStore("cached", {
         this.queries_in_progress,
       );
     },
-    add_record_search_results(
-      this: State,
-      {
-        pattern,
-        pv_list,
-        regex,
-      }: { pattern: string; pv_list: string[]; regex: boolean },
-    ) {
+    add_record_search_results({
+      pattern,
+      pv_list,
+      regex,
+    }: {
+      pattern: string;
+      pv_list: string[];
+      regex: boolean;
+    }) {
       if (regex) {
         this.regex_to_pvs[pattern] = pv_list;
       } else {
@@ -125,6 +127,7 @@ export const cached_local_store = defineStore("cached", {
       }
       this.plugin_nested_info[plugin_name].keys = keys;
     },
+
     set_plugin_nested_info({
       plugin_name,
       key,
@@ -141,16 +144,6 @@ export const cached_local_store = defineStore("cached", {
         };
       }
       this.plugin_nested_info[plugin_name].info[key] = info;
-    },
-
-    set_ioc_records({
-      ioc_name,
-      records,
-    }: {
-      ioc_name: string;
-      records: RecordInstance[];
-    }) {
-      this.ioc_to_records[ioc_name] = records;
     },
 
     set_pv_relations({ data }: { data: Relations }) {
@@ -215,8 +208,17 @@ export const cached_local_store = defineStore("cached", {
       if (!cache) {
         throw new Error("Unable to download cached whatrecord data");
       }
+      this._ingest_cache(cache);
       this.cache = cache;
       return cache;
+    },
+
+    _ingest_cache(cache: StoreCache) {
+      for (const [hash, files] of Object.entries(cache.files.hash_to_file)) {
+        for (const file of files) {
+          this.file_to_hash[file] = hash;
+        }
+      }
     },
 
     async update_ioc_info(): Promise<IocMetadata[]> {
@@ -384,7 +386,16 @@ export const cached_local_store = defineStore("cached", {
         return this.file_info[filename];
       }
       const cache: StoreCache = await this.load_cached_whatrecord_data();
-      const cached_file_info = cache.files[filename];
+      if (!cache) {
+        return;
+      }
+      const hash = this.file_to_hash[filename];
+      console.log("File:", filename, "hash", hash);
+      const cached_file_info = cache.files.hash_to_contents[hash];
+      if (!cached_file_info) {
+        console.error("File hash unavailable?", hash);
+        return;
+      }
       if (cached_file_info.script !== null) {
         this.file_info[filename] = {
           script: cached_file_info.script,
