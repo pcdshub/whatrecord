@@ -242,7 +242,7 @@ class ServerState:
 
         return result
 
-    async def dump_pv_relations(self) -> dict:
+    async def dump_pv_relations(self, *, full: bool = True) -> dict:
         return apischema.serialize(
             PVRelationshipResponse(
                 pv_relations=self.container.pv_relations,
@@ -252,7 +252,11 @@ class ServerState:
             )
         )
 
-    async def dump_pv_graphs(self) -> dict:
+    async def dump_pv_graphs(self, *, full: bool = True) -> dict:
+        if not full:
+            # No graphs at all in partial mode
+            return {}
+
         relation_graphs = {}
         for record in self.container.database:
             if record in self.container.pv_relations:
@@ -289,8 +293,8 @@ class ServerState:
 
         dumped = {
             "plugins": self.dump_plugins(),
-            "pv_graphs": await self.dump_pv_graphs(),
-            "pv_relations": await self.dump_pv_relations(),
+            "pv_graphs": await self.dump_pv_graphs(full=full),
+            "pv_relations": await self.dump_pv_relations(full=full),
         }
 
         if not full:
