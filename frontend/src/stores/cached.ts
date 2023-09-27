@@ -27,7 +27,7 @@ export const cached_local_store = defineStore("cached", {
       file_info: {} as Record<string, FileInfo>,
       gateway_info: null as GatewaySettings | null,
       glob_to_pvs: {} as Record<string, string[]>,
-      ioc_info: [] as IocMetadata[],
+      ioc_info: null as IocMetadata[] | null,
       ioc_to_records: {} as Record<string, RecordInstance[]>,
       plugin_info: {},
       plugin_nested_info: {},
@@ -184,8 +184,16 @@ export const cached_local_store = defineStore("cached", {
           },
         },
       );
-      // I know axios should be able to do this for us, but I didn't have
-      // luck with our internal web server. Any tips?
+      // It seems like some requests automatically decompress this for us
+      // and others do not.
+      // I feel axios should be able to do this for us uniformly, but I didn't
+      // have luck with our internal (ancient) web server and also vite
+      // preview. Any tips?
+      const first_char = new DataView(response.data).getInt8(0);
+      if (first_char == "{".charCodeAt(0)) {
+        let dec = new TextDecoder("utf-8");
+        return JSON.parse(dec.decode(response.data));
+      }
       const decompressed = pako.inflate(response.data, { to: "string" });
       return JSON.parse(decompressed);
     },
