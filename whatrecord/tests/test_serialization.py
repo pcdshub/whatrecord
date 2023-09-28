@@ -115,6 +115,7 @@ init_args_by_type = {
     Optional[common.RecordDefinitionAndInstance]: None,
     Optional[common.RecordInstance]: None,
     Optional[common.RecordType]: None,
+    Optional[common.IocshScript]: None,
     Union[snl.Declarator, snl.Variable]: snl.Variable(context=[], name="test"),
     snl.OptionalExpression: None,
     blark.dependency_store.PlcProjectMetadata: None,  # non-serialized
