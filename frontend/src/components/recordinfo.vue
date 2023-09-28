@@ -47,16 +47,14 @@
   </template>
 
   <template v-if="streamdevice_metadata">
-    <details>
+    <details class="streamdevice">
       <summary>
-        StreamDevice protocol (
-        <span class="monospace">
-          {{ streamdevice_metadata.protocol_file }} </span
-        >,
-        <span class="monospace">
-          "{{ streamdevice_metadata.protocol_name }}"
-        </span>
-        )
+        StreamDevice protocol
+        <script-context-link
+          :context="streamdevice_metadata.context"
+          :short="2"
+          prefix=""
+        />
       </summary>
       <dictionary-table
         :dict="streamdevice_metadata as any"
@@ -422,5 +420,9 @@ iframe {
   width: 100%;
   min-width: 50%;
   min-height: 50%;
+}
+
+.streamdevice .context {
+  display: inline;
 }
 </style>
