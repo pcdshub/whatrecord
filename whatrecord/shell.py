@@ -606,7 +606,7 @@ class ShellState(ShellStateHandler):
             if annotation:
                 key = StringWithContext(
                     self.streamdevice.metadata_key,
-                    context=record.context,
+                    context=(),
                 )
                 record.metadata[key] = annotation
 
