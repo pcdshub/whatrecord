@@ -85,7 +85,7 @@ export default {
 }
 
 #left {
-  min-width: 15%;
+  min-width: 20%;
   max-width: 20%;
   border-right: 1px dotted;
 }
