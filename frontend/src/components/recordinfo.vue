@@ -271,7 +271,7 @@ export default {
           instance: this.record,
           plugin_matches: get_plugin_matches(this.record.metadata),
         });
-        console.log("matches", result);
+        console.debug("Found match:", result);
       }
       if (this.pva_group != null) {
         result.push({

@@ -297,7 +297,6 @@ export default {
       // Wait until the prop is updated, then update the table DOM:
       await nextTick();
       this.update_table_selection(this.selected_iocs);
-      console.log(this.selected_iocs);
     },
   },
 
