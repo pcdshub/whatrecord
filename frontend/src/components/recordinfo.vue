@@ -289,18 +289,6 @@ export default {
       }
       return url + this.record.name;
     },
-    graph_link() {
-      if (!this.store.is_online) {
-        return null;
-      }
-      return `/api/pv/graph?pv=${this.whatrec.name}&format=svg`;
-    },
-    script_graph_link() {
-      if (!this.store.is_online) {
-        return null;
-      }
-      return `/api/pv/script-graph?pv=${this.whatrec.name}&format=svg`;
-    },
     available_protocols() {
       let protocols = [];
       if (this.record != null) {
@@ -377,6 +365,8 @@ export default {
       const link_tab = this.$refs.link_tab as HTMLElement | null;
       if (!graph_div || !link_tab) {
         console.error("What happened? No graph or tab?");
+        this.pv_graph_dot_source = "digraph { unknown error }";
+        this.show_graph = false;
         return;
       }
       this.graph_width = graph_div.clientWidth || window.innerWidth * 0.75;
