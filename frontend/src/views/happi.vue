@@ -28,7 +28,7 @@
                     query: {
                       pattern: rec.name,
                       record: rec.name,
-                      use_regex: 'false',
+                      regex: 'false',
                     },
                   }"
                 >
@@ -133,7 +133,7 @@
               query: {
                 pattern: data.prefix + '*',
                 record: data.prefix,
-                use_regex: 'false',
+                regex: 'false',
               },
             }"
           >

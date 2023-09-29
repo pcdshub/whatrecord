@@ -13,7 +13,7 @@
         <router-link
           :to="{
             name: 'whatrec',
-            query: { pattern: rec, record: rec, use_regex: 'false' },
+            query: { pattern: rec, record: rec, regex: 'false' },
           }"
         >
           {{ rec }}

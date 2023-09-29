@@ -98,7 +98,7 @@
                 query: {
                   pattern: data.record.name,
                   record: data.record.name,
-                  use_regex: 'false',
+                  regex: 'false',
                 },
               }"
               >{{ data.record.name }}</router-link

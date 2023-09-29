@@ -36,7 +36,7 @@
       <router-link
         :to="{
           name: 'whatrec',
-          query: { pattern: pvagroup, record: pvagroup, use_regex: 'false' },
+          query: { pattern: pvagroup, record: pvagroup, regex: 'false' },
         }"
       >
         {{ pvagroup }}
@@ -67,7 +67,7 @@
             query: {
               pattern: field.record_name,
               record: field.record_name,
-              use_regex: 'false',
+              regex: 'false',
             },
           }"
           :title="JSON.stringify(field.metadata, null, 2)"
