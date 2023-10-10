@@ -53,6 +53,10 @@ export interface State {
   queries: Record<string, APIQuery>;
 }
 
+export interface CacheState extends State {
+  file_to_hash: Record<string, string>;
+}
+
 export type Context = [string, number];
 export type FullLoadContext = Context[];
 
@@ -503,11 +507,17 @@ export interface PluginResults {
   nested?: Record<string, PluginResults> | null;
 }
 
+export interface StoreCacheFiles {
+  hash_to_contents: Record<string, FileInfoResponse>;
+  hash_to_file: Record<string, string[]>;
+}
+
 // whatrecord offline cache download -> offline store ``cache`` attribute
 export interface StoreCache {
   pv_relations: Relations;
-  files: Record<string, FileInfoResponse>;
+  files: StoreCacheFiles;
   iocs: Record<string, CachedStartupScript>;
   plugins: Record<string, PluginResults>;
   pv_graphs: Record<string, CachedPVGraph>;
+  logs: string[];
 }

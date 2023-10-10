@@ -60,7 +60,7 @@
           <router-link
             :to="{
               name: 'whatrec',
-              query: { pattern: data.pattern, record: [], use_regex: 'true' },
+              query: { pattern: data.pattern, record: [], regex: 'true' },
             }"
           >
             {{ data.pattern }}

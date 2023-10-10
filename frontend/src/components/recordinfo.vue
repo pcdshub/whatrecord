@@ -47,16 +47,14 @@
   </template>
 
   <template v-if="streamdevice_metadata">
-    <details>
+    <details class="streamdevice">
       <summary>
-        StreamDevice protocol (
-        <span class="monospace">
-          {{ streamdevice_metadata.protocol_file }} </span
-        >,
-        <span class="monospace">
-          "{{ streamdevice_metadata.protocol_name }}"
-        </span>
-        )
+        StreamDevice protocol
+        <script-context-link
+          :context="streamdevice_metadata.context"
+          :short="2"
+          prefix=""
+        />
       </summary>
       <dictionary-table
         :dict="streamdevice_metadata as any"
@@ -271,7 +269,7 @@ export default {
           instance: this.record,
           plugin_matches: get_plugin_matches(this.record.metadata),
         });
-        console.log("matches", result);
+        console.debug("Found match:", result);
       }
       if (this.pva_group != null) {
         result.push({
@@ -288,18 +286,6 @@ export default {
         return null;
       }
       return url + this.record.name;
-    },
-    graph_link() {
-      if (!this.store.is_online) {
-        return null;
-      }
-      return `/api/pv/graph?pv=${this.whatrec.name}&format=svg`;
-    },
-    script_graph_link() {
-      if (!this.store.is_online) {
-        return null;
-      }
-      return `/api/pv/script-graph?pv=${this.whatrec.name}&format=svg`;
     },
     available_protocols() {
       let protocols = [];
@@ -377,6 +363,8 @@ export default {
       const link_tab = this.$refs.link_tab as HTMLElement | null;
       if (!graph_div || !link_tab) {
         console.error("What happened? No graph or tab?");
+        this.pv_graph_dot_source = "digraph { unknown error }";
+        this.show_graph = false;
         return;
       }
       this.graph_width = graph_div.clientWidth || window.innerWidth * 0.75;
@@ -432,5 +420,9 @@ iframe {
   width: 100%;
   min-width: 50%;
   min-height: 50%;
+}
+
+.streamdevice .context {
+  display: inline;
 }
 </style>

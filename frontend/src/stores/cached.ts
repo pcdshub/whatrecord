@@ -1,10 +1,11 @@
 import axios from "axios";
+import pako from "pako";
 import "es6-promise/auto";
 import { defineStore } from "pinia";
 import wcmatch from "wildcard-match";
 
 import {
-  State,
+  CacheState,
   Relations,
   RecordInstance,
   StoreCache,
@@ -26,7 +27,7 @@ export const cached_local_store = defineStore("cached", {
       file_info: {} as Record<string, FileInfo>,
       gateway_info: null as GatewaySettings | null,
       glob_to_pvs: {} as Record<string, string[]>,
-      ioc_info: [] as IocMetadata[],
+      ioc_info: null as IocMetadata[] | null,
       ioc_to_records: {} as Record<string, RecordInstance[]>,
       plugin_info: {},
       plugin_nested_info: {},
@@ -36,7 +37,8 @@ export const cached_local_store = defineStore("cached", {
       record_info: {},
       regex_to_pvs: {},
       is_online: false,
-    }) as State,
+      file_to_hash: {},
+    }) as CacheState,
   actions: {
     async wait_for_other_queries(timeout: number) {
       const t0 = Date.now();
@@ -95,14 +97,15 @@ export const cached_local_store = defineStore("cached", {
         this.queries_in_progress,
       );
     },
-    add_record_search_results(
-      this: State,
-      {
-        pattern,
-        pv_list,
-        regex,
-      }: { pattern: string; pv_list: string[]; regex: boolean },
-    ) {
+    add_record_search_results({
+      pattern,
+      pv_list,
+      regex,
+    }: {
+      pattern: string;
+      pv_list: string[];
+      regex: boolean;
+    }) {
       if (regex) {
         this.regex_to_pvs[pattern] = pv_list;
       } else {
@@ -124,6 +127,7 @@ export const cached_local_store = defineStore("cached", {
       }
       this.plugin_nested_info[plugin_name].keys = keys;
     },
+
     set_plugin_nested_info({
       plugin_name,
       key,
@@ -140,16 +144,6 @@ export const cached_local_store = defineStore("cached", {
         };
       }
       this.plugin_nested_info[plugin_name].info[key] = info;
-    },
-
-    set_ioc_records({
-      ioc_name,
-      records,
-    }: {
-      ioc_name: string;
-      records: RecordInstance[];
-    }) {
-      this.ioc_to_records[ioc_name] = records;
     },
 
     set_pv_relations({ data }: { data: Relations }) {
@@ -182,14 +176,26 @@ export const cached_local_store = defineStore("cached", {
       const response = await axios.get(
         import.meta.env.WHATRECORD_CACHE_FILE_URL,
         {
-          decompress: true,
+          decompress: false, // trouble with our web server?
+          responseType: "arraybuffer",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/gzip",
           },
         },
       );
-      return response.data;
+      // It seems like some requests automatically decompress this for us
+      // and others do not.
+      // I feel axios should be able to do this for us uniformly, but I didn't
+      // have luck with our internal (ancient) web server and also vite
+      // preview. Any tips?
+      const first_char = new DataView(response.data).getInt8(0);
+      if (first_char == "{".charCodeAt(0)) {
+        let dec = new TextDecoder("utf-8");
+        return JSON.parse(dec.decode(response.data));
+      }
+      const decompressed = pako.inflate(response.data, { to: "string" });
+      return JSON.parse(decompressed);
     },
 
     async load_cached_whatrecord_data(): Promise<StoreCache> {
@@ -210,8 +216,17 @@ export const cached_local_store = defineStore("cached", {
       if (!cache) {
         throw new Error("Unable to download cached whatrecord data");
       }
+      this._ingest_cache(cache);
       this.cache = cache;
       return cache;
+    },
+
+    _ingest_cache(cache: StoreCache) {
+      for (const [hash, files] of Object.entries(cache.files.hash_to_file)) {
+        for (const file of files) {
+          this.file_to_hash[file] = hash;
+        }
+      }
     },
 
     async update_ioc_info(): Promise<IocMetadata[]> {
@@ -379,7 +394,16 @@ export const cached_local_store = defineStore("cached", {
         return this.file_info[filename];
       }
       const cache: StoreCache = await this.load_cached_whatrecord_data();
-      const cached_file_info = cache.files[filename];
+      if (!cache) {
+        return;
+      }
+      const hash = this.file_to_hash[filename];
+      console.log("File:", filename, "hash", hash);
+      const cached_file_info = cache.files.hash_to_contents[hash];
+      if (!cached_file_info) {
+        console.error("File hash unavailable?", hash);
+        return;
+      }
       if (cached_file_info.script !== null) {
         this.file_info[filename] = {
           script: cached_file_info.script,
@@ -506,6 +530,10 @@ export const cached_local_store = defineStore("cached", {
         regex: regex,
       });
       return matches;
+    },
+    async get_server_logs(): Promise<string[]> {
+      const cache: StoreCache = await this.load_cached_whatrecord_data();
+      return cache?.logs ?? ["Logs unavailable"];
     },
   },
 });

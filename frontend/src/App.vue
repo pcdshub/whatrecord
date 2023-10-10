@@ -5,7 +5,7 @@
 
 <script lang="ts">
 import TabMenu from "primevue/tabmenu";
-import { plugins } from "./settings.ts";
+import { plugins, plugins_only_mode } from "./settings.ts";
 
 export default {
   name: "App",
@@ -13,15 +13,24 @@ export default {
     TabMenu,
   },
   data() {
-    let tab_menu_items = [
-      { label: "Records", icon: "pi pi-fw pi-tags", to: { name: "whatrec" } },
-      { label: "IOCs", icon: "pi pi-fw pi-sitemap", to: { name: "iocs" } },
-      {
+    let tab_menu_items = [];
+    if (!plugins_only_mode) {
+      tab_menu_items.push({
+        label: "Records",
+        icon: "pi pi-fw pi-tags",
+        to: { name: "whatrec" },
+      });
+      tab_menu_items.push({
+        label: "IOCs",
+        icon: "pi pi-fw pi-sitemap",
+        to: { name: "iocs" },
+      });
+      tab_menu_items.push({
         label: "PV Map",
         icon: "pi pi-fw pi-compass",
         to: { name: "pv-relations" },
-      },
-    ];
+      });
+    }
     for (const plugin of plugins) {
       tab_menu_items.push({
         label: plugin.label,
@@ -34,11 +43,13 @@ export default {
       icon: "pi pi-fw pi-shield",
       to: { name: "gateway" },
     });
-    tab_menu_items.push({
-      label: "Duplicates",
-      icon: "pi pi-pause",
-      to: { name: "duplicates" },
-    });
+    if (!plugins_only_mode) {
+      tab_menu_items.push({
+        label: "Duplicates",
+        icon: "pi pi-pause",
+        to: { name: "duplicates" },
+      });
+    }
     tab_menu_items.push({
       label: "Logs",
       icon: "pi pi-fw pi-list",

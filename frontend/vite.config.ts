@@ -24,6 +24,10 @@ export default defineConfig(({ command, mode }) => {
         ":" +
         env.WHATRECORD_API_PORT,
     );
+  } else {
+    console.error(
+      "Misconfiguration detected - no backend server or cache file set",
+    );
   }
   return {
     define: {

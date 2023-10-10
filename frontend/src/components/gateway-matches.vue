@@ -20,7 +20,7 @@
               query: {
                 pattern: match.rule.pattern,
                 record: [],
-                use_regex: 'true',
+                regex: 'true',
               },
             }"
           >

@@ -38,7 +38,7 @@ export interface StreamProtocol {
 }
 
 export interface StreamDeviceRecordAnnotation {
-  protocol_file: string;
+  context: FullLoadContext;
   protocol_name: string;
   protocol_args: string[];
   error?: string;

@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, Generator, List, Optional, Tuple, Union
 import apischema
 
 from .. import util
-from ..common import (IocMetadata, PVRelations, RecordInstance,
+from ..common import (IocMetadata, IocshScript, PVRelations, RecordInstance,
                       RecordInstanceSummary, ScriptPVRelations, WhatRecord)
 
 logger = logging.getLogger(__name__)
@@ -196,3 +196,17 @@ class PVShortRelationshipResponse:
             script_relations=script_relations,
             # ioc_to_pvs=ioc_to_pvs,
         )
+
+
+@dataclass
+class FileInfoRawResponse:
+    lines: List[str]
+    path: str
+    hash: str
+
+
+@dataclass
+class FileInfoResponse:
+    script: Optional[IocshScript]
+    ioc: Optional[IocMetadata]
+    raw: Optional[FileInfoRawResponse] = None

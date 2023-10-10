@@ -9,7 +9,7 @@ import lark
 from epicsmacrolib import split_iocsh_line
 
 from . import transformer
-from .common import (AnyPath, FullLoadContext, ShellStateHandler,
+from .common import (AnyPath, FullLoadContext, LoadContext, ShellStateHandler,
                      StringWithContext)
 from .db import PVAFieldReference, RecordInstance
 from .transformer import context_from_token
@@ -165,10 +165,10 @@ class _ProtocolTransformer(lark.visitors.Transformer):
             arguments=[],
         )
 
-    def config_set(self, command):
+    def config_set(self, command: lark.Tree):
         return ConfigurationSetting(
-            name=command.data,
-            value=" ".join(command.children),
+            name=str(command.data),
+            value=" ".join(str(child) for child in command.children),
         )
 
     value_part = transformer.pass_through
@@ -337,34 +337,35 @@ class StreamDeviceState(ShellStateHandler):
             }
 
         info_field = info_field.value.strip()
-        results = {}
+        annotation: Dict[str, Any] = {
+            "context": [],
+        }
         try:
             proto_file, proto_name, *proto_args = split_iocsh_line(info_field).argv
             proto_file = proto_file.lstrip("@ ")
         except Exception:
-            results["error"] = (
+            annotation["error"] = (
                 f"Invalid StreamDevice input/output field: {info_field!r}"
             )
-            proto_file = None
-            proto_name = None
-            proto_args = []
-        else:
-            try:
-                protocol = self.load_streamdevice_protocol(proto_file)
-            except Exception as ex:
-                results["error"] = f"{ex.__class__.__name__}: {ex}"
-            else:
-                if proto_name in protocol.protocols:
-                    results["protocol"] = protocol.protocols[proto_name]
-                else:
-                    results["error"] = (
-                        f"Unknown protocol {proto_name!r} in {proto_file}; "
-                        f"options are: {list(protocol.protocols)}"
-                    )
+            return annotation
 
-        return {
-            "protocol_file": proto_file,
-            "protocol_name": proto_name,
-            "protocol_args": proto_args,
-            **results,
-        }
+        try:
+            protocol = self.load_streamdevice_protocol(proto_file)
+        except Exception as ex:
+            annotation["error"] = f"{ex.__class__.__name__}: {ex}"
+            protocol = None
+            return annotation
+
+        if proto_name in protocol.protocols:
+            specific_protocol = protocol.protocols[proto_name]
+            annotation["context"] = specific_protocol.context
+            annotation["protocol"] = specific_protocol
+        else:
+            annotation["context"] = [LoadContext(proto_file, 0)]
+            annotation["error"] = (
+                f"Unknown protocol {proto_name!r} in {proto_file}; "
+                f"options are: {list(protocol.protocols)}"
+            )
+        annotation["protocol_name"] = proto_name
+        annotation["protocol_args"] = proto_args
+        return annotation

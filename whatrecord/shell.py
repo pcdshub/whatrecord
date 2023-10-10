@@ -25,7 +25,8 @@ from .autosave import AutosaveState
 from .common import (AnyPath, FullLoadContext, IocMetadata, IocshCmdArgs,
                      IocshResult, IocshScript, LoadContext, MutableLoadContext,
                      PVRelations, RecordDefinitionAndInstance, RecordInstance,
-                     ShellStateHandler, WhatRecord, time_context)
+                     ShellStateHandler, StringWithContext, WhatRecord,
+                     time_context)
 from .db import Database, DatabaseLoadFailure, RecordType
 from .format import FormatContext
 from .iocsh import parse_iocsh_line
@@ -592,11 +593,22 @@ class ShellState(ShellStateHandler):
             context=self.get_load_context()
         )
 
-        # TODO: add option to annotate all records without requiring
-        # per-record whatrecord queries
-        # if self.annotate_all:
-        #     for record in db.records.values():
-        #         record.metadata.update(self.annotate_record(record))
+        for record in db.records.values():
+            # TODO: maybe add option to annotate all records without requiring
+            # per-record whatrecord queries
+            # if self.annotate_all:
+            #       record.metadata.update(self.annotate_record(record))
+
+            # StreamDevice loading is context-sensitive: the current working
+            # directory at the time of evaluation may be used to find
+            # the protocol file.  Special case this here and pre-annotate.
+            annotation = self.streamdevice.annotate_record(record)
+            if annotation:
+                key = StringWithContext(
+                    self.streamdevice.metadata_key,
+                    context=(),
+                )
+                record.metadata[key] = annotation
 
         return {
             "context": [LoadContext(str(filename), 0)],
@@ -609,6 +621,10 @@ class ShellState(ShellStateHandler):
         """Hook to annotate a record after being loaded."""
         result = {}
         for handler in self.sub_handlers:
+            if handler is self.streamdevice:
+                # This is handled as the database is loaded.
+                continue
+
             try:
                 annotation = handler.annotate_record(record)
             except Exception:

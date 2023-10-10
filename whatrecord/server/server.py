@@ -19,9 +19,10 @@ from aiohttp import web
 from .. import common, gateway, graph, ioc_finder, settings
 from ..common import (AnyPath, LoadContext, RecordInstance, StringWithContext,
                       WhatRecord)
-from ..shell import (IocshScript, LoadedIoc, ScriptContainer, ShellState,
+from ..shell import (LoadedIoc, ScriptContainer, ShellState,
                      load_startup_scripts_with_metadata)
-from .common import (IocGetDuplicatesResponse, IocGetMatchesResponse,
+from .common import (FileInfoRawResponse, FileInfoResponse,
+                     IocGetDuplicatesResponse, IocGetMatchesResponse,
                      IocGetMatchingRecordsResponse, IocMetadata, PluginResults,
                      PVGetInfo, PVGetMatchesResponse, PVRelationshipResponse,
                      PVShortRelationshipResponse, ServerPluginSpec,
@@ -157,7 +158,7 @@ class ServerState:
                         )
                         self.container.loaded_files[fn] = hash_
 
-    def dump_file(self, filename: AnyPath, recorded_hash: str = "") -> dict:
+    def get_file_info(self, filename: AnyPath, recorded_hash: str = "") -> FileInfoResponse:
         # TODO recorded hash may differ from what's on disk!
         ioc_name = self.container.startup_script_to_ioc.get(str(filename), None)
         if ioc_name:
@@ -165,10 +166,10 @@ class ServerState:
             loaded_ioc = self.container.scripts[ioc_name]
             script_info = loaded_ioc.script
             ioc_md = loaded_ioc.metadata
-            return {
-                "script": apischema.serialize(IocshScript, script_info),
-                "ioc": apischema.serialize(IocMetadata, ioc_md),
-            }
+            return FileInfoResponse(
+                script=script_info,
+                ioc=ioc_md,
+            )
 
         try:
             with open(filename, "rt") as fp:
@@ -179,16 +180,15 @@ class ServerState:
                 f"{ex.__class__.__name__}: {ex}"
             ]
 
-        # TODO: make these into serialized dataclass responses
-        return {
-            "script": None,
-            "ioc": None,
-            "raw": {
-                "lines": lines,
-                "path": str(filename),
-                "hash": recorded_hash,
-            },
-        }
+        return FileInfoResponse(
+            script=None,
+            ioc=None,
+            raw=FileInfoRawResponse(
+                lines=lines,
+                path=str(filename),
+                hash=recorded_hash,
+            ),
+        )
 
     def dump_iocs(self) -> dict:
         return {
@@ -208,6 +208,7 @@ class ServerState:
             )
             for plugin in self.plugins
         }
+
         plugins["gateway"] = apischema.serialize(
             PluginResults,
             PluginResults(
@@ -221,17 +222,27 @@ class ServerState:
         result = {}
         hash_to_contents = result["hash_to_contents"] = {}
         hash_to_file = result["hash_to_file"] = {}
-        for fn, hash_ in self.container.loaded_files.items():
-            if exclude_extensions:
-                if os.path.splitext(fn)[1].lower() in exclude_extensions:
-                    continue
 
-            if hash_ not in hash_to_contents:
-                hash_to_contents[hash_] = self.dump_file(fn, hash_)
-            hash_to_file.setdefault(hash_, []).append(fn)
+        file_to_hash_dicts = [
+            self.container.loaded_files,
+            *[plugin.files_to_monitor for plugin in self.plugins],
+            # TODO nested plugin results (pytmc)
+        ]
+        for file_to_hash in file_to_hash_dicts:
+            for fn, hash_ in file_to_hash.items():
+                if exclude_extensions:
+                    if os.path.splitext(fn)[1].lower() in exclude_extensions:
+                        continue
+
+                if hash_ not in hash_to_contents:
+                    hash_to_contents[hash_] = apischema.serialize(
+                        self.get_file_info(fn, hash_)
+                    )
+                hash_to_file.setdefault(hash_, []).append(fn)
+
         return result
 
-    async def dump_pv_relations(self) -> dict:
+    async def dump_pv_relations(self, *, full: bool = True) -> dict:
         return apischema.serialize(
             PVRelationshipResponse(
                 pv_relations=self.container.pv_relations,
@@ -241,7 +252,11 @@ class ServerState:
             )
         )
 
-    async def dump_pv_graphs(self) -> dict:
+    async def dump_pv_graphs(self, *, full: bool = True) -> dict:
+        if not full:
+            # No graphs at all in partial mode
+            return {}
+
         relation_graphs = {}
         for record in self.container.database:
             if record in self.container.pv_relations:
@@ -278,8 +293,8 @@ class ServerState:
 
         dumped = {
             "plugins": self.dump_plugins(),
-            "pv_graphs": await self.dump_pv_graphs(),
-            "pv_relations": await self.dump_pv_relations(),
+            "pv_graphs": await self.dump_pv_graphs(full=full),
+            "pv_relations": await self.dump_pv_relations(full=full),
         }
 
         if not full:
@@ -295,6 +310,7 @@ class ServerState:
         for item in dumped["iocs"].values():
             item["ioc"].pop("pv_relations")
 
+        dumped["logs"] = self.get_log_messages()
         elapsed = time.monotonic() - t0
         logger.info(
             (
@@ -359,6 +375,14 @@ class ServerState:
     def update_count(self) -> int:
         """The number of times IOCs have been updated."""
         return self._update_count
+
+    def get_log_messages(self) -> list[str]:
+        """Get the server's log messages."""
+        return list(
+            _log_handler.messages
+            if _log_handler is not None
+            else ["Logger not initialized"]
+        )
 
     async def stop(self):
         """Stop any background updates."""
@@ -1030,13 +1054,7 @@ class ServerHandler:
 
     @routes.get("/api/logs/get")
     async def api_logs_get(self, request: web.Request):
-        return web.json_response(
-            list(
-                _log_handler.messages
-                if _log_handler is not None
-                else ["Logger not initialized"]
-            )
-        )
+        return web.json_response(self.state.get_log_messages())
 
     @routes.get("/api/pv/relations")
     async def api_pv_get_relations(self, request: web.Request):
