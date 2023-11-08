@@ -36,7 +36,9 @@ test:
     - flake8
     - happi
     - pytest
-    - pytest-asyncio
+    # NOTE: this pin must remain until pytest-asyncio v0.22 gets pulled from
+    # conda-forge.
+    - pytest-asyncio <0.22
     - pytest-cov
     - python-ldap
     - pytmc
